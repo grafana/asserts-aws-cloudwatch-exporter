@@ -1,0 +1,83 @@
+regions:
+  - us-west-2
+namespaces:
+  - name: AWS/Lambda
+    metrics:
+      - name: Duration
+        stats:
+          - Average
+          - Maximum
+          - p95
+      - name: Invocations
+        stats:
+          - Sum
+      - name: Errors
+        stats:
+          - Sum
+      - name: DeadLetterErrors
+        stats:
+          - Sum
+      - name: Throttles
+        stats:
+          - Sum
+      - name: DestinationDeliveryFailures
+        stats:
+          - Sum
+      - name: IteratorAge
+        stats:
+          - Maximum
+          - Average
+      - name: ConcurrentExecutions
+        stats:
+          - Sum
+      - name: ProvisionedConcurrencyUtilization
+        stats:
+          - Maximum
+    period: 60
+    length: 300
+  - name: AWS/SQS
+    metrics:
+      - name: ApproximateAgeOfOldestMessage
+        stats:
+          - Maximum
+      - name: NumberOfMessagesReceived
+        stats:
+          - Sum
+      - name: NumberOfMessagesSent
+        stats:
+          - Sum
+      - name: NumberOfMessagesDeleted
+        stats:
+          - Sum
+  - name: AWS/DynamoDB
+    metrics:
+      - name: ConsumedReadCapacityUnits
+        stats:
+          - Maximum
+          - Average
+      - name: ConsumedWriteCapacityUnits
+        stats:
+          - Maximum
+          - Average
+      - name: ProvisionedReadCapacityUnits
+        stats:
+          - Average
+      - name: ProvisionedWriteCapacityUnits
+        stats:
+          - Average
+      - name: ReadThrottleEvents
+        stats:
+          - Sum
+      - name: WriteThrottleEvents
+        stats:
+          - Sum
+  - name: AWS/S3
+    period: 86400
+    length: 172800
+    metrics:
+      - name: NumberOfObjects
+        stats:
+          - Average
+      - name: BucketSizeBytes
+        stats:
+          - Average

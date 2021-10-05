@@ -1,0 +1,55 @@
+plugins {
+    id 'org.springframework.boot' version '2.4.2'
+    id 'io.spring.dependency-management' version '1.0.10.RELEASE'
+    id 'java'
+    id 'application'
+}
+
+group 'ai.asserts'
+version = new Date().format("YY.M.0") + '.' + 'git rev-parse --short HEAD'.execute().text.trim()
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(
+            "com.google.guava:guava:$guavaVersion",
+            "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
+            "io.prometheus:simpleclient:$prometheusVersion",
+            "io.prometheus:simpleclient_common:$prometheusVersion",
+            "org.aspectj:aspectjweaver:1.9.6",
+            "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
+            "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion",
+            "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
+            "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
+            "org.springframework.metrics:spring-metrics:$springMetricsVersion",
+            "org.springframework.boot:spring-boot-starter:$springBootVersion",
+            "software.amazon.awssdk:cloudwatch:$awsSdkVersion",
+            "software.amazon.awssdk:cloudwatchevents:$awsSdkVersion",
+            "software.amazon.awssdk:cloudwatchlogs:$awsSdkVersion",
+            "software.amazon.awssdk:sts:$awsSdkVersion",
+            "software.amazon.awssdk:sqs:$awsSdkVersion",
+            "software.amazon.awssdk:lambda:$awsSdkVersion",
+            "software.amazon.awssdk:dynamodb:$awsSdkVersion",
+            "software.amazon.awssdk:s3:$awsSdkVersion",
+            "software.amazon.awssdk:resourcegroupstaggingapi:$awsSdkVersion",
+    )
+
+    compileOnly(
+            "org.projectlombok:lombok:$lombokVersion"
+    )
+    annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+
+    testImplementation(
+            "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
+            "org.easymock:easymock:$easyMockVersion"
+    )
+    testRuntimeOnly(
+            "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
+    )
+}
+
+test {
+    useJUnitPlatform()
+}

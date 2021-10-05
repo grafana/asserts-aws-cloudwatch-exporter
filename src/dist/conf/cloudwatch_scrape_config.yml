@@ -1,0 +1,82 @@
+regions:
+  - us-west-2
+namespaces:
+  - name: AWS/Lambda
+    scrapeInterval: 60
+    period: 300
+    metrics:
+      - name: Invocations
+        stats:
+          - Sum
+      - name: Errors
+        stats:
+          - Sum
+      - name: DeadLetterErrors
+        stats:
+          - Sum
+      - name: Throttles
+        stats:
+          - Sum
+      - name: DestinationDeliveryFailures
+        stats:
+          - Sum
+      - name: IteratorAge
+        stats:
+          - Maximum
+          - Average
+      - name: ConcurrentExecutions
+        stats:
+          - Sum
+      - name: ProvisionedConcurrencyUtilization
+        stats:
+          - Maximum
+    logs:
+      - lambdaFunctionName: first-lambda-function
+        logFilterPattern: "v2 About to put message in SQS Queue"
+        regexPattern: ".*v2 About to put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)"
+        labels:
+          "destination_type": "SQSQueue"
+          "destination_name": "$1"
+  - name: AWS/SQS
+    metrics:
+      - name: NumberOfMessagesReceived
+        stats:
+          - Sum
+      - name: NumberOfMessagesSent
+        stats:
+          - Sum
+      - name: NumberOfMessagesDeleted
+        stats:
+          - Sum
+  - name: AWS/DynamoDB
+    metrics:
+      - name: ConsumedReadCapacityUnits
+        stats:
+          - Maximum
+          - Average
+      - name: ConsumedWriteCapacityUnits
+        stats:
+          - Maximum
+          - Average
+      - name: ProvisionedReadCapacityUnits
+        stats:
+          - Average
+      - name: ProvisionedWriteCapacityUnits
+        stats:
+          - Average
+      - name: ReadThrottleEvents
+        stats:
+          - Sum
+      - name: WriteThrottleEvents
+        stats:
+          - Sum
+  - name: AWS/S3
+    period: 86400
+    scrapeInterval: 172800
+    metrics:
+      - name: NumberOfObjects
+        stats:
+          - Average
+      - name: BucketSizeBytes
+        stats:
+          - Average
