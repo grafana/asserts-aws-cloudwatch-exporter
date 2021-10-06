@@ -61,7 +61,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                                                         .namespace(NamespaceConfig.builder()
                                                                 .name(CWNamespace.lambda.getNamespace())
                                                                 .build())
-                                                        .dimensions(ImmutableSet.of("FunctionName"))
                                                         .stats(ImmutableSet.of(Sum, Average))
                                                         .build()
                                         ))

@@ -4,8 +4,10 @@
  */
 package ai.asserts.aws.cloudwatch.query;
 
+import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import com.google.common.collect.ImmutableList;
 import org.easymock.EasyMockSupport;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -15,15 +17,24 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class QueryBatcherTest extends EasyMockSupport {
+    private MetricQuery metricQuery;
+    private MetricConfig metricConfig;
+
+    @BeforeEach
+    public void setup() {
+        metricConfig = mock(MetricConfig.class);
+        metricQuery = mock(MetricQuery.class);
+        expect(metricQuery.getMetricConfig()).andReturn(metricConfig).anyTimes();
+    }
+
     @Test
     void noSplit() {
         QueryBatcher queryBatcher = new QueryBatcher(5, 10);
-        MetricQuery metricQuery = mock(MetricQuery.class);
         List<MetricQuery> queries = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             queries.add(metricQuery);
         }
-        expect(metricQuery.getExpectedSamples()).andReturn(1).anyTimes();
+        expect(metricConfig.numSamplesPerScrape()).andReturn(1).anyTimes();
         replayAll();
         List<List<MetricQuery>> batches = queryBatcher.splitIntoBatches(queries);
         assertEquals(1, batches.size());
@@ -34,12 +45,11 @@ public class QueryBatcherTest extends EasyMockSupport {
     @Test
     void split_dueTo_queryLimit() {
         QueryBatcher queryBatcher = new QueryBatcher(2, 10);
-        MetricQuery metricQuery = mock(MetricQuery.class);
         List<MetricQuery> queries = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             queries.add(metricQuery);
         }
-        expect(metricQuery.getExpectedSamples()).andReturn(1).anyTimes();
+        expect(metricConfig.numSamplesPerScrape()).andReturn(1).anyTimes();
         replayAll();
         List<List<MetricQuery>> batches = queryBatcher.splitIntoBatches(queries);
         assertEquals(2, batches.size());
@@ -51,12 +61,11 @@ public class QueryBatcherTest extends EasyMockSupport {
     @Test
     void split_dueTo_dataLimit() {
         QueryBatcher queryBatcher = new QueryBatcher(5, 10);
-        MetricQuery metricQuery = mock(MetricQuery.class);
         List<MetricQuery> queries = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             queries.add(metricQuery);
         }
-        expect(metricQuery.getExpectedSamples()).andReturn(4).anyTimes();
+        expect(metricConfig.numSamplesPerScrape()).andReturn(4).anyTimes();
         replayAll();
         List<List<MetricQuery>> batches = queryBatcher.splitIntoBatches(queries);
         assertEquals(2, batches.size());

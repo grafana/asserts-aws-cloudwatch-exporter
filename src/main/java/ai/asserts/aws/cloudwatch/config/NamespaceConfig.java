@@ -12,18 +12,19 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.ToString;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 
 @Getter
 @Setter
-@ToString
 @EqualsAndHashCode
 @NoArgsConstructor
 @AllArgsConstructor
@@ -34,12 +35,14 @@ public class NamespaceConfig {
     private String name;
     private Integer period;
     private Integer scrapeInterval;
-    private Set<String> dimensions;
+    private Map<String, String> dimensionFilters;
+    private Map<String, Pattern> dimensionFilterPattern;
+
+    private Map<String, Set<String>> tagFilters;
     private List<MetricConfig> metrics;
     private List<LogScrapeConfig> logs;
 
-    public void inheritAndValidate(int index) {
-
+    public void validate(int index) {
         List<String> errors = new ArrayList<>();
         if (StringUtils.isBlank(name)) {
             errors.add(format("namespace[%d].name not specified", index));
@@ -62,10 +65,16 @@ public class NamespaceConfig {
         if (!CollectionUtils.isEmpty(logs)) {
             logs.forEach(LogScrapeConfig::initalize);
         }
+
+        if (!CollectionUtils.isEmpty(dimensionFilters)) {
+            dimensionFilterPattern = new TreeMap<>();
+            dimensionFilters.forEach((dimension, patternString) ->
+                    dimensionFilterPattern.put(dimension, Pattern.compile(patternString)));
+        }
     }
 
     public Integer getScrapeInterval() {
-        if(scrapeInterval!=null) {
+        if (scrapeInterval != null) {
             return scrapeInterval;
         } else {
             return scrapeConfig.getScrapeInterval();
@@ -73,7 +82,7 @@ public class NamespaceConfig {
     }
 
     public Integer getPeriod() {
-        if(period!=null) {
+        if (period != null) {
             return period;
         } else {
             return scrapeConfig.getPeriod();

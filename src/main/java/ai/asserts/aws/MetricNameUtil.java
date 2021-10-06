@@ -22,6 +22,12 @@ public class MetricNameUtil {
             .put(CWNamespace.sqs.getNamespace(), "aws_sqs")
             .put(CWNamespace.s3.getNamespace(), "aws_s3")
             .put(CWNamespace.dynamodb.getNamespace(), "aws_dynamodb")
+            .put(CWNamespace.alb.getNamespace(), "aws_alb")
+            .put(CWNamespace.elb.getNamespace(), "aws_elb")
+            .put(CWNamespace.ebs.getNamespace(), "aws_ebs")
+            .put(CWNamespace.efs.getNamespace(), "aws_efs")
+            .put(CWNamespace.kinesis.getNamespace(), "aws_kinesis")
+            .put(CWNamespace.ecs_containerinsights.getNamespace(), "aws_ecscontainerinsights")
             .build();
 
     public String exportedMetricName(Metric metric, MetricStat metricStat) {

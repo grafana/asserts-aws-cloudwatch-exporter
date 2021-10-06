@@ -62,7 +62,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 region, ImmutableMap.of(
                         "arn1", LambdaFunction.builder().name("function-1").build(),
                         "arn2", LambdaFunction.builder().name("function-2").build()))
-        );
+        ).anyTimes();
     }
 
     @Test

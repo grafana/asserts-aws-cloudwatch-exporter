@@ -22,5 +22,4 @@ public class MetricQuery {
     private final Metric metric;
     private final MetricStat metricStat;
     private final MetricDataQuery metricDataQuery;
-    private final int expectedSamples;
 }

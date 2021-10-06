@@ -6,6 +6,7 @@ package ai.asserts.aws.cloudwatch.config;
 
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
@@ -27,12 +28,7 @@ public class ScrapeConfigProviderTest {
                 .regions(ImmutableSet.of("region1"))
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider() {
-            @Override
-            public ScrapeConfig getScrapeConfig() {
-                return super.getScrapeConfig();
-            }
-        };
+        ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(60, namespaceConfig.getScrapeInterval());
         assertEquals(300, namespaceConfig.getPeriod());
@@ -56,12 +52,7 @@ public class ScrapeConfigProviderTest {
                 .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider() {
-            @Override
-            public ScrapeConfig getScrapeConfig() {
-                return super.getScrapeConfig();
-            }
-        };
+        ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
         assertEquals(300, namespaceConfig.getPeriod());
@@ -80,7 +71,7 @@ public class ScrapeConfigProviderTest {
                 .scrapeInterval(600)
                 .period(300)
                 .metrics(ImmutableList.of(metricConfig))
-                .dimensions(ImmutableSet.of("dimension1"))
+                .dimensionFilters(ImmutableMap.of("dimension1", "pattern"))
                 .build();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
@@ -88,18 +79,12 @@ public class ScrapeConfigProviderTest {
                 .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider() {
-            @Override
-            public ScrapeConfig getScrapeConfig() {
-                return super.getScrapeConfig();
-            }
-        };
+        ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
         assertEquals(300, namespaceConfig.getPeriod());
         assertEquals(600, metricConfig.getScrapeInterval());
         assertEquals(300, metricConfig.getPeriod());
-        assertEquals(ImmutableSet.of("dimension1"), metricConfig.getDimensions());
     }
 
     @Test
@@ -122,12 +107,7 @@ public class ScrapeConfigProviderTest {
                 .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider() {
-            @Override
-            public ScrapeConfig getScrapeConfig() {
-                return super.getScrapeConfig();
-            }
-        };
+        ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
         assertEquals(300, namespaceConfig.getPeriod());

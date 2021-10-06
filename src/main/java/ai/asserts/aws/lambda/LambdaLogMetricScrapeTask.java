@@ -50,6 +50,10 @@ public class LambdaLogMetricScrapeTask extends TimerTask {
 
         log.info("BEGIN lambda log scrape for region {}", region);
         try {
+            if (!lambdaFunctionScraper.getFunctions().containsKey(region)) {
+                log.error("No functions found for region {}", region);
+                return;
+            }
             CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region);
             lambdaFunctionScraper.getFunctions().get(region).forEach((arn, functionConfig) -> logScrapeConfigs.stream()
                     .filter(config -> config.getLambdaFunctionName().equals(functionConfig.getName()))

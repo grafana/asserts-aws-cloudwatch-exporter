@@ -11,7 +11,8 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -23,18 +24,23 @@ import java.net.URL;
 @Component
 @Slf4j
 public class ScrapeConfigProvider {
-    public static final String SCRAPE_CONFIG_RESOURCE = "cloudwatch_scrape_config.yml";
 
     private final ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory()
             .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
             .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES))
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    private final ResourceLoader resourceLoader = new DefaultResourceLoader();
+    private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
+    private final String scrapeConfigFile;
+
+    public ScrapeConfigProvider(@Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile) {
+        this.scrapeConfigFile = scrapeConfigFile;
+    }
 
     public ScrapeConfig getScrapeConfig() {
+        URL url;
         try {
-            Resource resource = resourceLoader.getResource(SCRAPE_CONFIG_RESOURCE);
-            URL url = resource.getURL();
+            Resource resource = resourceLoader.getResource(scrapeConfigFile);
+            url = resource.getURL();
             ScrapeConfig scrapeConfig = objectMapper.readValue(url, new TypeReference<ScrapeConfig>() {
             });
 
@@ -42,6 +48,7 @@ public class ScrapeConfigProvider {
             log.info("Loaded cloudwatch scrape configuration from url={}", url);
             return scrapeConfig;
         } catch (IOException e) {
+            log.error("Failed to load scrape configuration from file " + scrapeConfigFile, e);
             throw new UncheckedIOException(e);
         }
     }
@@ -51,7 +58,7 @@ public class ScrapeConfigProvider {
         for (int i = 0; i < scrapeConfig.getNamespaces().size(); i++) {
             NamespaceConfig namespaceConfig = scrapeConfig.getNamespaces().get(i);
             namespaceConfig.setScrapeConfig(scrapeConfig);
-            namespaceConfig.inheritAndValidate(i);
+            namespaceConfig.validate(i);
         }
     }
 }

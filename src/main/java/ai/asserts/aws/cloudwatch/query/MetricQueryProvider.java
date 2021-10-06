@@ -111,7 +111,6 @@ public class MetricQueryProvider {
         return MetricQuery.builder()
                 .metricConfig(metricConfig)
                 .metric(metric)
-                .expectedSamples(metricConfig.numSamplesPerScrape())
                 .metricStat(stat)
                 .metricDataQuery(MetricDataQuery.builder()
                         .id(queryIdGenerator.next())

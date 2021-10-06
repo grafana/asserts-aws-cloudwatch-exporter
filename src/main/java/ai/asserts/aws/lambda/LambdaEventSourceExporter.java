@@ -31,11 +31,11 @@ import static java.lang.String.format;
 @Slf4j
 public class LambdaEventSourceExporter extends TimerTask {
     public static final String HELP_TEXT = "Metric with lambda event source information";
-    private ScrapeConfigProvider scrapeConfigProvider;
-    private AWSClientProvider awsClientProvider;
-    private MetricNameUtil metricNameUtil;
-    private GaugeExporter gaugeExporter;
-    private ResourceMapper resourceMapper;
+    private final ScrapeConfigProvider scrapeConfigProvider;
+    private final AWSClientProvider awsClientProvider;
+    private final MetricNameUtil metricNameUtil;
+    private final GaugeExporter gaugeExporter;
+    private final ResourceMapper resourceMapper;
 
     public void run() {
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {

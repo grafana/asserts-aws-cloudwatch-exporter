@@ -54,9 +54,18 @@ public class MetricScrapeTask extends TimerTask {
     public void run() {
         Instant now = now();
 
-        Map<Integer, List<MetricQuery>> byInterval = metricQueryProvider.getMetricQueries().get(region);
-        List<MetricQuery> queries = byInterval.get(intervalSeconds);
         log.info("BEGIN Scrape for region {} and interval {}", region, intervalSeconds);
+        Map<Integer, List<MetricQuery>> byInterval = metricQueryProvider.getMetricQueries().get(region);
+        if (byInterval == null) {
+            log.error("No queries found for region {}", region);
+            return;
+        }
+
+        List<MetricQuery> queries = byInterval.get(intervalSeconds);
+        if (queries == null) {
+            log.error("No queries found for region {} and interval {}", region, intervalSeconds);
+            return;
+        }
 
         // The result only has the query id. We will need the metric while processing the result
         // so build a map for lookup
