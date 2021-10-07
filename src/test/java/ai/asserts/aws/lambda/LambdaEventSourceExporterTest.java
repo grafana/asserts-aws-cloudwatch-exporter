@@ -6,15 +6,14 @@ package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.Resource;
-import ai.asserts.aws.ResourceMapper;
-import ai.asserts.aws.ResourceType;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +24,9 @@ import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsRespo
 import java.time.Instant;
 import java.util.Optional;
 
+import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
+import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
+import static ai.asserts.aws.resource.ResourceType.SQSQueue;
 import static org.easymock.EasyMock.expect;
 
 public class LambdaEventSourceExporterTest extends EasyMockSupport {
@@ -79,18 +81,18 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         );
 
         expect(resourceMapper.map("fn1_arn"))
-                .andReturn(Optional.of(new Resource(ResourceType.LambdaFunction, "fn1_arn", "fn1")));
+                .andReturn(Optional.of(Resource.builder().type(LambdaFunction).arn("fn1_arn").name("fn1").build()));
         expect(resourceMapper.map("queue_arn"))
-                .andReturn(Optional.of(new Resource(ResourceType.SQSQueue, "queue_arn", "queue")));
+                .andReturn(Optional.of(Resource.builder().type(SQSQueue).arn("queue_arn").name("queue").build()));
         expect(resourceMapper.map("fn2_arn"))
-                .andReturn(Optional.of(new Resource(ResourceType.LambdaFunction, "fn2_arn", "fn2")));
+                .andReturn(Optional.of(Resource.builder().type(LambdaFunction).arn("fn2_arn").name("fn2").build()));
         expect(resourceMapper.map("table_arn"))
-                .andReturn(Optional.of(new Resource(ResourceType.DynamoDBTable, "table_arn", "table")));
+                .andReturn(Optional.of(Resource.builder().type(DynamoDBTable).arn("table_arn").name("table").build()));
 
         expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
         String help = "Metric with lambda event source information";
         gaugeExporter.exportMetric("aws_lambda_event_source", help,
-                ImmutableMap.of(
+                ImmutableSortedMap.of(
                         "region", "region1",
                         "event_source_name", "queue",
                         "event_source_type", "SQSQueue",
@@ -99,13 +101,28 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                 now, 1.0D);
 
         gaugeExporter.exportMetric("aws_lambda_event_source", help,
-                ImmutableMap.of(
+                ImmutableSortedMap.of(
                         "region", "region1",
                         "event_source_name", "table",
                         "event_source_type", "DynamoDBTable",
                         "lambda_function", "fn2"
                 ),
                 now, 1.0D);
+
+        replayAll();
+        testClass.run();
+        verifyAll();
+    }
+
+    @Test
+    public void exportEventSourceMappings_Exception() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(
+                ScrapeConfig.builder()
+                        .regions(ImmutableSet.of("region1"))
+                        .build()
+        );
+        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expect(lambdaClient.listEventSourceMappings()).andThrow(new RuntimeException());
 
         replayAll();
         testClass.run();

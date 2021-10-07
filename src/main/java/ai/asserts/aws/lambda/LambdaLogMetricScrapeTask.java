@@ -8,6 +8,8 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
+import io.micrometer.core.instrument.util.StringUtils;
 import lombok.EqualsAndHashCode;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimerTask;
 
+import static ai.asserts.aws.MetricNameUtil.SELF_FUNCTION_NAME_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
 import static java.lang.String.format;
 
 @Slf4j
@@ -70,7 +76,11 @@ public class LambdaLogMetricScrapeTask extends TimerTask {
                                     .nextToken(nextToken)
                                     .build();
 
+                            long timeTaken = System.currentTimeMillis();
                             FilterLogEventsResponse response = cloudWatchLogsClient.filterLogEvents(logEventsRequest);
+                            timeTaken = System.currentTimeMillis() - timeTaken;
+                            captureLatency(functionConfig, timeTaken);
+
                             if (response.hasEvents()) {
                                 Set<Map<String, String>> uniqueLabels = new LinkedHashSet<>();
                                 log.info("log scrape config {} matched {} events", logScrapeConfig, response.events().size());
@@ -88,12 +98,21 @@ public class LambdaLogMetricScrapeTask extends TimerTask {
                                                 1.0D));
                             }
                             nextToken = response.nextToken();
-                        } while (nextToken != null);
+                        } while (!StringUtils.isEmpty(nextToken));
                     }));
         } catch (Exception e) {
             log.error("Failed to scrape lambda logs", e);
         }
         log.info("END lambda log scrape for region {}", region);
+    }
+
+    private void captureLatency(LambdaFunction functionConfig, long timeTaken) {
+        gaugeExporter.exportMetric(SELF_LATENCY_METRIC, "scraper Instrumentation",
+                ImmutableMap.of(
+                        SELF_REGION_LABEL, region,
+                        SELF_OPERATION_LABEL, "scrape_lambda_logs",
+                        SELF_FUNCTION_NAME_LABEL, functionConfig.getName()
+                ), Instant.now(), timeTaken * 1.0D);
     }
 
     @VisibleForTesting

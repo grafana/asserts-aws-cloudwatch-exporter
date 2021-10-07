@@ -9,9 +9,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
@@ -29,8 +31,11 @@ import static java.lang.String.format;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode
 public class MetricConfig {
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private NamespaceConfig namespace;
     private String name;
     /**

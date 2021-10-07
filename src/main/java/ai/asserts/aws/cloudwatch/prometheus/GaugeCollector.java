@@ -5,11 +5,12 @@
 package ai.asserts.aws.cloudwatch.prometheus;
 
 import ai.asserts.aws.MetricNameUtil;
+import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import com.google.common.annotations.VisibleForTesting;
 import io.prometheus.client.Collector;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import software.amazon.awssdk.services.cloudwatch.model.Metric;
+import org.springframework.util.CollectionUtils;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,7 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import static io.prometheus.client.Collector.Type.GAUGE;
 import static java.lang.String.format;
 
-@Getter
 @EqualsAndHashCode(callSuper = false)
 public class GaugeCollector extends Collector {
     private MetricNameUtil metricNameUtil = new MetricNameUtil();
@@ -58,15 +58,20 @@ public class GaugeCollector extends Collector {
         return metricFamilySamples;
     }
 
-    public void addSample(String region, Metric metric, int period,
+    public void addSample(String region, MetricQuery metricQuery, int period,
                           List<Instant> timestamps, List<Double> values) {
         // Build labels
         Map<String, String> labels = new TreeMap<>();
         labels.put("region", region);
-        metric.dimensions().forEach(dimension -> {
+        metricQuery.getMetric().dimensions().forEach(dimension -> {
             String key = format("d_%s", metricNameUtil.toSnakeCase(dimension.name()));
             labels.put(key, dimension.value());
         });
+
+        if (metricQuery.getResource() != null && !CollectionUtils.isEmpty(metricQuery.getResource().getTags())) {
+            metricQuery.getResource().getTags().forEach(tag ->
+                    labels.put(format("tag_%s", tag.key()), tag.value()));
+        }
 
         for (int i = 0; i < timestamps.size(); i++) {
             addSample(labels, timestamps.get(i).plusSeconds(period).toEpochMilli(), values.get(i));

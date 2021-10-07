@@ -101,7 +101,7 @@ public class GaugeExporterTest extends EasyMockSupport {
                 .andReturn("foo_bar");
         expect(metricCollectors.getGauge("foo_bar", "")).andReturn(gaugeCollector);
 
-        gaugeCollector.addSample("region1", metricQuery.getMetric(), scrapeInterval, timestamps, values);
+        gaugeCollector.addSample("region1", metricQuery, scrapeInterval, timestamps, values);
 
         replayAll();
         testClass.exportMetrics("region1", metricQuery, scrapeInterval, metricDataResult);
@@ -120,7 +120,7 @@ public class GaugeExporterTest extends EasyMockSupport {
                 .andReturn("foo_bar");
         expect(metricCollectors.getGauge("foo_bar", "")).andReturn(gaugeCollector);
 
-        gaugeCollector.addSample("region1", metricQuery.getMetric(), scrapeInterval,
+        gaugeCollector.addSample("region1", metricQuery, scrapeInterval,
                 ImmutableList.of(startTime, startTime.plusSeconds(scrapeInterval)),
                 ImmutableList.of(0.0D, 0.0D)
         );

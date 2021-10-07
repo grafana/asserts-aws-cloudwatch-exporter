@@ -12,6 +12,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
@@ -31,6 +32,8 @@ import static java.lang.String.format;
 @Builder
 public class NamespaceConfig {
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private ScrapeConfig scrapeConfig;
     private String name;
     private Integer period;
@@ -87,5 +90,9 @@ public class NamespaceConfig {
         } else {
             return scrapeConfig.getPeriod();
         }
+    }
+
+    public boolean hasTagFilters() {
+        return tagFilters != null && tagFilters.size() > 0;
     }
 }

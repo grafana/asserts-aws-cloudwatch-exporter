@@ -10,6 +10,7 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.metrics.MetricScrapeTask;
+import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.lambda.LambdaEventSourceExporter;
 import ai.asserts.aws.lambda.LambdaLogMetricScrapeTask;
 import com.google.common.collect.ImmutableList;
@@ -58,7 +59,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         ImmutableList<LogScrapeConfig> logScrapeConfigs = ImmutableList.of(LogScrapeConfig.builder()
                 .build());
         expect(scrapeConfig.getNamespaces()).andReturn(ImmutableList.of(NamespaceConfig.builder()
-                .name("AWS/Lambda")
+                .name(CWNamespace.lambda.name())
                 .metrics(ImmutableList.of(
                         MetricConfig.builder()
                                 .name("Metric1")

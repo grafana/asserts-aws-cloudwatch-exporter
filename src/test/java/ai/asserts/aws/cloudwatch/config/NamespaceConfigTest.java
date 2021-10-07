@@ -6,11 +6,15 @@ package ai.asserts.aws.cloudwatch.config;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -104,5 +108,17 @@ public class NamespaceConfigTest extends EasyMockSupport {
         assertTrue(namespaceConfig.getDimensionFilterPattern().containsKey("Dimension"));
         assertEquals("abc.+", namespaceConfig.getDimensionFilterPattern().get("Dimension").pattern());
         verifyAll();
+    }
+
+    @Test
+    public void hasTagFilters() {
+        NamespaceConfig namespaceConfig = NamespaceConfig.builder().build();
+        assertFalse(namespaceConfig.hasTagFilters());
+
+        namespaceConfig.setTagFilters(Collections.emptyMap());
+        assertFalse(namespaceConfig.hasTagFilters());
+
+        namespaceConfig.setTagFilters(ImmutableMap.of("tag", ImmutableSet.of("value")));
+        assertTrue(namespaceConfig.hasTagFilters());
     }
 }

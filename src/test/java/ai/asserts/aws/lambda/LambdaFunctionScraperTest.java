@@ -7,6 +7,7 @@ package ai.asserts.aws.lambda;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -19,6 +20,7 @@ import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
 
 import java.util.Map;
 
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,6 +29,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
     private AWSClientProvider awsClientProvider;
     private LambdaClient lambdaClient;
+    private GaugeExporter gaugeExporter;
     private LambdaFunctionScraper lambdaFunctionScraper;
 
     @BeforeEach
@@ -34,7 +37,8 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
         lambdaClient = mock(LambdaClient.class);
-        lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider);
+        gaugeExporter = mock(GaugeExporter.class);
+        lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider, gaugeExporter);
     }
 
     @Test
@@ -57,6 +61,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                                 .build()
                         )
                 ).build());
+        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(
@@ -70,6 +75,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                                 .build()
                         )
                 ).build());
+        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
 
         replayAll();
         Map<String, Map<String, LambdaFunction>> functionsByRegion = lambdaFunctionScraper.getFunctions();
@@ -92,6 +98,23 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 functionsByRegion.get("region2")
         );
 
+        verifyAll();
+    }
+
+    @Test
+    public void getFunctions_Exception() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
+                .regions(ImmutableSortedSet.of("region1", "region2"))
+                .build()).anyTimes();
+        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
+
+        expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
+        expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
+
+        replayAll();
+        Map<String, Map<String, LambdaFunction>> functionsByRegion = lambdaFunctionScraper.getFunctions();
+        assertTrue(functionsByRegion.isEmpty());
         verifyAll();
     }
 }

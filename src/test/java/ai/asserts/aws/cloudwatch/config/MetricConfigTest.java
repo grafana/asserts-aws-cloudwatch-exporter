@@ -54,6 +54,22 @@ public class MetricConfigTest extends EasyMockSupport {
     }
 
     @Test
+    void numSamplesPerScrape() {
+        NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
+        MetricConfig metricConfig = MetricConfig.builder()
+                .namespace(namespaceConfig)
+                .build();
+
+        metricConfig.setPeriod(300);
+        metricConfig.setScrapeInterval(60);
+        assertEquals(1, metricConfig.numSamplesPerScrape());
+
+        metricConfig.setPeriod(60);
+        metricConfig.setScrapeInterval(300);
+        assertEquals(5, metricConfig.numSamplesPerScrape());
+    }
+
+    @Test
     void validate_noName() {
         NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
         MetricConfig metricConfig = MetricConfig.builder()
@@ -120,7 +136,7 @@ public class MetricConfigTest extends EasyMockSupport {
     }
 
     @Test
-    void matches_namespaceDimensionPattern() {
+    void matches_DimensionPattern() {
         NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
         MetricConfig metricConfig = MetricConfig.builder()
                 .name("metric")

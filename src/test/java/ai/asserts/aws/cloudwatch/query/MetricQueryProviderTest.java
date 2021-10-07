@@ -11,19 +11,23 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
+import ai.asserts.aws.cloudwatch.model.MetricStat;
+import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
-import software.amazon.awssdk.services.cloudwatch.model.Dimension;
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest;
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Average;
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Sum;
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 
 public class MetricQueryProviderTest extends EasyMockSupport {
@@ -32,7 +36,17 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     private MetricNameUtil metricNameUtil;
     private AWSClientProvider awsClientProvider;
     private CloudWatchClient cloudWatchClient;
+    private TagFilterResourceProvider tagFilterResourceProvider;
+    private MetricQueryBuilder metricQueryBuilder;
+    private Resource resource;
+    private Metric metric;
+    private NamespaceConfig namespaceConfig;
+    private MetricConfig metricConfig;
+    private MetricQuery metricQuery;
+    private GaugeExporter gaugeExporter;
     private MetricQueryProvider testClass;
+    private final CWNamespace _CW_namespace = CWNamespace.lambda;
+    private final String metricName = "Invocations";
 
     @BeforeEach
     public void setup() {
@@ -41,76 +55,101 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         metricNameUtil = mock(MetricNameUtil.class);
         awsClientProvider = mock(AWSClientProvider.class);
         cloudWatchClient = mock(CloudWatchClient.class);
+        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        metricQueryBuilder = mock(MetricQueryBuilder.class);
+        metricQuery = mock(MetricQuery.class);
+        resource = mock(Resource.class);
+        metricConfig = mock(MetricConfig.class);
+        namespaceConfig = mock(NamespaceConfig.class);
+        metricQuery = mock(MetricQuery.class);
+        gaugeExporter = mock(GaugeExporter.class);
+        metric = Metric.builder()
+                .namespace(CWNamespace.lambda.getNamespace())
+                .metricName(metricName)
+                .build();
         testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
-                awsClientProvider);
+                awsClientProvider, tagFilterResourceProvider, metricQueryBuilder, gaugeExporter);
     }
 
     @Test
     void getMetricQueries() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(
-                ScrapeConfig.builder()
-                        .regions(ImmutableSet.of("region1"))
-                        .namespaces(ImmutableList.of(
-                                NamespaceConfig.builder()
-                                        .name("AWS/Lambda")
-                                        .metrics(ImmutableList.of(
-                                                MetricConfig.builder()
-                                                        .name("Invocations")
-                                                        .period(300)
-                                                        .scrapeInterval(60)
-                                                        .namespace(NamespaceConfig.builder()
-                                                                .name(CWNamespace.lambda.getNamespace())
-                                                                .build())
-                                                        .stats(ImmutableSet.of(Sum, Average))
-                                                        .build()
-                                        ))
-                                        .build()
-                        ))
-                        .build()
-        );
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .regions(ImmutableSet.of("region1"))
+                .namespaces(ImmutableList.of(namespaceConfig))
+                .build();
 
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(awsClientProvider.getCloudWatchClient("region1")).andReturn(cloudWatchClient);
 
-        Metric metric1 = Metric.builder()
-                .metricName("Invocations")
-                .dimensions(ImmutableList.of(Dimension.builder()
-                        .name("FunctionName")
-                        .value("function-1")
-                        .build()))
-                .build();
+        expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
 
-        Metric metric2 = Metric.builder()
-                .metricName("Errors")
-                .dimensions(ImmutableList.of(Dimension.builder()
-                        .name("FunctionName")
-                        .value("function-1")
-                        .build()))
-                .build();
+        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+                .andReturn(ImmutableSet.of(resource));
+        expect(resource.matches(metric)).andReturn(true).anyTimes();
+
+        expect(namespaceConfig.getName()).andReturn(_CW_namespace.name()).anyTimes();
+        expect(namespaceConfig.getMetrics()).andReturn(ImmutableList.of(metricConfig));
+
+        expect(metricConfig.getName()).andReturn(metricName).anyTimes();
+        expect(metricConfig.getPeriod()).andReturn(300).anyTimes();
+        expect(metricConfig.getScrapeInterval()).andReturn(60).anyTimes();
+        expect(metricConfig.matchesMetric(metric)).andReturn(true).anyTimes();
 
         ListMetricsResponse listMetricsResponse1 = ListMetricsResponse.builder()
-                .metrics(ImmutableList.of(metric1))
+                .metrics(ImmutableList.of(metric))
                 .nextToken("token-1")
                 .build();
         expect(cloudWatchClient.listMetrics(ListMetricsRequest.builder()
-                .namespace("AWS/Lambda")
+                .namespace(_CW_namespace.getNamespace())
                 .build())).andReturn(listMetricsResponse1);
+        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
 
-        expect(metricNameUtil.exportedMetric(metric1, Sum)).andReturn("foo_bar1");
-        expect(metricNameUtil.exportedMetric(metric1, Average)).andReturn("foo_bar2");
-        expect(queryIdGenerator.next()).andReturn("q1");
-        expect(queryIdGenerator.next()).andReturn("q2");
+        expect(metricQuery.getMetric()).andReturn(metric).anyTimes();
+        expect(metricQuery.getMetricConfig()).andReturn(metricConfig).anyTimes();
+        expect(metricQuery.getMetricStat()).andReturn(Sum);
+        expectMetricQuery(Sum, "metric_sum");
 
         ListMetricsResponse listMetricsResponse2 = ListMetricsResponse.builder()
-                .metrics(ImmutableList.of(metric2))
+                .metrics(ImmutableList.of(metric))
                 .nextToken(null)
                 .build();
         expect(cloudWatchClient.listMetrics(ListMetricsRequest.builder()
                 .nextToken("token-1")
-                .namespace("AWS/Lambda")
+                .namespace(_CW_namespace.getNamespace())
                 .build())).andReturn(listMetricsResponse2);
+        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+
+        expect(metricQuery.getMetricStat()).andReturn(Average);
+        expectMetricQuery(Average, "metric_avg");
 
         replayAll();
         testClass.getMetricQueries();
         verifyAll();
+    }
+
+    @Test
+    void getMetricQueries_Exception() {
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .regions(ImmutableSet.of("region1"))
+                .namespaces(ImmutableList.of(namespaceConfig))
+                .build();
+
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+
+        expect(namespaceConfig.hasTagFilters()).andReturn(false).anyTimes();
+        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+                .andReturn(ImmutableSet.of());
+        expect(awsClientProvider.getCloudWatchClient("region1")).andThrow(new RuntimeException());
+
+        replayAll();
+        testClass.getMetricQueries();
+        verifyAll();
+    }
+
+    private void expectMetricQuery(MetricStat stat, String metricName) {
+        expect(metricQueryBuilder.buildQueries(queryIdGenerator, ImmutableSet.of(resource), metricConfig, metric))
+                .andReturn(ImmutableList.of(metricQuery));
+
+        expect(metricNameUtil.exportedMetricName(metric, stat)).andReturn(metricName);
     }
 }

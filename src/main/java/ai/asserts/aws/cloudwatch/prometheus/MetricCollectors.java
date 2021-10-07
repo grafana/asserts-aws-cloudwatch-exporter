@@ -6,7 +6,6 @@ package ai.asserts.aws.cloudwatch.prometheus;
 
 import io.prometheus.client.CollectorRegistry;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +13,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-@Getter
 @AllArgsConstructor
 @Slf4j
 public class MetricCollectors {

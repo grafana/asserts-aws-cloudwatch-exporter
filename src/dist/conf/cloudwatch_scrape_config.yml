@@ -1,7 +1,7 @@
 regions:
   - us-west-2
 namespaces:
-  - name: AWS/Lambda
+  - name: lambda
     scrapeInterval: 60
     period: 300
     metrics:
@@ -37,7 +37,7 @@ namespaces:
         labels:
           "destination_type": "SQSQueue"
           "destination_name": "$1"
-  - name: AWS/SQS
+  - name: queue
     metrics:
       - name: NumberOfMessagesReceived
         stats:
@@ -48,7 +48,7 @@ namespaces:
       - name: NumberOfMessagesDeleted
         stats:
           - Sum
-  - name: AWS/DynamoDB
+  - name: dynamodb
     metrics:
       - name: ConsumedReadCapacityUnits
         stats:
@@ -70,7 +70,7 @@ namespaces:
       - name: WriteThrottleEvents
         stats:
           - Sum
-  - name: AWS/S3
+  - name: s3
     period: 86400
     scrapeInterval: 172800
     metrics:

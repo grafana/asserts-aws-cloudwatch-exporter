@@ -57,7 +57,7 @@ public class GaugeExporter {
         Metric metric = metricQuery.getMetric();
         String exportedMetricName = metricNameUtil.exportedMetricName(metric, metricQuery.getMetricStat());
         GaugeCollector gaugeCollector = metricCollectors.getGauge(exportedMetricName, "");
-        gaugeCollector.addSample(region, metric, period, metricDataResult.timestamps(), metricDataResult.values());
+        gaugeCollector.addSample(region, metricQuery, period, metricDataResult.timestamps(), metricDataResult.values());
         log.debug("Exported metrics for region = {}, metric = {}", region, exportedMetricName);
     }
 
@@ -79,7 +79,7 @@ public class GaugeExporter {
                 timestamps.add(startTime.plus((long) i * interval, ChronoUnit.SECONDS));
                 values.add(0.0D);
             }
-            gaugeCollector.addSample(region, metric, interval, timestamps, values);
+            gaugeCollector.addSample(region, metricQuery, interval, timestamps, values);
             log.debug("Zero filled metric for region = {}, metric = {}", region, exportedMetricName);
         });
     }

@@ -7,24 +7,36 @@ package ai.asserts.aws.cloudwatch.query;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
+import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.model.CWNamespace;
+import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest;
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
-import software.amazon.awssdk.services.cloudwatch.model.MetricDataQuery;
-import software.amazon.awssdk.services.cloudwatch.model.MetricStat;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+
+import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SELF_NAMESPACE_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
 
 @Component
 @Slf4j
@@ -33,15 +45,25 @@ public class MetricQueryProvider {
     private final QueryIdGenerator queryIdGenerator;
     private final MetricNameUtil metricNameUtil;
     private final AWSClientProvider awsClientProvider;
+    private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<Integer, List<MetricQuery>>>> metricQueryCache;
+    private final GaugeExporter gaugeExporter;
 
     public MetricQueryProvider(ScrapeConfigProvider scrapeConfigProvider,
                                QueryIdGenerator queryIdGenerator,
-                               MetricNameUtil metricNameUtil, AWSClientProvider awsClientProvider) {
+                               MetricNameUtil metricNameUtil,
+                               AWSClientProvider awsClientProvider,
+                               TagFilterResourceProvider tagFilterResourceProvider,
+                               MetricQueryBuilder metricQueryBuilder,
+                               GaugeExporter gaugeExporter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
         this.metricNameUtil = metricNameUtil;
         this.awsClientProvider = awsClientProvider;
+        this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.metricQueryBuilder = metricQueryBuilder;
+        this.gaugeExporter = gaugeExporter;
         metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal, 10, TimeUnit.MINUTES);
         log.info("Initialized..");
     }
@@ -52,70 +74,90 @@ public class MetricQueryProvider {
 
     Map<String, Map<Integer, List<MetricQuery>>> getQueriesInternal() {
         log.info("Will discover metrics and build metric queries");
-
-        Map<String, Map<Integer, List<MetricQuery>>> byIntervalWithDimensions = new TreeMap<>();
+        Map<String, Map<Integer, List<MetricQuery>>> queriesByInterval = new TreeMap<>();
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getRegions().forEach(region -> scrapeConfig.getNamespaces().forEach(ns -> {
             try {
-                CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region);
+                Set<Resource> tagFilteredResources = tagFilterResourceProvider.getFilteredResources(region, ns);
+                if (!ns.hasTagFilters() || tagFilteredResources.size() > 0) {
+                    CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region);
 
-                Map<String, MetricConfig> configuredMetrics = new TreeMap<>();
-                ns.getMetrics().forEach(metricConfig -> configuredMetrics.put(metricConfig.getName(), metricConfig));
+                    Map<String, MetricConfig> configuredMetrics = new TreeMap<>();
+                    ns.getMetrics().forEach(metricConfig -> configuredMetrics.put(metricConfig.getName(), metricConfig));
 
-                String nextToken = null;
-                do {
-                    ListMetricsRequest.Builder builder = ListMetricsRequest.builder()
-                            .nextToken(nextToken)
-                            .namespace(ns.getName());
+                    String nextToken = null;
+                    do {
+                        ListMetricsRequest.Builder builder = ListMetricsRequest.builder()
+                                .nextToken(nextToken)
+                                .namespace(CWNamespace.valueOf(ns.getName()).getNamespace());
 
-                    log.info("Discovering all metrics for region={}, namespace={} ", region, ns.getName());
+                        log.info("Discovering all metrics for region={}, namespace={} ", region, ns.getName());
 
-                    ListMetricsResponse response = cloudWatchClient.listMetrics(builder.build());
-                    if (response.hasMetrics()) {
-                        response.metrics().forEach(metric -> {
-                            if (configuredMetrics.containsKey(metric.metricName())) {
-                                MetricConfig metricConfig = configuredMetrics.get(metric.metricName());
-                                if (metricConfig.matchesMetric(metric)) {
-                                    metricConfig.getStats().forEach(stat -> {
-                                        byIntervalWithDimensions
-                                                .computeIfAbsent(region, k -> new TreeMap<>())
-                                                .computeIfAbsent(metricConfig.getScrapeInterval(), k -> new ArrayList<>())
-                                                .add(buildQuery(metricConfig, stat, metric));
-                                        log.info("Will scrape metric {} agg over {} seconds every {} seconds",
-                                                metricNameUtil.exportedMetric(metric, stat),
-                                                metricConfig.getPeriod(), metricConfig.getScrapeInterval());
-                                    });
-                                }
-                            }
-                        });
-                    }
-                    nextToken = response.nextToken();
-                } while (nextToken != null);
+                        long timeTaken = System.currentTimeMillis();
+                        ListMetricsResponse response = cloudWatchClient.listMetrics(builder.build());
+                        timeTaken = System.currentTimeMillis() - timeTaken;
+                        captureLatency(region, ns, timeTaken);
+
+                        if (response.hasMetrics()) {
+                            // Check if the metric is on a tag filtered resource
+                            // Also check if the metric matches any dimension filters that might be specified
+                            response.metrics()
+                                    .stream()
+                                    .filter(metric -> isAConfiguredMetric(configuredMetrics, metric) &&
+                                            belongsToFilteredResource(ns, tagFilteredResources, metric))
+                                    .forEach(metric -> buildQueries(queriesByInterval, region,
+                                            tagFilteredResources,
+                                            configuredMetrics.get(metric.metricName()),
+                                            metric));
+                        }
+                        nextToken = response.nextToken();
+                    } while (nextToken != null);
+                }
             } catch (Exception e) {
                 log.info("Failed to scrape metrics", e);
             }
         }));
 
-        return byIntervalWithDimensions;
+        Set<String> metricNames = new HashSet<>();
+        queriesByInterval.forEach((region, byInterval) -> byInterval.forEach((interval, metrics) ->
+                queriesByInterval.get(region).get(interval).forEach(metricQuery -> {
+                    String exportedMetricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
+                    if (metricNames.add(exportedMetricName)) {
+                        log.info("Will scrape {} agg over {} seconds every {} seconds",
+                                exportedMetricName,
+                                metricQuery.getMetricConfig().getPeriod(),
+                                interval);
+                    }
+                })));
+
+        return queriesByInterval;
     }
 
-    private MetricQuery buildQuery(MetricConfig metricConfig,
-                                   ai.asserts.aws.cloudwatch.model.MetricStat stat,
-                                   Metric metric) {
-        MetricStat metricStat = MetricStat.builder()
-                .period(metricConfig.getPeriod())
-                .stat(stat.toString())
-                .metric(metric)
-                .build();
-        return MetricQuery.builder()
-                .metricConfig(metricConfig)
-                .metric(metric)
-                .metricStat(stat)
-                .metricDataQuery(MetricDataQuery.builder()
-                        .id(queryIdGenerator.next())
-                        .metricStat(metricStat)
-                        .build())
-                .build();
+    private void captureLatency(String region, NamespaceConfig ns, long timeTaken) {
+        gaugeExporter.exportMetric(SELF_LATENCY_METRIC, "scraper Instrumentation",
+                ImmutableMap.of(
+                        SELF_REGION_LABEL, region,
+                        SELF_OPERATION_LABEL, "list_metrics",
+                        SELF_NAMESPACE_LABEL, CWNamespace.valueOf(ns.getName()).getNamespace()
+                ), Instant.now(), timeTaken * 1.0D);
+    }
+
+    private boolean belongsToFilteredResource(NamespaceConfig namespaceConfig, Set<Resource> tagFilteredResources, Metric metric) {
+        return !namespaceConfig.hasTagFilters() ||
+                tagFilteredResources.stream().anyMatch(resource -> resource.matches(metric));
+    }
+
+    private boolean isAConfiguredMetric(Map<String, MetricConfig> byName, Metric metric) {
+        return byName.containsKey(metric.metricName()) && byName.get(metric.metricName()).matchesMetric(metric);
+    }
+
+    private void buildQueries(Map<String, Map<Integer, List<MetricQuery>>> byIntervalWithDimensions, String region,
+                              Set<Resource> resources, MetricConfig metricConfig, Metric metric) {
+        List<MetricQuery> metricQueries = byIntervalWithDimensions
+                .computeIfAbsent(region, k -> new TreeMap<>())
+                .computeIfAbsent(metricConfig.getScrapeInterval(), k -> new ArrayList<>());
+        List<MetricQuery> moreQueries = metricQueryBuilder.buildQueries(queryIdGenerator, resources, metricConfig, metric);
+        metricQueries.addAll(moreQueries);
     }
 }

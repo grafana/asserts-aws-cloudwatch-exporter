@@ -70,7 +70,7 @@ public class ScrapeTaskManager {
                                     }
                             ));
 
-                    if (CWNamespace.lambda.getNamespace().equals(nc.getName()) &&
+                    if (CWNamespace.lambda.getServiceName().equals(nc.getName()) &&
                             !CollectionUtils.isEmpty(nc.getLogs())) {
                         scrapeConfig.getRegions().forEach(region -> logScrapeTasks
                                 .computeIfAbsent(60, k -> new TreeMap<>())

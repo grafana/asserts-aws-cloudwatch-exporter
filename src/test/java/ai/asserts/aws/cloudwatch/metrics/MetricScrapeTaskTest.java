@@ -26,6 +26,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 
 public class MetricScrapeTaskTest extends EasyMockSupport {
@@ -67,19 +69,19 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         int period = 300;
         List<MetricQuery> queries = ImmutableList.of(
                 MetricQuery.builder()
-                        .metricConfig(MetricConfig.builder().period(period).build())
+                        .metricConfig(MetricConfig.builder().period(period).scrapeInterval(interval).build())
                         .metricDataQuery(MetricDataQuery.builder()
                                 .id("id1")
                                 .build())
                         .build(),
                 MetricQuery.builder()
-                        .metricConfig(MetricConfig.builder().period(period).build())
+                        .metricConfig(MetricConfig.builder().period(period).scrapeInterval(interval).build())
                         .metricDataQuery(MetricDataQuery.builder()
                                 .id("id2")
                                 .build())
                         .build(),
                 MetricQuery.builder()
-                        .metricConfig(MetricConfig.builder().period(period).build())
+                        .metricConfig(MetricConfig.builder().period(period).scrapeInterval(interval).build())
                         .metricDataQuery(MetricDataQuery.builder()
                                 .id("id3")
                                 .build())
@@ -111,6 +113,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                         .nextToken("token1")
                         .build()
         );
+        gaugeExporter.exportMetric(anyString(),anyString(),anyObject(),anyObject(),anyObject());
         gaugeExporter.exportMetricMeta(region, queries.get(0));
         gaugeExporter.exportMetrics(region, queries.get(0), period, mdr1);
 
@@ -134,12 +137,32 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                         .metricDataResults(ImmutableList.of(mdr2))
                         .build()
         );
-
+        gaugeExporter.exportMetric(anyString(),anyString(),anyObject(),anyObject(),anyObject());
         gaugeExporter.exportMetricMeta(region, queries.get(1));
         gaugeExporter.exportMetrics(region, queries.get(1), period, mdr2);
 
         gaugeExporter.exportZeros(region, now.minusSeconds(period + 60), now.minusSeconds(60), period,
                 ImmutableSortedMap.of("id3", queries.get(2)));
+
+        replayAll();
+        testClass.run();
+        verifyAll();
+    }
+
+    @Test
+    public void run_NoQueriesForRegion() {
+        expect(metricQueryProvider.getMetricQueries())
+                .andReturn(ImmutableMap.of());
+
+        replayAll();
+        testClass.run();
+        verifyAll();
+    }
+
+    @Test
+    public void run_NoQueriesForInterval() {
+        expect(metricQueryProvider.getMetricQueries())
+                .andReturn(ImmutableMap.of(region, ImmutableMap.of()));
 
         replayAll();
         testClass.run();

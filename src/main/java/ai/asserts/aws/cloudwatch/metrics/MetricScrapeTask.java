@@ -10,7 +10,7 @@ import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
 import com.google.common.annotations.VisibleForTesting;
-import lombok.AllArgsConstructor;
+import com.google.common.collect.ImmutableMap;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,20 +27,24 @@ import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SELF_INTERVAL_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
+
 @Slf4j
 @Setter
 @Getter
-@AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 public class MetricScrapeTask extends TimerTask {
+    @Autowired
+    private AWSClientProvider awsClientProvider;
     @Autowired
     private MetricQueryProvider metricQueryProvider;
     @Autowired
     private QueryBatcher queryBatcher;
     @Autowired
     private GaugeExporter gaugeExporter;
-    @Autowired
-    private AWSClientProvider awsClientProvider;
     private final String region;
     private final int intervalSeconds;
     @EqualsAndHashCode.Exclude
@@ -94,7 +98,10 @@ public class MetricScrapeTask extends TimerTask {
                                 .map(MetricQuery::getMetricDataQuery)
                                 .collect(Collectors.toList()));
 
+                long timeTaken = System.currentTimeMillis();
                 GetMetricDataResponse metricData = cloudWatchClient.getMetricData(requestBuilder.build());
+                timeTaken = System.currentTimeMillis() - timeTaken;
+                captureLatency(timeTaken);
                 metricData.metricDataResults().forEach(metricDataResult -> {
                     MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
                     gaugeExporter.exportMetricMeta(region, metricQuery);
@@ -108,6 +115,16 @@ public class MetricScrapeTask extends TimerTask {
         gaugeExporter.exportZeros(region, startTime, endTime, period, queriesById);
 
         log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
+    }
+
+    private void captureLatency(long timeTaken) {
+        gaugeExporter.exportMetric(
+                SELF_LATENCY_METRIC, "scraper Instrumentation",
+                ImmutableMap.of(
+                        SELF_REGION_LABEL, region,
+                        SELF_OPERATION_LABEL, "get_metric_data",
+                        SELF_INTERVAL_LABEL, intervalSeconds + ""
+                ), Instant.now(), timeTaken * 1.0D);
     }
 
     @VisibleForTesting

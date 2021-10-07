@@ -42,7 +42,7 @@ public enum CWNamespace {
     r53r("AWS/Route53Resolver", "r53r"),
     s3("AWS/S3", "s3"),
     ses("AWS/SES", "ses"),
-    sqs("AWS/SQS", "sqs", "queue"),
+    sqs("AWS/SQS", "sqs"),
     tgw("AWS/TransitGateway", "tgw"),
     vpn("AWS/VPN", "vpn"),
     asg("AWS/AutoScaling", "asg"),

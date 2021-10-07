@@ -21,6 +21,7 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 import java.time.Instant;
 import java.util.regex.Pattern;
 
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,6 +31,8 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     private LogScrapeConfig logScrapeConfig;
     private GaugeExporter gaugeExporter;
     private Instant now;
+    private AWSClientProvider awsClientProvider;
+    private LambdaFunctionScraper lambdaFunctionScraper;
     private LambdaLogMetricScrapeTask testClass;
 
     @BeforeEach
@@ -43,9 +46,10 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 .labels(ImmutableMap.of("message_type", "SQSQueue", "sqs_queue_name", "$1"))
                 .build();
         logScrapeConfig.compile();
-        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+
+        awsClientProvider = mock(AWSClientProvider.class);
         cloudWatchLogsClient = mock(CloudWatchLogsClient.class);
-        LambdaFunctionScraper lambdaFunctionScraper = mock(LambdaFunctionScraper.class);
+        lambdaFunctionScraper = mock(LambdaFunctionScraper.class);
         gaugeExporter = mock(GaugeExporter.class);
         testClass = new LambdaLogMetricScrapeTask(region, ImmutableList.of(logScrapeConfig)) {
             @Override
@@ -56,17 +60,17 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         testClass.setLambdaFunctionScraper(lambdaFunctionScraper);
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setGaugeExporter(gaugeExporter);
+    }
 
-        expect(awsClientProvider.getCloudWatchLogsClient(region)).andReturn(cloudWatchLogsClient);
+    @Test
+    void scrape() {
         expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of(
                 region, ImmutableMap.of(
                         "arn1", LambdaFunction.builder().name("function-1").build(),
                         "arn2", LambdaFunction.builder().name("function-2").build()))
         ).anyTimes();
-    }
 
-    @Test
-    void scrape() {
+        expect(awsClientProvider.getCloudWatchLogsClient(region)).andReturn(cloudWatchLogsClient);
         FilterLogEventsRequest request = FilterLogEventsRequest.builder()
                 .limit(10)
                 .endTime(now.minusSeconds(60).toEpochMilli())
@@ -84,6 +88,8 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 .build();
 
         expect(cloudWatchLogsClient.filterLogEvents(request)).andReturn(response);
+        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+
         gaugeExporter.exportMetric("aws_lambda_logs", "",
                 ImmutableSortedMap.of(
                         "region", region,
@@ -91,6 +97,38 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                         "d_message_type", "SQSQueue",
                         "d_sqs_queue_name", "lamda-sqs-poc-output-queue"),
                 now.minusSeconds(60), 1.0D);
+
+        replayAll();
+        testClass.run();
+        verifyAll();
+    }
+
+    @Test
+    void scrape_noFunctions() {
+        expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of());
+
+        replayAll();
+        testClass.run();
+        verifyAll();
+    }
+
+    @Test
+    void scrape_Exception() {
+        expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of(
+                region, ImmutableMap.of(
+                        "arn1", LambdaFunction.builder().name("function-1").build(),
+                        "arn2", LambdaFunction.builder().name("function-2").build()))
+        ).anyTimes();
+        FilterLogEventsRequest request = FilterLogEventsRequest.builder()
+                .limit(10)
+                .endTime(now.minusSeconds(60).toEpochMilli())
+                .startTime(now.minusSeconds(120).toEpochMilli())
+                .logGroupName("/aws/lambda/function-1")
+                .filterPattern("published OrderRequest to")
+                .build();
+
+        expect(awsClientProvider.getCloudWatchLogsClient(region)).andReturn(cloudWatchLogsClient);
+        expect(cloudWatchLogsClient.filterLogEvents(request)).andThrow(new RuntimeException());
 
         replayAll();
         testClass.run();

@@ -6,8 +6,8 @@ package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.Resource;
-import ai.asserts.aws.ResourceMapper;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
