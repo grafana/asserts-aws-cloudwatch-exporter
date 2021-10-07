@@ -14,8 +14,8 @@ Standalone exporter to export AWS CloudWatch Metrics and Logs as prometheus metr
                 "logs:FilterLogEvents"
             ],
             "Resource": [
-                "arn:aws:logs:*:342994379019:log-group:/aws/lambda/*",
-                "arn:aws:lambda:*:342994379019:function:*"
+                "arn:aws:logs:*:<account-name>:log-group:/aws/lambda/*",
+                "arn:aws:lambda:*:<account-name>:function:*"
             ]
         },
         {
