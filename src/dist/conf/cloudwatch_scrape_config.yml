@@ -72,7 +72,7 @@ namespaces:
           - Sum
   - name: s3
     period: 86400
-    scrapeInterval: 172800
+    scrapeInterval: 86400
     metrics:
       - name: NumberOfObjects
         stats:
