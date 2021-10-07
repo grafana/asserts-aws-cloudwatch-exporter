@@ -121,6 +121,8 @@ namespaces:
           - Average
 ```
 
+You can specify one or more regions. The specified configuration will be applicable to all regions. If different regions need different configurations for the multiple instances of the exporter will need to be run for each set of configuration
+
 # Metric names
 
 All metric and label names are in snake case. The metrics will be prefixed with `aws` followed by the AWS Service name.
