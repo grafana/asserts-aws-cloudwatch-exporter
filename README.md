@@ -36,7 +36,6 @@ or `1` if `period > scrapeInterval`
 
 
 **Sample Configuration**
-* **
 ```
 regions:
   - us-west-2
@@ -122,13 +121,13 @@ namespaces:
           - Average
 ```
 
-#Metric naming convention
+# Metric names
 
 All metric and label names are in snake case. The metrics will be prefixed with `aws` followed by the AWS Service name.
 For example the `Sum` statistic for the `Invocations` metric in the `lambda` namespace will be exported as
 `aws_lambda_invocations_sum`
 
-#Labels and naming conventions
+# Label names
 
 **Region**     
 
