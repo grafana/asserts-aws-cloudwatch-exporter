@@ -1,6 +1,8 @@
 # aws-exporter
-Standalone exporter to export AWS CloudWatch Metrics and Logs as prometheus metrics. This exporter uses AWS APIs and fetches both meta data about some AWS Resources and metric data. The following IAM permissions are needed for this exporter
+Standalone exporter to export AWS CloudWatch Metrics and Logs as prometheus metrics. This exporter uses AWS APIs and fetches both meta data about some AWS Resources and metric data
 
+# AWS IAM Permissions
+The following IAM permissions are needed for this exporter
 ```
 {
     "Version": "2012-10-17",
