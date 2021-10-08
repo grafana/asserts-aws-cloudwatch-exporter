@@ -163,7 +163,7 @@ cd aws-exporter
 
 ./gradlew build
 
-cp src/dist/conf/cloudwatch-scrape-config.yml .
+cp src/dist/conf/cloudwatch_scrape_config.yml .
 
 ./gradlew processResources bootRun
 ```
