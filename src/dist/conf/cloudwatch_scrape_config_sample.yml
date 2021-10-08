@@ -37,7 +37,7 @@ namespaces:
         labels:
           "destination_type": "SQSQueue"
           "destination_name": "$1"
-  - name: queue
+  - name: sqs
     metrics:
       - name: NumberOfMessagesReceived
         stats:

@@ -9,7 +9,7 @@ namespace in CloudWatch. The supported names are :-
 | AWS Service | CloudWatch Namespace | List of Metrics |
 |--------------|--------------|------------------------|
 | Lambda | lambda | [CloudWatch metrics](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics.html)|
-| SQS Queue | queue| [CloudWatch Metrics](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-available-cloudwatch-metrics.html)|
+| SQS Queue | sqs| [CloudWatch Metrics](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-available-cloudwatch-metrics.html)|
 | DynamoDB | dynamodb | [CloudWatch Metrics](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html)|
 | S3 | s3| [CloudWatch Metrics](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metrics-dimensions.html)|
 
@@ -76,7 +76,7 @@ namespaces:
         labels:
           "destination_type": "SQSQueue"
           "destination_name": "$1"
-  - name: queue
+  - name: sqs
     metrics:
       - name: NumberOfMessagesReceived
         stats:
