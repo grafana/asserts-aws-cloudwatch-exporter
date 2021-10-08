@@ -3,7 +3,7 @@ Standalone exporter to export AWS CloudWatch Metrics and Logs as prometheus metr
 fetches both metadata about some AWS Resources and metric data
 
 # Configuration
-The exporter needs to configured to extract metrics for one or more AWS Service types. AWS Service types map to a 
+The exporter needs to be configured to extract metrics for one or more AWS Service types. AWS Service types map to a 
 namespace in CloudWatch. The supported names are :-
 
 | AWS Service | CloudWatch Namespace Name| 
