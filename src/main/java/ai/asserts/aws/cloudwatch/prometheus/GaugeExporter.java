@@ -28,20 +28,19 @@ public class GaugeExporter {
     private final MetricCollectors metricCollectors;
 
     public void exportMetricMeta(String region, MetricQuery query) {
-        Integer length = query.getMetricConfig().getScrapeInterval();
-        Integer period = query.getMetricConfig().getPeriod();
-        String exportedMetricName = metricNameUtil.exportedMetricName(query.getMetric(), query.getMetricStat());
+        Integer scrapeInterval = query.getMetricConfig().getNamespace().getScrapeInterval();
+        Integer period = query.getMetricConfig().getNamespace().getPeriod();
         long nowMillis = now();
         metricCollectors.getGauge("cw_scrape_period_seconds", "")
                 .addSample(ImmutableMap.of(
                         "region", region,
-                        "metric_name", exportedMetricName
+                        "namespace", query.getMetricConfig().getNamespace().getName()
                 ), nowMillis, 1.0D * period);
         metricCollectors.getGauge("cw_scrape_interval_seconds", "")
                 .addSample(ImmutableMap.of(
                         "region", region,
-                        "metric_name", exportedMetricName
-                ), nowMillis, 1.0D * length);
+                        "namespace", query.getMetricConfig().getNamespace().getName()
+                ), nowMillis, 1.0D * scrapeInterval);
     }
 
     public void exportMetric(String metricName,

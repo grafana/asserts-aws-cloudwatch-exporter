@@ -6,6 +6,8 @@ package ai.asserts.aws.cloudwatch.prometheus;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
+import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
+import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +43,11 @@ public class GaugeExporterTest extends EasyMockSupport {
         metricQuery = MetricQuery.builder()
                 .metric(fooBarMetric)
                 .metricConfig(MetricConfig.builder()
+                        .namespace(NamespaceConfig.builder()
+                                .period(300)
+                                .scrapeInterval(60)
+                                .name(CWNamespace.lambda.name())
+                                .build())
                         .scrapeInterval(60)
                         .period(300)
                         .build())
@@ -56,14 +63,12 @@ public class GaugeExporterTest extends EasyMockSupport {
 
     @Test
     void exportMetricMeta() {
-        expect(metricNameUtil.exportedMetricName(fooBarMetric, MetricStat.Average)).andReturn("foo_bar");
-
         expect(metricCollectors.getGauge("cw_scrape_period_seconds", "")).andReturn(gaugeCollector);
         expect(metricCollectors.getGauge("cw_scrape_interval_seconds", "")).andReturn(gaugeCollector);
 
-        gaugeCollector.addSample(ImmutableMap.of("region", "region-1", "metric_name", "foo_bar"),
+        gaugeCollector.addSample(ImmutableMap.of("region", "region-1", "namespace", "lambda"),
                 now, metricQuery.getMetricConfig().getPeriod() * 1.0D);
-        gaugeCollector.addSample(ImmutableMap.of("region", "region-1", "metric_name", "foo_bar"),
+        gaugeCollector.addSample(ImmutableMap.of("region", "region-1", "namespace", "lambda"),
                 now, metricQuery.getMetricConfig().getScrapeInterval() * 1.0D);
 
         replayAll();
