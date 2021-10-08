@@ -1,17 +1,17 @@
 # aws-exporter
 Standalone exporter to export AWS CloudWatch Metrics and Logs as prometheus metrics. This exporter uses AWS APIs and 
-fetches both metadata about some AWS Resources and metric data
+fetches both metadata and metric data
 
 # Configuration
 The exporter needs to be configured to extract metrics for one or more AWS Service types. AWS Service types map to a 
 namespace in CloudWatch. The supported names are :-
 
-| AWS Service | CloudWatch Namespace Name| 
-|--------------|--------------|
-| Lambda | lambda | 
-| SQS Queue | queue|
-| DynamoDB | dynamodb |
-| S3 | s3| 
+| AWS Service | CloudWatch Namespace | List of Metrics |
+|--------------|--------------|------------------------|
+| Lambda | lambda | [CloudWatch metrics](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics.html)|
+| SQS Queue | queue| [CloudWatch Metrics](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-available-cloudwatch-metrics.html)|
+| DynamoDB | dynamodb | [CloudWatch Metrics](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html)|
+| S3 | s3| [CloudWatch Metrics](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metrics-dimensions.html)|
 
 **Time interval configurations**
 
