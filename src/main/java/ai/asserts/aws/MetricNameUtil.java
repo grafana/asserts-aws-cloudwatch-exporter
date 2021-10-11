@@ -74,7 +74,11 @@ public class MetricNameUtil {
         int numContiguousUpperCase = 0;
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
-            if (Character.isUpperCase(c) && lastCaseWasSmall) {
+            if (c == '-') {
+                builder.append("_");
+                numContiguousUpperCase = 0;
+                continue;
+            } else if (Character.isUpperCase(c) && lastCaseWasSmall) {
                 builder.append("_");
             } else if (Character.isLowerCase(c) && numContiguousUpperCase > 1) {
                 char lastUpperCaseLetter = builder.toString().charAt(builder.length() - 1);

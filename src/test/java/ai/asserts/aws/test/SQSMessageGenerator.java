@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.sqs.model.SendMessageBatchResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class SQSMessageGenerator {
     @SuppressWarnings("BusyWait")
@@ -38,14 +39,16 @@ public class SQSMessageGenerator {
                 messages.add(buildMessage(messageId));
             }
 
-            SendMessageBatchRequest batchRequest = SendMessageBatchRequest.builder()
-                    .queueUrl("https://sqs.us-west-2.amazonaws.com/342994379019/lamda-sqs-poc-input-queue")
-                    .entries(messages.toArray(new SendMessageBatchRequestEntry[0]))
-                    .build();
-            SendMessageBatchResponse sendMessageBatchResponse = sqsClient.sendMessageBatch(batchRequest);
-            if (sendMessageBatchResponse.hasSuccessful()) {
-                System.out.println("Successfully send batch message with 5 messages");
-            }
+            Stream.of("Queue1", "Queue4", "Queue7").forEach(qName -> {
+                SendMessageBatchRequest batchRequest = SendMessageBatchRequest.builder()
+                        .queueUrl("https://sqs.us-west-2.amazonaws.com/342994379019/" + qName)
+                        .entries(messages.toArray(new SendMessageBatchRequestEntry[0]))
+                        .build();
+                SendMessageBatchResponse sendMessageBatchResponse = sqsClient.sendMessageBatch(batchRequest);
+                if (sendMessageBatchResponse.hasSuccessful()) {
+                    System.out.println("Successfully sent batch message with 5 messages to queue=" + qName);
+                }
+            });
             try {
                 Thread.sleep(15000L);
             } catch (InterruptedException e) {

@@ -2,9 +2,8 @@
  * Copyright © 2021
  * Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch;
+package ai.asserts.aws;
 
-import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.resource.Resource;
@@ -23,6 +22,7 @@ public class MetricNameUtilTest {
         MetricNameUtil metricNameUtil = new MetricNameUtil();
         assertEquals("method_duration_seconds", metricNameUtil.toSnakeCase("MethodDurationSeconds"));
         assertEquals("cpu_load15", metricNameUtil.toSnakeCase("CPULoad15"));
+        assertEquals("cpu_load", metricNameUtil.toSnakeCase("cpu-load"));
     }
 
     @Test

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LogScrapeConfigTest {
@@ -17,6 +18,7 @@ public class LogScrapeConfigTest {
     @BeforeEach
     public void setup() {
         logScrapeConfig = LogScrapeConfig.builder()
+                .lambdaFunctionName("Function.+")
                 .logFilterPattern("logFilter")
                 .regexPattern("put (.+?) in (.+?) queue")
                 .labels(ImmutableMap.of(
@@ -35,6 +37,13 @@ public class LogScrapeConfigTest {
     void initialize() {
         logScrapeConfig.initalize();
         assertTrue(logScrapeConfig.isValid());
+    }
+
+    @Test
+    void shouldScrapeLogsFor() {
+        logScrapeConfig.initalize();
+        assertTrue(logScrapeConfig.shouldScrapeLogsFor("Function-8-to-9"));
+        assertFalse(logScrapeConfig.shouldScrapeLogsFor("A-Function-8-to-9"));
     }
 
     @Test

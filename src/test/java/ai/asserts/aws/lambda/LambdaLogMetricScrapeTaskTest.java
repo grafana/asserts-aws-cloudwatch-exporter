@@ -40,7 +40,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         now = Instant.now();
         region = "region1";
         logScrapeConfig = LogScrapeConfig.builder()
-                .lambdaFunctionName("function-1")
+                .lambdaFunctionName("function.+")
                 .logFilterPattern("published OrderRequest to")
                 .regexPattern(".+?v2 About to to put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)")
                 .labels(ImmutableMap.of("message_type", "SQSQueue", "sqs_queue_name", "$1"))
@@ -67,7 +67,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of(
                 region, ImmutableMap.of(
                         "arn1", LambdaFunction.builder().name("function-1").build(),
-                        "arn2", LambdaFunction.builder().name("function-2").build()))
+                        "arn2", LambdaFunction.builder().name("Function-2").build()))
         ).anyTimes();
 
         expect(awsClientProvider.getCloudWatchLogsClient(region)).andReturn(cloudWatchLogsClient);

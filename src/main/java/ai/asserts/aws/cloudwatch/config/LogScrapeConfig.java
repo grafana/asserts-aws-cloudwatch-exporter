@@ -34,6 +34,8 @@ import static java.lang.String.format;
 @Slf4j
 public class LogScrapeConfig {
     private String lambdaFunctionName;
+    @EqualsAndHashCode.Exclude
+    private Pattern functionNamePattern;
     private String logFilterPattern;
     private String regexPattern;
     @ToString.Exclude
@@ -71,7 +73,12 @@ public class LogScrapeConfig {
 
     @VisibleForTesting
     public void compile() {
+        functionNamePattern = Pattern.compile(lambdaFunctionName);
         pattern = Pattern.compile(regexPattern);
+    }
+
+    public boolean shouldScrapeLogsFor(String functionName) {
+        return functionNamePattern.matcher(functionName).matches();
     }
 
     /**
