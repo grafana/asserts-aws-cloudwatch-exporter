@@ -21,6 +21,7 @@ import java.util.List;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class GaugeCollectorTest extends EasyMockSupport {
     @Test
@@ -55,6 +56,7 @@ public class GaugeCollectorTest extends EasyMockSupport {
 
         expect(metricNameUtil.toSnakeCase("dim1")).andReturn("dim1");
         expect(metricNameUtil.toSnakeCase("dim2")).andReturn("dim2");
+        expect(metricNameUtil.toSnakeCase("tag1")).andReturn("tag1");
         replayAll();
         gaugeCollector.addSample("region1",
                 MetricQuery.builder()
@@ -80,18 +82,15 @@ public class GaugeCollectorTest extends EasyMockSupport {
 
         Collector.MetricFamilySamples familSamples = metricFamilySamples.get(0);
         assertEquals(2, familSamples.samples.size());
-        assertEquals(
-                new Collector.MetricFamilySamples.Sample("metric",
+        assertTrue(
+                familSamples.samples.contains(new Collector.MetricFamilySamples.Sample("metric",
                         ImmutableList.of("d_dim1", "d_dim2", "region", "tag_tag1"),
                         ImmutableList.of("value1", "value2", "region1", "value"),
-                        1.0D, start.plusSeconds(60).toEpochMilli()),
-                familSamples.samples.get(0));
-        assertEquals(
-                new Collector.MetricFamilySamples.Sample("metric",
-                        ImmutableList.of("d_dim1", "d_dim2", "region", "tag_tag1"),
-                        ImmutableList.of("value1", "value2", "region1", "value"),
-                        2.0D, start.plusSeconds(120).toEpochMilli()),
-                familSamples.samples.get(1));
+                        1.0D, start.plusSeconds(60).toEpochMilli())));
+        assertTrue(familSamples.samples.contains(new Collector.MetricFamilySamples.Sample("metric",
+                ImmutableList.of("d_dim1", "d_dim2", "region", "tag_tag1"),
+                ImmutableList.of("value1", "value2", "region1", "value"),
+                2.0D, start.plusSeconds(120).toEpochMilli())));
         verifyAll();
     }
 }

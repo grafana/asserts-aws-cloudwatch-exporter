@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class ScrapeConfigProviderTest {
 
@@ -113,5 +114,11 @@ public class ScrapeConfigProviderTest {
         assertEquals(300, namespaceConfig.getPeriod());
         assertEquals(900, metricConfig.getScrapeInterval());
         assertEquals(60, metricConfig.getPeriod());
+    }
+
+    @Test
+    void integrationTest() {
+        ScrapeConfigProvider testClass = new ScrapeConfigProvider("src/test/resources/cloudwatch_scrape_config.yml");
+        assertNotNull(testClass.getScrapeConfig());
     }
 }

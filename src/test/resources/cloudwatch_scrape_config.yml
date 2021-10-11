@@ -1,13 +1,10 @@
 regions:
   - us-west-2
 namespaces:
-  - name: AWS/Lambda
+  - name: lambda
+    scrapeInterval: 60
+    period: 300
     metrics:
-      - name: Duration
-        stats:
-          - Average
-          - Maximum
-          - p95
       - name: Invocations
         stats:
           - Sum
@@ -33,13 +30,15 @@ namespaces:
       - name: ProvisionedConcurrencyUtilization
         stats:
           - Maximum
-    period: 60
-    length: 300
-  - name: AWS/SQS
+    logs:
+      - lambdaFunctionName: Function.+
+        logFilterPattern: "About to put message in SQS Queue"
+        regexPattern: ".*put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)"
+        labels:
+          "destination_type": "SQSQueue"
+          "destination_name": "$1"
+  - name: sqs
     metrics:
-      - name: ApproximateAgeOfOldestMessage
-        stats:
-          - Maximum
       - name: NumberOfMessagesReceived
         stats:
           - Sum
@@ -49,7 +48,7 @@ namespaces:
       - name: NumberOfMessagesDeleted
         stats:
           - Sum
-  - name: AWS/DynamoDB
+  - name: dynamodb
     metrics:
       - name: ConsumedReadCapacityUnits
         stats:
@@ -71,9 +70,9 @@ namespaces:
       - name: WriteThrottleEvents
         stats:
           - Sum
-  - name: AWS/S3
+  - name: s3
     period: 86400
-    length: 172800
+    scrapeInterval: 86400
     metrics:
       - name: NumberOfObjects
         stats:

@@ -116,8 +116,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     void scrape_Exception() {
         expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of(
                 region, ImmutableMap.of(
-                        "arn1", LambdaFunction.builder().name("function-1").build(),
-                        "arn2", LambdaFunction.builder().name("function-2").build()))
+                        "arn1", LambdaFunction.builder().name("function-1").build()))
         ).anyTimes();
         FilterLogEventsRequest request = FilterLogEventsRequest.builder()
                 .limit(10)
