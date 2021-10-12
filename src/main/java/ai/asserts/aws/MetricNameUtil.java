@@ -7,6 +7,7 @@ package ai.asserts.aws;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
+import ai.asserts.aws.resource.Resource;
 import com.google.common.collect.ImmutableMap;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -53,15 +54,23 @@ public class MetricNameUtil {
         metricQuery.getMetric().dimensions().forEach(dimension ->
                 labels.put(format("d_%s", toSnakeCase(dimension.name())), dimension.value()));
 
-        if (!CollectionUtils.isEmpty(metricQuery.getResource().getTags())) {
-            metricQuery.getResource().getTags().forEach(tag ->
-                    labels.put(format("tag_%s", toSnakeCase(tag.key())), tag.value()));
-        }
+        Map<String, String> tagLabels = getResourceTagLabels(metricQuery.getResource());
+        labels.putAll(tagLabels);
 
         return format("%s{%s}", exportedMetricName(metricQuery.getMetric(), metricStat),
                 labels.entrySet().stream()
                         .map(entry -> format("%s=\"%s\"", entry.getKey(), entry.getValue()))
                         .collect(joining(", ")));
+    }
+
+    public Map<String, String> getResourceTagLabels(Resource resource) {
+        Map<String, String> tagLabels = new TreeMap<>();
+        if (resource != null) {
+            if (!CollectionUtils.isEmpty(resource.getTags())) {
+                resource.getTags().forEach(tag -> tagLabels.put(format("tag_%s", toSnakeCase(tag.key())), tag.value()));
+            }
+        }
+        return tagLabels;
     }
 
     public String getMetricPrefix(String namespace) {

@@ -5,11 +5,16 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceType;
+import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,28 +31,54 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LambdaFunctionScraperTest extends EasyMockSupport {
-    private ScrapeConfigProvider scrapeConfigProvider;
     private AWSClientProvider awsClientProvider;
     private LambdaClient lambdaClient;
     private GaugeExporter gaugeExporter;
+    private TagFilterResourceProvider tagFilterResourceProvider;
+    private NamespaceConfig namespaceConfig;
     private LambdaFunctionScraper lambdaFunctionScraper;
 
     @BeforeEach
     public void setup() {
-        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
         lambdaClient = mock(LambdaClient.class);
         gaugeExporter = mock(GaugeExporter.class);
-        lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider, gaugeExporter);
+        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        namespaceConfig = mock(NamespaceConfig.class);
+
+        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .regions(ImmutableSortedSet.of("region1", "region2"))
+                .namespaces(ImmutableList.of(namespaceConfig))
+                .build();
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(namespaceConfig.getName()).andReturn("lambda").anyTimes();
+
+        lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider,
+                gaugeExporter, tagFilterResourceProvider);
     }
 
     @Test
     public void getFunctions() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
-                .regions(ImmutableSortedSet.of("region1", "region2"))
-                .build()).anyTimes();
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        Resource fn1Resource = Resource.builder()
+                .region("region1")
+                .name("fn1")
+                .type(ResourceType.LambdaFunction)
+                .arn("arn1")
+                .build();
+        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+                .andReturn(ImmutableSet.of(fn1Resource));
+
         expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
+        Resource fn3Resource = Resource.builder()
+                .region("region1")
+                .name("fn3")
+                .type(ResourceType.LambdaFunction)
+                .arn("arn3")
+                .build();
+        expect(tagFilterResourceProvider.getFilteredResources("region2", namespaceConfig))
+                .andReturn(ImmutableSet.of(fn3Resource));
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(
@@ -85,15 +116,22 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         assertEquals(
                 ImmutableMap.of(
-                        "arn1", LambdaFunction.builder().arn("arn1").name("fn1").build(),
-                        "arn2", LambdaFunction.builder().arn("arn2").name("fn2").build()
+                        "arn1", LambdaFunction.builder()
+                                .arn("arn1")
+                                .name("fn1")
+                                .region("region1")
+                                .resource(fn1Resource)
+                                .build()
                 ),
                 functionsByRegion.get("region1")
         );
         assertEquals(
                 ImmutableMap.of(
-                        "arn3", LambdaFunction.builder().arn("arn3").name("fn3").build(),
-                        "arn4", LambdaFunction.builder().arn("arn4").name("fn4").build()
+                        "arn3", LambdaFunction.builder().arn("arn3")
+                                .name("fn3")
+                                .region("region2")
+                                .resource(fn3Resource)
+                                .build()
                 ),
                 functionsByRegion.get("region2")
         );
@@ -103,9 +141,6 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
     @Test
     public void getFunctions_Exception() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
-                .regions(ImmutableSortedSet.of("region1", "region2"))
-                .build()).anyTimes();
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
 

@@ -25,6 +25,8 @@ public class Resource {
     private String arn;
     @EqualsAndHashCode.Include
     private String name;
+    @EqualsAndHashCode.Include
+    private String region;
 
     @Setter
     private List<Tag> tags;

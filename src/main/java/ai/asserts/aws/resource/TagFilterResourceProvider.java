@@ -8,9 +8,15 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
@@ -22,6 +28,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
@@ -37,13 +44,27 @@ public class TagFilterResourceProvider {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final GaugeExporter gaugeExporter;
+    private final LoadingCache<Key, Set<Resource>> resourceCache = CacheBuilder.newBuilder()
+            .expireAfterAccess(15, TimeUnit.MINUTES)
+            .build(new CacheLoader<Key, Set<Resource>>() {
+                @Override
+                public Set<Resource> load(Key key) {
+                    return getResourcesInternal(key);
+                }
+            });
 
     public Set<Resource> getFilteredResources(String region, NamespaceConfig namespaceConfig) {
-        Set<Resource> resources = new HashSet<>();
+        return resourceCache.getUnchecked(Key.builder()
+                .region(region)
+                .namespace(namespaceConfig)
+                .build());
+    }
 
-        ResourceGroupsTaggingApiClient resourceTagClient = awsClientProvider.getResourceTagClient(region);
+    private Set<Resource> getResourcesInternal(Key key) {
+        Set<Resource> resources = new HashSet<>();
+        CWNamespace cwNamespace = CWNamespace.valueOf(key.getNamespace().getName());
         GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
-        CWNamespace cwNamespace = CWNamespace.valueOf(namespaceConfig.getName());
+        ResourceGroupsTaggingApiClient resourceTagClient = awsClientProvider.getResourceTagClient(key.region);
         if (cwNamespace.getResourceTypes().size() > 0) {
             List<String> resourceTypeFilters = cwNamespace.getResourceTypes().stream()
                     .map(type -> format("%s:%s", cwNamespace.getServiceName(), type))
@@ -55,8 +76,8 @@ public class TagFilterResourceProvider {
             log.info("Applying resource type filters {}", cwNamespace.getServiceName());
         }
 
-        if (namespaceConfig.hasTagFilters()) {
-            builder = builder.tagFilters(namespaceConfig.getTagFilters().entrySet().stream()
+        if (key.getNamespace().hasTagFilters()) {
+            builder = builder.tagFilters(key.getNamespace().getTagFilters().entrySet().stream()
                     .map(entry -> TagFilter.builder()
                             .key(entry.getKey())
                             .values(entry.getValue())
@@ -72,7 +93,7 @@ public class TagFilterResourceProvider {
                         .paginationToken(nextToken)
                         .build());
                 timeTaken = System.currentTimeMillis() - timeTaken;
-                captureLatency(region, cwNamespace, timeTaken);
+                captureLatency(key.region, cwNamespace, timeTaken);
 
                 if (response.hasResourceTagMappingList()) {
                     response.resourceTagMappingList().forEach(resourceTagMapping ->
@@ -97,5 +118,13 @@ public class TagFilterResourceProvider {
                         SELF_OPERATION_LABEL, "get_resources_with_tags",
                         SELF_NAMESPACE_LABEL, cwNamespace.getNamespace()
                 ), Instant.now(), timeTaken * 1.0D);
+    }
+
+    @EqualsAndHashCode
+    @Builder
+    @Getter
+    public static class Key {
+        private final String region;
+        private final NamespaceConfig namespace;
     }
 }

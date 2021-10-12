@@ -27,7 +27,11 @@ public class ResourceMapperTest {
     public void map_SQSQueue() {
         String arn = "arn:aws:sqs:us-west-2:342994379019:lamda-sqs-poc-input-queue";
         assertEquals(
-                Optional.of(Resource.builder().type(SQSQueue).arn(arn).name("lamda-sqs-poc-input-queue").build()),
+                Optional.of(Resource.builder()
+                        .type(SQSQueue).arn(arn)
+                        .region("us-west-2")
+                        .name("lamda-sqs-poc-input-queue")
+                        .build()),
                 testClass.map(arn)
         );
     }
@@ -36,7 +40,12 @@ public class ResourceMapperTest {
     public void map_DynamoDBTable() {
         String arn = "arn:aws:dynamodb:us-west-2:342994379019:table/auction_app_bids/stream/2021-06-01T05:03:12.707";
         assertEquals(
-                Optional.of(Resource.builder().type(DynamoDBTable).arn(arn).name("auction_app_bids").build()),
+                Optional.of(Resource.builder()
+                        .type(DynamoDBTable)
+                        .arn(arn)
+                        .region("us-west-2")
+                        .name("auction_app_bids")
+                        .build()),
                 testClass.map(arn)
         );
     }
@@ -45,13 +54,21 @@ public class ResourceMapperTest {
     public void map_LambdaFunction() {
         String arn = "arn:aws:lambda:us-west-2:342994379019:function:lambda-poc-dynamodb-updates";
         assertEquals(
-                Optional.of(Resource.builder().type(LambdaFunction).arn(arn).name("lambda-poc-dynamodb-updates").build()),
+                Optional.of(Resource.builder()
+                        .type(LambdaFunction)
+                        .region("us-west-2")
+                        .arn(arn).name("lambda-poc-dynamodb-updates")
+                        .build()),
                 testClass.map(arn)
         );
 
         arn = "arn:aws:lambda:us-west-2:342994379019:function:lambda-poc-dynamodb-updates:version1";
         assertEquals(
-                Optional.of(Resource.builder().type(LambdaFunction).arn(arn).name("lambda-poc-dynamodb-updates").build()),
+                Optional.of(Resource.builder()
+                        .type(LambdaFunction)
+                        .region("us-west-2")
+                        .arn(arn).name("lambda-poc-dynamodb-updates")
+                        .build()),
                 testClass.map(arn)
         );
     }
@@ -60,13 +77,21 @@ public class ResourceMapperTest {
     public void map_S3Bucket() {
         String arn = "arn:aws:s3:::ai-asserts-dev-custom-rules";
         assertEquals(
-                Optional.of(Resource.builder().type(S3Bucket).arn(arn).name("ai-asserts-dev-custom-rules").build()),
+                Optional.of(Resource.builder()
+                        .type(S3Bucket).arn(arn)
+                        .region("")
+                        .name("ai-asserts-dev-custom-rules")
+                        .build()),
                 testClass.map(arn)
         );
 
         arn = "arn:aws:s3:us-west-2:342994379019:ai-asserts-dev-custom-rules";
         assertEquals(
-                Optional.of(Resource.builder().type(S3Bucket).arn(arn).name("ai-asserts-dev-custom-rules").build()),
+                Optional.of(Resource.builder()
+                        .type(S3Bucket)
+                        .region("us-west-2")
+                        .arn(arn).name("ai-asserts-dev-custom-rules")
+                        .build()),
                 testClass.map(arn)
         );
     }
