@@ -1,6 +1,7 @@
 .idea/
 .gradle/
 **/build/
+**/bin/
 **/out/
 **/.project/
 **/.project
@@ -9,6 +10,7 @@
 
 # Compiled class file
 *.class
+*.classpath
 
 # Log file
 *.log

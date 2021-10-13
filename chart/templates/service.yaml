@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aws-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: aws-exporter
+spec:
+  ports:
+    - port: {{ .Values.service.aws.port }}
+      targetPort: {{ .Values.service.aws.port }}
+      protocol: TCP
+      name: aws
+    - port: {{ .Values.service.jmx.port }}
+      targetPort: {{ .Values.service.jmx.port }}
+      protocol: TCP
+      name: jmx
+  selector:
+    app: aws-exporter

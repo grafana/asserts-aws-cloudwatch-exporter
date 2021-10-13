@@ -1,0 +1,11 @@
+apiVersion: v2
+name: aws-exporter
+description: Runs aws-exporter
+type: application
+
+version: 0.1.0
+appVersion: 0.1.0
+
+maintainers:
+  - name: Asserts
+    url: https://github.com/asserts
