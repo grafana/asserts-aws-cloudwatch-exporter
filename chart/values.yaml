@@ -9,6 +9,8 @@ image:
 service:
   aws:
     port: 8010
+  jmx:
+    port: 8095
 
 env:
   AWS_ACCESS_KEY_ID: ""

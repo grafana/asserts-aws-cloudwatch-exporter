@@ -23,6 +23,17 @@ spec:
           - name: aws
             containerPort: {{ .Values.service.aws.port }}
             protocol: TCP
+          - name: jmx
+            containerPort: {{ .Values.service.jmx.port }}
+            protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /
+            port: jmx
+        readinessProbe:
+          httpGet:
+            path: /
+            port: jmx
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}
