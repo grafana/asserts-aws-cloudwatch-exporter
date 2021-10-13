@@ -23,8 +23,8 @@ RUN gradle bootJar --no-daemon
 FROM openjdk:8-jre-slim
 EXPOSE 8010
 WORKDIR /opt/demo_app
-COPY --from=builder /home/gradle/app/src/dist/*.yml ./
+COPY --from=builder /home/gradle/app/src/dist/conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml
 COPY --from=builder /home/gradle/app/build/libs/* ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.xml ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.properties ./
-CMD ["/bin/sh", "-c", "java -jar aws-exporter.jar --spring.config.location=application.properties"]
+CMD ["/bin/sh", "-c", "java -jar app-*.jar --spring.config.location=application.properties"]
