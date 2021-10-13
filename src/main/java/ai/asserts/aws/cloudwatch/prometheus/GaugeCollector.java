@@ -6,30 +6,27 @@ package ai.asserts.aws.cloudwatch.prometheus;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
-import com.google.common.annotations.VisibleForTesting;
 import io.prometheus.client.Collector;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.CollectionUtils;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static io.prometheus.client.Collector.Type.GAUGE;
-import static java.lang.String.format;
 
 @EqualsAndHashCode(callSuper = false)
 @Slf4j
 public class GaugeCollector extends Collector {
-    private MetricNameUtil metricNameUtil = new MetricNameUtil();
+    private final MetricNameUtil metricNameUtil;
+    private final LabelBuilder labelBuilder;
     private final String metricName;
     private final String helpText;
 
@@ -45,16 +42,11 @@ public class GaugeCollector extends Collector {
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private Map<Map<String, String>, MetricSamples> samplesByMetric = new ConcurrentHashMap<>();
 
-    public GaugeCollector(String metricName, String helpText) {
-        this.metricName = metricName;
-        this.helpText = helpText;
-    }
-
-    @VisibleForTesting
-    public GaugeCollector(String metricName, String helpText, MetricNameUtil metricNameUtil) {
-        this.metricName = metricName;
-        this.helpText = helpText;
+    public GaugeCollector(MetricNameUtil metricNameUtil, LabelBuilder labelBuilder, String metricName, String helpText) {
         this.metricNameUtil = metricNameUtil;
+        this.labelBuilder = labelBuilder;
+        this.metricName = metricName;
+        this.helpText = helpText;
     }
 
     @Override
@@ -78,18 +70,7 @@ public class GaugeCollector extends Collector {
     public void addSample(String region, MetricQuery metricQuery, int period,
                           List<Instant> timestamps, List<Double> values) {
         // Build labels
-        Map<String, String> labels = new TreeMap<>();
-        labels.put("region", region);
-        metricQuery.getMetric().dimensions().forEach(dimension -> {
-            String key = format("d_%s", metricNameUtil.toSnakeCase(dimension.name()));
-            labels.put(key, dimension.value());
-        });
-
-        if (metricQuery.getResource() != null && !CollectionUtils.isEmpty(metricQuery.getResource().getTags())) {
-            metricQuery.getResource().getTags().forEach(tag ->
-                    labels.put(format("tag_%s", metricNameUtil.toSnakeCase(tag.key())), tag.value()));
-        }
-
+        Map<String, String> labels = labelBuilder.buildLabels(region, metricQuery);
         for (int i = 0; i < timestamps.size(); i++) {
             addSample(labels, timestamps.get(i).plusSeconds(period).toEpochMilli(), values.get(i));
         }

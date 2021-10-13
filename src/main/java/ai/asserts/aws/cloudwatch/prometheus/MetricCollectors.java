@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.prometheus;
 
+import ai.asserts.aws.MetricNameUtil;
 import io.prometheus.client.CollectorRegistry;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,12 +18,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class MetricCollectors {
     private final CollectorRegistry collectorRegistry;
+    private final MetricNameUtil metricNameUtil;
+    private final LabelBuilder labelBuilder;
     private final Map<String, GaugeCollector> collectorsByMetric = new ConcurrentHashMap<>();
 
     public GaugeCollector getGauge(String name, String help) {
         return collectorsByMetric.computeIfAbsent(name, k -> {
             log.info("Creating Gauge for metric {}", name);
-            GaugeCollector gaugeCollector = new GaugeCollector(name, help);
+            GaugeCollector gaugeCollector = new GaugeCollector(metricNameUtil, labelBuilder, name, help);
             gaugeCollector.register(collectorRegistry);
             return gaugeCollector;
         });
