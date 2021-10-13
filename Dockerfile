@@ -22,9 +22,12 @@ RUN gradle bootJar --no-daemon
 # Stage 2 - Create a size optimized Image for our Service with only what we need to run
 FROM openjdk:8-jre-slim
 EXPOSE 8010
+EXPOSE 8095
 WORKDIR /opt/demo_app
 COPY --from=builder /home/gradle/app/src/dist/conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml
 COPY --from=builder /home/gradle/app/build/libs/* ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.xml ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.properties ./
-CMD ["/bin/sh", "-c", "java -jar app-*.jar --spring.config.location=application.properties"]
+COPY jmx_prometheus_javaagent-0.16.1.jar ./
+COPY httpserver_config.yml ./
+CMD ["/bin/sh", "-c", "java -javaagent:./jmx_prometheus_javaagent-0.16.1.jar=8095:httpserver_config.yml -jar app-*.jar --spring.config.location=application.properties"]
