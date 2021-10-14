@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TagFilterResourceProviderTest extends EasyMockSupport {
@@ -105,6 +106,8 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
 
+        expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
+
         replayAll();
         assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources("region", namespaceConfig));
         verifyAll();
@@ -155,6 +158,8 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
+
+        expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
 
         replayAll();
         assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources("region", namespaceConfig));

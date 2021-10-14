@@ -10,8 +10,6 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 
-import java.util.Map;
-
 @Getter
 @ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)

@@ -9,10 +9,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static ai.asserts.aws.resource.ResourceType.S3Bucket;
-import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
-import static ai.asserts.aws.resource.ResourceType.SQSQueue;
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
+import static ai.asserts.aws.resource.ResourceType.EventBus;
+import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
+import static ai.asserts.aws.resource.ResourceType.S3Bucket;
+import static ai.asserts.aws.resource.ResourceType.SNSTopic;
+import static ai.asserts.aws.resource.ResourceType.SQSQueue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ResourceMapperTest {
@@ -91,6 +93,32 @@ public class ResourceMapperTest {
                         .type(S3Bucket)
                         .region("us-west-2")
                         .arn(arn).name("ai-asserts-dev-custom-rules")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_SNS_Topic() {
+        String arn = "arn:aws:sns:us-west-2:342994379019:topic-name";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(SNSTopic).arn(arn)
+                        .region("us-west-2")
+                        .name("topic-name")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_EventBus_Topic() {
+        String arn = "arn:aws:events:us-west-2:342994379019:event-bus/event-bus-name";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(EventBus).arn(arn)
+                        .region("us-west-2")
+                        .name("event-bus-name")
                         .build()),
                 testClass.map(arn)
         );

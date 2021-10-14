@@ -117,18 +117,19 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 ))
                 .build();
 
+        ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
+                "region", region,
+                "d_function_name", "function-1",
+                "d_message_type", "SQSQueue",
+                "d_sqs_queue_name", "lamda-sqs-poc-output-queue");
+
         expect(cloudWatchLogsClient.filterLogEvents(request)).andReturn(response);
-        expect(metricNameUtil.getResourceTagLabels(resource)).andReturn(ImmutableMap.of("tag", "value"));
+        resource.addTagLabels(labels, metricNameUtil);
+
+        // Internal metric
         gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
 
-        gaugeExporter.exportMetric("aws_lambda_logs", "",
-                ImmutableSortedMap.of(
-                        "region", region,
-                        "d_function_name", "function-1",
-                        "d_message_type", "SQSQueue",
-                        "tag", "value",
-                        "d_sqs_queue_name", "lamda-sqs-poc-output-queue"),
-                now.minusSeconds(60), 1.0D);
+        gaugeExporter.exportMetric("aws_lambda_logs", "", labels, now.minusSeconds(60), 1.0D);
 
         replayAll();
         testClass.run();

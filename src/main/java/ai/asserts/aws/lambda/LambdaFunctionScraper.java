@@ -21,7 +21,6 @@ import software.amazon.awssdk.services.lambda.model.FunctionConfiguration;
 import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -38,17 +37,19 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 public class LambdaFunctionScraper {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
+    private final LambdaFunctionBuilder fnBuilder;
     private final GaugeExporter gaugeExporter;
     private final Supplier<Map<String, Map<String, LambdaFunction>>> functionsByRegion;
     private final TagFilterResourceProvider tagFilterResourceProvider;
 
     public LambdaFunctionScraper(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                 GaugeExporter gaugeExporter,
-                                 TagFilterResourceProvider tagFilterResourceProvider) {
+                                 GaugeExporter gaugeExporter, TagFilterResourceProvider tagFilterResourceProvider,
+                                 LambdaFunctionBuilder fnBuilder) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.gaugeExporter = gaugeExporter;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.fnBuilder = fnBuilder;
         this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions, 15, TimeUnit.MINUTES);
     }
 
@@ -64,23 +65,21 @@ public class LambdaFunctionScraper {
                 .findFirst();
         lambdaNSOpt.ifPresent(lambdaNS -> scrapeConfig.getRegions().forEach(region -> {
             try {
-                LambdaClient client = awsClientProvider.getLambdaClient(region);
+                LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region);
 
                 // Get all the functions
                 long timeTaken = System.currentTimeMillis();
-                ListFunctionsResponse lambdaFunctions = client.listFunctions();
+                ListFunctionsResponse response = lambdaClient.listFunctions();
                 captureLatency(region, System.currentTimeMillis() - timeTaken);
-                if (lambdaFunctions.hasFunctions()) {
+                if (response.hasFunctions()) {
                     Set<Resource> resources = tagFilterResourceProvider.getFilteredResources(region, lambdaNS);
-                    lambdaFunctions.functions().forEach(functionConfiguration ->
-                            findFunctionResource(resources, functionConfiguration).ifPresent(resource ->
-                                    functionsByRegion.computeIfAbsent(region, k -> new HashMap<>())
-                                            .put(functionConfiguration.functionArn(), LambdaFunction.builder()
-                                                    .region(region)
-                                                    .name(functionConfiguration.functionName())
-                                                    .arn(functionConfiguration.functionArn())
-                                                    .resource(resource)
-                                                    .build())));
+                    response.functions().forEach(fnConfig -> {
+                        Optional<Resource> fnResourceOpt = findFnResource(resources, fnConfig);
+                        functionsByRegion
+                                .computeIfAbsent(region, k -> new TreeMap<>())
+                                .computeIfAbsent(fnConfig.functionArn(), k ->
+                                        fnBuilder.buildFunction(region, lambdaClient, fnConfig, fnResourceOpt));
+                    });
                 }
             } catch (Exception e) {
                 log.error("Failed to retrieve lambda functions", e);
@@ -90,8 +89,8 @@ public class LambdaFunctionScraper {
         return functionsByRegion;
     }
 
-    private Optional<Resource> findFunctionResource(Set<Resource> resources,
-                                                    FunctionConfiguration functionConfiguration) {
+    private Optional<Resource> findFnResource(Set<Resource> resources,
+                                              FunctionConfiguration functionConfiguration) {
         return resources.stream()
                 .filter(resource -> resource.getArn().equals(functionConfiguration.functionArn()))
                 .findFirst();

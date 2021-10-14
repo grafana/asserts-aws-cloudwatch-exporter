@@ -130,7 +130,7 @@ public class LambdaLogMetricScrapeTask extends TimerTask {
                                             resource.getArn().equals(functionConfig.getArn()))
                                     .findFirst()
                                     .ifPresent(resource ->
-                                            logLabels.putAll(metricNameUtil.getResourceTagLabels(resource)));
+                                            resource.addTagLabels(logLabels, metricNameUtil));
                             uniqueLabels.add(logLabels);
                         }
                     });
