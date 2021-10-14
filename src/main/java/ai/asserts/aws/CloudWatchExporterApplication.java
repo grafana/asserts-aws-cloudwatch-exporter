@@ -19,6 +19,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class CloudWatchExporterApplication {
     public static void main(String[] args) {
         SpringApplication springApplication = new SpringApplication(CloudWatchExporterApplication.class);
+        springApplication.addListeners(new BuildInfoEventListener());
         springApplication.run(args);
     }
 }

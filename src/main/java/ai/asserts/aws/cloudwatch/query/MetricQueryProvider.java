@@ -84,7 +84,8 @@ public class MetricQueryProvider {
                     CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region);
 
                     Map<String, MetricConfig> configuredMetrics = new TreeMap<>();
-                    ns.getMetrics().forEach(metricConfig -> configuredMetrics.put(metricConfig.getName(), metricConfig));
+                    ns.getMetrics().forEach(metricConfig -> configuredMetrics.put(metricConfig.getName(),
+                            metricConfig));
 
                     String nextToken = null;
                     do {
@@ -122,7 +123,8 @@ public class MetricQueryProvider {
         Set<String> metricNames = new HashSet<>();
         queriesByInterval.forEach((region, byInterval) -> byInterval.forEach((interval, metrics) ->
                 queriesByInterval.get(region).get(interval).forEach(metricQuery -> {
-                    String exportedMetricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
+                    String exportedMetricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(),
+                            metricQuery.getMetricStat());
                     if (metricNames.add(exportedMetricName)) {
                         log.info("Will scrape {} agg over {} seconds every {} seconds",
                                 exportedMetricName,
@@ -143,7 +145,8 @@ public class MetricQueryProvider {
                 ), Instant.now(), timeTaken * 1.0D);
     }
 
-    private boolean belongsToFilteredResource(NamespaceConfig namespaceConfig, Set<Resource> tagFilteredResources, Metric metric) {
+    private boolean belongsToFilteredResource(NamespaceConfig namespaceConfig, Set<Resource> tagFilteredResources,
+                                              Metric metric) {
         return !namespaceConfig.hasTagFilters() ||
                 tagFilteredResources.stream().anyMatch(resource -> resource.matches(metric));
     }
@@ -157,7 +160,8 @@ public class MetricQueryProvider {
         List<MetricQuery> metricQueries = byIntervalWithDimensions
                 .computeIfAbsent(region, k -> new TreeMap<>())
                 .computeIfAbsent(metricConfig.getScrapeInterval(), k -> new ArrayList<>());
-        List<MetricQuery> moreQueries = metricQueryBuilder.buildQueries(queryIdGenerator, resources, metricConfig, metric);
+        List<MetricQuery> moreQueries = metricQueryBuilder.buildQueries(queryIdGenerator, resources, metricConfig,
+                metric);
         metricQueries.addAll(moreQueries);
     }
 }
