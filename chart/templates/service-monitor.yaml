@@ -18,9 +18,6 @@ spec:
   {{- if $.Values.serviceMonitor.interval }}
       interval: {{ $.Values.serviceMonitor.interval }}
   {{- end }}
-  {{- if $.Values.serviceMonitor.telemetryPath }}
-      path: {{ $.Values.serviceMonitor.telemetryPath }}
-  {{- end }}
   {{- if $.Values.serviceMonitor.timeout }}
       scrapeTimeout: {{ $.Values.serviceMonitor.timeout }}
   {{- end }}
@@ -30,7 +27,9 @@ spec:
   {{- end }}
   {{- if $.Values.serviceMonitor.metricRelabelings }}
       metricRelabelings:
-  {{ toYaml $.Values.serviceMonitor.metricRelabelings | indent 6 }}
+      {{- range $.Values.serviceMonitor.metricRelabelings }}
+        - {{ . }}
+      {{- end }}
   {{- end }}
   {{- end }}
   jobLabel: {{ .Release.Name }}
