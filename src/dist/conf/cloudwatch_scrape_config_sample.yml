@@ -3,7 +3,7 @@ regions:
 namespaces:
   - name: lambda
     scrapeInterval: 60
-    period: 300
+    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -22,14 +22,11 @@ namespaces:
       - name: DestinationDeliveryFailures
         stats:
           - Sum
-      - name: IteratorAge
+      - name: Duration
         stats:
-          - Maximum
+          - p99
           - Average
       - name: ConcurrentExecutions
-        stats:
-          - Sum
-      - name: ProvisionedConcurrencyUtilization
         stats:
           - Maximum
     logs:
@@ -45,9 +42,6 @@ namespaces:
         stats:
           - Sum
       - name: NumberOfMessagesSent
-        stats:
-          - Sum
-      - name: NumberOfMessagesDeleted
         stats:
           - Sum
   - name: dynamodb

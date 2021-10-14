@@ -14,7 +14,7 @@ public enum MetricStat {
     Minimum("min"),
     Maximum("max"),
     p95("p95"),
-    p99("p95"),
+    p99("p99"),
     p50("p50");
 
     private String shortForm;
