@@ -50,6 +50,24 @@ dependencies {
     )
 }
 
+springBoot {
+	buildInfo()
+}
+
+bootJar {
+	enabled = true
+	manifest {
+		attributes(
+				"Implementation-Title": "AWS Exporter",
+				"Implementation-Vendor": "Asserts",
+				"Implementation-Version": archiveVersion)
+	}
+}
+
+jar {
+	enabled = true
+}
+
 test {
     useJUnitPlatform()
 }

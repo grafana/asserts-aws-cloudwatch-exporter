@@ -1,0 +1,20 @@
+# Default values for AWS Exporter
+
+image:
+  repository: 543343501704.dkr.ecr.us-west-2.amazonaws.com/ai.asserts.aws-exporter
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: 0.1.0
+
+service:
+  aws:
+    port: 8010
+  jmx:
+    port: 8095
+
+env:
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+
+serviceMonitor:
+  enabled: false
