@@ -45,6 +45,13 @@ public class MetricConfig {
     private Integer scrapeInterval;
     private Set<MetricStat> stats;
 
+    /**
+     * The number of samples that will be returned in each scrape of this metric. This is determined by the
+     * {@link #getScrapeInterval()} and {@link #getPeriod()}. If <code> period < scrapeInterval </code> then this
+     * would be <code>scrapeInterval / period</code>. Else this would be just <code>1</code>
+     *
+     * @return The number of samples per scrape
+     */
     public int numSamplesPerScrape() {
         return getScrapeInterval() > getPeriod() ? getScrapeInterval() / getPeriod() : 1;
     }

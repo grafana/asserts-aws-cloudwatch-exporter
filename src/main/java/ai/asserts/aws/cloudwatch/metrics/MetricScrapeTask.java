@@ -5,6 +5,7 @@
 package ai.asserts.aws.cloudwatch.metrics;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
@@ -32,6 +33,16 @@ import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
 
+/**
+ * Scrapes metrics using the <code>GetMetricData</code> AWS API. Depends on {@link MetricQueryProvider} to provide
+ * the queries for the region that it scrapes. The metrics are split into batches to meet the following constraints
+ * <ol>
+ *     <li>A maximum of 500 metrics per API call</li>
+ *     <li>A maximum of 100800 data points returned in each call</li>
+ * </ol>
+ * <p>
+ * The number of samples per metric is determined by {@link MetricConfig#numSamplesPerScrape()}
+ */
 @Slf4j
 @Setter
 @Getter
