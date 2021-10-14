@@ -31,10 +31,10 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SELF_NAMESPACE_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.lang.String.format;
 
 @Component
@@ -112,11 +112,11 @@ public class TagFilterResourceProvider {
     }
 
     private void captureLatency(String region, CWNamespace cwNamespace, long timeTaken) {
-        gaugeExporter.exportMetric(SELF_LATENCY_METRIC, "scraper Instrumentation",
+        gaugeExporter.exportMetric(SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
                 ImmutableMap.of(
-                        SELF_REGION_LABEL, region,
-                        SELF_OPERATION_LABEL, "get_resources_with_tags",
-                        SELF_NAMESPACE_LABEL, cwNamespace.getNamespace()
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, "get_resources_with_tags",
+                        SCRAPE_NAMESPACE_LABEL, cwNamespace.getNamespace()
                 ), Instant.now(), timeTaken * 1.0D);
     }
 

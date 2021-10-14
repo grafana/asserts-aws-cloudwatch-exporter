@@ -33,10 +33,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TimerTask;
 
-import static ai.asserts.aws.MetricNameUtil.SELF_FUNCTION_NAME_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_FUNCTION_NAME_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.lang.String.format;
 
 /**
@@ -147,11 +147,11 @@ public class LambdaLogMetricScrapeTask extends TimerTask {
     }
 
     private void captureLatency(LambdaFunction functionConfig, long timeTaken) {
-        gaugeExporter.exportMetric(SELF_LATENCY_METRIC, "scraper Instrumentation",
+        gaugeExporter.exportMetric(SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
                 ImmutableMap.of(
-                        SELF_REGION_LABEL, region,
-                        SELF_OPERATION_LABEL, "scrape_lambda_logs",
-                        SELF_FUNCTION_NAME_LABEL, functionConfig.getName()
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, "scrape_lambda_logs",
+                        SCRAPE_FUNCTION_NAME_LABEL, functionConfig.getName()
                 ), Instant.now(), timeTaken * 1.0D);
     }
 

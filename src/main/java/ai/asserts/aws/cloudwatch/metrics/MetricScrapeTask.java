@@ -28,10 +28,10 @@ import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import static ai.asserts.aws.MetricNameUtil.SELF_INTERVAL_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_INTERVAL_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 /**
  * Scrapes metrics using the <code>GetMetricData</code> AWS API. Depends on {@link MetricQueryProvider} to provide
@@ -130,11 +130,11 @@ public class MetricScrapeTask extends TimerTask {
 
     private void captureLatency(long timeTaken) {
         gaugeExporter.exportMetric(
-                SELF_LATENCY_METRIC, "scraper Instrumentation",
+                SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
                 ImmutableMap.of(
-                        SELF_REGION_LABEL, region,
-                        SELF_OPERATION_LABEL, "get_metric_data",
-                        SELF_INTERVAL_LABEL, intervalSeconds + ""
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, "get_metric_data",
+                        SCRAPE_INTERVAL_LABEL, intervalSeconds + ""
                 ), Instant.now(), timeTaken * 1.0D);
     }
 
