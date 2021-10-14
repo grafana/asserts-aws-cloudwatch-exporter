@@ -21,16 +21,14 @@ spec:
   {{- if $.Values.serviceMonitor.timeout }}
       scrapeTimeout: {{ $.Values.serviceMonitor.timeout }}
   {{- end }}
-  {{- if $.Values.serviceMonitor.relabelings }}
+{{- if $.Values.serviceMonitor.relabelings }}
       relabelings:
   {{ toYaml $.Values.serviceMonitor.relabelings | indent 6 }}
-  {{- end }}
-  {{- if $.Values.serviceMonitor.metricRelabelings }}
+{{- end }}
+{{- if $.Values.serviceMonitor.metricRelabelings }}
       metricRelabelings:
-      {{- range $.Values.serviceMonitor.metricRelabelings }}
-        - {{ . }}
-      {{- end }}
-  {{- end }}
+{{ toYaml $.Values.serviceMonitor.metricRelabelings | indent 6 }}
+{{- end }}
   {{- end }}
   jobLabel: {{ .Release.Name }}
   namespaceSelector:
