@@ -18,3 +18,7 @@ env:
 
 serviceMonitor:
   enabled: false
+  endpoints:
+    - port: aws
+      path: /aws-exporter/actuator/prometheus
+    - port: jmx
