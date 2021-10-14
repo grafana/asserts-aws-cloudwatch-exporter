@@ -30,6 +30,9 @@ public class ScrapeConfig {
     @Builder.Default
     private Integer period = 300;
 
+    @Builder.Default
+    private Integer delay = 60;
+
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {
             return Optional.empty();

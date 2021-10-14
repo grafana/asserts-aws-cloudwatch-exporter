@@ -40,7 +40,8 @@ public class LabelBuilderTest extends EasyMockSupport {
 
         assertEquals(ImmutableMap.of(
                 "region", "region1",
-                "d_function_name", "function1"
+                "d_function_name", "function1",
+                "job", "function1"
         ), labels);
     }
 
@@ -66,7 +67,8 @@ public class LabelBuilderTest extends EasyMockSupport {
 
         assertEquals(ImmutableMap.of(
                 "region", "region1",
-                "d_queue_name", "queue1"
+                "d_queue_name", "queue1",
+                "topic", "queue1"
         ), labels);
     }
 }

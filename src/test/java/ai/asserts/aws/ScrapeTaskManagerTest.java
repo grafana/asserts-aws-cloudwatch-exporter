@@ -51,8 +51,10 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
 
     @Test
     void setupScrapeTasks() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        int delay = 60;
 
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getDelay()).andReturn(delay).anyTimes();
         timer.schedule(eq(lambdaEventSourceExporter), anyLong(), eq(60_000L));
 
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2")).anyTimes();
@@ -72,11 +74,11 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
                 .logs(logScrapeConfigs)
                 .build()));
 
-        expectMetricScrapeTask("region1", 120);
-        expectMetricScrapeTask("region1", 300);
+        expectMetricScrapeTask("region1", 120, delay);
+        expectMetricScrapeTask("region1", 300, delay);
 
-        expectMetricScrapeTask("region2", 120);
-        expectMetricScrapeTask("region2", 300);
+        expectMetricScrapeTask("region2", 120, delay);
+        expectMetricScrapeTask("region2", 300, delay);
 
         expectLambdaLogScrapeTask(logScrapeConfigs, "region1");
         expectLambdaLogScrapeTask(logScrapeConfigs, "region2");
@@ -92,9 +94,9 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         timer.schedule(eq(lambdaTask1), anyLong(), eq(60_000L));
     }
 
-    private void expectMetricScrapeTask(String region, int interval_120) {
-        MetricScrapeTask task1 = new MetricScrapeTask(region, interval_120);
+    private void expectMetricScrapeTask(String region, int interval, int delay) {
+        MetricScrapeTask task1 = new MetricScrapeTask(region, interval, delay);
         beanFactory.autowireBean(task1);
-        timer.schedule(eq(task1), anyLong(), eq(interval_120 * 1000L));
+        timer.schedule(eq(task1), anyLong(), eq(interval * 1000L));
     }
 }

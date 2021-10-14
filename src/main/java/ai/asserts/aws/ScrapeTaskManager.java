@@ -65,7 +65,7 @@ public class ScrapeTaskManager {
                                         Map<String, TimerTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
                                                 k -> new TreeMap<>());
                                         if (!byRegion.containsKey(region)) {
-                                            byRegion.put(region, metricScrapeTask(region, interval));
+                                            byRegion.put(region, metricScrapeTask(region, interval, scrapeConfig.getDelay()));
                                         }
                                     }
                             ));
@@ -94,8 +94,8 @@ public class ScrapeTaskManager {
         return logScraperTask;
     }
 
-    private MetricScrapeTask metricScrapeTask(String region, Integer interval) {
-        MetricScrapeTask metricScrapeTask = new MetricScrapeTask(region, interval);
+    private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay) {
+        MetricScrapeTask metricScrapeTask = new MetricScrapeTask(region, interval, delay);
         beanFactory.autowireBean(metricScrapeTask);
         scheduleTask(interval, metricScrapeTask);
         log.info("Setup metric scrape task for region {} and interval {}", region, interval);

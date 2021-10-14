@@ -4,6 +4,8 @@ namespaces:
   - name: lambda
     scrapeInterval: 60
     period: 300
+    dimensionFilters:
+      FunctionName: (.+)
     metrics:
       - name: Invocations
         stats:

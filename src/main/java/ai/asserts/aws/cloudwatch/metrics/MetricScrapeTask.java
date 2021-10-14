@@ -47,12 +47,12 @@ public class MetricScrapeTask extends TimerTask {
     private GaugeExporter gaugeExporter;
     private final String region;
     private final int intervalSeconds;
-    @EqualsAndHashCode.Exclude
-    private final int delaySeconds = 60;
+    private final int delaySeconds;
 
-    public MetricScrapeTask(String region, int intervalSeconds) {
+    public MetricScrapeTask(String region, int intervalSeconds, int delay) {
         this.region = region;
         this.intervalSeconds = intervalSeconds;
+        this.delaySeconds = delay;
     }
 
     public void run() {
