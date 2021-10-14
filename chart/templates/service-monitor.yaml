@@ -14,7 +14,7 @@ spec:
       path: $endpoint.path
   {{- end }}
   {{- if .Values.serviceMonitor.honorLabels }}
-      honorLabels: {{ .Values.serviceMonitor.honorLabels }}}}
+      honorLabels: {{ .Values.serviceMonitor.honorLabels }}
   {{- end }}
   {{- if .Values.serviceMonitor.interval }}
       interval: {{ .Values.serviceMonitor.interval }}
