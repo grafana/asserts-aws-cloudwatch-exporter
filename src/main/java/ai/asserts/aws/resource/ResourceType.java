@@ -5,6 +5,8 @@
 package ai.asserts.aws.resource;
 
 public enum ResourceType {
+    SNSTopic,
+    EventBus,
     SQSQueue, // SQS Queue
     DynamoDBTable, // Dynamo DB Table
     LambdaFunction, // Lambda function

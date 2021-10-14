@@ -14,7 +14,6 @@ import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import org.easymock.EasyMockSupport;
@@ -23,14 +22,10 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.EventSourceMappingConfiguration;
 import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsResponse;
-import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.time.Instant;
 import java.util.Optional;
 
-import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
-import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
-import static ai.asserts.aws.resource.ResourceType.SQSQueue;
 import static org.easymock.EasyMock.expect;
 
 public class LambdaEventSourceExporterTest extends EasyMockSupport {
@@ -39,9 +34,10 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
     private GaugeExporter gaugeExporter;
     private ResourceMapper resourceMapper;
     private NamespaceConfig namespaceConfig;
-    private Tag tag;
     private TagFilterResourceProvider tagFilterResourceProvider;
     private LambdaEventSourceExporter testClass;
+    private Resource fnResource;
+    private Resource sourceResource;
     private Instant now;
 
     @BeforeEach
@@ -51,7 +47,8 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         lambdaClient = mock(LambdaClient.class);
         resourceMapper = mock(ResourceMapper.class);
         now = Instant.now();
-        tag = Tag.builder().key("tag").value("value").build();
+        fnResource = mock(Resource.class);
+        sourceResource = mock(Resource.class);
         tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
 
         namespaceConfig = mock(NamespaceConfig.class);
@@ -78,36 +75,18 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
     @Test
     public void exportEventSourceMappings() {
-        Resource fn1Resource = Resource.builder()
-                .arn("fn1_arn")
-                .region("region1")
-                .name("fn1")
-                .type(LambdaFunction)
-                .tags(ImmutableList.of(tag))
-                .build();
+        ImmutableSortedMap<String, String> fn1Labels = ImmutableSortedMap.of(
+                "region", "region1",
+                "lambda_function", "fn1"
+        );
 
-        Resource queueResource = Resource.builder()
-                .type(SQSQueue)
-                .arn("queue_arn")
-                .name("queue")
-                .region("region1")
-                .build();
-
-        Resource fn2Resource = Resource.builder()
-                .type(LambdaFunction)
-                .arn("fn2_arn")
-                .name("fn2")
-                .region("region1")
-                .build();
-
-        Resource dynamoTableResource = Resource.builder().type(DynamoDBTable)
-                .arn("table_arn")
-                .name("table")
-                .region("region1")
-                .build();
+        ImmutableSortedMap<String, String> fn2Labels = ImmutableSortedMap.of(
+                "region", "region1",
+                "lambda_function", "fn2"
+        );
 
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
-                .andReturn(ImmutableSet.of(fn1Resource, fn2Resource));
+                .andReturn(ImmutableSet.of(fnResource, fnResource));
 
         expect(lambdaClient.listEventSourceMappings()).andReturn(
                 ListEventSourceMappingsResponse.builder()
@@ -124,34 +103,26 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                         .build()
         );
 
+        String help = "Metric with lambda event source information";
+
         expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
 
-        expect(resourceMapper.map("fn1_arn")).andReturn(Optional.of(fn1Resource));
-        expect(resourceMapper.map("queue_arn")).andReturn(Optional.of(queueResource));
-        expect(metricNameUtil.getResourceTagLabels(fn1Resource)).andReturn(ImmutableMap.of("tag", "value"));
-
-        expect(resourceMapper.map("fn2_arn")).andReturn(Optional.of(fn2Resource));
-        expect(resourceMapper.map("table_arn")).andReturn(Optional.of(dynamoTableResource));
-        expect(metricNameUtil.getResourceTagLabels(fn2Resource)).andReturn(ImmutableMap.of());
-
-        String help = "Metric with lambda event source information";
+        expect(fnResource.getName()).andReturn("fn1");
+        expect(resourceMapper.map("fn1_arn")).andReturn(Optional.of(fnResource));
+        expect(resourceMapper.map("queue_arn")).andReturn(Optional.of(sourceResource));
+        fnResource.addTagLabels(fn1Labels, metricNameUtil);
+        sourceResource.addLabels(fn1Labels, "event_source");
         gaugeExporter.exportMetric("aws_lambda_event_source", help,
-                ImmutableSortedMap.of(
-                        "region", "region1",
-                        "event_source_name", "queue",
-                        "event_source_type", "SQSQueue",
-                        "lambda_function", "fn1",
-                        "tag", "value"
-                ),
+                fn1Labels,
                 now, 1.0D);
 
+        expect(fnResource.getName()).andReturn("fn2");
+        expect(resourceMapper.map("fn2_arn")).andReturn(Optional.of(fnResource));
+        expect(resourceMapper.map("table_arn")).andReturn(Optional.of(sourceResource));
+        fnResource.addTagLabels(fn2Labels, metricNameUtil);
+        sourceResource.addLabels(fn2Labels, "event_source");
         gaugeExporter.exportMetric("aws_lambda_event_source", help,
-                ImmutableSortedMap.of(
-                        "region", "region1",
-                        "event_source_name", "table",
-                        "event_source_type", "DynamoDBTable",
-                        "lambda_function", "fn2"
-                ),
+                fn2Labels,
                 now, 1.0D);
 
         replayAll();

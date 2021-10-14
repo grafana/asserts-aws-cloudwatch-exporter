@@ -66,9 +66,8 @@ public class LambdaEventSourceExporter extends TimerTask {
                                     Map<String, String> labels = new TreeMap<>();
                                     labels.put("region", region);
                                     labels.put("lambda_function", functionResource.getName());
-                                    labels.putAll(metricNameUtil.getResourceTagLabels(functionResource));
-                                    labels.put("event_source_type", eventSourceResource.getType().name());
-                                    labels.put("event_source_name", eventSourceResource.getName());
+                                    eventSourceResource.addLabels(labels, "event_source");
+                                    functionResource.addTagLabels(labels, metricNameUtil);
                                     gaugeExporter.exportMetric(metricName, HELP_TEXT, labels, now, 1.0D);
                                 }));
                     });

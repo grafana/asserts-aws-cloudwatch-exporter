@@ -54,23 +54,12 @@ public class MetricNameUtil {
         metricQuery.getMetric().dimensions().forEach(dimension ->
                 labels.put(format("d_%s", toSnakeCase(dimension.name())), dimension.value()));
 
-        Map<String, String> tagLabels = getResourceTagLabels(metricQuery.getResource());
-        labels.putAll(tagLabels);
+        metricQuery.getResource().addTagLabels(labels,this);
 
         return format("%s{%s}", exportedMetricName(metricQuery.getMetric(), metricStat),
                 labels.entrySet().stream()
                         .map(entry -> format("%s=\"%s\"", entry.getKey(), entry.getValue()))
                         .collect(joining(", ")));
-    }
-
-    public Map<String, String> getResourceTagLabels(Resource resource) {
-        Map<String, String> tagLabels = new TreeMap<>();
-        if (resource != null) {
-            if (!CollectionUtils.isEmpty(resource.getTags())) {
-                resource.getTags().forEach(tag -> tagLabels.put(format("tag_%s", toSnakeCase(tag.key())), tag.value()));
-            }
-        }
-        return tagLabels;
     }
 
     public String getMetricPrefix(String namespace) {

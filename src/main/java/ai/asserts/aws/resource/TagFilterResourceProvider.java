@@ -17,6 +17,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
@@ -36,6 +37,8 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.joining;
 
 @Component
 @AllArgsConstructor
@@ -48,7 +51,7 @@ public class TagFilterResourceProvider {
             .expireAfterAccess(15, TimeUnit.MINUTES)
             .build(new CacheLoader<Key, Set<Resource>>() {
                 @Override
-                public Set<Resource> load(Key key) {
+                public Set<Resource> load(@NonNull Key key) {
                     return getResourcesInternal(key);
                 }
             });
@@ -107,7 +110,12 @@ public class TagFilterResourceProvider {
         } catch (Exception e) {
             log.error("Failed to get resources using resource tag api", e);
         }
-        log.info("Found {} resources", resources);
+        log.info("Found {}", resources.stream()
+                .collect(groupingBy(Resource::getType))
+                .entrySet()
+                .stream()
+                .map(entry -> format("%d %s(s)", entry.getValue().size(), entry.getKey().name()))
+                .collect(joining(", ")));
         return resources;
     }
 
