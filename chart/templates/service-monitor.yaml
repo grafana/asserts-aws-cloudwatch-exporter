@@ -6,12 +6,11 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 spec:
-{{- if .Values.serviceMonitor.endpoints }}
   endpoints:
   {{- range $endpoint := .Values.serviceMonitor.endpoints }}
-    - port: $endpoint.port
+    - port: {{ $endpoint.port }}
   {{- if $endpoint.path }}
-      path: $endpoint.path
+      path: {{ $endpoint.path }}
   {{- end }}
   {{- if $.Values.serviceMonitor.honorLabels }}
       honorLabels: {{ $.Values.serviceMonitor.honorLabels }}
@@ -34,7 +33,6 @@ spec:
   {{ toYaml $.Values.serviceMonitor.metricRelabelings | indent 6 }}
   {{- end }}
   {{- end }}
-{{- end }}
   jobLabel: {{ .Release.Name }}
   namespaceSelector:
     matchNames:
