@@ -21,12 +21,12 @@ import static java.util.stream.Collectors.joining;
 
 @Component
 public class MetricNameUtil {
-    public static final String SELF_LATENCY_METRIC = "cw_scrape_milliseconds";
-    public static final String SELF_OPERATION_LABEL = "operation";
-    public static final String SELF_REGION_LABEL = "region";
-    public static final String SELF_NAMESPACE_LABEL = "namespace";
-    public static final String SELF_INTERVAL_LABEL = "interval";
-    public static final String SELF_FUNCTION_NAME_LABEL = "function_name";
+    public static final String SCRAPE_LATENCY_METRIC = "cw_scrape_milliseconds";
+    public static final String SCRAPE_OPERATION_LABEL = "operation";
+    public static final String SCRAPE_REGION_LABEL = "region";
+    public static final String SCRAPE_NAMESPACE_LABEL = "cw_namespace";
+    public static final String SCRAPE_INTERVAL_LABEL = "interval";
+    public static final String SCRAPE_FUNCTION_NAME_LABEL = "function_name";
 
     private final Map<String, String> NAMESPACE_TO_METRIC_PREFIX = new ImmutableMap.Builder<String, String>()
             .put(CWNamespace.lambda.getNamespace(), "aws_lambda")

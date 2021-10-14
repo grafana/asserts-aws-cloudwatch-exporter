@@ -29,9 +29,9 @@ import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-import static ai.asserts.aws.MetricNameUtil.SELF_LATENCY_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 @Slf4j
@@ -98,10 +98,10 @@ public class LambdaFunctionScraper {
     }
 
     private void captureLatency(String region, long timeTaken) {
-        gaugeExporter.exportMetric(SELF_LATENCY_METRIC, "scraper Instrumentation",
+        gaugeExporter.exportMetric(SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
                 ImmutableMap.of(
-                        SELF_REGION_LABEL, region,
-                        SELF_OPERATION_LABEL, "scrape_lambda_functions"
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, "scrape_lambda_functions"
                 ), Instant.now(), timeTaken * 1.0D);
     }
 }
