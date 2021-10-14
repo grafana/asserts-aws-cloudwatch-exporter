@@ -39,6 +39,10 @@ import static ai.asserts.aws.MetricNameUtil.SELF_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SELF_REGION_LABEL;
 import static java.lang.String.format;
 
+/**
+ * Scrapes the cloudwatch logs and converts log messages into <code>aws_lambda_logs</code> metrics based
+ * on the provided {@link LogScrapeConfig}s
+ */
 @Slf4j
 @EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
 @Setter
