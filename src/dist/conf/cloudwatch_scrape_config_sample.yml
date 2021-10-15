@@ -29,9 +29,6 @@ namespaces:
       - name: ConcurrentExecutions
         stats:
           - Maximum
-      - name: ProvisionedConcurrencyUtilization
-        stats:
-          - Maximum
     logs:
       - lambdaFunctionName: Function.+
         logFilterPattern: "About to put message in SQS Queue"
@@ -45,9 +42,6 @@ namespaces:
         stats:
           - Sum
       - name: NumberOfMessagesSent
-        stats:
-          - Sum
-      - name: NumberOfMessagesDeleted
         stats:
           - Sum
   - name: dynamodb
