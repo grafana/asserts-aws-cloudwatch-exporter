@@ -76,3 +76,33 @@ namespaces:
       - name: BucketSizeBytes
         stats:
           - Average
+  - name: lambdainsights
+    scrapeInterval: 60
+    period: 60
+    dimensionFilters:
+      FunctionName: (.+)
+    metrics:
+      - name: memory_utilization
+        stats:
+          - Average
+      - name: total_memory
+        stats:
+          - Average
+      - name: used_memory_max
+        stats:
+          - Maximum
+      - name: cpu_total_time
+        stats:
+          - Sum
+      - name: tx_bytes
+        stats:
+          - Sum
+      - name: rx_bytes
+        stats:
+          - Sum
+      - name: total_network
+        stats:
+          - Sum
+      - name: init_duration
+        stats:
+          - Maximum

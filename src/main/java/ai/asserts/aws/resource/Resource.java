@@ -5,6 +5,7 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.MetricNameUtil;
+import com.google.common.collect.Sets;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -17,6 +18,7 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.lang.String.format;
 
@@ -26,12 +28,12 @@ import static java.lang.String.format;
 @ToString
 public class Resource {
     @EqualsAndHashCode.Include
-    private ResourceType type;
-    private String arn;
+    private final ResourceType type;
+    private final String arn;
     @EqualsAndHashCode.Include
-    private String name;
+    private final String name;
     @EqualsAndHashCode.Include
-    private String region;
+    private final String region;
 
     @Setter
     private List<Tag> tags;
@@ -41,7 +43,7 @@ public class Resource {
     }
 
     boolean matches(Dimension dimension) {
-        return dimension.name().equals(metricDimensionName()) && name.equals(dimension.value());
+        return metricDimensionNames().contains(dimension.name()) && name.equals(dimension.value());
     }
 
     public void addLabels(Map<String, String> labels, String prefix) {
@@ -55,18 +57,18 @@ public class Resource {
         }
     }
 
-    private String metricDimensionName() {
+    private Set<String> metricDimensionNames() {
         switch (type) {
             case LambdaFunction:
-                return "FunctionName";
+                return Sets.newHashSet("FunctionName", "function_name");
             case SQSQueue:
-                return "QueueName";
+                return Sets.newHashSet("QueueName");
             case DynamoDBTable:
-                return "TableName";
+                return Sets.newHashSet("TableName");
             case S3Bucket:
-                return "BucketName";
+                return Sets.newHashSet("BucketName");
             default:
-                return "Unknown";
+                return Sets.newHashSet();
         }
     }
 }
