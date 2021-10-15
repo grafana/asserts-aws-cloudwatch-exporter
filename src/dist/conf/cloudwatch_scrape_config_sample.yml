@@ -29,6 +29,9 @@ namespaces:
       - name: ConcurrentExecutions
         stats:
           - Maximum
+      - name: ProvisionedConcurrencyUtilization
+        stats:
+          - Maximum
     logs:
       - lambdaFunctionName: Function.+
         logFilterPattern: "About to put message in SQS Queue"
@@ -42,6 +45,9 @@ namespaces:
         stats:
           - Sum
       - name: NumberOfMessagesSent
+        stats:
+          - Sum
+      - name: NumberOfMessagesDeleted
         stats:
           - Sum
   - name: dynamodb
@@ -76,3 +82,33 @@ namespaces:
       - name: BucketSizeBytes
         stats:
           - Average
+  - name: lambdainsights
+    scrapeInterval: 60
+    period: 60
+    dimensionFilters:
+      FunctionName: (.+)
+    metrics:
+      - name: memory_utilization
+        stats:
+          - Average
+      - name: total_memory
+        stats:
+          - Average
+      - name: used_memory_max
+        stats:
+          - Maximum
+      - name: cpu_total_time
+        stats:
+          - Sum
+      - name: tx_bytes
+        stats:
+          - Sum
+      - name: rx_bytes
+        stats:
+          - Sum
+      - name: total_network
+        stats:
+          - Sum
+      - name: init_duration
+        stats:
+          - Maximum

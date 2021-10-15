@@ -27,7 +27,6 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -69,9 +68,9 @@ public class TagFilterResourceProvider {
         GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
         ResourceGroupsTaggingApiClient resourceTagClient = awsClientProvider.getResourceTagClient(key.region);
         if (cwNamespace.getResourceTypes().size() > 0) {
-            List<String> resourceTypeFilters = cwNamespace.getResourceTypes().stream()
+            Set<String> resourceTypeFilters = cwNamespace.getResourceTypes().stream()
                     .map(type -> format("%s:%s", cwNamespace.getServiceName(), type))
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
             builder = builder.resourceTypeFilters(resourceTypeFilters);
             log.info("Applying resource type filters {}", resourceTypeFilters);
         } else {

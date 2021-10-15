@@ -36,6 +36,7 @@ public enum CWNamespace {
     nfw("AWS/NetworkFirewall", "nfw"),
     ngw("AWS/NATGateway", "ngw"),
     lambda("AWS/Lambda", "lambda", "function"),
+    lambdainsights("LambdaInsights","lambda","function"),
     nlb("AWS/NetworkELB", "nlb"),
     redshift("AWS/Redshift", "redshift"),
     rds("AWS/RDS", "rds"),

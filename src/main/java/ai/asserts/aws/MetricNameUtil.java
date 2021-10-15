@@ -7,10 +7,8 @@ package ai.asserts.aws;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
-import ai.asserts.aws.resource.Resource;
 import com.google.common.collect.ImmutableMap;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import java.util.Map;
@@ -30,6 +28,7 @@ public class MetricNameUtil {
 
     private final Map<String, String> NAMESPACE_TO_METRIC_PREFIX = new ImmutableMap.Builder<String, String>()
             .put(CWNamespace.lambda.getNamespace(), "aws_lambda")
+            .put(CWNamespace.lambdainsights.getNamespace(), "aws_lambda")
             .put(CWNamespace.sqs.getNamespace(), "aws_sqs")
             .put(CWNamespace.s3.getNamespace(), "aws_s3")
             .put(CWNamespace.dynamodb.getNamespace(), "aws_dynamodb")
@@ -54,7 +53,7 @@ public class MetricNameUtil {
         metricQuery.getMetric().dimensions().forEach(dimension ->
                 labels.put(format("d_%s", toSnakeCase(dimension.name())), dimension.value()));
 
-        metricQuery.getResource().addTagLabels(labels,this);
+        metricQuery.getResource().addTagLabels(labels, this);
 
         return format("%s{%s}", exportedMetricName(metricQuery.getMetric(), metricStat),
                 labels.entrySet().stream()
