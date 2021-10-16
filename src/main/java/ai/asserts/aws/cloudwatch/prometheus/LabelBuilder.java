@@ -48,6 +48,11 @@ public class LabelBuilder {
                         .filter(dimension -> dimension.name().equals("FunctionName"))
                         .map(Dimension::value)
                         .findFirst();
+            } else if("LambdaInsights".equals(metric.namespace())) {
+                return metric.dimensions().stream()
+                        .filter(dimension -> dimension.name().equals("function_name"))
+                        .map(Dimension::value)
+                        .findFirst();
             }
         }
         return Optional.empty();
