@@ -65,6 +65,10 @@ public class MetricNameUtil {
         return NAMESPACE_TO_METRIC_PREFIX.get(namespace);
     }
 
+    public String getLambdaMetric(String suffix) {
+        return format("%s_%s", getMetricPrefix(CWNamespace.lambda.getNamespace()), suffix);
+    }
+
     public String toSnakeCase(String input) {
         StringBuilder builder = new StringBuilder();
         boolean lastCaseWasSmall = false;

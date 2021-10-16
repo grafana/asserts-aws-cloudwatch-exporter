@@ -8,7 +8,7 @@ import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.metrics.MetricScrapeTask;
-import ai.asserts.aws.cloudwatch.model.CWNamespace;
+import ai.asserts.aws.lambda.LambdaCapacityExporter;
 import ai.asserts.aws.lambda.LambdaEventSourceExporter;
 import ai.asserts.aws.lambda.LambdaLogMetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
@@ -18,7 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -27,6 +26,9 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.TreeMap;
+
+import static ai.asserts.aws.ScrapeTaskManager.ScheduleClockAlignment.INTERVAL;
+import static ai.asserts.aws.ScrapeTaskManager.ScheduleClockAlignment.MINUTE;
 
 @Component
 @Slf4j
@@ -50,35 +52,42 @@ public class ScrapeTaskManager {
     @Timed(description = "Time spent scraping cloudwatch metrics from all regions", histogram = true)
     public void setupScrapeTasks() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        setupMetadataTasks();
+
+        scrapeConfig.getNamespaces().forEach(nc -> nc.getMetrics().stream()
+                .map(MetricConfig::getScrapeInterval)
+                .forEach(interval -> scrapeConfig.getRegions().forEach(region -> {
+                            Map<String, TimerTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
+                                    k -> new TreeMap<>());
+                            if (!byRegion.containsKey(region)) {
+                                byRegion.put(region,
+                                        metricScrapeTask(region, interval, scrapeConfig.getDelay()));
+                            }
+                        }
+                )));
+
+        scrapeConfig.getLambdaConfig().ifPresent(nc -> scrapeConfig.getRegions().forEach(region -> logScrapeTasks
+                .computeIfAbsent(60, k -> new TreeMap<>())
+                .computeIfAbsent(region, k -> new HashSet<>())
+                .add(lambdaLogScrapeTask(nc, region))
+        ));
+    }
+
+    private void setupMetadataTasks() {
         Map<String, TimerTask> taskMap = metricScrapeTasks.computeIfAbsent(60, k -> new TreeMap<>());
-        if (!taskMap.containsKey(lambdaEventSourceExporter.getClass().getName())) {
-            scheduleTask(60, lambdaEventSourceExporter);
-            taskMap.put(lambdaEventSourceExporter.getClass().getName(), lambdaEventSourceExporter);
+        if (!taskMap.containsKey(LambdaEventSourceExporter.class.getName())) {
+            scheduleTask(60, lambdaEventSourceExporter, MINUTE);
+            taskMap.put(LambdaEventSourceExporter.class.getName(), lambdaEventSourceExporter);
         }
         log.info("Setup Lambda function scraper");
 
-        scrapeConfig.getNamespaces()
-                .forEach(nc -> {
-                    nc.getMetrics().stream()
-                            .map(MetricConfig::getScrapeInterval)
-                            .forEach(interval -> scrapeConfig.getRegions().forEach(region -> {
-                                        Map<String, TimerTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
-                                                k -> new TreeMap<>());
-                                        if (!byRegion.containsKey(region)) {
-                                            byRegion.put(region, metricScrapeTask(region, interval, scrapeConfig.getDelay()));
-                                        }
-                                    }
-                            ));
-
-                    if (CWNamespace.lambda.getServiceName().equals(nc.getName()) &&
-                            !CollectionUtils.isEmpty(nc.getLogs())) {
-                        scrapeConfig.getRegions().forEach(region -> logScrapeTasks
-                                .computeIfAbsent(60, k -> new TreeMap<>())
-                                .computeIfAbsent(region, k -> new HashSet<>())
-                                .add(lambdaLogScrapeTask(nc, region))
-                        );
-                    }
-                });
+        if (!taskMap.containsKey(LambdaCapacityExporter.class.getName())) {
+            LambdaCapacityExporter lambdaCapacityExporter = new LambdaCapacityExporter();
+            beanFactory.autowireBean(lambdaCapacityExporter);
+            scheduleTask(60, lambdaCapacityExporter, MINUTE);
+            taskMap.put(LambdaCapacityExporter.class.getName(), lambdaCapacityExporter);
+        }
+        log.info("Setup Lambda Capacity Exporter");
     }
 
     @VisibleForTesting
@@ -90,22 +99,29 @@ public class ScrapeTaskManager {
         log.info("Setup lambda log scrape task for region {} with scrape configs {}", region, nc.getLogs());
         LambdaLogMetricScrapeTask logScraperTask = new LambdaLogMetricScrapeTask(region, nc.getLogs());
         beanFactory.autowireBean(logScraperTask);
-        scheduleTask(60, logScraperTask);
+        scheduleTask(60, logScraperTask, MINUTE);
         return logScraperTask;
     }
 
     private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay) {
         MetricScrapeTask metricScrapeTask = new MetricScrapeTask(region, interval, delay);
         beanFactory.autowireBean(metricScrapeTask);
-        scheduleTask(interval, metricScrapeTask);
+        scheduleTask(interval, metricScrapeTask, INTERVAL);
         log.info("Setup metric scrape task for region {} and interval {}", region, interval);
         return metricScrapeTask;
     }
 
-    private void scheduleTask(Integer interval, TimerTask timerTask) {
+    private void scheduleTask(Integer interval, TimerTask timerTask, ScheduleClockAlignment clockAlignment) {
         long epochMilli = Instant.now().toEpochMilli();
         int intervalMillis = interval * 1000;
         long delay = intervalMillis - epochMilli % intervalMillis;
+        if (clockAlignment.equals(MINUTE)) {
+            delay = 60_000L - epochMilli % 60_000L;
+        }
         timer.schedule(timerTask, delay, intervalMillis);
+    }
+
+    public enum ScheduleClockAlignment {
+        MINUTE, INTERVAL
     }
 }

@@ -11,6 +11,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.metrics.MetricScrapeTask;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
+import ai.asserts.aws.lambda.LambdaCapacityExporter;
 import ai.asserts.aws.lambda.LambdaEventSourceExporter;
 import ai.asserts.aws.lambda.LambdaLogMetricScrapeTask;
 import com.google.common.collect.ImmutableList;
@@ -20,9 +21,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 
+import java.util.Optional;
 import java.util.Timer;
 
 import static org.easymock.EasyMock.anyLong;
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 
@@ -30,6 +33,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
     private ScrapeTaskManager testClass;
     private AutowireCapableBeanFactory beanFactory;
     private ScrapeConfigProvider scrapeConfigProvider;
+    private NamespaceConfig namespaceConfig;
     private LambdaEventSourceExporter lambdaEventSourceExporter;
     private Timer timer;
     private ScrapeConfig scrapeConfig;
@@ -40,6 +44,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         lambdaEventSourceExporter = mock(LambdaEventSourceExporter.class);
         scrapeConfig = mock(ScrapeConfig.class);
+        namespaceConfig = mock(NamespaceConfig.class);
         timer = mock(Timer.class);
         testClass = new ScrapeTaskManager(beanFactory, scrapeConfigProvider, lambdaEventSourceExporter) {
             @Override
@@ -47,6 +52,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
                 return timer;
             }
         };
+
     }
 
     @Test
@@ -54,14 +60,18 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         int delay = 60;
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(scrapeConfig.getDelay()).andReturn(delay).anyTimes();
         timer.schedule(eq(lambdaEventSourceExporter), anyLong(), eq(60_000L));
+
+        beanFactory.autowireBean(anyObject(LambdaCapacityExporter.class));
+        timer.schedule(anyObject(LambdaCapacityExporter.class), anyLong(), eq(60_000L));
 
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2")).anyTimes();
         ImmutableList<LogScrapeConfig> logScrapeConfigs = ImmutableList.of(LogScrapeConfig.builder()
                 .build());
         expect(scrapeConfig.getNamespaces()).andReturn(ImmutableList.of(NamespaceConfig.builder()
-                .name(CWNamespace.lambda.name())
+                .name(CWNamespace.sqs.name())
                 .metrics(ImmutableList.of(
                         MetricConfig.builder()
                                 .name("Metric1")
@@ -73,6 +83,8 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
                                 .build()))
                 .logs(logScrapeConfigs)
                 .build()));
+        expect(namespaceConfig.getLogs()).andReturn(logScrapeConfigs).anyTimes();
+
 
         expectMetricScrapeTask("region1", 120, delay);
         expectMetricScrapeTask("region1", 300, delay);
