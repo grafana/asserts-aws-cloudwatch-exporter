@@ -13,6 +13,7 @@ import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TimerTask;
 import java.util.TreeMap;
+
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 @Slf4j
@@ -66,8 +71,13 @@ public class LambdaCapacityExporter extends TimerTask {
                             .builder()
                             .functionName(lambdaFunction.getName())
                             .build();
+
+                    long timeTaken = System.currentTimeMillis();
                     ListProvisionedConcurrencyConfigsResponse response = lambdaClient.listProvisionedConcurrencyConfigs(
                             request);
+                    timeTaken = System.currentTimeMillis() - timeTaken;
+                    captureLatency(region, timeTaken);
+
                     if (response.hasProvisionedConcurrencyConfigs()) {
                         response.provisionedConcurrencyConfigs().forEach(config -> {
                             Map<String, String> labels = new TreeMap<>();
@@ -96,6 +106,14 @@ public class LambdaCapacityExporter extends TimerTask {
                 log.error("Failed to get lambda provisioned capacity for region " + region, e);
             }
         }));
+    }
+
+    private void captureLatency(String region, long timeTaken) {
+        gaugeExporter.exportMetric(SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
+                ImmutableMap.of(
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, "list_provisioned_concurrency_configs"
+                ), Instant.now(), timeTaken * 1.0D);
     }
 
     @VisibleForTesting
