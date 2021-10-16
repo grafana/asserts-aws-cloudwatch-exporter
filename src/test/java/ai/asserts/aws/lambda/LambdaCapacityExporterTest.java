@@ -26,6 +26,9 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 
 
@@ -101,6 +104,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .availableProvisionedConcurrentExecutions(100)
                                 .build())
                         .build());
+        gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         gaugeExporter.exportMetric("available", "", ImmutableMap.of(
                 "region", "region1", "function_name", "fn1", "version", "1"
         ), now, 100.0D);
@@ -129,6 +133,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .availableProvisionedConcurrentExecutions(100)
                                 .build())
                         .build());
+        gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         gaugeExporter.exportMetric("available", "", ImmutableMap.of(
                 "region", "region2", "function_name", "fn2", "alias", "green"
         ), now, 100.0D);
@@ -160,7 +165,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andReturn(ListProvisionedConcurrencyConfigsResponse.builder()
                         .provisionedConcurrencyConfigs(Collections.emptyList())
                         .build());
-
+        gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         replayAll();
         testClass.run();
         verifyAll();
