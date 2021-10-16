@@ -46,6 +46,33 @@ public class LabelBuilderTest extends EasyMockSupport {
     }
 
     @Test
+    void buildLabels_LambdaInsightsMetric() {
+        MetricNameUtil metricNameUtil = mock(MetricNameUtil.class);
+        LabelBuilder labelBuilder = new LabelBuilder(metricNameUtil);
+
+        expect(metricNameUtil.toSnakeCase("function_name")).andReturn("function_name");
+
+        replayAll();
+        Map<String, String> labels = labelBuilder.buildLabels("region1", MetricQuery.builder()
+                .metric(Metric.builder()
+                        .metricName("memory_utilization")
+                        .namespace("LambdaInsights")
+                        .dimensions(Dimension.builder()
+                                .name("function_name")
+                                .value("function1")
+                                .build())
+                        .build())
+                .build());
+        verifyAll();
+
+        assertEquals(ImmutableMap.of(
+                "region", "region1",
+                "d_function_name", "function1",
+                "job", "function1"
+        ), labels);
+    }
+
+    @Test
     void buildLabels_SQSMetric() {
         MetricNameUtil metricNameUtil = mock(MetricNameUtil.class);
         LabelBuilder labelBuilder = new LabelBuilder(metricNameUtil);
