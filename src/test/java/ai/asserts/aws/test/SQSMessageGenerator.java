@@ -39,7 +39,7 @@ public class SQSMessageGenerator {
                 messages.add(buildMessage(messageId));
             }
 
-            Stream.of("Queue1", "Queue4", "Queue7").forEach(qName -> {
+            Stream.of("lamda-sqs-poc-input-queue", "Queue1", "Queue4", "Queue7").forEach(qName -> {
                 SendMessageBatchRequest batchRequest = SendMessageBatchRequest.builder()
                         .queueUrl("https://sqs.us-west-2.amazonaws.com/342994379019/" + qName)
                         .entries(messages.toArray(new SendMessageBatchRequestEntry[0]))
