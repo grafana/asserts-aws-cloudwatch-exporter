@@ -29,6 +29,7 @@ import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ScrapeTaskManagerTest extends EasyMockSupport {
     private ScrapeTaskManager testClass;
@@ -47,13 +48,19 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
         scheduledExecutorService = mock(ScheduledExecutorService.class);
+
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getNumTaskThreads()).andReturn(5);
+        replayAll();
         testClass = new ScrapeTaskManager(beanFactory, scrapeConfigProvider, lambdaEventSourceExporter) {
             @Override
-            ScheduledExecutorService getExecutorService() {
+            ScheduledExecutorService getExecutorService(int numThreads) {
+                assertEquals(5, numThreads);
                 return scheduledExecutorService;
             }
         };
-
+        verifyAll();
+        resetAll();
     }
 
     @Test

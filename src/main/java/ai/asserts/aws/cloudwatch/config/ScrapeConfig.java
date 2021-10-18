@@ -43,6 +43,9 @@ public class ScrapeConfig {
     @Builder.Default
     private Integer getResourcesResultCacheTTLMinutes = 5;
 
+    @Builder.Default
+    private Integer numTaskThreads = 10;
+
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {
             return Optional.empty();
