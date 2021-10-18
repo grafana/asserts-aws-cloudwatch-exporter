@@ -30,13 +30,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Component
 @Slf4j
@@ -64,7 +64,8 @@ public class MetricQueryProvider {
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.metricQueryBuilder = metricQueryBuilder;
         this.gaugeExporter = gaugeExporter;
-        metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal, 10, TimeUnit.MINUTES);
+        metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
+                scrapeConfigProvider.getScrapeConfig().getListMetricsResultCacheTTLMinutes(), MINUTES);
         log.info("Initialized..");
     }
 

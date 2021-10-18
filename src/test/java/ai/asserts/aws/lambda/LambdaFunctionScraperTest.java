@@ -56,10 +56,17 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 .regions(ImmutableSortedSet.of("region1", "region2"))
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build()).anyTimes();
-        expect(namespaceConfig.getName()).andReturn("lambda").anyTimes();
 
+        replayAll();
         lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider,
                 gaugeExporter, tagFilterResourceProvider, lambdaFunctionBuilder);
+        verifyAll();
+        resetAll();
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
+                .regions(ImmutableSortedSet.of("region1", "region2"))
+                .namespaces(ImmutableList.of(namespaceConfig))
+                .build()).anyTimes();
+        expect(namespaceConfig.getName()).andReturn("lambda").anyTimes();
     }
 
     @Test
