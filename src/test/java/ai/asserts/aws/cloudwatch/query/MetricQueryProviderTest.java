@@ -67,8 +67,13 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .namespace(CWNamespace.lambda.getNamespace())
                 .metricName(metricName)
                 .build();
+
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder().build());
+        replayAll();
         testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
                 awsClientProvider, tagFilterResourceProvider, metricQueryBuilder, gaugeExporter);
+        verifyAll();
+        resetAll();
     }
 
     @Test

@@ -22,8 +22,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 
 import java.util.Optional;
-import java.util.Timer;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
@@ -35,7 +36,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
     private NamespaceConfig namespaceConfig;
     private LambdaEventSourceExporter lambdaEventSourceExporter;
-    private Timer timer;
+    private ScheduledExecutorService scheduledExecutorService;
     private ScrapeConfig scrapeConfig;
 
     @BeforeEach
@@ -45,27 +46,30 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         lambdaEventSourceExporter = mock(LambdaEventSourceExporter.class);
         scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
-        timer = mock(Timer.class);
+        scheduledExecutorService = mock(ScheduledExecutorService.class);
         testClass = new ScrapeTaskManager(beanFactory, scrapeConfigProvider, lambdaEventSourceExporter) {
             @Override
-            Timer getTimer() {
-                return timer;
+            ScheduledExecutorService getExecutorService() {
+                return scheduledExecutorService;
             }
         };
 
     }
 
     @Test
+    @SuppressWarnings("all")
     void setupScrapeTasks() {
         int delay = 60;
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(scrapeConfig.getDelay()).andReturn(delay).anyTimes();
-        timer.schedule(eq(lambdaEventSourceExporter), anyLong(), eq(60_000L));
+        expect(scheduledExecutorService.scheduleAtFixedRate(eq(lambdaEventSourceExporter), anyLong(), eq(60_000L),
+                eq(MILLISECONDS))).andReturn(null);
 
         beanFactory.autowireBean(anyObject(LambdaCapacityExporter.class));
-        timer.schedule(anyObject(LambdaCapacityExporter.class), anyLong(), eq(60_000L));
+        expect(scheduledExecutorService.scheduleAtFixedRate(anyObject(LambdaCapacityExporter.class), anyLong(),
+                eq(60_000L), eq(MILLISECONDS))).andReturn(null);
 
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2")).anyTimes();
         ImmutableList<LogScrapeConfig> logScrapeConfigs = ImmutableList.of(LogScrapeConfig.builder()
@@ -103,12 +107,14 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
     private void expectLambdaLogScrapeTask(ImmutableList<LogScrapeConfig> logScrapeConfigs, String region1) {
         LambdaLogMetricScrapeTask lambdaTask1 = new LambdaLogMetricScrapeTask(region1, logScrapeConfigs);
         beanFactory.autowireBean(lambdaTask1);
-        timer.schedule(eq(lambdaTask1), anyLong(), eq(60_000L));
+        expect(scheduledExecutorService.scheduleAtFixedRate(eq(lambdaTask1), anyLong(),
+                eq(60_000L), eq(MILLISECONDS))).andReturn(null);
     }
 
     private void expectMetricScrapeTask(String region, int interval, int delay) {
         MetricScrapeTask task1 = new MetricScrapeTask(region, interval, delay);
         beanFactory.autowireBean(task1);
-        timer.schedule(eq(task1), anyLong(), eq(interval * 1000L));
+        expect(scheduledExecutorService.scheduleAtFixedRate(eq(task1), anyLong(),
+                eq(interval * 1000L), eq(MILLISECONDS))).andReturn(null);
     }
 }

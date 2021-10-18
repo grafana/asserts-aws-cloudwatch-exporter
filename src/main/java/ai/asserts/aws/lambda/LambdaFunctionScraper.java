@@ -25,12 +25,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Component
 @Slf4j
@@ -50,7 +50,8 @@ public class LambdaFunctionScraper {
         this.gaugeExporter = gaugeExporter;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.fnBuilder = fnBuilder;
-        this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions, 15, TimeUnit.MINUTES);
+        this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions,
+                scrapeConfigProvider.getScrapeConfig().getListFunctionsResultCacheTTLMinutes(), MINUTES);
     }
 
     public Map<String, Map<String, LambdaFunction>> getFunctions() {

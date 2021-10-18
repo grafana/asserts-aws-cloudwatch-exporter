@@ -20,6 +20,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@SuppressWarnings("FieldMayBeFinal")
 public class ScrapeConfig {
     private Set<String> regions;
     private List<NamespaceConfig> namespaces;
@@ -32,6 +33,15 @@ public class ScrapeConfig {
 
     @Builder.Default
     private Integer delay = 0;
+
+    @Builder.Default
+    private Integer listMetricsResultCacheTTLMinutes = 10;
+
+    @Builder.Default
+    private Integer listFunctionsResultCacheTTLMinutes = 5;
+
+    @Builder.Default
+    private Integer getResourcesResultCacheTTLMinutes = 5;
 
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {

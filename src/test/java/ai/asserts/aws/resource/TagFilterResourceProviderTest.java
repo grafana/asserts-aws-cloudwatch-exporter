@@ -6,6 +6,8 @@ package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
+import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
+import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import com.google.common.collect.ImmutableList;
@@ -26,10 +28,11 @@ import java.util.Optional;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TagFilterResourceProviderTest extends EasyMockSupport {
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private AWSClientProvider awsClientProvider;
     private ResourceGroupsTaggingApiClient apiClient;
     private ResourceMapper resourceMapper;
@@ -40,18 +43,27 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
         resourceMapper = mock(ResourceMapper.class);
         namespaceConfig = mock(NamespaceConfig.class);
         apiClient = mock(ResourceGroupsTaggingApiClient.class);
         resource = mock(Resource.class);
         gaugeExporter = mock(GaugeExporter.class);
-        testClass = new TagFilterResourceProvider(awsClientProvider, resourceMapper, gaugeExporter);
+
+
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
+        replayAll();
+        testClass = new TagFilterResourceProvider(scrapeConfigProvider, awsClientProvider, resourceMapper,
+                gaugeExporter);
+        verifyAll();
+        resetAll();
     }
 
     @Test
     void filterResources() {
-
         expect(namespaceConfig.getName()).andReturn(CWNamespace.lambda.name());
         expect(namespaceConfig.hasTagFilters()).andReturn(true);
         expect(namespaceConfig.getTagFilters()).andReturn(ImmutableMap.of(

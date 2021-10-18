@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResourceLoader;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URL;
+import java.util.function.Supplier;
 
 @Component
 @Slf4j
@@ -31,12 +33,18 @@ public class ScrapeConfigProvider {
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
     private final String scrapeConfigFile;
+    private final Supplier<ScrapeConfig> configCache;
 
     public ScrapeConfigProvider(@Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile) {
         this.scrapeConfigFile = scrapeConfigFile;
+        configCache = Suppliers.memoize(this::load);
     }
 
     public ScrapeConfig getScrapeConfig() {
+        return configCache.get();
+    }
+
+    private ScrapeConfig load() {
         URL url;
         try {
             Resource resource = resourceLoader.getResource(scrapeConfigFile);

@@ -6,6 +6,8 @@ package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
+import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
+import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import com.google.common.cache.CacheBuilder;
@@ -13,7 +15,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import io.micrometer.core.instrument.util.StringUtils;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -28,7 +29,6 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
@@ -36,24 +36,34 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 
 @Component
-@AllArgsConstructor
 @Slf4j
 public class TagFilterResourceProvider {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final GaugeExporter gaugeExporter;
-    private final LoadingCache<Key, Set<Resource>> resourceCache = CacheBuilder.newBuilder()
-            .expireAfterAccess(15, TimeUnit.MINUTES)
-            .build(new CacheLoader<Key, Set<Resource>>() {
-                @Override
-                public Set<Resource> load(@NonNull Key key) {
-                    return getResourcesInternal(key);
-                }
-            });
+    private final LoadingCache<Key, Set<Resource>> resourceCache;
+
+    public TagFilterResourceProvider(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
+                                     ResourceMapper resourceMapper, GaugeExporter gaugeExporter) {
+        this.awsClientProvider = awsClientProvider;
+        this.resourceMapper = resourceMapper;
+        this.gaugeExporter = gaugeExporter;
+
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        resourceCache = CacheBuilder.newBuilder()
+                .expireAfterAccess(scrapeConfig.getGetResourcesResultCacheTTLMinutes(), MINUTES)
+                .build(new CacheLoader<Key, Set<Resource>>() {
+                    @Override
+                    public Set<Resource> load(@NonNull Key key) {
+                        return getResourcesInternal(key);
+                    }
+                });
+    }
 
     public Set<Resource> getFilteredResources(String region, NamespaceConfig namespaceConfig) {
         return resourceCache.getUnchecked(Key.builder()
