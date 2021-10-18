@@ -13,7 +13,6 @@ import ai.asserts.aws.lambda.LambdaEventSourceExporter;
 import ai.asserts.aws.lambda.LambdaLogMetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,7 +33,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Component
 @Slf4j
-@AllArgsConstructor
 public class ScrapeTaskManager {
     private final AutowireCapableBeanFactory beanFactory;
     private final ScrapeConfigProvider scrapeConfigProvider;
@@ -45,8 +43,17 @@ public class ScrapeTaskManager {
      */
     private final Map<Integer, Map<String, TimerTask>> metricScrapeTasks = new TreeMap<>();
     private final Map<Integer, Map<String, Set<TimerTask>>> logScrapeTasks = new TreeMap<>();
-    private final ScheduledExecutorService scheduledThreadPoolExecutor = getExecutorService();
+    private final ScheduledExecutorService scheduledThreadPoolExecutor;
 
+
+    public ScrapeTaskManager(AutowireCapableBeanFactory beanFactory, ScrapeConfigProvider scrapeConfigProvider,
+                             LambdaEventSourceExporter lambdaEventSourceExporter) {
+        this.beanFactory = beanFactory;
+        this.scrapeConfigProvider = scrapeConfigProvider;
+        this.lambdaEventSourceExporter = lambdaEventSourceExporter;
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        this.scheduledThreadPoolExecutor = getExecutorService(scrapeConfig.getNumTaskThreads());
+    }
 
     @SuppressWarnings("unused")
     @Scheduled(fixedDelayString = "${aws.metric.scrape.manager.task.fixedDelay:900000}",
@@ -94,8 +101,8 @@ public class ScrapeTaskManager {
     }
 
     @VisibleForTesting
-    ScheduledExecutorService getExecutorService() {
-        return Executors.newScheduledThreadPool(10);
+    ScheduledExecutorService getExecutorService(int numThreads) {
+        return Executors.newScheduledThreadPool(numThreads);
     }
 
     private LambdaLogMetricScrapeTask lambdaLogScrapeTask(ai.asserts.aws.cloudwatch.config.NamespaceConfig nc, String region) {
