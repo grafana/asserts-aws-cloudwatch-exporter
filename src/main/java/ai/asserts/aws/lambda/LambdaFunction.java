@@ -21,4 +21,5 @@ public class LambdaFunction {
     private final String region;
     private final String arn;
     private final Resource resource;
+    private final Integer memory;
 }

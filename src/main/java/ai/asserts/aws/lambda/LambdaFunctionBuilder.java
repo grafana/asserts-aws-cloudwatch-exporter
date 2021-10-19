@@ -46,6 +46,7 @@ public class LambdaFunctionBuilder {
                 .name(functionConfiguration.functionName())
                 .arn(functionConfiguration.functionArn())
                 .resource(fnResource.orElse(null))
+                .memory(functionConfiguration.memorySize())
                 .build();
 
         try {
@@ -56,14 +57,20 @@ public class LambdaFunctionBuilder {
             if (response.hasFunctionEventInvokeConfigs() && response.functionEventInvokeConfigs().size() > 0) {
                 log.info("Function {} has invoke configs", functionConfiguration.functionName());
                 String metricPrefix = metricNameUtil.getMetricPrefix(CWNamespace.lambda.getNamespace());
+                String memoryMetricName = format("%s_allocated_memory", metricPrefix);
                 String metricName = format("%s_invoke_config", metricPrefix);
                 Instant now = now();
-                response.functionEventInvokeConfigs().forEach(config -> {
-                    Map<String, String> labels = new TreeMap<>();
-                    labels.put("region", region);
-                    labels.put("function_name", functionConfiguration.functionName());
-                    fnResource.ifPresent(fr -> fr.addTagLabels(labels, metricNameUtil));
 
+                Map<String, String> labels = new TreeMap<>();
+                labels.put("region", region);
+                labels.put("function_name", functionConfiguration.functionName());
+                fnResource.ifPresent(r -> r.addTagLabels(labels, metricNameUtil));
+
+                // Export memory metric
+                gaugeExporter.exportMetric(memoryMetricName, "", labels, now,
+                        functionConfiguration.memorySize() * 1.0D);
+
+                response.functionEventInvokeConfigs().forEach(config -> {
                     DestinationConfig destConfig = config.destinationConfig();
 
                     // Success
