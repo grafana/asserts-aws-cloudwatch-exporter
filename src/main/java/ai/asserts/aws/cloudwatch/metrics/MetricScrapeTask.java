@@ -46,7 +46,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 @Slf4j
 @Setter
 @Getter
-@EqualsAndHashCode(callSuper = false)
+@EqualsAndHashCode(callSuper = false,onlyExplicitlyIncluded = true)
 public class MetricScrapeTask extends TimerTask {
     @Autowired
     private AWSClientProvider awsClientProvider;
@@ -56,8 +56,11 @@ public class MetricScrapeTask extends TimerTask {
     private QueryBatcher queryBatcher;
     @Autowired
     private GaugeExporter gaugeExporter;
+    @EqualsAndHashCode.Include
     private final String region;
+    @EqualsAndHashCode.Include
     private final int intervalSeconds;
+    @EqualsAndHashCode.Include
     private final int delaySeconds;
 
     public MetricScrapeTask(String region, int intervalSeconds, int delay) {

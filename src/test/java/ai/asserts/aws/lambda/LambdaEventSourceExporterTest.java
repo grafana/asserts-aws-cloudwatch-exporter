@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.EventSourceMappingConfiguration;
+import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsRequest;
 import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsResponse;
 
 import java.time.Instant;
@@ -85,10 +86,9 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                 "lambda_function", "fn2"
         );
 
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
-                .andReturn(ImmutableSet.of(fnResource, fnResource));
-
-        expect(lambdaClient.listEventSourceMappings()).andReturn(
+        ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
+                .build();
+        expect(lambdaClient.listEventSourceMappings(request)).andReturn(
                 ListEventSourceMappingsResponse.builder()
                         .eventSourceMappings(ImmutableList.of(
                                 EventSourceMappingConfiguration.builder()
@@ -103,12 +103,16 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                         .build()
         );
 
+        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+                .andReturn(ImmutableSet.of(fnResource, fnResource));
+
         String help = "Metric with lambda event source information";
 
         expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
 
         expect(fnResource.getName()).andReturn("fn1");
-        expect(resourceMapper.map("fn1_arn")).andReturn(Optional.of(fnResource));
+        expect(fnResource.getArn()).andReturn("fn1_arn");
+        expect(resourceMapper.map("fn1_arn")).andReturn(Optional.of(fnResource)).times(2);
         expect(resourceMapper.map("queue_arn")).andReturn(Optional.of(sourceResource));
         fnResource.addTagLabels(fn1Labels, metricNameUtil);
         sourceResource.addLabels(fn1Labels, "event_source");
@@ -117,7 +121,8 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                 now, 1.0D);
 
         expect(fnResource.getName()).andReturn("fn2");
-        expect(resourceMapper.map("fn2_arn")).andReturn(Optional.of(fnResource));
+        expect(fnResource.getArn()).andReturn("fn2_arn");
+        expect(resourceMapper.map("fn2_arn")).andReturn(Optional.of(fnResource)).times(2);
         expect(resourceMapper.map("table_arn")).andReturn(Optional.of(sourceResource));
         fnResource.addTagLabels(fn2Labels, metricNameUtil);
         sourceResource.addLabels(fn2Labels, "event_source");
@@ -132,8 +137,9 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
     @Test
     public void exportEventSourceMappings_Exception() {
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
-                .andThrow(new RuntimeException());
+        ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
+                .build();
+        expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
 
         replayAll();
         testClass.run();

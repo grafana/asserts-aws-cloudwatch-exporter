@@ -26,7 +26,22 @@ namespaces:
         stats:
           - p99
           - Average
+      - name: ProvisionedConcurrencyInvocations
+        stats:
+          - Sum
+      - name: ProvisionedConcurrencySpilloverInvocations
+        stats:
+          - Sum
       - name: ConcurrentExecutions
+        stats:
+          - Average
+      - name: ProvisionedConcurrentExecutions
+        stats:
+          - Average
+      - name: UnreservedConcurrentExecutions
+        stats:
+          - Average
+      - name: IteratorAge
         stats:
           - Maximum
     logs:

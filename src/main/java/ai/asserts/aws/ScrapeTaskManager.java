@@ -26,6 +26,7 @@ import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static ai.asserts.aws.ScrapeTaskManager.ScheduleClockAlignment.INTERVAL;
 import static ai.asserts.aws.ScrapeTaskManager.ScheduleClockAlignment.MINUTE;
@@ -45,7 +46,6 @@ public class ScrapeTaskManager {
     private final Map<Integer, Map<String, Set<TimerTask>>> logScrapeTasks = new TreeMap<>();
     private final ScheduledExecutorService scheduledThreadPoolExecutor;
 
-
     public ScrapeTaskManager(AutowireCapableBeanFactory beanFactory, ScrapeConfigProvider scrapeConfigProvider,
                              LambdaEventSourceExporter lambdaEventSourceExporter) {
         this.beanFactory = beanFactory;
@@ -61,8 +61,7 @@ public class ScrapeTaskManager {
     @Timed(description = "Time spent scraping cloudwatch metrics from all regions", histogram = true)
     public void setupScrapeTasks() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        setupMetadataTasks();
-
+        AtomicInteger taskCounter = new AtomicInteger();
         scrapeConfig.getNamespaces().forEach(nc -> nc.getMetrics().stream()
                 .map(MetricConfig::getScrapeInterval)
                 .forEach(interval -> scrapeConfig.getRegions().forEach(region -> {
@@ -70,7 +69,7 @@ public class ScrapeTaskManager {
                                     k -> new TreeMap<>());
                             if (!byRegion.containsKey(region)) {
                                 byRegion.put(region,
-                                        metricScrapeTask(region, interval, scrapeConfig.getDelay()));
+                                        metricScrapeTask(region, interval, scrapeConfig.getDelay(), taskCounter));
                             }
                         }
                 )));
@@ -78,23 +77,24 @@ public class ScrapeTaskManager {
         scrapeConfig.getLambdaConfig().ifPresent(nc -> scrapeConfig.getRegions().forEach(region -> logScrapeTasks
                 .computeIfAbsent(60, k -> new TreeMap<>())
                 .computeIfAbsent(region, k -> new HashSet<>())
-                .add(lambdaLogScrapeTask(nc, region))
+                .add(lambdaLogScrapeTask(nc, region, taskCounter))
         ));
+
+        setupMetadataTasks(taskCounter);
     }
 
-    private void setupMetadataTasks() {
+    private void setupMetadataTasks(AtomicInteger taskNumber) {
         Map<String, TimerTask> taskMap = metricScrapeTasks.computeIfAbsent(60, k -> new TreeMap<>());
         if (!taskMap.containsKey(LambdaEventSourceExporter.class.getName())) {
-            Instant instant = scheduleTask(60, lambdaEventSourceExporter, MINUTE);
+            Instant instant = scheduleTask(60, lambdaEventSourceExporter, MINUTE, taskNumber);
             taskMap.put(LambdaEventSourceExporter.class.getName(), lambdaEventSourceExporter);
             log.info("Scheduled Lambda Event Source Exporter task at interval {} from {}", 60, instant);
         }
-        log.info("Setup Lambda function scraper");
 
         if (!taskMap.containsKey(LambdaCapacityExporter.class.getName())) {
             LambdaCapacityExporter lambdaCapacityExporter = new LambdaCapacityExporter();
             beanFactory.autowireBean(lambdaCapacityExporter);
-            Instant instant = scheduleTask(60, lambdaCapacityExporter, MINUTE);
+            Instant instant = scheduleTask(60, lambdaCapacityExporter, MINUTE, taskNumber);
             taskMap.put(LambdaCapacityExporter.class.getName(), lambdaCapacityExporter);
             log.info("Scheduled Lambda Capacity Exporter task at interval {} from {}", 60, instant);
         }
@@ -105,32 +105,35 @@ public class ScrapeTaskManager {
         return Executors.newScheduledThreadPool(numThreads);
     }
 
-    private LambdaLogMetricScrapeTask lambdaLogScrapeTask(ai.asserts.aws.cloudwatch.config.NamespaceConfig nc, String region) {
+    private LambdaLogMetricScrapeTask lambdaLogScrapeTask(ai.asserts.aws.cloudwatch.config.NamespaceConfig nc,
+                                                          String region, AtomicInteger taskNumber) {
         log.info("Setup lambda log scrape task for region {} with scrape configs {}", region, nc.getLogs());
         LambdaLogMetricScrapeTask logScraperTask = new LambdaLogMetricScrapeTask(region, nc.getLogs());
         beanFactory.autowireBean(logScraperTask);
-        Instant instant = scheduleTask(60, logScraperTask, MINUTE);
+        Instant instant = scheduleTask(60, logScraperTask, MINUTE, taskNumber);
         log.info("Setup log scrape task for region {} and interval {} from {}", region, 60, instant);
         return logScraperTask;
     }
 
-    private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay) {
+    private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay, AtomicInteger taskNumber) {
         MetricScrapeTask metricScrapeTask = new MetricScrapeTask(region, interval, delay);
         beanFactory.autowireBean(metricScrapeTask);
-        Instant firstTriggerTime = scheduleTask(interval, metricScrapeTask, INTERVAL);
+        Instant firstTriggerTime = scheduleTask(interval, metricScrapeTask, INTERVAL, taskNumber);
         log.info("Setup metric scrape task for region {} and interval {} from {}", region, interval, firstTriggerTime);
         return metricScrapeTask;
     }
 
-    private Instant scheduleTask(Integer interval, TimerTask timerTask, ScheduleClockAlignment clockAlignment) {
+    private Instant scheduleTask(Integer interval, TimerTask timerTask, ScheduleClockAlignment clockAlignment,
+                                 AtomicInteger taskCounter) {
         long epochMilli = Instant.now().toEpochMilli();
         int intervalMillis = interval * 1000;
         long delay = intervalMillis - epochMilli % intervalMillis;
         if (clockAlignment.equals(MINUTE)) {
             delay = 60_000L - epochMilli % 60_000L;
         }
-        scheduledThreadPoolExecutor.scheduleAtFixedRate(timerTask, delay, intervalMillis, MILLISECONDS);
-        return Instant.ofEpochMilli(epochMilli + delay);
+        long initialDelay = delay + taskCounter.getAndIncrement() * 5_000L;
+        scheduledThreadPoolExecutor.scheduleAtFixedRate(timerTask, initialDelay, intervalMillis, MILLISECONDS);
+        return Instant.ofEpochMilli(epochMilli + initialDelay);
     }
 
     public enum ScheduleClockAlignment {
