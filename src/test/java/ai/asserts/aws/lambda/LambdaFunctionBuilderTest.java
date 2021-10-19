@@ -85,18 +85,17 @@ public class LambdaFunctionBuilderTest extends EasyMockSupport {
 
         Map<String, String> baseLabels = ImmutableMap.of("function_name", "fn1", "region", "region1");
 
-        fnResource.addTagLabels(baseLabels, metricNameUtil);
-        gaugeExporter.exportMetric("prefix_allocated_memory", "", baseLabels, now, 128.0D);
-
         expect(resourceMapper.map("dst1:arn")).andReturn(Optional.of(destResource));
         Map<String, String> successLabels = ImmutableSortedMap.of(
                 "on", "success", "function_name", "fn1", "region", "region1");
+        fnResource.addTagLabels(baseLabels, metricNameUtil);
         destResource.addLabels(successLabels, "dest");
         gaugeExporter.exportMetric("prefix_invoke_config", "", successLabels, now, 1.0D);
 
         expect(resourceMapper.map("dst2:arn")).andReturn(Optional.of(destResource));
         Map<String, String> failureLabels = ImmutableSortedMap.of(
                 "on", "failure", "function_name", "fn1", "region", "region1");
+        fnResource.addTagLabels(baseLabels, metricNameUtil);
         destResource.addLabels(failureLabels, "dest");
         gaugeExporter.exportMetric("prefix_invoke_config", "", failureLabels, now, 1.0D);
 
@@ -114,7 +113,6 @@ public class LambdaFunctionBuilderTest extends EasyMockSupport {
                         FunctionConfiguration.builder()
                                 .functionName("fn1")
                                 .functionArn("fn1:arn")
-                                .memorySize(128)
                                 .build(), Optional.of(fnResource)));
         verifyAll();
     }
