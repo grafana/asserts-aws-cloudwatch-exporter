@@ -58,6 +58,7 @@ public class LambdaCapacityExporter extends TimerTask {
         String availableMetric = metricNameUtil.getLambdaMetric("available_concurrency");
         String requestedMetric = metricNameUtil.getLambdaMetric("requested_concurrency");
         String allocatedMetric = metricNameUtil.getLambdaMetric("allocated_concurrency");
+        String timeoutMetric = metricNameUtil.getLambdaMetric("timeout_seconds");
         optional.ifPresent(lambdaConfig -> functionScraper.getFunctions().forEach((region, functions) -> {
             log.info("Getting Lambda provisioned concurrency for region {}", region);
             try {
@@ -67,6 +68,17 @@ public class LambdaCapacityExporter extends TimerTask {
                     Optional<Resource> fnResourceOpt = fnResources.stream()
                             .filter(resource -> functionArn.equals(resource.getArn()))
                             .findFirst();
+
+                    Map<String, String> labels = new TreeMap<>();
+                    fnResourceOpt.ifPresent(fnResource -> fnResource.addTagLabels(labels, metricNameUtil));
+
+                    labels.put("region", region);
+                    labels.put("function_name", lambdaFunction.getName());
+
+                    // Export timeout
+                    gaugeExporter.exportMetric(timeoutMetric, "", labels, now,
+                            lambdaFunction.getTimeoutSeconds() * 1.0D);
+
                     ListProvisionedConcurrencyConfigsRequest request = ListProvisionedConcurrencyConfigsRequest
                             .builder()
                             .functionName(lambdaFunction.getName())
@@ -80,12 +92,6 @@ public class LambdaCapacityExporter extends TimerTask {
 
                     if (response.hasProvisionedConcurrencyConfigs()) {
                         response.provisionedConcurrencyConfigs().forEach(config -> {
-                            Map<String, String> labels = new TreeMap<>();
-                            fnResourceOpt.ifPresent(fnResource -> fnResource.addTagLabels(labels, metricNameUtil));
-
-                            labels.put("region", region);
-                            labels.put("function_name", lambdaFunction.getName());
-
                             // Capacity is always provisioned at alias or version level
                             String[] parts = config.functionArn().split(":");
                             String level = Character.isDigit(parts[parts.length - 1].charAt(0)) ? "version" : "alias";

@@ -46,6 +46,8 @@ public class LambdaFunctionBuilder {
                 .name(functionConfiguration.functionName())
                 .arn(functionConfiguration.functionArn())
                 .resource(fnResource.orElse(null))
+                .memoryMB(functionConfiguration.memorySize())
+                .timeoutSeconds(functionConfiguration.timeout())
                 .build();
 
         try {

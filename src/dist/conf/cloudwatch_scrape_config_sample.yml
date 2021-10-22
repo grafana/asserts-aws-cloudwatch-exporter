@@ -26,6 +26,7 @@ namespaces:
         stats:
           - p99
           - Average
+          - Maximum
       - name: ProvisionedConcurrencyInvocations
         stats:
           - Sum
@@ -35,6 +36,7 @@ namespaces:
       - name: ConcurrentExecutions
         stats:
           - Average
+          - Maximum
       - name: ProvisionedConcurrentExecutions
         stats:
           - Average
@@ -53,12 +55,18 @@ namespaces:
           "destination_name": "$1"
   - name: sqs
     metrics:
-      - name: NumberOfMessagesReceived
+      - name: NumberOfMessagesDeleted
         stats:
           - Sum
       - name: NumberOfMessagesSent
         stats:
           - Sum
+      - name: ApproximateNumberOfMessagesVisible
+        stats:
+          - Average
+      - name: SentMessageSize
+        stats:
+          - Average
   - name: dynamodb
     metrics:
       - name: ConsumedReadCapacityUnits

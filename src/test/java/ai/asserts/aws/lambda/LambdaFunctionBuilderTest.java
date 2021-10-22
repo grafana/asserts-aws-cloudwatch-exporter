@@ -107,12 +107,16 @@ public class LambdaFunctionBuilderTest extends EasyMockSupport {
                         .arn("fn1:arn")
                         .region("region1")
                         .resource(fnResource)
+                        .timeoutSeconds(60)
+                        .memoryMB(128)
                         .build()
                 ,
                 testClass.buildFunction("region1", lambdaClient,
                         FunctionConfiguration.builder()
                                 .functionName("fn1")
                                 .functionArn("fn1:arn")
+                                .timeout(60)
+                                .memorySize(128)
                                 .build(), Optional.of(fnResource)));
         verifyAll();
     }
