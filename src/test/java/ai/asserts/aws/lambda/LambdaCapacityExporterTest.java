@@ -78,6 +78,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(metricNameUtil.getLambdaMetric("available_concurrency")).andReturn("available");
         expect(metricNameUtil.getLambdaMetric("requested_concurrency")).andReturn("requested");
         expect(metricNameUtil.getLambdaMetric("allocated_concurrency")).andReturn("allocated");
+        expect(metricNameUtil.getLambdaMetric("timeout_seconds")).andReturn("timeout");
     }
 
     @Test
@@ -93,6 +94,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         resource.addTagLabels(ImmutableMap.of(), metricNameUtil);
 
         expect(lambdaFunction.getName()).andReturn("fn1").times(2);
+        expect(lambdaFunction.getTimeoutSeconds()).andReturn(120);
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn1")
                 .build()))
@@ -104,6 +106,9 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .availableProvisionedConcurrentExecutions(100)
                                 .build())
                         .build());
+        gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
+                "region", "region1", "function_name", "fn1"
+        ), now, 120.0D);
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         gaugeExporter.exportMetric("available", "", ImmutableMap.of(
                 "region", "region1", "function_name", "fn1", "version", "1"
@@ -122,6 +127,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         resource.addTagLabels(ImmutableMap.of(), metricNameUtil);
 
         expect(lambdaFunction.getName()).andReturn("fn2").times(2);
+        expect(lambdaFunction.getTimeoutSeconds()).andReturn(60);
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn2")
                 .build()))
@@ -133,6 +139,9 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .availableProvisionedConcurrentExecutions(100)
                                 .build())
                         .build());
+        gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
+                "region", "region2", "function_name", "fn2"
+        ), now, 60.0D);
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         gaugeExporter.exportMetric("available", "", ImmutableMap.of(
                 "region", "region2", "function_name", "fn2", "alias", "green"
@@ -158,13 +167,19 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn1");
-        expect(lambdaFunction.getName()).andReturn("fn1");
+        resource.addTagLabels(Collections.emptyMap(), metricNameUtil);
+
+        expect(lambdaFunction.getName()).andReturn("fn1").times(2);
+        expect(lambdaFunction.getTimeoutSeconds()).andReturn(60);
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn1")
                 .build()))
                 .andReturn(ListProvisionedConcurrencyConfigsResponse.builder()
                         .provisionedConcurrencyConfigs(Collections.emptyList())
                         .build());
+        gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
+                "region", "region1", "function_name", "fn1"
+        ), now, 60.0D);
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         replayAll();
         testClass.run();
