@@ -1,6 +1,8 @@
 # Stage 1 - Build
 FROM gradle:jdk8 as builder
 RUN gradle --version && java -version
+RUN apt-get install git && git --version
+
 WORKDIR /home/gradle/app
 # Only copy gradle dependency-related files
 COPY --chown=gradle:gradle build.gradle /home/gradle/app/
@@ -16,6 +18,7 @@ COPY --chown=gradle:gradle gradle.properties /home/gradle/app/
 RUN gradle build --no-daemon > /dev/null 2>&1 || true
 
 COPY --chown=gradle:gradle ./src /home/gradle/app/src
+COPY --chown=gradle:gradle ./.git /home/gradle/app/.git
 RUN gradle bootJar --no-daemon
 
 
