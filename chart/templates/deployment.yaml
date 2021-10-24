@@ -19,6 +19,11 @@ spec:
       - image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         name: {{ .Chart.Name }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        resources:
+          limits:
+            memory: 4Gi
+          requests:
+            memory: 4Gi
         ports:
           - name: aws
             containerPort: {{ .Values.service.aws.port }}
