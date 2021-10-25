@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.lambda.LambdaClient;
+import software.amazon.awssdk.services.lambda.model.GetAccountSettingsResponse;
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsRequest;
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsResponse;
 
@@ -59,10 +60,24 @@ public class LambdaCapacityExporter extends TimerTask {
         String requestedMetric = metricNameUtil.getLambdaMetric("requested_concurrency");
         String allocatedMetric = metricNameUtil.getLambdaMetric("allocated_concurrency");
         String timeoutMetric = metricNameUtil.getLambdaMetric("timeout_seconds");
+        String accountLimitMetric = metricNameUtil.getLambdaMetric("account_limit");
+
         optional.ifPresent(lambdaConfig -> functionScraper.getFunctions().forEach((region, functions) -> {
-            log.info("Getting Lambda provisioned concurrency for region {}", region);
+            log.info("Getting Lambda account and provisioned concurrency for region {}", region);
             try {
                 LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region);
+                GetAccountSettingsResponse accountSettings = lambdaClient.getAccountSettings();
+
+                gaugeExporter.exportMetric(accountLimitMetric, "", ImmutableMap.of(
+                        "region", region, "type", "concurrent_executions"
+                        ), now,
+                        accountSettings.accountLimit().concurrentExecutions() * 1.0D);
+
+                gaugeExporter.exportMetric(accountLimitMetric, "", ImmutableMap.of(
+                        "region", region, "type", "unreserved_concurrent_executions"
+                        ), now,
+                        accountSettings.accountLimit().unreservedConcurrentExecutions() * 1.0D);
+
                 Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, lambdaConfig);
                 functions.forEach((functionArn, lambdaFunction) -> {
                     Optional<Resource> fnResourceOpt = fnResources.stream()
