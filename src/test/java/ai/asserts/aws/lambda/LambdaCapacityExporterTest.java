@@ -18,6 +18,8 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.lambda.LambdaClient;
+import software.amazon.awssdk.services.lambda.model.AccountLimit;
+import software.amazon.awssdk.services.lambda.model.GetAccountSettingsResponse;
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsRequest;
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsResponse;
 import software.amazon.awssdk.services.lambda.model.ProvisionedConcurrencyConfigListItem;
@@ -79,6 +81,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(metricNameUtil.getLambdaMetric("requested_concurrency")).andReturn("requested");
         expect(metricNameUtil.getLambdaMetric("allocated_concurrency")).andReturn("allocated");
         expect(metricNameUtil.getLambdaMetric("timeout_seconds")).andReturn("timeout");
+        expect(metricNameUtil.getLambdaMetric("account_limit")).andReturn("limit");
     }
 
     @Test
@@ -87,7 +90,9 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 "region1", ImmutableMap.of("arn1", lambdaFunction),
                 "region2", ImmutableMap.of("arn2", lambdaFunction)
         ));
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+
+        expectAccountSettings("region1");
+
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn1");
@@ -120,7 +125,9 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 "region", "region1", "function_name", "fn1", "version", "1"
         ), now, 10.0D);
 
-        expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
+
+        expectAccountSettings("region2");
+
         expect(tagFilterResourceProvider.getFilteredResources("region2", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn2");
@@ -163,7 +170,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of(
                 "region1", ImmutableMap.of("arn1", lambdaFunction)
         ));
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expectAccountSettings("region1");
+
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn1");
@@ -191,12 +199,28 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of(
                 "region1", ImmutableMap.of("arn1", lambdaFunction)
         ));
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expectAccountSettings("region1");
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andThrow(new RuntimeException());
 
         replayAll();
         testClass.run();
         verifyAll();
+    }
+
+    private void expectAccountSettings(String region) {
+        expect(awsClientProvider.getLambdaClient(region)).andReturn(lambdaClient);
+        expect(lambdaClient.getAccountSettings()).andReturn(GetAccountSettingsResponse.builder()
+                .accountLimit(AccountLimit.builder()
+                        .concurrentExecutions(10)
+                        .unreservedConcurrentExecutions(20)
+                        .build())
+                .build());
+        gaugeExporter.exportMetric("limit", "", ImmutableMap.of(
+                "region", region, "type", "concurrent_executions"), now, 10.0D
+        );
+        gaugeExporter.exportMetric("limit", "", ImmutableMap.of(
+                "region", region, "type", "unreserved_concurrent_executions"), now, 20.0D
+        );
     }
 }
