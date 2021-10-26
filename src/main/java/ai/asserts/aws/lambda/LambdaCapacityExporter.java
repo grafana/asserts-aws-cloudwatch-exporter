@@ -109,7 +109,7 @@ public class LambdaCapacityExporter extends TimerTask {
                         response.provisionedConcurrencyConfigs().forEach(config -> {
                             // Capacity is always provisioned at alias or version level
                             String[] parts = config.functionArn().split(":");
-                            String level = Character.isDigit(parts[parts.length - 1].charAt(0)) ? "version" : "alias";
+                            String level = Character.isDigit(parts[parts.length - 1].charAt(0)) ? "d_executed_version" : "d_resource";
                             labels.put(level, parts[parts.length - 1]);
 
                             Integer available = config.availableProvisionedConcurrentExecutions();
