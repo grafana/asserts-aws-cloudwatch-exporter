@@ -112,17 +112,17 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .build())
                         .build());
         gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
-                "region", "region1", "function_name", "fn1"
+                "region", "region1", "d_function_name", "fn1"
         ), now, 120.0D);
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         gaugeExporter.exportMetric("available", "", ImmutableMap.of(
-                "region", "region1", "function_name", "fn1", "d_executed_version", "1"
+                "region", "region1", "d_function_name", "fn1", "d_executed_version", "1"
         ), now, 100.0D);
         gaugeExporter.exportMetric("requested", "", ImmutableMap.of(
-                "region", "region1", "function_name", "fn1", "d_executed_version", "1"
+                "region", "region1", "d_function_name", "fn1", "d_executed_version", "1"
         ), now, 20.0D);
         gaugeExporter.exportMetric("allocated", "", ImmutableMap.of(
-                "region", "region1", "function_name", "fn1", "d_executed_version", "1"
+                "region", "region1", "d_function_name", "fn1", "d_executed_version", "1"
         ), now, 10.0D);
 
 
@@ -147,17 +147,17 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .build())
                         .build());
         gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
-                "region", "region2", "function_name", "fn2"
+                "region", "region2", "d_function_name", "fn2"
         ), now, 60.0D);
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         gaugeExporter.exportMetric("available", "", ImmutableMap.of(
-                "region", "region2", "function_name", "fn2", "d_resource", "green"
+                "region", "region2", "d_function_name", "fn2", "d_resource", "green"
         ), now, 100.0D);
         gaugeExporter.exportMetric("requested", "", ImmutableMap.of(
-                "region", "region2", "function_name", "fn2", "d_resource", "green"
+                "region", "region2", "d_function_name", "fn2", "d_resource", "green"
         ), now, 30.0D);
         gaugeExporter.exportMetric("allocated", "", ImmutableMap.of(
-                "region", "region2", "function_name", "fn2", "d_resource", "green"
+                "region", "region2", "d_function_name", "fn2", "d_resource", "green"
         ), now, 20.0D);
 
         replayAll();
@@ -186,7 +186,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                         .provisionedConcurrencyConfigs(Collections.emptyList())
                         .build());
         gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
-                "region", "region1", "function_name", "fn1"
+                "region", "region1", "d_function_name", "fn1"
         ), now, 60.0D);
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         replayAll();

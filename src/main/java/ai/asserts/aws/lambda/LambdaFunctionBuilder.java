@@ -63,7 +63,7 @@ public class LambdaFunctionBuilder {
                 response.functionEventInvokeConfigs().forEach(config -> {
                     Map<String, String> labels = new TreeMap<>();
                     labels.put("region", region);
-                    labels.put("function_name", functionConfiguration.functionName());
+                    labels.put("d_function_name", functionConfiguration.functionName());
                     fnResource.ifPresent(fr -> fr.addTagLabels(labels, metricNameUtil));
 
                     DestinationConfig destConfig = config.destinationConfig();
