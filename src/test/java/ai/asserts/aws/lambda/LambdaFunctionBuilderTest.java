@@ -83,18 +83,18 @@ public class LambdaFunctionBuilderTest extends EasyMockSupport {
         expect(lambdaClient.listFunctionEventInvokeConfigs(request)).andReturn(response);
         expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("prefix");
 
-        Map<String, String> baseLabels = ImmutableMap.of("function_name", "fn1", "region", "region1");
+        Map<String, String> baseLabels = ImmutableMap.of("d_function_name", "fn1", "region", "region1");
 
         expect(resourceMapper.map("dst1:arn")).andReturn(Optional.of(destResource));
         Map<String, String> successLabels = ImmutableSortedMap.of(
-                "on", "success", "function_name", "fn1", "region", "region1");
+                "on", "success", "d_function_name", "fn1", "region", "region1");
         fnResource.addTagLabels(baseLabels, metricNameUtil);
         destResource.addLabels(successLabels, "dest");
         gaugeExporter.exportMetric("prefix_invoke_config", "", successLabels, now, 1.0D);
 
         expect(resourceMapper.map("dst2:arn")).andReturn(Optional.of(destResource));
         Map<String, String> failureLabels = ImmutableSortedMap.of(
-                "on", "failure", "function_name", "fn1", "region", "region1");
+                "on", "failure", "d_function_name", "fn1", "region", "region1");
         fnResource.addTagLabels(baseLabels, metricNameUtil);
         destResource.addLabels(failureLabels, "dest");
         gaugeExporter.exportMetric("prefix_invoke_config", "", failureLabels, now, 1.0D);
