@@ -88,7 +88,7 @@ public class LambdaCapacityExporter extends TimerTask {
                     fnResourceOpt.ifPresent(fnResource -> fnResource.addTagLabels(labels, metricNameUtil));
 
                     labels.put("region", region);
-                    labels.put("function_name", lambdaFunction.getName());
+                    labels.put("d_function_name", lambdaFunction.getName());
 
                     // Export timeout
                     gaugeExporter.exportMetric(timeoutMetric, "", labels, now,
