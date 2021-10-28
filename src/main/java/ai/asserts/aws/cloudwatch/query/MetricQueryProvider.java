@@ -79,10 +79,9 @@ public class MetricQueryProvider {
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getRegions().forEach(region -> scrapeConfig.getNamespaces().forEach(ns -> {
-            try {
+            try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
                 Set<Resource> tagFilteredResources = tagFilterResourceProvider.getFilteredResources(region, ns);
                 if (!ns.hasTagFilters() || tagFilteredResources.size() > 0) {
-                    CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region);
 
                     Map<String, MetricConfig> configuredMetrics = new TreeMap<>();
                     ns.getMetrics().forEach(metricConfig -> configuredMetrics.put(metricConfig.getName(),

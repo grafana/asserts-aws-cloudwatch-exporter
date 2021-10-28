@@ -80,7 +80,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 .lambdaFunction(lambdaFunction)
                 .logScrapeConfig(logScrapeConfig)
                 .build(), filteredLogEvent);
-
+        cloudWatchLogsClient.close();
         replayAll();
         testClass.run();
         verifyAll();

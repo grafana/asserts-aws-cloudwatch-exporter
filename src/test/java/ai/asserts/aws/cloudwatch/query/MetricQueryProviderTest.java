@@ -126,7 +126,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
         expect(metricQuery.getMetricStat()).andReturn(Average);
         expectMetricQuery(Average, "metric_avg");
-
+        cloudWatchClient.close();
         replayAll();
         testClass.getMetricQueries();
         verifyAll();
@@ -142,10 +142,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(false).anyTimes();
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
-                .andReturn(ImmutableSet.of());
         expect(awsClientProvider.getCloudWatchClient("region1")).andThrow(new RuntimeException());
-
         replayAll();
         testClass.getMetricQueries();
         verifyAll();

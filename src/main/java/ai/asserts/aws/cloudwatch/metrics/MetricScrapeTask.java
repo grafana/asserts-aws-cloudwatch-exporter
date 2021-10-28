@@ -46,7 +46,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 @Slf4j
 @Setter
 @Getter
-@EqualsAndHashCode(callSuper = false,onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
 public class MetricScrapeTask extends TimerTask {
     @Autowired
     private AWSClientProvider awsClientProvider;
@@ -100,30 +100,33 @@ public class MetricScrapeTask extends TimerTask {
         Instant endTime = now.minusSeconds(delaySeconds);
         Instant startTime = endTime.minusSeconds(Math.max(intervalSeconds, period));
 
-        CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region);
-        batches.forEach(batch -> {
-            String nextToken = null;
-            do {
-                GetMetricDataRequest.Builder requestBuilder = GetMetricDataRequest.builder()
-                        .endTime(endTime)
-                        .startTime(startTime)
-                        .nextToken(nextToken)
-                        .metricDataQueries(batch.stream()
-                                .map(MetricQuery::getMetricDataQuery)
-                                .collect(Collectors.toList()));
+        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
+            batches.forEach(batch -> {
+                String nextToken = null;
+                do {
+                    GetMetricDataRequest.Builder requestBuilder = GetMetricDataRequest.builder()
+                            .endTime(endTime)
+                            .startTime(startTime)
+                            .nextToken(nextToken)
+                            .metricDataQueries(batch.stream()
+                                    .map(MetricQuery::getMetricDataQuery)
+                                    .collect(Collectors.toList()));
 
-                long timeTaken = System.currentTimeMillis();
-                GetMetricDataResponse metricData = cloudWatchClient.getMetricData(requestBuilder.build());
-                timeTaken = System.currentTimeMillis() - timeTaken;
-                captureLatency(timeTaken);
-                metricData.metricDataResults().forEach(metricDataResult -> {
-                    MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
-                    gaugeExporter.exportMetricMeta(region, metricQuery);
-                    gaugeExporter.exportMetrics(region, metricQuery, period, metricDataResult);
-                });
-                nextToken = metricData.nextToken();
-            } while (nextToken != null);
-        });
+                    long timeTaken = System.currentTimeMillis();
+                    GetMetricDataResponse metricData = cloudWatchClient.getMetricData(requestBuilder.build());
+                    timeTaken = System.currentTimeMillis() - timeTaken;
+                    captureLatency(timeTaken);
+                    metricData.metricDataResults().forEach(metricDataResult -> {
+                        MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
+                        gaugeExporter.exportMetricMeta(region, metricQuery);
+                        gaugeExporter.exportMetrics(region, metricQuery, period, metricDataResult);
+                    });
+                    nextToken = metricData.nextToken();
+                } while (nextToken != null);
+            });
+        } catch (Exception e) {
+            log.error("Failed to scrape metrics", e);
+        }
 
         // If no data was returned for any metric, do zero filling
         gaugeExporter.exportZeros(region, startTime, endTime, period, queriesById);

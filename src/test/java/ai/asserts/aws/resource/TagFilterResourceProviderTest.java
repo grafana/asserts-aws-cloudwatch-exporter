@@ -119,7 +119,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         resource.setTags(ImmutableList.of(tag2));
 
         expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
-
+        apiClient.close();
         replayAll();
         assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources("region", namespaceConfig));
         verifyAll();
@@ -172,7 +172,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         resource.setTags(ImmutableList.of(tag2));
 
         expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
-
+        apiClient.close();
         replayAll();
         assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources("region", namespaceConfig));
         verifyAll();

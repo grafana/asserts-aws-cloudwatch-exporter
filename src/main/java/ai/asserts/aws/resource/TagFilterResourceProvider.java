@@ -76,7 +76,6 @@ public class TagFilterResourceProvider {
         Set<Resource> resources = new HashSet<>();
         CWNamespace cwNamespace = CWNamespace.valueOf(key.getNamespace().getName());
         GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
-        ResourceGroupsTaggingApiClient resourceTagClient = awsClientProvider.getResourceTagClient(key.region);
         if (cwNamespace.getResourceTypes().size() > 0) {
             Set<String> resourceTypeFilters = cwNamespace.getResourceTypes().stream()
                     .map(type -> format("%s:%s", cwNamespace.getServiceName(), type))
@@ -98,7 +97,7 @@ public class TagFilterResourceProvider {
         }
 
         String nextToken = null;
-        try {
+        try (ResourceGroupsTaggingApiClient resourceTagClient = awsClientProvider.getResourceTagClient(key.region)) {
             do {
                 long timeTaken = System.currentTimeMillis();
                 GetResourcesResponse response = resourceTagClient.getResources(builder

@@ -64,8 +64,7 @@ public class LambdaCapacityExporter extends TimerTask {
 
         optional.ifPresent(lambdaConfig -> functionScraper.getFunctions().forEach((region, functions) -> {
             log.info("Getting Lambda account and provisioned concurrency for region {}", region);
-            try {
-                LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region);
+            try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {
                 GetAccountSettingsResponse accountSettings = lambdaClient.getAccountSettings();
 
                 gaugeExporter.exportMetric(accountLimitMetric, "", ImmutableMap.of(

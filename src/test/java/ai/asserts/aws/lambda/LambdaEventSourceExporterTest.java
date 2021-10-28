@@ -129,7 +129,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         gaugeExporter.exportMetric("aws_lambda_event_source", help,
                 fn2Labels,
                 now, 1.0D);
-
+        lambdaClient.close();
         replayAll();
         testClass.run();
         verifyAll();
@@ -140,7 +140,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
                 .build();
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
-
+        lambdaClient.close();
         replayAll();
         testClass.run();
         verifyAll();

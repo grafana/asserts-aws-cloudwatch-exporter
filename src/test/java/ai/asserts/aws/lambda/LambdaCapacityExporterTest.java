@@ -127,7 +127,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
                 "job", "fn1"
         ), now, 10.0D);
-
+        lambdaClient.close();
 
         expectAccountSettings("region2");
 
@@ -165,7 +165,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 "region", "region2", "d_function_name", "fn2", "d_resource", "green",
                 "job", "fn2"
         ), now, 20.0D);
-
+        lambdaClient.close();
         replayAll();
         testClass.run();
         verifyAll();
@@ -195,6 +195,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 "region", "region1", "d_function_name", "fn1", "job", "fn1"
         ), now, 60.0D);
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
+        lambdaClient.close();
         replayAll();
         testClass.run();
         verifyAll();
@@ -208,7 +209,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expectAccountSettings("region1");
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andThrow(new RuntimeException());
-
+        lambdaClient.close();
         replayAll();
         testClass.run();
         verifyAll();
