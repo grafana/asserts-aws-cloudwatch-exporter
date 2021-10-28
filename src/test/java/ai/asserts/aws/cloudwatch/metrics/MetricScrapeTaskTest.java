@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 
 public class MetricScrapeTaskTest extends EasyMockSupport {
     private String region;
@@ -145,6 +146,8 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
 
         gaugeExporter.exportZeros(region, now.minusSeconds(period + delay), now.minusSeconds(delay), period,
                 ImmutableSortedMap.of("id3", queries.get(2)));
+
+        cloudWatchClient.close();
 
         replayAll();
         testClass.run();

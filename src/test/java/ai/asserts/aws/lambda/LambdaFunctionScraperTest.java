@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -102,6 +103,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         expect(lambdaFunctionBuilder.buildFunction("region1", lambdaClient, fn2Config, Optional.empty()))
                 .andReturn(lambdaFunction);
         gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        lambdaClient.close();
 
         expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
@@ -114,7 +116,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         expect(lambdaFunctionBuilder.buildFunction("region2", lambdaClient, fn4Config, Optional.empty()))
                 .andReturn(lambdaFunction);
         gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
-
+        lambdaClient.close();
         replayAll();
 
         assertEquals(ImmutableMap.of(
@@ -130,10 +132,11 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     public void getFunctions_Exception() {
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
+        lambdaClient.close();
 
         expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
-
+        lambdaClient.close();
         replayAll();
         Map<String, Map<String, LambdaFunction>> functionsByRegion = lambdaFunctionScraper.getFunctions();
         assertTrue(functionsByRegion.isEmpty());

@@ -65,9 +65,7 @@ public class LambdaFunctionScraper {
                 .filter(ns -> CWNamespace.lambda.name().equals(ns.getName()))
                 .findFirst();
         lambdaNSOpt.ifPresent(lambdaNS -> scrapeConfig.getRegions().forEach(region -> {
-            try {
-                LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region);
-
+            try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {
                 // Get all the functions
                 long timeTaken = System.currentTimeMillis();
                 ListFunctionsResponse response = lambdaClient.listFunctions();

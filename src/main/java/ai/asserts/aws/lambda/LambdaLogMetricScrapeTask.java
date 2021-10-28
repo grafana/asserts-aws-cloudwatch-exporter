@@ -69,13 +69,12 @@ public class LambdaLogMetricScrapeTask extends TimerTask {
     private Map<FunctionLogScrapeConfig, FilteredLogEvent> scrapeLogEvents() {
         log.info("BEGIN lambda log scrape for region {}", region);
         Map<FunctionLogScrapeConfig, FilteredLogEvent> map = new HashMap<>();
-        try {
+        try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region)) {
 
             if (!lambdaFunctionScraper.getFunctions().containsKey(region)) {
                 log.info("No functions found for region {}", region);
                 return Collections.emptyMap();
             }
-            CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region);
             lambdaFunctionScraper.getFunctions().get(region).forEach((arn, functionConfig) -> logScrapeConfigs.stream()
                     .filter(logScrapeConfig -> logScrapeConfig.shouldScrapeLogsFor(functionConfig.getName()))
                     .findFirst()

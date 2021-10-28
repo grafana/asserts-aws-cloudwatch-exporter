@@ -84,8 +84,7 @@ public class LambdaEventSourceExporter extends TimerTask {
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getLambdaConfig().ifPresent(namespaceConfig -> scrapeConfig.getRegions().forEach(region -> {
-            try {
-                LambdaClient client = awsClientProvider.getLambdaClient(region);
+            try (LambdaClient client = awsClientProvider.getLambdaClient(region)) {
                 // Get all event source mappings
                 log.info("Discovering Lambda event source mappings for region={}", region);
                 String nextToken = null;
