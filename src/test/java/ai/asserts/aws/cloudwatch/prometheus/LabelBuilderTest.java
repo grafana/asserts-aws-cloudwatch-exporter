@@ -6,8 +6,10 @@ package ai.asserts.aws.cloudwatch.prometheus;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
+import ai.asserts.aws.lambda.LambdaLabelConverter;
 import com.google.common.collect.ImmutableMap;
 import org.easymock.EasyMockSupport;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cloudwatch.model.Dimension;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
@@ -18,22 +20,36 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class LabelBuilderTest extends EasyMockSupport {
+    private LambdaLabelConverter lambdaLabelConverter;
+    private MetricNameUtil metricNameUtil;
+    private LabelBuilder labelBuilder;
+    private Dimension functionDimension;
+
+    @BeforeEach
+    public void setup() {
+        lambdaLabelConverter = mock(LambdaLabelConverter.class);
+        metricNameUtil = mock(MetricNameUtil.class);
+        labelBuilder = new LabelBuilder(metricNameUtil, lambdaLabelConverter);
+        functionDimension = Dimension.builder()
+                .name("FunctionName")
+                .value("function1")
+                .build();
+    }
+
     @Test
     void buildLabels_LambdaMetric() {
-        MetricNameUtil metricNameUtil = mock(MetricNameUtil.class);
-        LabelBuilder labelBuilder = new LabelBuilder(metricNameUtil);
-
-        expect(metricNameUtil.toSnakeCase("FunctionName")).andReturn("function_name");
+        expect(lambdaLabelConverter.shouldUseForNamespace("AWS/Lambda")).andReturn(true);
+        expect(lambdaLabelConverter.convert(functionDimension)).andReturn(ImmutableMap.of(
+                "d_function_name", "function1"
+        ));
 
         replayAll();
+
         Map<String, String> labels = labelBuilder.buildLabels("region1", MetricQuery.builder()
                 .metric(Metric.builder()
                         .metricName("Invocations")
                         .namespace("AWS/Lambda")
-                        .dimensions(Dimension.builder()
-                                .name("FunctionName")
-                                .value("function1")
-                                .build())
+                        .dimensions(functionDimension)
                         .build())
                 .build());
         verifyAll();
@@ -47,20 +63,20 @@ public class LabelBuilderTest extends EasyMockSupport {
 
     @Test
     void buildLabels_LambdaInsightsMetric() {
-        MetricNameUtil metricNameUtil = mock(MetricNameUtil.class);
-        LabelBuilder labelBuilder = new LabelBuilder(metricNameUtil);
-
+        expect(lambdaLabelConverter.shouldUseForNamespace("LambdaInsights")).andReturn(false);
         expect(metricNameUtil.toSnakeCase("function_name")).andReturn("function_name");
+
+        functionDimension = Dimension.builder()
+                .name("function_name")
+                .value("function1")
+                .build();
 
         replayAll();
         Map<String, String> labels = labelBuilder.buildLabels("region1", MetricQuery.builder()
                 .metric(Metric.builder()
                         .metricName("memory_utilization")
                         .namespace("LambdaInsights")
-                        .dimensions(Dimension.builder()
-                                .name("function_name")
-                                .value("function1")
-                                .build())
+                        .dimensions(functionDimension)
                         .build())
                 .build());
         verifyAll();
@@ -74,9 +90,7 @@ public class LabelBuilderTest extends EasyMockSupport {
 
     @Test
     void buildLabels_SQSMetric() {
-        MetricNameUtil metricNameUtil = mock(MetricNameUtil.class);
-        LabelBuilder labelBuilder = new LabelBuilder(metricNameUtil);
-
+        expect(lambdaLabelConverter.shouldUseForNamespace("AWS/SQS")).andReturn(false);
         expect(metricNameUtil.toSnakeCase("QueueName")).andReturn("queue_name");
 
         replayAll();

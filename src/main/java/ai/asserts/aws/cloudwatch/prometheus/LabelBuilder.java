@@ -6,6 +6,7 @@ package ai.asserts.aws.cloudwatch.prometheus;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
+import ai.asserts.aws.lambda.LambdaLabelConverter;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -22,14 +23,21 @@ import static java.lang.String.format;
 @AllArgsConstructor
 public class LabelBuilder {
     private final MetricNameUtil metricNameUtil;
+    private final LambdaLabelConverter lambdaLabelConverter;
 
     Map<String, String> buildLabels(String region, MetricQuery metricQuery) {
         Map<String, String> labels = new TreeMap<>();
         labels.put("region", region);
-        metricQuery.getMetric().dimensions().forEach(dimension -> {
-            String key = format("d_%s", metricNameUtil.toSnakeCase(dimension.name()));
-            labels.put(key, dimension.value());
-        });
+
+        if (lambdaLabelConverter.shouldUseForNamespace(metricQuery.getMetric().namespace())) {
+            metricQuery.getMetric().dimensions().forEach(dimension ->
+                    labels.putAll(lambdaLabelConverter.convert(dimension)));
+        } else {
+            metricQuery.getMetric().dimensions().forEach(dimension -> {
+                String key = format("d_%s", metricNameUtil.toSnakeCase(dimension.name()));
+                labels.put(key, dimension.value());
+            });
+        }
 
         if (metricQuery.getResource() != null && !CollectionUtils.isEmpty(metricQuery.getResource().getTags())) {
             metricQuery.getResource().getTags().forEach(tag ->
@@ -48,9 +56,10 @@ public class LabelBuilder {
                         .filter(dimension -> dimension.name().equals("FunctionName"))
                         .map(Dimension::value)
                         .findFirst();
-            } else if("LambdaInsights".equals(metric.namespace())) {
+            } else if ("LambdaInsights".equals(metric.namespace())) {
                 return metric.dimensions().stream()
-                        .filter(dimension -> dimension.name().equals("function_name"))
+                        .filter(dimension ->
+                                dimension.name().equals("function_name") || dimension.name().equals("FunctionName"))
                         .map(Dimension::value)
                         .findFirst();
             }
