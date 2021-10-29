@@ -8,8 +8,14 @@ plugins {
 group 'ai.asserts'
 version = new Date().format("YY.M.0") + '.' + 'git rev-parse --short HEAD'.execute().text.trim()
 
+
+
 repositories {
     mavenCentral()
+}
+
+application {
+    mainClass = 'ai.asserts.aws.CloudWatchExporterApplication'
 }
 
 dependencies {
