@@ -5,19 +5,29 @@
 package ai.asserts.aws.test;
 
 import ai.asserts.aws.TestCredentials;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequest;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchResponse;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
+
+import static ai.asserts.aws.test.SQSMessageGenerator.Problem.error;
+import static ai.asserts.aws.test.SQSMessageGenerator.Problem.latency;
+import static ai.asserts.aws.test.SQSMessageGenerator.Problem.memory;
+import static ai.asserts.aws.test.SQSMessageGenerator.Problem.normal;
 
 public class SQSMessageGenerator {
     @SuppressWarnings("BusyWait")
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         TestCredentials testCredentials = new TestCredentials();
         SqsClient sqsClient;
         if (testCredentials.getSessionCredentials().isPresent()) {
@@ -31,22 +41,53 @@ public class SQSMessageGenerator {
                     .build();
         }
 
-        Counter messageId = new Counter();
+        List<TestMessage> commands = new ArrayList<>();
 
+        // Stay normal for 10 minutes
+        // Then cause latency warning 10 minutes
+        // Then cause latency critical 10 minutes
+        // Then become normal 10 minutes
+        // Then start memory saturation warning 10 minutes
+        // Then start memory saturation critical 10 minutes
+        // Then become normal 10 minutes
+        // Then cause error spike level1 10 minutes
+        // Increase error rate 10 minutes
+        commands.add(new TestMessage(latency, 4250, 10L));
+        commands.add(new TestMessage(latency, 4750, 10L));
+        commands.add(new TestMessage(normal, 0, 15L));
+        commands.add(new TestMessage(memory, 400, 10L));
+        commands.add(new TestMessage(memory, 600, 10L));
+        commands.add(new TestMessage(normal, 0, 15L));
+        commands.add(new TestMessage(error, 5, 10L));
+        commands.add(new TestMessage(error, 10, 10L));
+        commands.add(new TestMessage(error, 15, 10L));
+        commands.add(new TestMessage(error, 20, 10L));
+        commands.add(new TestMessage(normal, 0, 15L));
+
+        int i = 0;
+        TestMessage current = commands.get(0);
+        current.start();
         do {
+            if (!current.isActive()) {
+                int next = ++i;
+                current = commands.get(next % commands.size());
+                current.start();
+            }
+            System.out.println(current);
             List<SendMessageBatchRequestEntry> messages = new ArrayList<>();
-            for (int i = 0; i < 5; i++) {
-                messages.add(buildMessage(messageId));
+            int numMessagesPerBatch = 5;
+            for (int j = 0; j < numMessagesPerBatch; j++) {
+                messages.add(buildMessage(UUID.randomUUID().toString(), current));
             }
 
-            Stream.of("lamda-sqs-poc-input-queue", "Queue1", "Queue4", "Queue7").forEach(qName -> {
+            Stream.of("LatencyDemo-Input").forEach(qName -> {
                 SendMessageBatchRequest batchRequest = SendMessageBatchRequest.builder()
                         .queueUrl("https://sqs.us-west-2.amazonaws.com/342994379019/" + qName)
                         .entries(messages.toArray(new SendMessageBatchRequestEntry[0]))
                         .build();
                 SendMessageBatchResponse sendMessageBatchResponse = sqsClient.sendMessageBatch(batchRequest);
                 if (sendMessageBatchResponse.hasSuccessful()) {
-                    System.out.println("Successfully sent batch message with 5 messages to queue=" + qName);
+                    System.out.println("Successfully sent batch message with " + numMessagesPerBatch + " messages to queue=" + qName);
                 }
             });
             try {
@@ -58,22 +99,77 @@ public class SQSMessageGenerator {
         } while (true);
     }
 
-    private static SendMessageBatchRequestEntry buildMessage(Counter messageId) {
+    private static ObjectMapper objectMapper = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
+    private static SendMessageBatchRequestEntry buildMessage(String messageId, TestMessage testMessage) throws Exception {
+        String messageBody = objectMapper.writeValueAsString(testMessage);
         return SendMessageBatchRequestEntry.builder()
-                .id("" + messageId.next())
-                .messageBody("{\n" +
-                        "  \"key1\": \"value1\",\n" +
-                        "  \"key2\": \"value2\",\n" +
-                        "  \"key3\": \"value3\"\n" +
-                        "}")
+                .id("" + messageId)
+                .messageBody(messageBody)
                 .build();
     }
 
-    public static class Counter {
-        long messageId = 0L;
+    public static class TestMessage {
+        private final Problem problem;
+        private final int measure;
+        @JsonIgnore
+        private final long durationMinutes;
+        @JsonIgnore
+        private long startTime;
+        @JsonIgnore
+        private long endTime;
 
-        public long next() {
-            return ++messageId;
+        public TestMessage(Problem problem, int measure, long durationMinutes) {
+            this.problem = problem;
+            this.measure = measure;
+            this.durationMinutes = durationMinutes;
         }
+
+        public Problem getProblem() {
+            return problem;
+        }
+
+
+        public int getMeasure() {
+            return measure;
+        }
+
+        public long getDurationMinutes() {
+            return durationMinutes;
+        }
+
+        public long getStartTime() {
+            return startTime;
+        }
+
+        public long getEndTime() {
+            return endTime;
+        }
+
+        public void start() {
+            startTime = Instant.now().toEpochMilli();
+            endTime = Instant.now().plusSeconds(durationMinutes * 60).toEpochMilli();
+        }
+
+        @JsonIgnore
+        public boolean isActive() {
+            return Instant.now().toEpochMilli() < endTime;
+        }
+
+        @Override
+        public String toString() {
+            return "TestMessage{" +
+                    "problem=" + problem +
+                    ", measure=" + measure +
+                    ", durationMinutes=" + durationMinutes +
+                    ", startTime=" + startTime +
+                    ", endTime=" + endTime +
+                    '}';
+        }
+    }
+
+    public enum Problem {
+        normal, memory, latency, error
     }
 }
