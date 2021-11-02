@@ -15,10 +15,10 @@ COPY --chown=gradle:gradle gradle.properties /home/gradle/app/
 # all of our gradle dependencies already downloaded
 # Adds ~7 secs to 1st build, (~1min), subsequent builds will be ~20 secs
 # Without this 1-liner every container build would be ~1min
+COPY --chown=gradle:gradle ./.git /home/gradle/app/.git
 RUN gradle build --no-daemon > /dev/null 2>&1 || true
 
 COPY --chown=gradle:gradle ./src /home/gradle/app/src
-COPY --chown=gradle:gradle ./.git /home/gradle/app/.git
 RUN gradle bootJar --no-daemon
 
 

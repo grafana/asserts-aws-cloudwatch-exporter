@@ -1,7 +1,7 @@
 
 ---
-hostPort: localhost:8010
-username: 
+hostPort: localhost:8095
+username:
 password:
 
 rules:
