@@ -7,11 +7,14 @@ package ai.asserts.aws.cloudwatch.metrics;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.prometheus.client.Collector;
+import io.prometheus.client.CollectorRegistry;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,9 +25,10 @@ import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest;
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataResponse;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -47,7 +51,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 @Setter
 @Getter
 @EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
-public class MetricScrapeTask extends TimerTask {
+public class MetricScrapeTask extends Collector implements MetricProvider {
     @Autowired
     private AWSClientProvider awsClientProvider;
     @Autowired
@@ -56,6 +60,10 @@ public class MetricScrapeTask extends TimerTask {
     private QueryBatcher queryBatcher;
     @Autowired
     private GaugeExporter gaugeExporter;
+    @Autowired
+    private MetricSampleBuilder sampleBuilder;
+    @Autowired
+    private CollectorRegistry collectorRegistry;
     @EqualsAndHashCode.Include
     private final String region;
     @EqualsAndHashCode.Include
@@ -63,26 +71,35 @@ public class MetricScrapeTask extends TimerTask {
     @EqualsAndHashCode.Include
     private final int delaySeconds;
 
+    private long lastScrapeTime = -1;
+
     public MetricScrapeTask(String region, int intervalSeconds, int delay) {
         this.region = region;
         this.intervalSeconds = intervalSeconds;
         this.delaySeconds = delay;
     }
 
-    public void run() {
+    @Override
+    public List<MetricFamilySamples> collect() {
+        List<MetricFamilySamples> familySamples = new ArrayList<>();
+
         Instant now = now();
+        long timeSinceLastScrape = now.toEpochMilli() - lastScrapeTime;
+        if (timeSinceLastScrape < intervalSeconds * 1000) {
+            return familySamples;
+        }
 
         log.info("BEGIN Scrape for region {} and interval {}", region, intervalSeconds);
         Map<Integer, List<MetricQuery>> byInterval = metricQueryProvider.getMetricQueries().get(region);
         if (byInterval == null) {
             log.error("No queries found for region {}", region);
-            return;
+            return Collections.emptyList();
         }
 
         List<MetricQuery> queries = byInterval.get(intervalSeconds);
         if (queries == null) {
             log.error("No queries found for region {} and interval {}", region, intervalSeconds);
-            return;
+            return Collections.emptyList();
         }
 
         // The result only has the query id. We will need the metric while processing the result
@@ -99,6 +116,8 @@ public class MetricScrapeTask extends TimerTask {
         // between (t1, t2) where t2 = now - delay and t1 = t2 - period
         Instant endTime = now.minusSeconds(delaySeconds);
         Instant startTime = endTime.minusSeconds(Math.max(intervalSeconds, period));
+
+        Map<String, List<MetricFamilySamples.Sample>> samplesByMetric = new TreeMap<>();
 
         try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
             batches.forEach(batch -> {
@@ -118,8 +137,10 @@ public class MetricScrapeTask extends TimerTask {
                     captureLatency(timeTaken);
                     metricData.metricDataResults().forEach(metricDataResult -> {
                         MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
-                        gaugeExporter.exportMetricMeta(region, metricQuery);
-                        gaugeExporter.exportMetrics(region, metricQuery, period, metricDataResult);
+                        sampleBuilder.buildSamples(region, metricQuery, metricDataResult, startTime, endTime, period)
+                                .forEach(sample ->
+                                        samplesByMetric.computeIfAbsent(sample.name, k -> new ArrayList<>())
+                                                .add(sample));
                     });
                     nextToken = metricData.nextToken();
                 } while (nextToken != null);
@@ -128,10 +149,11 @@ public class MetricScrapeTask extends TimerTask {
             log.error("Failed to scrape metrics", e);
         }
 
-        // If no data was returned for any metric, do zero filling
-        gaugeExporter.exportZeros(region, startTime, endTime, period, queriesById);
+        samplesByMetric.forEach((metricName, samples) ->
+                familySamples.add(new MetricFamilySamples(metricName, Collector.Type.GAUGE, "", samples)));
 
         log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
+        return familySamples;
     }
 
     private void captureLatency(long timeTaken) {

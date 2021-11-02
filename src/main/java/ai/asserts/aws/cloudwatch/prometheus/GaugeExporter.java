@@ -12,7 +12,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
-import software.amazon.awssdk.services.cloudwatch.model.MetricDataResult;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -49,15 +48,6 @@ public class GaugeExporter {
                              Instant timestamp, Double metric) {
         metricCollectors.getGauge(metricName, help)
                 .addSample(labels, timestamp.toEpochMilli(), metric);
-    }
-
-    public void exportMetrics(String region, MetricQuery metricQuery,
-                              Integer period, MetricDataResult metricDataResult) {
-        Metric metric = metricQuery.getMetric();
-        String exportedMetricName = metricNameUtil.exportedMetricName(metric, metricQuery.getMetricStat());
-        GaugeCollector gaugeCollector = metricCollectors.getGauge(exportedMetricName, "");
-        gaugeCollector.addSample(region, metricQuery, period, metricDataResult.timestamps(), metricDataResult.values());
-        log.debug("Exported metrics for region = {}, metric = {}", region, exportedMetricName);
     }
 
     public void exportZeros(String region, Instant startTime, Instant endTime, Integer interval,

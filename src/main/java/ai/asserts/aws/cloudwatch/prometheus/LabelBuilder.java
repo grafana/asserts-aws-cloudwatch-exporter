@@ -25,7 +25,7 @@ public class LabelBuilder {
     private final MetricNameUtil metricNameUtil;
     private final LambdaLabelConverter lambdaLabelConverter;
 
-    Map<String, String> buildLabels(String region, MetricQuery metricQuery) {
+    public Map<String, String> buildLabels(String region, MetricQuery metricQuery) {
         Map<String, String> labels = new TreeMap<>();
         labels.put("region", region);
 

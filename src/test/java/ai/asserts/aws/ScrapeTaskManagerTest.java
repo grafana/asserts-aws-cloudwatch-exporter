@@ -29,6 +29,7 @@ import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ScrapeTaskManagerTest extends EasyMockSupport {
@@ -38,6 +39,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
     private NamespaceConfig namespaceConfig;
     private LambdaEventSourceExporter lambdaEventSourceExporter;
     private ScheduledExecutorService scheduledExecutorService;
+    private MetricScrapeTask metricScrapeTask;
     private ScrapeConfig scrapeConfig;
 
     @BeforeEach
@@ -48,6 +50,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
         scheduledExecutorService = mock(ScheduledExecutorService.class);
+        metricScrapeTask = mock(MetricScrapeTask.class);
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getNumTaskThreads()).andReturn(5);
@@ -57,6 +60,11 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
             ScheduledExecutorService getExecutorService(int numThreads) {
                 assertEquals(5, numThreads);
                 return scheduledExecutorService;
+            }
+
+            @Override
+            MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
+                return metricScrapeTask;
             }
         };
         verifyAll();
@@ -91,11 +99,9 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         expect(namespaceConfig.getLogs()).andReturn(logScrapeConfigs).anyTimes();
 
 
-        expectMetricScrapeTask("region1", 120, delay);
-        expectMetricScrapeTask("region1", 300, delay);
-
-        expectMetricScrapeTask("region2", 120, delay);
-        expectMetricScrapeTask("region2", 300, delay);
+        beanFactory.autowireBean(metricScrapeTask);
+        expectLastCall().times(4);
+        expect(metricScrapeTask.register()).andReturn(null).times(4);
 
         expectLambdaLogScrapeTask(logScrapeConfigs, "region1");
         expectLambdaLogScrapeTask(logScrapeConfigs, "region2");
@@ -117,13 +123,6 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         beanFactory.autowireBean(lambdaTask1);
         expect(scheduledExecutorService.scheduleAtFixedRate(eq(lambdaTask1), anyLong(),
                 eq(60_000L), eq(MILLISECONDS))).andReturn(null);
-    }
-
-    private void expectMetricScrapeTask(String region, int interval, int delay) {
-        MetricScrapeTask task1 = new MetricScrapeTask(region, interval, delay);
-        beanFactory.autowireBean(task1);
-        expect(scheduledExecutorService.scheduleAtFixedRate(eq(task1), anyLong(),
-                eq(interval * 1000L), eq(MILLISECONDS))).andReturn(null);
     }
 
 }
