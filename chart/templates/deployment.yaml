@@ -33,12 +33,12 @@ spec:
             protocol: TCP
         livenessProbe:
           httpGet:
-            path: /
-            port: jmx
+            path: /aws-exporter/actuator/health/liveness
+            port: aws
         readinessProbe:
           httpGet:
-            path: /
-            port: jmx
+            path: /aws-exporter/actuator/health/readiness
+            port: aws
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}
