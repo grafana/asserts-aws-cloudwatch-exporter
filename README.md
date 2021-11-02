@@ -17,7 +17,7 @@ namespace in CloudWatch. The supported names are :-
 
 The exporter scrapes metrics periodically at a frequency determined by the **scrapeInterval**. In each scrape the 
 exporter requests an aggregate statistic for a specific **period**. The unit for time interval configuration is 
-`second`. The default scrape interval is `60` seconds. The default period is `300` seconds. The time intervals can be 
+`second`. The default scrape interval is `60` seconds. The default period is `60` seconds. The time intervals can be 
 configured at in the following different ways
 
 * **Global** This will apply to all metrics across all namespaces
@@ -42,7 +42,9 @@ regions:
 namespaces:
   - name: lambda
     scrapeInterval: 60
-    period: 300
+    period: 60
+    dimensionFilters:
+      FunctionName: (.+)
     metrics:
       - name: Invocations
         stats:
@@ -59,34 +61,51 @@ namespaces:
       - name: DestinationDeliveryFailures
         stats:
           - Sum
+      - name: Duration
+        stats:
+          - p99
+          - Average
+          - Maximum
+      - name: ProvisionedConcurrencyInvocations
+        stats:
+          - Sum
+      - name: ProvisionedConcurrencySpilloverInvocations
+        stats:
+          - Sum
+      - name: ConcurrentExecutions
+        stats:
+          - Average
+          - Maximum
+      - name: ProvisionedConcurrentExecutions
+        stats:
+          - Average
+      - name: UnreservedConcurrentExecutions
+        stats:
+          - Average
       - name: IteratorAge
         stats:
           - Maximum
-          - Average
-      - name: ConcurrentExecutions
-        stats:
-          - Sum
-      - name: ProvisionedConcurrencyUtilization
-        stats:
-          - Maximum
     logs:
-      - lambdaFunctionName: first-lambda-function
-        logFilterPattern: "v2 About to put message in SQS Queue"
-        regexPattern: ".*v2 About to put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)"
+      - lambdaFunctionName: Function.+
+        logFilterPattern: "About to put message in SQS Queue"
+        regexPattern: ".*put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)"
         labels:
           "destination_type": "SQSQueue"
           "destination_name": "$1"
   - name: sqs
     metrics:
-      - name: NumberOfMessagesReceived
+      - name: NumberOfMessagesDeleted
         stats:
           - Sum
       - name: NumberOfMessagesSent
         stats:
           - Sum
-      - name: NumberOfMessagesDeleted
+      - name: ApproximateNumberOfMessagesVisible
         stats:
-          - Sum
+          - Average
+      - name: SentMessageSize
+        stats:
+          - Average
   - name: dynamodb
     metrics:
       - name: ConsumedReadCapacityUnits
@@ -119,6 +138,30 @@ namespaces:
       - name: BucketSizeBytes
         stats:
           - Average
+  - name: lambdainsights
+    scrapeInterval: 60
+    period: 60
+    dimensionFilters:
+      FunctionName: (.+)
+    metrics:
+      - name: memory_utilization
+        stats:
+          - Average
+      - name: total_memory
+        stats:
+          - Average
+      - name: used_memory_max
+        stats:
+          - Average
+      - name: cpu_total_time
+        stats:
+          - Sum
+      - name: tx_bytes
+        stats:
+          - Sum
+      - name: rx_bytes
+        stats:
+          - Sum
 ```
 
 You can specify one or more regions. The specified configuration will be applicable to all regions. If different regions need different configurations then a different instance of the exporter will need to be run for each set of configuration
