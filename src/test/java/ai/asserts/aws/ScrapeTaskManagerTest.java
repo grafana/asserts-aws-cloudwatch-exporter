@@ -16,30 +16,27 @@ import ai.asserts.aws.lambda.LambdaEventSourceExporter;
 import ai.asserts.aws.lambda.LambdaLogMetricScrapeTask;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prometheus.client.CollectorRegistry;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 
 import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.easymock.EasyMock.anyLong;
-import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ScrapeTaskManagerTest extends EasyMockSupport {
+    private CollectorRegistry collectorRegistry;
+    private LambdaCapacityExporter lambdaCapacityExporter;
     private ScrapeTaskManager testClass;
     private AutowireCapableBeanFactory beanFactory;
     private ScrapeConfigProvider scrapeConfigProvider;
     private NamespaceConfig namespaceConfig;
     private LambdaEventSourceExporter lambdaEventSourceExporter;
-    private ScheduledExecutorService scheduledExecutorService;
     private MetricScrapeTask metricScrapeTask;
+    private LambdaLogMetricScrapeTask logMetricScrapeTask;
     private ScrapeConfig scrapeConfig;
 
     @BeforeEach
@@ -49,22 +46,22 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         lambdaEventSourceExporter = mock(LambdaEventSourceExporter.class);
         scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
-        scheduledExecutorService = mock(ScheduledExecutorService.class);
         metricScrapeTask = mock(MetricScrapeTask.class);
+        collectorRegistry = mock(CollectorRegistry.class);
+        lambdaCapacityExporter = mock(LambdaCapacityExporter.class);
+        logMetricScrapeTask = mock(LambdaLogMetricScrapeTask.class);
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getNumTaskThreads()).andReturn(5);
         replayAll();
-        testClass = new ScrapeTaskManager(beanFactory, scrapeConfigProvider, lambdaEventSourceExporter) {
-            @Override
-            ScheduledExecutorService getExecutorService(int numThreads) {
-                assertEquals(5, numThreads);
-                return scheduledExecutorService;
-            }
-
+        testClass = new ScrapeTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, lambdaCapacityExporter,
+                lambdaEventSourceExporter) {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
+            }
+
+            @Override
+            LambdaLogMetricScrapeTask newLogScrapeTask(NamespaceConfig nc, String region) {
+                return logMetricScrapeTask;
             }
         };
         verifyAll();
@@ -101,28 +98,19 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
 
         beanFactory.autowireBean(metricScrapeTask);
         expectLastCall().times(4);
-        expect(metricScrapeTask.register()).andReturn(null).times(4);
+        expect(metricScrapeTask.register(collectorRegistry)).andReturn(null).times(4);
 
-        expectLambdaLogScrapeTask(logScrapeConfigs, "region1");
-        expectLambdaLogScrapeTask(logScrapeConfigs, "region2");
+        beanFactory.autowireBean(logMetricScrapeTask);
+        expect(logMetricScrapeTask.register(collectorRegistry)).andReturn(null);
+        beanFactory.autowireBean(logMetricScrapeTask);
+        expect(logMetricScrapeTask.register(collectorRegistry)).andReturn(null);
 
-        expect(scheduledExecutorService.scheduleAtFixedRate(eq(lambdaEventSourceExporter), anyLong(),
-                eq(60 * 1000L), eq(MILLISECONDS))).andReturn(null);
-
-        beanFactory.autowireBean(anyObject(LambdaCapacityExporter.class));
-        expect(scheduledExecutorService.scheduleAtFixedRate(anyObject(LambdaCapacityExporter.class), anyLong(),
-                eq(60 * 1000L), eq(MILLISECONDS))).andReturn(null);
+        expect(lambdaCapacityExporter.register(collectorRegistry)).andReturn(null);
+        expect(lambdaEventSourceExporter.register(collectorRegistry)).andReturn(null);
 
         replayAll();
         testClass.setupScrapeTasks();
         verifyAll();
-    }
-
-    private void expectLambdaLogScrapeTask(ImmutableList<LogScrapeConfig> logScrapeConfigs, String region1) {
-        LambdaLogMetricScrapeTask lambdaTask1 = new LambdaLogMetricScrapeTask(region1, logScrapeConfigs);
-        beanFactory.autowireBean(lambdaTask1);
-        expect(scheduledExecutorService.scheduleAtFixedRate(eq(lambdaTask1), anyLong(),
-                eq(60_000L), eq(MILLISECONDS))).andReturn(null);
     }
 
 }

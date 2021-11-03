@@ -9,11 +9,15 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +36,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 public class LambdaCapacityExporterTest extends EasyMockSupport {
@@ -45,6 +50,9 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     private LambdaFunction lambdaFunction;
     private Resource resource;
     private Instant now;
+    private MetricSampleBuilder sampleBuilder;
+    private Sample sample;
+    private Collector.MetricFamilySamples familySamples;
     private LambdaCapacityExporter testClass;
 
     @BeforeEach
@@ -60,21 +68,18 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
         lambdaFunction = mock(LambdaFunction.class);
         resource = mock(Resource.class);
+        sampleBuilder = mock(MetricSampleBuilder.class);
+        sample = mock(Sample.class);
+        familySamples = mock(Collector.MetricFamilySamples.class);
 
         now = Instant.now();
-        testClass = new LambdaCapacityExporter() {
+        testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil, gaugeExporter,
+                sampleBuilder, functionScraper, tagFilterResourceProvider) {
             @Override
             Instant now() {
                 return now;
             }
         };
-        testClass.setScrapeConfigProvider(scrapeConfigProvider);
-        testClass.setAwsClientProvider(awsClientProvider);
-        testClass.setMetricNameUtil(metricNameUtil);
-        testClass.setGaugeExporter(gaugeExporter);
-        testClass.setFunctionScraper(functionScraper);
-        testClass.setTagFilterResourceProvider(tagFilterResourceProvider);
-
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(metricNameUtil.getLambdaMetric("available_concurrency")).andReturn("available");
@@ -111,22 +116,23 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .availableProvisionedConcurrentExecutions(100)
                                 .build())
                         .build());
-        gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
+        expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "job", "fn1"
-        ), now, 120.0D);
+        ), now, 120.0D)).andReturn(sample);
+
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
-        gaugeExporter.exportMetric("available", "", ImmutableMap.of(
+        expect(sampleBuilder.buildSingleSample("available", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
                 "job", "fn1"
-        ), now, 100.0D);
-        gaugeExporter.exportMetric("requested", "", ImmutableMap.of(
+        ), now, 100.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("requested", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
                 "job", "fn1"
-        ), now, 20.0D);
-        gaugeExporter.exportMetric("allocated", "", ImmutableMap.of(
+        ), now, 20.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("allocated", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
                 "job", "fn1"
-        ), now, 10.0D);
+        ), now, 10.0D)).andReturn(sample);
         lambdaClient.close();
 
         expectAccountSettings("region2");
@@ -149,25 +155,31 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .availableProvisionedConcurrentExecutions(100)
                                 .build())
                         .build());
-        gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
+        expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
                 "region", "region2", "d_function_name", "fn2", "job", "fn2"
-        ), now, 60.0D);
+        ), now, 60.0D)).andReturn(sample);
+
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
-        gaugeExporter.exportMetric("available", "", ImmutableMap.of(
+        expect(sampleBuilder.buildSingleSample("available", ImmutableMap.of(
                 "region", "region2", "d_function_name", "fn2", "d_resource", "green",
                 "job", "fn2"
-        ), now, 100.0D);
-        gaugeExporter.exportMetric("requested", "", ImmutableMap.of(
+        ), now, 100.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("requested", ImmutableMap.of(
                 "region", "region2", "d_function_name", "fn2", "d_resource", "green",
                 "job", "fn2"
-        ), now, 30.0D);
-        gaugeExporter.exportMetric("allocated", "", ImmutableMap.of(
+        ), now, 30.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("allocated", ImmutableMap.of(
                 "region", "region2", "d_function_name", "fn2", "d_resource", "green",
                 "job", "fn2"
-        ), now, 20.0D);
+        ), now, 20.0D)).andReturn(sample);
         lambdaClient.close();
+
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples).times(4);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(familySamples);
+
         replayAll();
-        testClass.run();
+        assertEquals(ImmutableList.of(familySamples, familySamples, familySamples, familySamples, familySamples),
+                testClass.collect());
         verifyAll();
     }
 
@@ -191,13 +203,17 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andReturn(ListProvisionedConcurrencyConfigsResponse.builder()
                         .provisionedConcurrencyConfigs(Collections.emptyList())
                         .build());
-        gaugeExporter.exportMetric("timeout", "", ImmutableMap.of(
+        expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "job", "fn1"
-        ), now, 60.0D);
+        ), now, 60.0D)).andReturn(sample);
         gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
         lambdaClient.close();
+
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
+
         replayAll();
-        testClass.run();
+        assertEquals(ImmutableList.of(familySamples, familySamples), testClass.collect());
         verifyAll();
     }
 
@@ -210,8 +226,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andThrow(new RuntimeException());
         lambdaClient.close();
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
+
         replayAll();
-        testClass.run();
+        assertEquals(ImmutableList.of(familySamples), testClass.collect());
         verifyAll();
     }
 
@@ -223,11 +241,11 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                         .unreservedConcurrentExecutions(20)
                         .build())
                 .build());
-        gaugeExporter.exportMetric("limit", "", ImmutableMap.of(
+        expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
                 "region", region, "type", "concurrent_executions"), now, 10.0D
-        );
-        gaugeExporter.exportMetric("limit", "", ImmutableMap.of(
+        )).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
                 "region", region, "type", "unreserved_concurrent_executions"), now, 20.0D
-        );
+        )).andReturn(sample);
     }
 }

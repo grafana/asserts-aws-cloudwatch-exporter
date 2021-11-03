@@ -7,7 +7,7 @@ package ai.asserts.aws.cloudwatch.metrics;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.prometheus.LabelBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
-import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static io.prometheus.client.Collector.Type.GAUGE;
+
 @Component
 @Slf4j
 @AllArgsConstructor
@@ -25,23 +27,37 @@ public class MetricSampleBuilder {
     private final MetricNameUtil metricNameUtil;
     private final LabelBuilder labelBuilder;
 
-    public List<Collector.MetricFamilySamples.Sample> buildSamples(String region, MetricQuery metricQuery,
-                                                                   MetricDataResult metricDataResult,
-                                                                   Instant startTime, Instant endTime, int period) {
-        List<Collector.MetricFamilySamples.Sample> samples = new ArrayList<>();
+    public List<MetricFamilySamples.Sample> buildSamples(String region, MetricQuery metricQuery,
+                                                         MetricDataResult metricDataResult, int period) {
+        List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         String metricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
         if (metricDataResult.timestamps().size() > 0) {
+            Map<String, String> labels = labelBuilder.buildLabels(region, metricQuery);
             for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
-                Map<String, String> labels = labelBuilder.buildLabels(region, metricQuery);
-                Collector.MetricFamilySamples.Sample sample = new Collector.MetricFamilySamples.Sample(
+                MetricFamilySamples.Sample sample = new MetricFamilySamples.Sample(
                         metricName,
                         new ArrayList<>(labels.keySet()),
                         new ArrayList<>(labels.values()),
                         metricDataResult.values().get(i),
-                        metricDataResult.timestamps().get(i).toEpochMilli());
+                        metricDataResult.timestamps().get(i).plusSeconds(period).toEpochMilli());
                 samples.add(sample);
             }
         }
         return samples;
+    }
+
+    public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> labels,
+                                                        Instant instant, Double metric) {
+        MetricFamilySamples.Sample sample = new MetricFamilySamples.Sample(
+                metricName,
+                new ArrayList<>(labels.keySet()),
+                new ArrayList<>(labels.values()),
+                metric,
+                instant.toEpochMilli());
+        return sample;
+    }
+
+    public MetricFamilySamples buildFamily(List<MetricFamilySamples.Sample> samples) {
+        return new MetricFamilySamples(samples.get(0).name, GAUGE, "", samples);
     }
 }

@@ -7,10 +7,11 @@ package ai.asserts.aws.lambda;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableSet;
+import io.prometheus.client.Collector;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,14 +19,17 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.easymock.EasyMock.expect;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class LogEventEmitterTest extends EasyMockSupport {
     private TagFilterResourceProvider tagFilterResourceProvider;
     private Resource resource;
     private MetricNameUtil metricNameUtil;
-    private GaugeExporter gaugeExporter;
+    private MetricSampleBuilder sampleBuilder;
+    private Collector.MetricFamilySamples.Sample sample;
     private Instant now;
     private NamespaceConfig namespaceConfig;
     private LambdaFunction lambdaFunction;
@@ -38,14 +42,15 @@ public class LogEventEmitterTest extends EasyMockSupport {
         tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
         resource = mock(Resource.class);
         metricNameUtil = mock(MetricNameUtil.class);
-        gaugeExporter = mock(GaugeExporter.class);
+        sampleBuilder = mock(MetricSampleBuilder.class);
+        sample = mock(Collector.MetricFamilySamples.Sample.class);
         labels = mock(Map.class);
         namespaceConfig = mock(NamespaceConfig.class);
         logScrapeConfig = mock(LogScrapeConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
 
         now = Instant.now();
-        testClass = new LogEventMetricEmitter(tagFilterResourceProvider, metricNameUtil, gaugeExporter) {
+        testClass = new LogEventMetricEmitter(tagFilterResourceProvider, metricNameUtil, sampleBuilder) {
             @Override
             Instant getNow() {
                 return now;
@@ -67,10 +72,11 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(lambdaFunction.getArn()).andReturn("arn1");
         resource.addTagLabels(labels, metricNameUtil);
 
-        gaugeExporter.exportMetric("aws_lambda_logs", "", labels, now, 1.0D);
+        expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, now, 1.0D))
+                .andReturn(sample);
 
         replayAll();
-        testClass.emitMetric(namespaceConfig,
+        assertEquals(Optional.of(sample), testClass.getSample(namespaceConfig,
                 LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
                         .logScrapeConfig(logScrapeConfig)
                         .lambdaFunction(lambdaFunction)
@@ -78,7 +84,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
                 FilteredLogEvent.builder()
                         .message("message")
                         .build()
-        );
+        ));
         verifyAll();
     }
 
@@ -92,10 +98,11 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(labels.size()).andReturn(1);
         expect(labels.put("region", "region1")).andReturn(null);
         expect(labels.put("d_function_name", "fn1")).andReturn(null);
-        gaugeExporter.exportMetric("aws_lambda_logs", "", labels, now, 1.0D);
+        expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, now, 1.0D))
+                .andReturn(sample);
 
         replayAll();
-        testClass.emitMetric(namespaceConfig,
+        assertEquals(Optional.of(sample), testClass.getSample(namespaceConfig,
                 LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
                         .logScrapeConfig(logScrapeConfig)
                         .lambdaFunction(lambdaFunction)
@@ -103,7 +110,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
                 FilteredLogEvent.builder()
                         .message("message")
                         .build()
-        );
+        ));
         verifyAll();
     }
 }

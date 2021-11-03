@@ -8,12 +8,15 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
+import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
+import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -28,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -39,30 +41,32 @@ import static java.lang.String.format;
 
 @Component
 @Slf4j
-public class LambdaEventSourceExporter extends TimerTask {
+public class LambdaEventSourceExporter extends Collector implements MetricProvider {
     public static final String HELP_TEXT = "Metric with lambda event source information";
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
-    private final GaugeExporter gaugeExporter;
     private final ResourceMapper resourceMapper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final MetricSampleBuilder sampleBuilder;
     private final Supplier<Map<String, List<EventSourceMappingConfiguration>>> eventSourceMappings;
 
     public LambdaEventSourceExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                     MetricNameUtil metricNameUtil, GaugeExporter gaugeExporter,
+                                     MetricNameUtil metricNameUtil,
                                      ResourceMapper resourceMapper,
-                                     TagFilterResourceProvider tagFilterResourceProvider) {
+                                     TagFilterResourceProvider tagFilterResourceProvider,
+                                     MetricSampleBuilder sampleBuilder) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
-        this.gaugeExporter = gaugeExporter;
         this.resourceMapper = resourceMapper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.sampleBuilder = sampleBuilder;
         this.eventSourceMappings = Suppliers.memoizeWithExpiration(this::getMappings, 15, TimeUnit.MINUTES);
     }
 
-    public void run() {
+    public List<MetricFamilySamples> collect() {
+        Map<String, List<Sample>> samples = new TreeMap<>();
         scrapeConfigProvider.getScrapeConfig().getLambdaConfig().ifPresent(nc ->
                 eventSourceMappings.get().forEach((region, mappings) -> {
                     Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, nc);
@@ -73,10 +77,14 @@ public class LambdaEventSourceExporter extends TimerTask {
                                 .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
                         Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
                         eventResourceOpt.ifPresent(eventResource ->
-                                fnResource.ifPresent(fn -> emitMetric(region, now(), fn, eventResource))
+                                fnResource.ifPresent(fn -> buildSample(region, now(), fn, eventResource, samples))
                         );
                     });
                 }));
+        List<MetricFamilySamples> collect = samples.values().stream()
+                .map(sampleBuilder::buildFamily)
+                .collect(Collectors.toList());
+        return collect;
     }
 
     private Map<String, List<EventSourceMappingConfiguration>> getMappings() {
@@ -109,7 +117,8 @@ public class LambdaEventSourceExporter extends TimerTask {
         return byRegion;
     }
 
-    private void emitMetric(String region, Instant now, Resource functionResource, Resource eventSourceResource) {
+    private void buildSample(String region, Instant now, Resource functionResource, Resource eventSourceResource,
+                             Map<String, List<Sample>> samples) {
         String metricPrefix = metricNameUtil.getMetricPrefix(lambda.getNamespace());
         String metricName = format("%s_event_source", metricPrefix);
         Map<String, String> labels = new TreeMap<>();
@@ -117,7 +126,8 @@ public class LambdaEventSourceExporter extends TimerTask {
         labels.put("lambda_function", functionResource.getName());
         eventSourceResource.addLabels(labels, "event_source");
         functionResource.addTagLabels(labels, metricNameUtil);
-        gaugeExporter.exportMetric(metricName, HELP_TEXT, labels, now, 1.0D);
+        samples.computeIfAbsent(metricName, k -> new ArrayList<>())
+                .add(sampleBuilder.buildSingleSample(metricName, labels, now, 1.0D));
     }
 
     @VisibleForTesting

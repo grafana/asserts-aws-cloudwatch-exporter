@@ -87,9 +87,10 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         Instant now = now();
         long timeSinceLastScrape = now.toEpochMilli() - lastScrapeTime;
-        if (timeSinceLastScrape < intervalSeconds * 1000L) {
+        if (timeSinceLastScrape < (intervalSeconds - 5) * 1000L) {
             return familySamples;
         }
+        lastScrapeTime = now.toEpochMilli();
 
         log.info("BEGIN Scrape for region {} and interval {}", region, intervalSeconds);
         Map<Integer, List<MetricQuery>> byInterval = metricQueryProvider.getMetricQueries().get(region);
@@ -152,10 +153,12 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                                 .stream().filter(metricDataResult -> metricDataResult.statusCode().equals(COMPLETE))
                                 .forEach(metricDataResult -> {
                                     MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
-                                    sampleBuilder.buildSamples(region, metricQuery, metricDataResult, startTime, endTime, period)
-                                            .forEach(sample ->
-                                                    samplesByMetric.computeIfAbsent(sample.name, k -> new ArrayList<>())
-                                                            .add(sample));
+                                    List<MetricFamilySamples.Sample> samples = sampleBuilder.buildSamples(region,
+                                            metricQuery, metricDataResult, period);
+
+                                    samples.forEach(sample ->
+                                            samplesByMetric.computeIfAbsent(sample.name, k -> new ArrayList<>())
+                                                    .add(sample));
                                 });
                     }
                     nextToken = metricData.nextToken();
@@ -165,8 +168,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
             log.error("Failed to scrape metrics", e);
         }
 
-        samplesByMetric.forEach((metricName, samples) ->
-                familySamples.add(new MetricFamilySamples(metricName, Collector.Type.GAUGE, "", samples)));
+        samplesByMetric.forEach((metricName, samples) -> familySamples.add(sampleBuilder.buildFamily(samples)));
 
         log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
         return familySamples;
