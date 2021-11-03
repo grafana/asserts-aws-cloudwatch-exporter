@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest;
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataResponse;
+import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_INTERVAL_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLETE;
 
 /**
  * Scrapes metrics using the <code>GetMetricData</code> AWS API. Depends on {@link MetricQueryProvider} to provide
@@ -85,7 +87,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         Instant now = now();
         long timeSinceLastScrape = now.toEpochMilli() - lastScrapeTime;
-        if (timeSinceLastScrape < intervalSeconds * 1000) {
+        if (timeSinceLastScrape < intervalSeconds * 1000L) {
             return familySamples;
         }
 
@@ -135,13 +137,27 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                     GetMetricDataResponse metricData = cloudWatchClient.getMetricData(requestBuilder.build());
                     timeTaken = System.currentTimeMillis() - timeTaken;
                     captureLatency(timeTaken);
-                    metricData.metricDataResults().forEach(metricDataResult -> {
-                        MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
-                        sampleBuilder.buildSamples(region, metricQuery, metricDataResult, startTime, endTime, period)
-                                .forEach(sample ->
-                                        samplesByMetric.computeIfAbsent(sample.name, k -> new ArrayList<>())
-                                                .add(sample));
-                    });
+
+                    if (metricData.hasMetricDataResults()) {
+                        metricData.metricDataResults()
+                                .stream().filter(metricDataResult -> !metricDataResult.statusCode().equals(COMPLETE))
+                                .forEach(metricDataResult -> {
+                                    Metric metric = queriesById.get(metricDataResult.id()).getMetric();
+                                    log.error("Metric not available for {}::{}::{}",
+                                            metric.namespace(), metric.metricName(), metric.dimensions().stream()
+                                                    .map(d -> String.format("%s=\"%s\"", d.name(), d.value()))
+                                                    .collect(Collectors.joining(", ")));
+                                });
+                        metricData.metricDataResults()
+                                .stream().filter(metricDataResult -> metricDataResult.statusCode().equals(COMPLETE))
+                                .forEach(metricDataResult -> {
+                                    MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
+                                    sampleBuilder.buildSamples(region, metricQuery, metricDataResult, startTime, endTime, period)
+                                            .forEach(sample ->
+                                                    samplesByMetric.computeIfAbsent(sample.name, k -> new ArrayList<>())
+                                                            .add(sample));
+                                });
+                    }
                     nextToken = metricData.nextToken();
                 } while (nextToken != null);
             });
