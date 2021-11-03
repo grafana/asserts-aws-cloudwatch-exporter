@@ -5,6 +5,7 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
+import ai.asserts.aws.cloudwatch.metrics.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -37,6 +38,7 @@ public class LogEventScraperTest extends EasyMockSupport {
     private LogScrapeConfig logScrapeConfig;
     private GaugeExporter gaugeExporter;
     private Instant now;
+    private TimeWindowBuilder timeWindowBuilder;
     private LogEventScraper testClass;
 
     @BeforeEach
@@ -45,17 +47,14 @@ public class LogEventScraperTest extends EasyMockSupport {
         lambdaFunction = mock(LambdaFunction.class);
         logScrapeConfig = mock(LogScrapeConfig.class);
         gaugeExporter = mock(GaugeExporter.class);
+        timeWindowBuilder = mock(TimeWindowBuilder.class);
         now = Instant.now();
-        testClass = new LogEventScraper(gaugeExporter) {
-            @Override
-            Instant now() {
-                return now;
-            }
-        };
+        testClass = new LogEventScraper(gaugeExporter, timeWindowBuilder);
     }
 
     @Test
     public void findLogEvent() {
+        expect(timeWindowBuilder.getTimePeriod("region1")).andReturn(new Instant[]{now.minusSeconds(60), now});
         FilterLogEventsRequest request = FilterLogEventsRequest.builder()
                 .limit(1)
                 .endTime(now.minusSeconds(60).toEpochMilli())
@@ -92,20 +91,13 @@ public class LogEventScraperTest extends EasyMockSupport {
 
     @Test
     public void findLogEvent_Exception() {
+        expect(timeWindowBuilder.getTimePeriod("region1")).andReturn(new Instant[]{now.minusSeconds(60), now});
         FilterLogEventsRequest request = FilterLogEventsRequest.builder()
                 .limit(1)
                 .endTime(now.minusSeconds(60).toEpochMilli())
                 .startTime(now.minusSeconds(120).toEpochMilli())
                 .logGroupName("/aws/lambda/function-1")
                 .filterPattern("filterPattern")
-                .build();
-
-        FilteredLogEvent filteredLogEvent = FilteredLogEvent.builder()
-                .message("message")
-                .build();
-
-        FilterLogEventsResponse response = FilterLogEventsResponse.builder()
-                .events(ImmutableList.of(filteredLogEvent))
                 .build();
 
         expect(lambdaFunction.getName()).andReturn("function-1").anyTimes();

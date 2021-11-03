@@ -28,7 +28,8 @@ public class MetricSampleBuilder {
     private final LabelBuilder labelBuilder;
 
     public List<MetricFamilySamples.Sample> buildSamples(String region, MetricQuery metricQuery,
-                                                         MetricDataResult metricDataResult, int period) {
+                                                         MetricDataResult metricDataResult) {
+        Instant now = now();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         String metricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
         if (metricDataResult.timestamps().size() > 0) {
@@ -38,8 +39,7 @@ public class MetricSampleBuilder {
                         metricName,
                         new ArrayList<>(labels.keySet()),
                         new ArrayList<>(labels.values()),
-                        metricDataResult.values().get(i),
-                        metricDataResult.timestamps().get(i).plusSeconds(period).toEpochMilli());
+                        metricDataResult.values().get(i), now.toEpochMilli());
                 samples.add(sample);
             }
         }
@@ -48,16 +48,19 @@ public class MetricSampleBuilder {
 
     public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> labels,
                                                         Instant instant, Double metric) {
-        MetricFamilySamples.Sample sample = new MetricFamilySamples.Sample(
+        return new MetricFamilySamples.Sample(
                 metricName,
                 new ArrayList<>(labels.keySet()),
                 new ArrayList<>(labels.values()),
                 metric,
                 instant.toEpochMilli());
-        return sample;
     }
 
     public MetricFamilySamples buildFamily(List<MetricFamilySamples.Sample> samples) {
         return new MetricFamilySamples(samples.get(0).name, GAUGE, "", samples);
+    }
+
+    Instant now() {
+        return Instant.now();
     }
 }

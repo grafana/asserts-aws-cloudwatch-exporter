@@ -60,7 +60,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
             }
 
             @Override
-            LambdaLogMetricScrapeTask newLogScrapeTask(NamespaceConfig nc, String region) {
+            LambdaLogMetricScrapeTask newLogScrapeTask(String region) {
                 return logMetricScrapeTask;
             }
         };
@@ -109,7 +109,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         expect(lambdaEventSourceExporter.register(collectorRegistry)).andReturn(null);
 
         replayAll();
-        testClass.setupScrapeTasks();
+        testClass.afterPropertiesSet();
         verifyAll();
     }
 

@@ -15,9 +15,9 @@ import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.lambda.LambdaClient;
@@ -32,15 +32,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Component
 @Slf4j
-@AllArgsConstructor
 public class LambdaCapacityExporter extends Collector implements MetricProvider {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
@@ -49,8 +50,27 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private final MetricSampleBuilder sampleBuilder;
     private final LambdaFunctionScraper functionScraper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final Supplier<List<MetricFamilySamples>> cache;
+
+    public LambdaCapacityExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
+                                  MetricNameUtil metricNameUtil, GaugeExporter gaugeExporter,
+                                  MetricSampleBuilder sampleBuilder, LambdaFunctionScraper functionScraper,
+                                  TagFilterResourceProvider tagFilterResourceProvider) {
+        this.scrapeConfigProvider = scrapeConfigProvider;
+        this.awsClientProvider = awsClientProvider;
+        this.metricNameUtil = metricNameUtil;
+        this.gaugeExporter = gaugeExporter;
+        this.sampleBuilder = sampleBuilder;
+        this.functionScraper = functionScraper;
+        this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.cache = Suppliers.memoizeWithExpiration(this::getMetrics, 5, MINUTES);
+    }
 
     public List<MetricFamilySamples> collect() {
+        return cache.get();
+    }
+
+    private List<MetricFamilySamples> getMetrics() {
         Instant now = now();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Optional<NamespaceConfig> optional = scrapeConfig.getLambdaConfig();
@@ -63,7 +83,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         Map<String, List<MetricFamilySamples.Sample>> samples = new TreeMap<>();
 
         optional.ifPresent(lambdaConfig -> functionScraper.getFunctions().forEach((region, functions) -> {
-            log.info("Getting Lambda account and provisioned concurrency for region {}", region);
+            log.info(" - Getting Lambda account and provisioned concurrency for region {}", region);
             try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {
                 GetAccountSettingsResponse accountSettings = lambdaClient.getAccountSettings();
 
@@ -137,10 +157,9 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                 log.error("Failed to get lambda provisioned capacity for region " + region, e);
             }
         }));
-        List<MetricFamilySamples> collect = samples.values().stream()
+        return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
                 .collect(Collectors.toList());
-        return collect;
     }
 
     private void captureLatency(String region, long timeTaken) {

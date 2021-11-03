@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest;
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataResponse;
+import software.amazon.awssdk.services.cloudwatch.model.Metric;
 import software.amazon.awssdk.services.cloudwatch.model.MetricDataQuery;
 import software.amazon.awssdk.services.cloudwatch.model.MetricDataResult;
 import software.amazon.awssdk.services.cloudwatch.model.StatusCode;
@@ -47,6 +48,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     private MetricSampleBuilder sampleBuilder;
     private Sample sample;
     private Collector.MetricFamilySamples familySamples;
+    private TimeWindowBuilder timeWindowBuilder;
     private MetricScrapeTask testClass;
 
     @BeforeEach
@@ -55,7 +57,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
 
         region = "region1";
         interval = 60;
-        delay = 60;
+        delay = 0;
         metricQueryProvider = mock(MetricQueryProvider.class);
         queryBatcher = mock(QueryBatcher.class);
         gaugeExporter = mock(GaugeExporter.class);
@@ -65,38 +67,37 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         sample = new Sample("metric1", Collections.emptyList(), Collections.emptyList(),
                 1.0D, now.toEpochMilli());
         familySamples = mock(Collector.MetricFamilySamples.class);
+        timeWindowBuilder = mock(TimeWindowBuilder.class);
 
-        testClass = new MetricScrapeTask(region, interval, delay) {
-            @Override
-            Instant now() {
-                return now;
-            }
-        };
+        testClass = new MetricScrapeTask(region, interval, delay);
         testClass.setMetricQueryProvider(metricQueryProvider);
         testClass.setQueryBatcher(queryBatcher);
         testClass.setGaugeExporter(gaugeExporter);
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setSampleBuilder(sampleBuilder);
+        testClass.setTimeWindowBuilder(timeWindowBuilder);
     }
 
     @Test
     public void run() {
-        int period = 300;
         List<MetricQuery> queries = ImmutableList.of(
                 MetricQuery.builder()
-                        .metricConfig(MetricConfig.builder().period(period).scrapeInterval(interval).build())
+                        .metric(Metric.builder().namespace("ns1").build())
+                        .metricConfig(MetricConfig.builder().period(60).scrapeInterval(interval).build())
                         .metricDataQuery(MetricDataQuery.builder()
                                 .id("id1")
                                 .build())
                         .build(),
                 MetricQuery.builder()
-                        .metricConfig(MetricConfig.builder().period(period).scrapeInterval(interval).build())
+                        .metric(Metric.builder().namespace("ns2").build())
+                        .metricConfig(MetricConfig.builder().period(60).scrapeInterval(interval).build())
                         .metricDataQuery(MetricDataQuery.builder()
                                 .id("id2")
                                 .build())
                         .build(),
                 MetricQuery.builder()
-                        .metricConfig(MetricConfig.builder().period(period).scrapeInterval(interval).build())
+                        .metric(Metric.builder().namespace("ns3").build())
+                        .metricConfig(MetricConfig.builder().period(60).scrapeInterval(interval).build())
                         .metricDataQuery(MetricDataQuery.builder()
                                 .id("id3")
                                 .build())
@@ -106,10 +107,13 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of(region, ImmutableMap.of(interval, queries)));
 
         expect(awsClientProvider.getCloudWatchClient(region)).andReturn(cloudWatchClient);
+
+        expect(timeWindowBuilder.getTimePeriod(region)).andReturn(new Instant[]{now.minusSeconds(60), now});
+
         expect(queryBatcher.splitIntoBatches(queries)).andReturn(ImmutableList.of(queries));
 
         Instant endTime = now.minusSeconds(delay);
-        Instant startTime = now.minusSeconds(period + delay);
+        Instant startTime = now.minusSeconds(60 + delay);
         GetMetricDataRequest request = GetMetricDataRequest.builder()
                 .metricDataQueries(queries.stream()
                         .map(MetricQuery::getMetricDataQuery)
@@ -133,7 +137,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         );
         gaugeExporter.exportMetric(anyString(), anyString(), anyObject(), anyObject(), anyObject());
 
-        expect(sampleBuilder.buildSamples(region, queries.get(0), mdr1, period))
+        expect(sampleBuilder.buildSamples(region, queries.get(0), mdr1))
                 .andReturn(ImmutableList.of(sample));
 
         request = GetMetricDataRequest.builder()
@@ -160,7 +164,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
 
         gaugeExporter.exportMetric(anyString(), anyString(), anyObject(), anyObject(), anyObject());
 
-        expect(sampleBuilder.buildSamples(region, queries.get(1), mdr2, period))
+        expect(sampleBuilder.buildSamples(region, queries.get(1), mdr2))
                 .andReturn(ImmutableList.of(sample));
 
         cloudWatchClient.close();

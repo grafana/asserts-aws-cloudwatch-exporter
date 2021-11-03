@@ -5,6 +5,7 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
+import ai.asserts.aws.cloudwatch.metrics.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -30,12 +31,14 @@ import static java.lang.String.format;
 @AllArgsConstructor
 public class LogEventScraper {
     private final GaugeExporter gaugeExporter;
+    private final TimeWindowBuilder timeWindowBuilder;
 
     public Optional<FilteredLogEvent> findLogEvent(CloudWatchLogsClient cloudWatchLogsClient,
                                                    LambdaFunction functionConfig,
                                                    LogScrapeConfig logScrapeConfig) {
-        Instant endTime = now().minusSeconds(60);
-        Instant startTime = endTime.minusSeconds(60);
+        Instant[] timePeriod = timeWindowBuilder.getTimePeriod(functionConfig.getRegion());
+        Instant endTime = timePeriod[1].minusSeconds(60);
+        Instant startTime = timePeriod[0].minusSeconds(60);
         String logGroupName = format("/aws/lambda/%s", functionConfig.getName());
         log.info("About to scrape logs from {}", logGroupName);
         try {
@@ -65,10 +68,5 @@ public class LogEventScraper {
             log.error("Failed to scrape logs from log group " + logGroupName, e);
         }
         return Optional.empty();
-    }
-
-    @VisibleForTesting
-    Instant now() {
-        return Instant.now();
     }
 }

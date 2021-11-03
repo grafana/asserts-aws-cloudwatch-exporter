@@ -81,10 +81,9 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                         );
                     });
                 }));
-        List<MetricFamilySamples> collect = samples.values().stream()
+        return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
                 .collect(Collectors.toList());
-        return collect;
     }
 
     private Map<String, List<EventSourceMappingConfiguration>> getMappings() {

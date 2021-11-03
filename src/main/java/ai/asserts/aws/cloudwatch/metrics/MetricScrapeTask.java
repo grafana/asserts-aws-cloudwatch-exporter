@@ -11,7 +11,7 @@ import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -31,12 +31,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_INTERVAL_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLETE;
 
 /**
@@ -66,6 +68,8 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private MetricSampleBuilder sampleBuilder;
     @Autowired
     private CollectorRegistry collectorRegistry;
+    @Autowired
+    private TimeWindowBuilder timeWindowBuilder;
     @EqualsAndHashCode.Include
     private final String region;
     @EqualsAndHashCode.Include
@@ -73,24 +77,22 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     @EqualsAndHashCode.Include
     private final int delaySeconds;
 
-    private long lastScrapeTime = -1;
+    private Supplier<List<MetricFamilySamples>> cache;
 
     public MetricScrapeTask(String region, int intervalSeconds, int delay) {
         this.region = region;
         this.intervalSeconds = intervalSeconds;
         this.delaySeconds = delay;
+        this.cache = Suppliers.memoizeWithExpiration(this::fetchMetricsFromCW, intervalSeconds, SECONDS);
     }
 
     @Override
     public List<MetricFamilySamples> collect() {
-        List<MetricFamilySamples> familySamples = new ArrayList<>();
+        return cache.get();
+    }
 
-        Instant now = now();
-        long timeSinceLastScrape = now.toEpochMilli() - lastScrapeTime;
-        if (intervalSeconds > 60 && timeSinceLastScrape < (intervalSeconds - 5) * 1000L) {
-            return familySamples;
-        }
-        lastScrapeTime = now.toEpochMilli();
+    private List<MetricFamilySamples> fetchMetricsFromCW() {
+        List<MetricFamilySamples> familySamples = new ArrayList<>();
 
         log.info("BEGIN Scrape for region {} and interval {}", region, intervalSeconds);
         Map<Integer, List<MetricQuery>> byInterval = metricQueryProvider.getMetricQueries().get(region);
@@ -104,6 +106,8 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
             log.error("No queries found for region {} and interval {}", region, intervalSeconds);
             return Collections.emptyList();
         }
+        boolean s3DailyMetric = queries.stream()
+                .anyMatch(metricQuery -> "AWS/S3".equals(metricQuery.getMetric().namespace()));
 
         // The result only has the query id. We will need the metric while processing the result
         // so build a map for lookup
@@ -112,23 +116,19 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
         List<List<MetricQuery>> batches = queryBatcher.splitIntoBatches(queries);
         log.info("Split metric queries into {} batches", batches.size());
 
-        Integer period = queriesById.entrySet().iterator().next().getValue().getMetricConfig().getPeriod();
-
-        // If interval > period we will get interval/period samples
-        // If period > interval, we get a sample for each scrape that aggregates data
-        // between (t1, t2) where t2 = now - delay and t1 = t2 - period
-        Instant endTime = now.minusSeconds(delaySeconds);
-        Instant startTime = endTime.minusSeconds(Math.max(intervalSeconds, period));
-
         Map<String, List<MetricFamilySamples.Sample>> samplesByMetric = new TreeMap<>();
 
         try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
             batches.forEach(batch -> {
                 String nextToken = null;
+                // For now, S3 is the only one which has a different period of 1 day. All other metrics are 1m
+                Instant[] timePeriod = s3DailyMetric ? timeWindowBuilder.getDailyMetricTimeWindow(region) :
+                        timeWindowBuilder.getTimePeriod(region);
+                log.info("Scraping metrics for time period {} - {}", timePeriod[0], timePeriod[1]);
                 do {
                     GetMetricDataRequest.Builder requestBuilder = GetMetricDataRequest.builder()
-                            .endTime(endTime)
-                            .startTime(startTime)
+                            .startTime(timePeriod[0].minusSeconds(delaySeconds))
+                            .endTime(timePeriod[1].minusSeconds(delaySeconds))
                             .nextToken(nextToken)
                             .metricDataQueries(batch.stream()
                                     .map(MetricQuery::getMetricDataQuery)
@@ -154,7 +154,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                                 .forEach(metricDataResult -> {
                                     MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
                                     List<MetricFamilySamples.Sample> samples = sampleBuilder.buildSamples(region,
-                                            metricQuery, metricDataResult, period);
+                                            metricQuery, metricDataResult);
 
                                     samples.forEach(sample ->
                                             samplesByMetric.computeIfAbsent(sample.name, k -> new ArrayList<>())
@@ -168,10 +168,12 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
             log.error("Failed to scrape metrics", e);
         }
 
-        samplesByMetric.forEach((metricName, samples) -> {
-            log.info("Got samples for {}", metricName);
-            familySamples.add(sampleBuilder.buildFamily(samples));
-        });
+        if (samplesByMetric.size() > 0) {
+            log.info("Got samples for {}", samplesByMetric.keySet());
+        } else {
+            log.info("Didn't find any samples for region {} and interval {}", region, intervalSeconds);
+        }
+        samplesByMetric.forEach((metricName, samples) -> familySamples.add(sampleBuilder.buildFamily(samples)));
 
         log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
         return familySamples;
@@ -185,11 +187,6 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                         SCRAPE_OPERATION_LABEL, "get_metric_data",
                         SCRAPE_INTERVAL_LABEL, intervalSeconds + ""
                 ), Instant.now(), timeTaken * 1.0D);
-    }
-
-    @VisibleForTesting
-    Instant now() {
-        return Instant.now();
     }
 
     private Map<String, MetricQuery> mapQueriesById(List<MetricQuery> queries) {
