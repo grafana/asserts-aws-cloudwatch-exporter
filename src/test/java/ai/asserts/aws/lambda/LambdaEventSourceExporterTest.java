@@ -26,7 +26,6 @@ import software.amazon.awssdk.services.lambda.model.EventSourceMappingConfigurat
 import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsRequest;
 import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsResponse;
 
-import java.time.Instant;
 import java.util.Optional;
 
 import static org.easymock.EasyMock.expect;
@@ -41,7 +40,6 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
     private LambdaEventSourceExporter testClass;
     private Resource fnResource;
     private Resource sourceResource;
-    private Instant now;
     private MetricSampleBuilder sampleBuilder;
     private Sample sample;
     private Collector.MetricFamilySamples familySamples;
@@ -51,7 +49,6 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         metricNameUtil = mock(MetricNameUtil.class);
         lambdaClient = mock(LambdaClient.class);
         resourceMapper = mock(ResourceMapper.class);
-        now = Instant.now();
         fnResource = mock(Resource.class);
         sourceResource = mock(Resource.class);
         tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
@@ -73,12 +70,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient).anyTimes();
 
         testClass = new LambdaEventSourceExporter(scrapeConfigProvider, awsClientProvider,
-                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder) {
-            @Override
-            Instant now() {
-                return now;
-            }
-        };
+                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder);
     }
 
     @Test
@@ -141,6 +133,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
 
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
         verifyAll();
     }
@@ -152,6 +145,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
         lambdaClient.close();
         replayAll();
+        testClass.update();
         testClass.collect();
         verifyAll();
     }

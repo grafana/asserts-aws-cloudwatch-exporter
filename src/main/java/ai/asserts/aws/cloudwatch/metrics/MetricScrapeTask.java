@@ -11,7 +11,6 @@ import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -31,14 +30,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_INTERVAL_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLETE;
 
 /**
@@ -76,19 +73,26 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private final int intervalSeconds;
     @EqualsAndHashCode.Include
     private final int delaySeconds;
-
-    private Supplier<List<MetricFamilySamples>> cache;
+    private long lastRunTime = -1;
+    private volatile List<MetricFamilySamples> cache;
 
     public MetricScrapeTask(String region, int intervalSeconds, int delay) {
         this.region = region;
         this.intervalSeconds = intervalSeconds;
         this.delaySeconds = delay;
-        this.cache = Suppliers.memoizeWithExpiration(this::fetchMetricsFromCW, intervalSeconds, SECONDS);
+        this.cache = new ArrayList<>();
     }
 
     @Override
     public List<MetricFamilySamples> collect() {
-        return cache.get();
+        return cache;
+    }
+
+    @Override
+    public void update() {
+        if (System.currentTimeMillis() - lastRunTime > intervalSeconds * 1000L) {
+            cache = fetchMetricsFromCW();
+        }
     }
 
     private List<MetricFamilySamples> fetchMetricsFromCW() {

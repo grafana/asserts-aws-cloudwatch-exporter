@@ -13,8 +13,6 @@ import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.extern.slf4j.Slf4j;
@@ -25,15 +23,12 @@ import software.amazon.awssdk.services.lambda.model.EventSourceMappingConfigurat
 import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsRequest;
 import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsResponse;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
@@ -49,7 +44,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
     private final ResourceMapper resourceMapper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricSampleBuilder sampleBuilder;
-    private final Supplier<Map<String, List<EventSourceMappingConfiguration>>> eventSourceMappings;
+    private volatile Map<String, List<EventSourceMappingConfiguration>> eventSourceMappings;
 
     public LambdaEventSourceExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                      MetricNameUtil metricNameUtil,
@@ -62,28 +57,36 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         this.resourceMapper = resourceMapper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.sampleBuilder = sampleBuilder;
-        this.eventSourceMappings = Suppliers.memoizeWithExpiration(this::getMappings, 15, TimeUnit.MINUTES);
+        this.eventSourceMappings = new TreeMap<>();
     }
 
     public List<MetricFamilySamples> collect() {
         Map<String, List<Sample>> samples = new TreeMap<>();
         scrapeConfigProvider.getScrapeConfig().getLambdaConfig().ifPresent(nc ->
-                eventSourceMappings.get().forEach((region, mappings) -> {
-                    Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, nc);
-                    mappings.forEach(mappingConfiguration -> {
-                        Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
-                                .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
-                                .findFirst()
-                                .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
-                        Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
-                        eventResourceOpt.ifPresent(eventResource ->
-                                fnResource.ifPresent(fn -> buildSample(region, now(), fn, eventResource, samples))
-                        );
-                    });
-                }));
+        {
+            Map<String, List<EventSourceMappingConfiguration>> copy = this.eventSourceMappings;
+            copy.forEach((region, mappings) -> {
+                Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, nc);
+                mappings.forEach(mappingConfiguration -> {
+                    Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
+                            .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
+                            .findFirst()
+                            .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
+                    Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
+                    eventResourceOpt.ifPresent(eventResource ->
+                            fnResource.ifPresent(fn -> buildSample(region, fn, eventResource, samples))
+                    );
+                });
+            });
+        });
         return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void update() {
+        this.eventSourceMappings = getMappings();
     }
 
     private Map<String, List<EventSourceMappingConfiguration>> getMappings() {
@@ -116,7 +119,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         return byRegion;
     }
 
-    private void buildSample(String region, Instant now, Resource functionResource, Resource eventSourceResource,
+    private void buildSample(String region, Resource functionResource, Resource eventSourceResource,
                              Map<String, List<Sample>> samples) {
         String metricPrefix = metricNameUtil.getMetricPrefix(lambda.getNamespace());
         String metricName = format("%s_event_source", metricPrefix);
@@ -127,10 +130,5 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         functionResource.addTagLabels(labels, metricNameUtil);
         samples.computeIfAbsent(metricName, k -> new ArrayList<>())
                 .add(sampleBuilder.buildSingleSample(metricName, labels, 1.0D));
-    }
-
-    @VisibleForTesting
-    Instant now() {
-        return Instant.now();
     }
 }

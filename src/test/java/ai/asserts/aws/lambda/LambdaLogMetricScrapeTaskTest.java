@@ -89,6 +89,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 .build(), filteredLogEvent)).andReturn(Optional.of(sample));
         cloudWatchLogsClient.close();
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(
                 new Collector.MetricFamilySamples("aws_lambda_logs", GAUGE, "", ImmutableList.of(sample))
         ), testClass.collect());

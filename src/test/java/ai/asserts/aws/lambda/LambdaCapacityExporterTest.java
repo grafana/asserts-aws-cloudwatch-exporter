@@ -28,7 +28,6 @@ import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyCo
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsResponse;
 import software.amazon.awssdk.services.lambda.model.ProvisionedConcurrencyConfigListItem;
 
-import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -49,7 +48,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     private TagFilterResourceProvider tagFilterResourceProvider;
     private LambdaFunction lambdaFunction;
     private Resource resource;
-    private Instant now;
     private MetricSampleBuilder sampleBuilder;
     private Sample sample;
     private Collector.MetricFamilySamples familySamples;
@@ -72,14 +70,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         sample = mock(Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
 
-        now = Instant.now();
         testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil, gaugeExporter,
-                sampleBuilder, functionScraper, tagFilterResourceProvider) {
-            @Override
-            Instant now() {
-                return now;
-            }
-        };
+                sampleBuilder, functionScraper, tagFilterResourceProvider);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(metricNameUtil.getLambdaMetric("available_concurrency")).andReturn("available");
@@ -178,6 +170,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(familySamples);
 
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(familySamples, familySamples, familySamples, familySamples, familySamples),
                 testClass.collect());
         verifyAll();
@@ -213,6 +206,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
 
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(familySamples, familySamples), testClass.collect());
         verifyAll();
     }
@@ -229,6 +223,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
 
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
         verifyAll();
     }
