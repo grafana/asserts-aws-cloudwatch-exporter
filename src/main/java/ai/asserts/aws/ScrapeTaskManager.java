@@ -12,12 +12,11 @@ import ai.asserts.aws.lambda.LambdaCapacityExporter;
 import ai.asserts.aws.lambda.LambdaEventSourceExporter;
 import ai.asserts.aws.lambda.LambdaLogMetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
@@ -30,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Component
 @Slf4j
 @AllArgsConstructor
-public class ScrapeTaskManager {
+public class ScrapeTaskManager implements InitializingBean {
     private final CollectorRegistry collectorRegistry;
     private final AutowireCapableBeanFactory beanFactory;
     private final ScrapeConfigProvider scrapeConfigProvider;
@@ -45,11 +44,7 @@ public class ScrapeTaskManager {
     private final AtomicBoolean tasksSetup = new AtomicBoolean(false);
 
 
-    @SuppressWarnings("unused")
-    @Scheduled(fixedDelayString = "${aws.metric.scrape.manager.task.fixedDelay:900000}",
-            initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
-    @Timed(description = "Time spent scraping cloudwatch metrics from all regions", histogram = true)
-    public void setupScrapeTasks() {
+    public void afterPropertiesSet() {
         if (!tasksSetup.get()) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             scrapeConfig.getNamespaces().forEach(nc -> nc.getMetrics().stream()
@@ -90,14 +85,14 @@ public class ScrapeTaskManager {
     }
 
     @VisibleForTesting
-    LambdaLogMetricScrapeTask newLogScrapeTask(ai.asserts.aws.cloudwatch.config.NamespaceConfig nc, String region) {
-        return new LambdaLogMetricScrapeTask(region, nc.getLogs());
+    LambdaLogMetricScrapeTask newLogScrapeTask(String region) {
+        return new LambdaLogMetricScrapeTask(region);
     }
 
     private LambdaLogMetricScrapeTask lambdaLogScrapeTask(ai.asserts.aws.cloudwatch.config.NamespaceConfig nc,
                                                           String region) {
         log.info("Setup lambda log scrape task for region {} with scrape configs {}", region, nc.getLogs());
-        LambdaLogMetricScrapeTask logScraperTask = newLogScrapeTask(nc, region);
+        LambdaLogMetricScrapeTask logScraperTask = newLogScrapeTask(region);
         beanFactory.autowireBean(logScraperTask);
         logScraperTask.register(collectorRegistry);
         return logScraperTask;

@@ -58,7 +58,8 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
 
-        testClass = new LambdaLogMetricScrapeTask(region, ImmutableList.of(logScrapeConfig));
+
+        testClass = new LambdaLogMetricScrapeTask(region);
         testClass.setLambdaFunctionScraper(lambdaFunctionScraper);
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setScrapeConfigProvider(scrapeConfigProvider);
@@ -70,6 +71,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     void scrape_whenLambdaEnabled() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig)).anyTimes();
+        expect(namespaceConfig.getLogs()).andReturn(ImmutableList.of(logScrapeConfig)).anyTimes();
         expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of(
                 region, ImmutableMap.of("arn1", lambdaFunction))
         ).anyTimes();
@@ -92,7 +94,6 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         ), testClass.collect());
         verifyAll();
     }
-
 
     @Test
     void regexp() {

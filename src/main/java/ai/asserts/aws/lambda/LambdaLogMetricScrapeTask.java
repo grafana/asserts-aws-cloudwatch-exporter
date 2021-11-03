@@ -17,6 +17,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 
@@ -41,8 +42,6 @@ import static io.prometheus.client.Collector.Type.GAUGE;
 public class LambdaLogMetricScrapeTask extends Collector implements MetricProvider {
     @EqualsAndHashCode.Include
     private final String region;
-    @EqualsAndHashCode.Include
-    private final List<LogScrapeConfig> logScrapeConfigs;
     @Autowired
     private AWSClientProvider awsClientProvider;
     @Autowired
@@ -56,9 +55,8 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
 
     private Supplier<Map<FunctionLogScrapeConfig, FilteredLogEvent>> cache;
 
-    public LambdaLogMetricScrapeTask(String region, List<LogScrapeConfig> logScrapeConfigs) {
+    public LambdaLogMetricScrapeTask(String region) {
         this.region = region;
-        this.logScrapeConfigs = logScrapeConfigs;
         cache = Suppliers.memoizeWithExpiration(this::scrapeLogEvents, 15, TimeUnit.MINUTES);
     }
 
@@ -74,27 +72,31 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
     }
 
     private Map<FunctionLogScrapeConfig, FilteredLogEvent> scrapeLogEvents() {
-        log.info("BEGIN lambda log scrape for region {}", region);
         Map<FunctionLogScrapeConfig, FilteredLogEvent> map = new HashMap<>();
-        try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region)) {
 
-            if (!lambdaFunctionScraper.getFunctions().containsKey(region)) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        scrapeConfig.getLambdaConfig().ifPresent(nc -> {
+            log.info("BEGIN lambda log scrape for region {}", region);
+            if (!CollectionUtils.isEmpty(nc.getLogs()) && lambdaFunctionScraper.getFunctions().containsKey(region)) {
+                try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region)) {
+                    lambdaFunctionScraper.getFunctions().get(region).forEach((arn, functionConfig) -> nc.getLogs()
+                            .stream()
+                            .filter(logScrapeConfig -> logScrapeConfig.shouldScrapeLogsFor(functionConfig.getName()))
+                            .findFirst()
+                            .ifPresent(logScrapeConfig -> {
+                                Optional<FilteredLogEvent> logEventOpt = logEventScraper.findLogEvent(
+                                        cloudWatchLogsClient, functionConfig, logScrapeConfig);
+                                logEventOpt.ifPresent(logEvent ->
+                                        map.put(new FunctionLogScrapeConfig(functionConfig, logScrapeConfig), logEvent));
+                            }));
+                } catch (Exception e) {
+                    log.error("Failed to scrape lambda logs", e);
+                }
+            } else {
                 log.info("No functions found for region {}", region);
-                return Collections.emptyMap();
             }
-            lambdaFunctionScraper.getFunctions().get(region).forEach((arn, functionConfig) -> logScrapeConfigs.stream()
-                    .filter(logScrapeConfig -> logScrapeConfig.shouldScrapeLogsFor(functionConfig.getName()))
-                    .findFirst()
-                    .ifPresent(logScrapeConfig -> {
-                        Optional<FilteredLogEvent> logEventOpt = logEventScraper.findLogEvent(cloudWatchLogsClient,
-                                functionConfig, logScrapeConfig);
-                        logEventOpt.ifPresent(logEvent ->
-                                map.put(new FunctionLogScrapeConfig(functionConfig, logScrapeConfig), logEvent));
-                    }));
-        } catch (Exception e) {
-            log.error("Failed to scrape lambda logs", e);
-        }
-        log.info("END lambda log scrape for region {}", region);
+            log.info("END lambda log scrape for region {}", region);
+        });
         return map;
     }
 
