@@ -87,7 +87,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         Instant now = now();
         long timeSinceLastScrape = now.toEpochMilli() - lastScrapeTime;
-        if (timeSinceLastScrape < (intervalSeconds - 5) * 1000L) {
+        if (intervalSeconds > 60 && timeSinceLastScrape < (intervalSeconds - 5) * 1000L) {
             return familySamples;
         }
         lastScrapeTime = now.toEpochMilli();
@@ -168,7 +168,10 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
             log.error("Failed to scrape metrics", e);
         }
 
-        samplesByMetric.forEach((metricName, samples) -> familySamples.add(sampleBuilder.buildFamily(samples)));
+        samplesByMetric.forEach((metricName, samples) -> {
+            log.info("Got samples for {}", metricName);
+            familySamples.add(sampleBuilder.buildFamily(samples));
+        });
 
         log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
         return familySamples;
