@@ -8,7 +8,6 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.annotations.VisibleForTesting;
@@ -46,7 +45,7 @@ public class LogEventMetricEmitter {
                     .filter(resource -> resource.getArn().equals(lambdaFunction.getArn()))
                     .findFirst()
                     .ifPresent(resource -> resource.addTagLabels(logLabels, metricNameUtil));
-            return Optional.of(sampleBuilder.buildSingleSample("aws_lambda_logs", logLabels, getNow(), 1.0D));
+            return Optional.of(sampleBuilder.buildSingleSample("aws_lambda_logs", logLabels, 1.0D));
         }
         return Optional.empty();
     }

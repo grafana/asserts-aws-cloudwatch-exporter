@@ -13,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.model.MetricDataResult;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +28,6 @@ public class MetricSampleBuilder {
 
     public List<MetricFamilySamples.Sample> buildSamples(String region, MetricQuery metricQuery,
                                                          MetricDataResult metricDataResult) {
-        Instant now = now();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         String metricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
         if (metricDataResult.timestamps().size() > 0) {
@@ -39,7 +37,7 @@ public class MetricSampleBuilder {
                         metricName,
                         new ArrayList<>(labels.keySet()),
                         new ArrayList<>(labels.values()),
-                        metricDataResult.values().get(i), now.toEpochMilli());
+                        metricDataResult.values().get(i));
                 samples.add(sample);
             }
         }
@@ -47,20 +45,15 @@ public class MetricSampleBuilder {
     }
 
     public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> labels,
-                                                        Instant instant, Double metric) {
+                                                        Double metric) {
         return new MetricFamilySamples.Sample(
                 metricName,
                 new ArrayList<>(labels.keySet()),
                 new ArrayList<>(labels.values()),
-                metric,
-                instant.toEpochMilli());
+                metric);
     }
 
     public MetricFamilySamples buildFamily(List<MetricFamilySamples.Sample> samples) {
         return new MetricFamilySamples(samples.get(0).name, GAUGE, "", samples);
-    }
-
-    Instant now() {
-        return Instant.now();
     }
 }

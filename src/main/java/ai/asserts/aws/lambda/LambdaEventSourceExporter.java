@@ -126,7 +126,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         eventSourceResource.addLabels(labels, "event_source");
         functionResource.addTagLabels(labels, metricNameUtil);
         samples.computeIfAbsent(metricName, k -> new ArrayList<>())
-                .add(sampleBuilder.buildSingleSample(metricName, labels, now, 1.0D));
+                .add(sampleBuilder.buildSingleSample(metricName, labels, 1.0D));
     }
 
     @VisibleForTesting

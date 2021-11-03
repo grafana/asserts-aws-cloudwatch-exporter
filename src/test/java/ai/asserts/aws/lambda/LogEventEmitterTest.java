@@ -72,7 +72,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(lambdaFunction.getArn()).andReturn("arn1");
         resource.addTagLabels(labels, metricNameUtil);
 
-        expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, now, 1.0D))
+        expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, 1.0D))
                 .andReturn(sample);
 
         replayAll();
@@ -98,7 +98,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(labels.size()).andReturn(1);
         expect(labels.put("region", "region1")).andReturn(null);
         expect(labels.put("d_function_name", "fn1")).andReturn(null);
-        expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, now, 1.0D))
+        expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, 1.0D))
                 .andReturn(sample);
 
         replayAll();
