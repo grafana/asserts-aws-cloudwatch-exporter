@@ -48,14 +48,14 @@ public class MetricNameUtil {
 
     }
 
-    public String exportedMetric(MetricQuery metricQuery, MetricStat metricStat) {
+    public String exportedMetric(MetricQuery metricQuery) {
         Map<String, String> labels = new TreeMap<>();
         metricQuery.getMetric().dimensions().forEach(dimension ->
                 labels.put(format("d_%s", toSnakeCase(dimension.name())), dimension.value()));
 
         metricQuery.getResource().addTagLabels(labels, this);
 
-        return format("%s{%s}", exportedMetricName(metricQuery.getMetric(), metricStat),
+        return format("%s{%s}", exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat()),
                 labels.entrySet().stream()
                         .map(entry -> format("%s=\"%s\"", entry.getKey(), entry.getValue()))
                         .collect(joining(", ")));

@@ -11,6 +11,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prometheus.client.Collector;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,9 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static io.prometheus.client.Collector.Type.GAUGE;
 import static org.easymock.EasyMock.expect;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
@@ -34,6 +37,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     private LambdaFunctionScraper lambdaFunctionScraper;
     private LogEventScraper logEventScraper;
     private LogEventMetricEmitter logEventMetricEmitter;
+    private Collector.MetricFamilySamples.Sample sample;
     private LambdaFunction lambdaFunction;
     private LambdaLogMetricScrapeTask testClass;
 
@@ -48,6 +52,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         cloudWatchLogsClient = mock(CloudWatchLogsClient.class);
         lambdaFunctionScraper = mock(LambdaFunctionScraper.class);
         logEventScraper = mock(LogEventScraper.class);
+        sample = mock(Collector.MetricFamilySamples.Sample.class);
         logEventMetricEmitter = mock(LogEventMetricEmitter.class);
 
         scrapeConfig = mock(ScrapeConfig.class);
@@ -76,13 +81,15 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 .build();
         expect(logEventScraper.findLogEvent(cloudWatchLogsClient, lambdaFunction, logScrapeConfig))
                 .andReturn(Optional.of(filteredLogEvent));
-        logEventMetricEmitter.emitMetric(namespaceConfig, LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
+        expect(logEventMetricEmitter.getSample(namespaceConfig, LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
                 .lambdaFunction(lambdaFunction)
                 .logScrapeConfig(logScrapeConfig)
-                .build(), filteredLogEvent);
+                .build(), filteredLogEvent)).andReturn(Optional.of(sample));
         cloudWatchLogsClient.close();
         replayAll();
-        testClass.run();
+        assertEquals(ImmutableList.of(
+                new Collector.MetricFamilySamples("aws_lambda_logs", GAUGE, "", ImmutableList.of(sample))
+        ), testClass.collect());
         verifyAll();
     }
 

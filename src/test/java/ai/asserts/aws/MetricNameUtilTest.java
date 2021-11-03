@@ -65,6 +65,7 @@ public class MetricNameUtilTest {
                                                 .value("resource1")
                                                 .build())
                                 .build())
-                        .build(), MetricStat.Maximum));
+                        .metricStat(MetricStat.Maximum)
+                        .build()));
     }
 }

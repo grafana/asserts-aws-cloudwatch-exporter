@@ -16,7 +16,6 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
-import software.amazon.awssdk.services.cloudwatch.model.MetricDataResult;
 
 import java.time.Instant;
 
@@ -86,30 +85,6 @@ public class GaugeExporterTest extends EasyMockSupport {
 
         replayAll();
         testClass.exportMetric("foo_bar", "help", labels, now, 20.0D);
-        verifyAll();
-    }
-
-    @Test
-    void exportMetrics() {
-        Instant thisInstant = Instant.now();
-
-        ImmutableList<Instant> timestamps = ImmutableList.of(thisInstant);
-        ImmutableList<Double> values = ImmutableList.of(1.0D);
-
-        Integer scrapeInterval = metricQuery.getMetricConfig().getScrapeInterval();
-
-        MetricDataResult metricDataResult = MetricDataResult.builder()
-                .timestamps(timestamps)
-                .values(values)
-                .build();
-        expect(metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat()))
-                .andReturn("foo_bar");
-        expect(metricCollectors.getGauge("foo_bar", "")).andReturn(gaugeCollector);
-
-        gaugeCollector.addSample("region1", metricQuery, scrapeInterval, timestamps, values);
-
-        replayAll();
-        testClass.exportMetrics("region1", metricQuery, scrapeInterval, metricDataResult);
         verifyAll();
     }
 

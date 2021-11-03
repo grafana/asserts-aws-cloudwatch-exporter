@@ -8,7 +8,9 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import com.google.common.base.Suppliers;
+import io.prometheus.client.Collector;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -18,14 +20,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+
+import static io.prometheus.client.Collector.Type.GAUGE;
 
 /**
  * Scrapes the cloudwatch logs and converts log messages into <code>aws_lambda_logs</code> metrics based
@@ -34,7 +38,7 @@ import java.util.function.Supplier;
 @Slf4j
 @EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
 @Setter
-public class LambdaLogMetricScrapeTask extends TimerTask {
+public class LambdaLogMetricScrapeTask extends Collector implements MetricProvider {
     @EqualsAndHashCode.Include
     private final String region;
     @EqualsAndHashCode.Include
@@ -58,12 +62,15 @@ public class LambdaLogMetricScrapeTask extends TimerTask {
         cache = Suppliers.memoizeWithExpiration(this::scrapeLogEvents, 15, TimeUnit.MINUTES);
     }
 
-    public void run() {
+    public List<MetricFamilySamples> collect() {
+        List<Collector.MetricFamilySamples.Sample> samples = new ArrayList<>();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getLambdaConfig()
                 .ifPresent(namespaceConfig ->
                         cache.get().forEach((config, event) ->
-                                logEventMetricEmitter.emitMetric(namespaceConfig, config, event)));
+                                logEventMetricEmitter.getSample(namespaceConfig, config, event)
+                                        .ifPresent(samples::add)));
+        return Collections.singletonList(new MetricFamilySamples("aws_lambda_logs", GAUGE, "", samples));
     }
 
     private Map<FunctionLogScrapeConfig, FilteredLogEvent> scrapeLogEvents() {

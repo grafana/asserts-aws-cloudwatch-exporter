@@ -32,6 +32,7 @@ import static java.lang.String.format;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode
+@ToString
 public class MetricConfig {
     @JsonIgnore
     @ToString.Exclude
