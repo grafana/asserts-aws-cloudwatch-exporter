@@ -90,13 +90,13 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                 MetricFamilySamples.Sample sample = sampleBuilder.buildSingleSample(accountLimitMetric, ImmutableMap.of(
                         "region", region,
                         "type", "concurrent_executions"
-                ), now, accountSettings.accountLimit().concurrentExecutions() * 1.0D);
+                ), accountSettings.accountLimit().concurrentExecutions() * 1.0D);
                 samples.computeIfAbsent(accountLimitMetric, k -> new ArrayList<>()).add(sample);
 
                 sample = sampleBuilder.buildSingleSample(accountLimitMetric, ImmutableMap.of(
                         "region", region,
                         "type", "unreserved_concurrent_executions"
-                ), now, accountSettings.accountLimit().unreservedConcurrentExecutions() * 1.0D);
+                ), accountSettings.accountLimit().unreservedConcurrentExecutions() * 1.0D);
                 samples.computeIfAbsent(accountLimitMetric, k -> new ArrayList<>()).add(sample);
 
                 Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, lambdaConfig);
@@ -115,7 +115,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                     // Export timeout
                     double timeout = lambdaFunction.getTimeoutSeconds() * 1.0D;
                     samples.computeIfAbsent(timeoutMetric, k -> new ArrayList<>())
-                            .add(sampleBuilder.buildSingleSample(timeoutMetric, labels, now, timeout));
+                            .add(sampleBuilder.buildSingleSample(timeoutMetric, labels, timeout));
 
                     ListProvisionedConcurrencyConfigsRequest request = ListProvisionedConcurrencyConfigsRequest
                             .builder()
@@ -139,17 +139,17 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                             Integer available = config.availableProvisionedConcurrentExecutions();
                             samples.computeIfAbsent(availableMetric, k -> new ArrayList<>())
                                     .add(sampleBuilder.buildSingleSample(
-                                            availableMetric, labels, now, available.doubleValue()));
+                                            availableMetric, labels, available.doubleValue()));
 
                             Integer requested = config.requestedProvisionedConcurrentExecutions();
                             samples.computeIfAbsent(requestedMetric, k -> new ArrayList<>())
                                     .add(sampleBuilder.buildSingleSample(
-                                            requestedMetric, labels, now, requested.doubleValue()));
+                                            requestedMetric, labels, requested.doubleValue()));
 
                             Integer allocated = config.allocatedProvisionedConcurrentExecutions();
                             samples.computeIfAbsent(allocatedMetric, k -> new ArrayList<>())
                                     .add(sampleBuilder.buildSingleSample(
-                                            allocatedMetric, labels, now, allocated.doubleValue()));
+                                            allocatedMetric, labels, allocated.doubleValue()));
                         });
                     }
                 });

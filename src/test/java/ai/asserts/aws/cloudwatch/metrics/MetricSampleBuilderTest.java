@@ -30,20 +30,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class MetricSampleBuilderTest extends EasyMockSupport {
     private MetricNameUtil metricNameUtil;
     private LabelBuilder labelBuilder;
-    private Instant now;
     private MetricSampleBuilder testClass;
 
     @BeforeEach
     public void setup() {
-        now = Instant.now();
         metricNameUtil = mock(MetricNameUtil.class);
         labelBuilder = mock(LabelBuilder.class);
-        testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder) {
-            @Override
-            Instant now() {
-                return now;
-            }
-        };
+        testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder);
     }
 
     @Test
@@ -69,8 +62,8 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         List<String> labelNames = Arrays.asList("label1", "label2");
         List<String> labelValues = Arrays.asList("value1", "value2");
         assertEquals(ImmutableList.of(
-                new Sample("metric", labelNames, labelValues, 1.0D, now.toEpochMilli()),
-                new Sample("metric", labelNames, labelValues, 2.0D, now.toEpochMilli())
+                new Sample("metric", labelNames, labelValues, 1.0D),
+                new Sample("metric", labelNames, labelValues, 2.0D)
         ), samples);
         verifyAll();
     }
@@ -80,10 +73,10 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         replayAll();
         List<String> labelNames = Arrays.asList("label1", "label2");
         List<String> labelValues = Arrays.asList("value1", "value2");
-        assertEquals(new Sample("metric", labelNames, labelValues, 1.0D, now.toEpochMilli()),
+        assertEquals(new Sample("metric", labelNames, labelValues, 1.0D),
                 testClass.buildSingleSample("metric",
                         ImmutableSortedMap.of("label1", "value1", "label2", "value2"),
-                        now, 1.0D
+                        1.0D
                 ));
 
         verifyAll();
@@ -94,7 +87,7 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         replayAll();
         Sample sample = new Sample("metric",
                 Collections.emptyList(),
-                Collections.emptyList(), 1.0D, now.toEpochMilli());
+                Collections.emptyList(), 1.0D);
         assertEquals(
                 new Collector.MetricFamilySamples("metric", GAUGE, "", ImmutableList.of(sample, sample)),
                 testClass.buildFamily(ImmutableList.of(sample, sample))
