@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest;
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataResponse;
+import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import java.time.Instant;
 import java.util.List;
@@ -32,6 +33,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_INTERVAL_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLETE;
 
 /**
  * Scrapes metrics using the <code>GetMetricData</code> AWS API. Depends on {@link MetricQueryProvider} to provide
@@ -116,11 +118,25 @@ public class MetricScrapeTask extends TimerTask {
                     GetMetricDataResponse metricData = cloudWatchClient.getMetricData(requestBuilder.build());
                     timeTaken = System.currentTimeMillis() - timeTaken;
                     captureLatency(timeTaken);
-                    metricData.metricDataResults().forEach(metricDataResult -> {
-                        MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
-                        gaugeExporter.exportMetricMeta(region, metricQuery);
-                        gaugeExporter.exportMetrics(region, metricQuery, period, metricDataResult);
-                    });
+
+                    if (metricData.hasMetricDataResults()) {
+                        metricData.metricDataResults()
+                                .stream().filter(metricDataResult -> !metricDataResult.statusCode().equals(COMPLETE))
+                                .forEach(metricDataResult -> {
+                                    Metric metric = queriesById.get(metricDataResult.id()).getMetric();
+                                    log.error("Metric not available for {}::{}::{}",
+                                            metric.namespace(), metric.metricName(), metric.dimensions().stream()
+                                                    .map(d -> String.format("%d=\"%d\"", d.name(), d.value()))
+                                                    .collect(Collectors.joining(", ")));
+                                });
+                        metricData.metricDataResults()
+                                .stream().filter(metricDataResult -> metricDataResult.statusCode().equals(COMPLETE))
+                                .forEach(metricDataResult -> {
+                                    MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
+                                    gaugeExporter.exportMetricMeta(region, metricQuery);
+                                    gaugeExporter.exportMetrics(region, metricQuery, period, metricDataResult);
+                                });
+                    }
                     nextToken = metricData.nextToken();
                 } while (nextToken != null);
             });
