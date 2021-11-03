@@ -1,3 +1,4 @@
+delay: 60
 regions:
   - us-west-2
 namespaces:

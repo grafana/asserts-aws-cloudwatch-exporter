@@ -9,7 +9,6 @@ import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
-import com.google.common.base.Suppliers;
 import io.prometheus.client.Collector;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -27,8 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static io.prometheus.client.Collector.Type.GAUGE;
 
@@ -53,22 +50,28 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
     @Autowired
     private LogEventMetricEmitter logEventMetricEmitter;
 
-    private Supplier<Map<FunctionLogScrapeConfig, FilteredLogEvent>> cache;
+    private volatile Map<FunctionLogScrapeConfig, FilteredLogEvent> cache;
 
     public LambdaLogMetricScrapeTask(String region) {
         this.region = region;
-        cache = Suppliers.memoizeWithExpiration(this::scrapeLogEvents, 15, TimeUnit.MINUTES);
+        cache = new HashMap<>();
     }
 
     public List<MetricFamilySamples> collect() {
         List<Collector.MetricFamilySamples.Sample> samples = new ArrayList<>();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        scrapeConfig.getLambdaConfig()
-                .ifPresent(namespaceConfig ->
-                        cache.get().forEach((config, event) ->
-                                logEventMetricEmitter.getSample(namespaceConfig, config, event)
-                                        .ifPresent(samples::add)));
+        scrapeConfig.getLambdaConfig().ifPresent(namespaceConfig -> {
+            Map<FunctionLogScrapeConfig, FilteredLogEvent> copy = this.cache;
+            copy.forEach((config, event) ->
+                    logEventMetricEmitter.getSample(namespaceConfig, config, event)
+                            .ifPresent(samples::add));
+        });
         return Collections.singletonList(new MetricFamilySamples("aws_lambda_logs", GAUGE, "", samples));
+    }
+
+    @Override
+    public void update() {
+        this.cache = scrapeLogEvents();
     }
 
     private Map<FunctionLogScrapeConfig, FilteredLogEvent> scrapeLogEvents() {

@@ -12,19 +12,23 @@ import ai.asserts.aws.lambda.LambdaCapacityExporter;
 import ai.asserts.aws.lambda.LambdaEventSourceExporter;
 import ai.asserts.aws.lambda.LambdaLogMetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Component
 @Slf4j
@@ -41,37 +45,51 @@ public class ScrapeTaskManager implements InitializingBean {
      */
     private final Map<Integer, Map<String, MetricScrapeTask>> metricScrapeTasks = new TreeMap<>();
     private final Map<Integer, Map<String, Set<LambdaLogMetricScrapeTask>>> logScrapeTasks = new TreeMap<>();
-    private final AtomicBoolean tasksSetup = new AtomicBoolean(false);
-
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     public void afterPropertiesSet() {
-        if (!tasksSetup.get()) {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            scrapeConfig.getNamespaces().forEach(nc -> nc.getMetrics().stream()
-                    .map(MetricConfig::getScrapeInterval)
-                    .forEach(interval -> scrapeConfig.getRegions().forEach(region -> {
-                                Map<String, MetricScrapeTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
-                                        k -> new TreeMap<>());
-                                if (!byRegion.containsKey(region)) {
-                                    byRegion.put(region,
-                                            metricScrapeTask(region, interval, scrapeConfig.getDelay()));
-                                }
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        scrapeConfig.getNamespaces().forEach(nc -> nc.getMetrics().stream()
+                .map(MetricConfig::getScrapeInterval)
+                .forEach(interval -> scrapeConfig.getRegions().forEach(region -> {
+                            Map<String, MetricScrapeTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
+                                    k -> new TreeMap<>());
+                            if (!byRegion.containsKey(region)) {
+                                byRegion.put(region,
+                                        metricScrapeTask(region, interval, scrapeConfig.getDelay()));
                             }
-                    )));
+                        }
+                )));
 
-            scrapeConfig.getLambdaConfig().ifPresent(nc -> {
-                if (!CollectionUtils.isEmpty(nc.getLogs())) {
-                    scrapeConfig.getRegions().forEach(region -> logScrapeTasks
-                            .computeIfAbsent(60, k -> new TreeMap<>())
-                            .computeIfAbsent(region, k -> new HashSet<>())
-                            .add(lambdaLogScrapeTask(nc, region))
-                    );
-                }
-            });
+        scrapeConfig.getLambdaConfig().ifPresent(nc -> {
+            if (!CollectionUtils.isEmpty(nc.getLogs())) {
+                scrapeConfig.getRegions().forEach(region -> logScrapeTasks
+                        .computeIfAbsent(60, k -> new TreeMap<>())
+                        .computeIfAbsent(region, k -> new HashSet<>())
+                        .add(lambdaLogScrapeTask(nc, region))
+                );
+            }
+        });
 
-            setupMetadataTasks();
-            tasksSetup.set(true);
-        }
+        setupMetadataTasks();
+    }
+
+    @SuppressWarnings("unused")
+    @Scheduled(fixedDelayString = "${aws.metric.scrape.manager.task.fixedDelay:60000}",
+            initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
+    @Timed(description = "Time spent scraping cloudwatch metrics from all regions", histogram = true)
+    public void triggerScrapes() {
+        metricScrapeTasks.values().stream()
+                .flatMap(map -> map.values().stream())
+                .forEach(task -> executorService.submit(task::update));
+
+        logScrapeTasks.values().stream()
+                .flatMap(map -> map.values().stream())
+                .flatMap(Collection::stream)
+                .forEach(task -> executorService.submit(task::update));
+
+        executorService.submit(lambdaCapacityExporter::update);
+        executorService.submit(lambdaEventSourceExporter::update);
     }
 
     private void setupMetadataTasks() {

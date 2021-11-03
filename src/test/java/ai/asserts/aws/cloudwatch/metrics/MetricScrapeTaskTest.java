@@ -172,6 +172,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
 
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
         verifyAll();
     }
@@ -182,6 +183,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of());
 
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(), testClass.collect());
         verifyAll();
     }
@@ -192,6 +194,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of(region, ImmutableMap.of()));
 
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(), testClass.collect());
         verifyAll();
     }

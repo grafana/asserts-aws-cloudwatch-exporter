@@ -10,4 +10,5 @@ import java.util.List;
 
 public interface MetricProvider {
     List<Collector.MetricFamilySamples> collect();
+    void update();
 }

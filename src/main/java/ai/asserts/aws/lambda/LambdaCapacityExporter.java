@@ -14,8 +14,6 @@ import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;
 import lombok.extern.slf4j.Slf4j;
@@ -32,13 +30,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Component
 @Slf4j
@@ -50,7 +46,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private final MetricSampleBuilder sampleBuilder;
     private final LambdaFunctionScraper functionScraper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
-    private final Supplier<List<MetricFamilySamples>> cache;
+    private volatile List<MetricFamilySamples> cache;
 
     public LambdaCapacityExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                   MetricNameUtil metricNameUtil, GaugeExporter gaugeExporter,
@@ -63,15 +59,19 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         this.sampleBuilder = sampleBuilder;
         this.functionScraper = functionScraper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
-        this.cache = Suppliers.memoizeWithExpiration(this::getMetrics, 5, MINUTES);
+        this.cache = new ArrayList<>();
     }
 
     public List<MetricFamilySamples> collect() {
-        return cache.get();
+        return cache;
+    }
+
+    @Override
+    public void update() {
+        cache = getMetrics();
     }
 
     private List<MetricFamilySamples> getMetrics() {
-        Instant now = now();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Optional<NamespaceConfig> optional = scrapeConfig.getLambdaConfig();
         String availableMetric = metricNameUtil.getLambdaMetric("available_concurrency");
@@ -168,10 +168,5 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                         SCRAPE_REGION_LABEL, region,
                         SCRAPE_OPERATION_LABEL, "list_provisioned_concurrency_configs"
                 ), Instant.now(), timeTaken * 1.0D);
-    }
-
-    @VisibleForTesting
-    Instant now() {
-        return Instant.now();
     }
 }
