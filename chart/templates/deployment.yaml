@@ -28,9 +28,6 @@ spec:
           - name: aws
             containerPort: {{ .Values.service.aws.port }}
             protocol: TCP
-          # - name: jmx
-          #   containerPort: {{ .Values.service.jmx.port }}
-          #   protocol: TCP
         livenessProbe:
           httpGet:
             path: /aws-exporter/actuator/health/liveness
