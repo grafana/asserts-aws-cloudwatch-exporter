@@ -69,6 +69,12 @@ namespaces:
       - name: SentMessageSize
         stats:
           - Average
+      - name: NumberOfEmptyReceives
+        stats:
+          - Sum
+      - name: ApproximateAgeOfOldestMessage
+        stats:
+          - Maximum
   - name: dynamodb
     metrics:
       - name: ConsumedReadCapacityUnits
