@@ -5,6 +5,9 @@
 package ai.asserts.aws.resource;
 
 public enum ResourceType {
+    ECSCluster,
+    ECSService,
+    ECSTaskDef,
     SNSTopic,
     EventBus,
     SQSQueue, // SQS Queue

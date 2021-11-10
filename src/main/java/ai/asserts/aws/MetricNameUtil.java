@@ -37,7 +37,8 @@ public class MetricNameUtil {
             .put(CWNamespace.ebs.getNamespace(), "aws_ebs")
             .put(CWNamespace.efs.getNamespace(), "aws_efs")
             .put(CWNamespace.kinesis.getNamespace(), "aws_kinesis")
-            .put(CWNamespace.ecs_containerinsights.getNamespace(), "aws_ecscontainerinsights")
+            .put(CWNamespace.ecs_svc.getNamespace(), "aws_ecs")
+            .put(CWNamespace.ecs_containerinsights.getNamespace(), "aws_ecs_containerinsights")
             .build();
 
     public String exportedMetricName(Metric metric, MetricStat metricStat) {
