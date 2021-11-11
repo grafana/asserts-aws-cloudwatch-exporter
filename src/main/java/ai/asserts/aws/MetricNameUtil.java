@@ -26,19 +26,19 @@ public class MetricNameUtil {
     public static final String SCRAPE_INTERVAL_LABEL = "interval";
     public static final String SCRAPE_FUNCTION_NAME_LABEL = "function_name";
 
-    private final Map<String, String> NAMESPACE_TO_METRIC_PREFIX = new ImmutableMap.Builder<String, String>()
-            .put(CWNamespace.lambda.getNamespace(), "aws_lambda")
-            .put(CWNamespace.lambdainsights.getNamespace(), "aws_lambda")
-            .put(CWNamespace.sqs.getNamespace(), "aws_sqs")
-            .put(CWNamespace.s3.getNamespace(), "aws_s3")
-            .put(CWNamespace.dynamodb.getNamespace(), "aws_dynamodb")
-            .put(CWNamespace.alb.getNamespace(), "aws_alb")
-            .put(CWNamespace.elb.getNamespace(), "aws_elb")
-            .put(CWNamespace.ebs.getNamespace(), "aws_ebs")
-            .put(CWNamespace.efs.getNamespace(), "aws_efs")
-            .put(CWNamespace.kinesis.getNamespace(), "aws_kinesis")
-            .put(CWNamespace.ecs_svc.getNamespace(), "aws_ecs")
-            .put(CWNamespace.ecs_containerinsights.getNamespace(), "aws_ecs_containerinsights")
+    private final Map<String, CWNamespace> NAMESPACE_TO_METRIC_PREFIX = new ImmutableMap.Builder<String, CWNamespace>()
+            .put(CWNamespace.lambda.getNamespace(), CWNamespace.lambda)
+            .put(CWNamespace.lambdainsights.getNamespace(), CWNamespace.lambdainsights)
+            .put(CWNamespace.sqs.getNamespace(), CWNamespace.sqs)
+            .put(CWNamespace.s3.getNamespace(), CWNamespace.s3)
+            .put(CWNamespace.dynamodb.getNamespace(), CWNamespace.dynamodb)
+            .put(CWNamespace.alb.getNamespace(), CWNamespace.alb)
+            .put(CWNamespace.elb.getNamespace(), CWNamespace.elb)
+            .put(CWNamespace.ebs.getNamespace(), CWNamespace.ebs)
+            .put(CWNamespace.efs.getNamespace(), CWNamespace.efs)
+            .put(CWNamespace.kinesis.getNamespace(), CWNamespace.kinesis)
+            .put(CWNamespace.ecs_svc.getNamespace(), CWNamespace.ecs_svc)
+            .put(CWNamespace.ecs_containerinsights.getNamespace(), CWNamespace.ecs_containerinsights)
             .build();
 
     public String exportedMetricName(Metric metric, MetricStat metricStat) {
@@ -63,7 +63,7 @@ public class MetricNameUtil {
     }
 
     public String getMetricPrefix(String namespace) {
-        return NAMESPACE_TO_METRIC_PREFIX.get(namespace);
+        return NAMESPACE_TO_METRIC_PREFIX.get(namespace).getMetricPrefix();
     }
 
     public String getLambdaMetric(String suffix) {
