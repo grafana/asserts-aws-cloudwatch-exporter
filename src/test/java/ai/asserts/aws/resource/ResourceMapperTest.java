@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
+import static ai.asserts.aws.resource.ResourceType.ECSCluster;
+import static ai.asserts.aws.resource.ResourceType.ECSService;
+import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
 import static ai.asserts.aws.resource.ResourceType.EventBus;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 import static ai.asserts.aws.resource.ResourceType.S3Bucket;
@@ -119,6 +122,45 @@ public class ResourceMapperTest {
                         .type(EventBus).arn(arn)
                         .region("us-west-2")
                         .name("event-bus-name")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_ECS_Cluster() {
+        String arn = "arn:aws:ecs:us-west-2:342994379019:cluster/cluster1";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(ECSCluster).arn(arn)
+                        .region("us-west-2")
+                        .name("cluster1")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_ECS_Service() {
+        String arn = "arn:aws:ecs:us-west-2:342994379019:service/service1";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(ECSService).arn(arn)
+                        .region("us-west-2")
+                        .name("service1")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_ECS_TaskDefinition() {
+        String arn = "arn:aws:ecs:us-west-2:342994379019:task-definition/task-definition:1";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(ECSTaskDef).arn(arn)
+                        .region("us-west-2")
+                        .name("task-definition")
                         .build()),
                 testClass.map(arn)
         );

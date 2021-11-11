@@ -13,6 +13,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
+import static ai.asserts.aws.resource.ResourceType.ECSCluster;
+import static ai.asserts.aws.resource.ResourceType.ECSService;
+import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
 import static ai.asserts.aws.resource.ResourceType.EventBus;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 import static ai.asserts.aws.resource.ResourceType.S3Bucket;
@@ -27,6 +30,9 @@ public class ResourceMapper {
     private static final Pattern S3_ARN_PATTERN = Pattern.compile("arn:aws:s3:(.*?):.*?:(.+?)");
     private static final Pattern SNS_ARN_PATTERN = Pattern.compile("arn:aws:sns:(.+?):.+?:(.+)");
     private static final Pattern EVENTBUS_ARN_PATTERN = Pattern.compile("arn:aws:events:(.+?):.+?:event-bus/(.+)");
+    private static final Pattern ECS_CLUSTER_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:cluster/(.+)");
+    private static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:service/(.+)");
+    private static final Pattern ECS_TASK_DEFINITION_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:task-definition/(.+?)(:.+)?");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
             .add(arn -> {
@@ -105,6 +111,48 @@ public class ResourceMapper {
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
                                 .type(EventBus)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .name(matcher.group(2))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains("ecs") && arn.contains("cluster")) {
+                    Matcher matcher = ECS_CLUSTER_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(ECSCluster)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .name(matcher.group(2))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains("ecs") && arn.contains("service")) {
+                    Matcher matcher = ECS_SERVICE_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(ECSService)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .name(matcher.group(2))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains("ecs") && arn.contains("task-definition")) {
+                    Matcher matcher = ECS_TASK_DEFINITION_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(ECSTaskDef)
                                 .arn(arn)
                                 .region(matcher.group(1))
                                 .name(matcher.group(2))

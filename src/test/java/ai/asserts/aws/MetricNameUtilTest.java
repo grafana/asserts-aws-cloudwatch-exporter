@@ -19,10 +19,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class MetricNameUtilTest {
     @Test
     void toSnakeCase() {
-        MetricNameUtil metricNameUtil = new MetricNameUtil();
-        assertEquals("method_duration_seconds", metricNameUtil.toSnakeCase("MethodDurationSeconds"));
-        assertEquals("cpu_load15", metricNameUtil.toSnakeCase("CPULoad15"));
-        assertEquals("cpu_load", metricNameUtil.toSnakeCase("cpu-load"));
+        MetricNameUtil util = new MetricNameUtil();
+        assertEquals("method_duration_seconds", util.toSnakeCase("MethodDurationSeconds"));
+        assertEquals("cpu_load15", util.toSnakeCase("CPULoad15"));
+        assertEquals("cpu_load", util.toSnakeCase("cpu-load"));
+        assertEquals("tag_lambda_console_blueprint", util.toSnakeCase("tag_lambda_console:blueprint"));
+    }
+
+    @Test
+    void getMetricPrefix() {
+        MetricNameUtil util = new MetricNameUtil();
+        assertEquals("aws_lambda", util.getMetricPrefix("AWS/Lambda"));
+        assertEquals("aws_ecs", util.getMetricPrefix("AWS/ECS"));
+        assertEquals("aws_ecs_containerinsights", util.getMetricPrefix("ECS/ContainerInsights"));
+        assertEquals("aws_lambda", util.getMetricPrefix("LambdaInsights"));
+        assertEquals("aws_sqs", util.getMetricPrefix("AWS/SQS"));
+        assertEquals("aws_s3", util.getMetricPrefix("AWS/S3"));
+        assertEquals("aws_dynamodb", util.getMetricPrefix("AWS/DynamoDB"));
     }
 
     @Test
@@ -36,6 +49,7 @@ public class MetricNameUtilTest {
                 .namespace("AWS/Lambda")
                 .metricName("Invocations")
                 .build(), MetricStat.Average));
+
     }
 
     @Test

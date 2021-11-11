@@ -1,10 +1,8 @@
-delay: 60
 regions:
   - us-west-2
 namespaces:
   - name: lambda
     scrapeInterval: 60
-    # delay: 60
     period: 60
     dimensionFilters:
       FunctionName: (.+)
@@ -129,5 +127,53 @@ namespaces:
         stats:
           - Sum
       - name: rx_bytes
+        stats:
+          - Sum
+  - name: ecs_svc
+    scrapeInterval: 60
+    period: 60
+    dimensionFilters:
+      FunctionName: (.+)
+    metrics:
+      - name: MemoryUtilization
+        stats:
+          - Average
+          - Maximum
+      - name: CPUUtilization
+        stats:
+          - Average
+          - Maximum
+  - name: ecs_containerinsights
+    scrapeInterval: 60
+    period: 60
+    dimensionFilters:
+      FunctionName: (.+)
+    metrics:
+      - name: MemoryReserved
+        stats:
+          - Average
+          - Maximum
+      - name: MemoryUtilized
+        stats:
+          - Average
+          - Maximum
+      - name: CpuReserved
+        stats:
+          - Average
+          - Maximum
+      - name: CpuUtilized
+        stats:
+          - Average
+          - Maximum
+      - name: NetworkRxBytes
+        stats:
+          - Sum
+      - name: NetworkTxBytes
+        stats:
+          - Sum
+      - name: StorageReadBytes
+        stats:
+          - Sum
+      - name: StorageWriteBytes
         stats:
           - Sum
