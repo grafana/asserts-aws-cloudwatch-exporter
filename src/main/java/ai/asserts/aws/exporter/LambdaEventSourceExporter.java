@@ -11,6 +11,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
@@ -38,7 +41,7 @@ import static java.lang.String.format;
 
 @Component
 @Slf4j
-public class LambdaEventSourceExporter extends Collector implements MetricProvider {
+public class LambdaEventSourceExporter extends Collector {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
@@ -46,7 +49,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricSampleBuilder sampleBuilder;
     private final BasicMetricCollector metricCollector;
-    private volatile Map<String, List<EventSourceMappingConfiguration>> eventSourceMappings;
+    private final Supplier<Map<String, List<EventSourceMappingConfiguration>>> eventSourceMappings;
 
     public LambdaEventSourceExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                      MetricNameUtil metricNameUtil,
@@ -61,14 +64,14 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.sampleBuilder = sampleBuilder;
         this.metricCollector = metricCollector;
-        this.eventSourceMappings = new TreeMap<>();
+        this.eventSourceMappings = Suppliers.memoizeWithExpiration(this::getMappings, 5, TimeUnit.MINUTES);
     }
 
     public List<MetricFamilySamples> collect() {
         Map<String, List<Sample>> samples = new TreeMap<>();
         scrapeConfigProvider.getScrapeConfig().getLambdaConfig().ifPresent(nc ->
         {
-            Map<String, List<EventSourceMappingConfiguration>> copy = this.eventSourceMappings;
+            Map<String, List<EventSourceMappingConfiguration>> copy = eventSourceMappings.get();
             copy.forEach((region, mappings) -> {
                 Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, nc);
                 mappings.forEach(mappingConfiguration -> {
@@ -86,11 +89,6 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
                 .collect(Collectors.toList());
-    }
-
-    @Override
-    public void update() {
-        this.eventSourceMappings = getMappings();
     }
 
     private Map<String, List<EventSourceMappingConfiguration>> getMappings() {

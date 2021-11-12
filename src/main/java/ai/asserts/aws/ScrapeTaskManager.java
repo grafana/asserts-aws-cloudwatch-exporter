@@ -82,7 +82,7 @@ public class ScrapeTaskManager implements InitializingBean {
     }
 
     @SuppressWarnings("unused")
-    @Scheduled(fixedDelayString = "${aws.metric.scrape.manager.task.fixedDelay:60000}",
+    @Scheduled(fixedRateString = "${aws.metric.scrape.manager.task.fixedDelay:60000}",
             initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping cloudwatch metrics from all regions", histogram = true)
     public void triggerScrapes() {
@@ -94,9 +94,6 @@ public class ScrapeTaskManager implements InitializingBean {
                 .flatMap(map -> map.values().stream())
                 .flatMap(Collection::stream)
                 .forEach(task -> executorService.submit(task::update));
-
-        executorService.submit(lambdaCapacityExporter::update);
-        executorService.submit(lambdaEventSourceExporter::update);
     }
 
     private void setupMetadataTasks() {
