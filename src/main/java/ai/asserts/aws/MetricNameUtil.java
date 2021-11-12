@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.joining;
 @Component
 public class MetricNameUtil {
     public static final String SCRAPE_LATENCY_METRIC = "cw_scrape_milliseconds";
+    public static final String SCRAPE_ERROR_COUNT_METRIC = "cw_scrape_error_total";
     public static final String SCRAPE_OPERATION_LABEL = "operation";
     public static final String SCRAPE_REGION_LABEL = "region";
     public static final String SCRAPE_NAMESPACE_LABEL = "cw_namespace";

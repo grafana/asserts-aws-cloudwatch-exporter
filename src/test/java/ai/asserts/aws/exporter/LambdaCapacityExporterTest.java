@@ -2,15 +2,15 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.lambda;
+package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.lambda.LambdaFunction;
+import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableList;
@@ -31,9 +31,10 @@ import software.amazon.awssdk.services.lambda.model.ProvisionedConcurrencyConfig
 import java.util.Collections;
 import java.util.Optional;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static org.easymock.EasyMock.anyInt;
+import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.eq;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -43,7 +44,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private LambdaClient lambdaClient;
     private MetricNameUtil metricNameUtil;
-    private GaugeExporter gaugeExporter;
+    private BasicMetricCollector metricCollector;
     private LambdaFunctionScraper functionScraper;
     private TagFilterResourceProvider tagFilterResourceProvider;
     private LambdaFunction lambdaFunction;
@@ -61,7 +62,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         awsClientProvider = mock(AWSClientProvider.class);
         lambdaClient = mock(LambdaClient.class);
         metricNameUtil = mock(MetricNameUtil.class);
-        gaugeExporter = mock(GaugeExporter.class);
+        metricCollector = mock(BasicMetricCollector.class);
         functionScraper = mock(LambdaFunctionScraper.class);
         tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
         lambdaFunction = mock(LambdaFunction.class);
@@ -70,7 +71,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         sample = mock(Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
 
-        testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil, gaugeExporter,
+        testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil, metricCollector,
                 sampleBuilder, functionScraper, tagFilterResourceProvider);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
@@ -112,7 +113,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 "region", "region1", "d_function_name", "fn1", "job", "fn1"
         ), 120.0D)).andReturn(sample);
 
-        gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(sampleBuilder.buildSingleSample("available", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
                 "job", "fn1"
@@ -151,7 +152,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 "region", "region2", "d_function_name", "fn2", "job", "fn2"
         ), 60.0D)).andReturn(sample);
 
-        gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(sampleBuilder.buildSingleSample("available", ImmutableMap.of(
                 "region", "region2", "d_function_name", "fn2", "d_resource", "green",
                 "job", "fn2"
@@ -199,7 +200,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "job", "fn1"
         ), 60.0D)).andReturn(sample);
-        gaugeExporter.exportMetric(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         lambdaClient.close();
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
@@ -221,7 +222,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andThrow(new RuntimeException());
         lambdaClient.close();
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
-
+        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());

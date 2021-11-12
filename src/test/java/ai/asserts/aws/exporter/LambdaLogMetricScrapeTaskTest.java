@@ -2,13 +2,18 @@
  * Copyright © 2021
  * Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.lambda;
+package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
+import ai.asserts.aws.lambda.LambdaFunction;
+import ai.asserts.aws.lambda.LambdaFunctionScraper;
+import ai.asserts.aws.lambda.LogEventMetricEmitter;
+import ai.asserts.aws.lambda.LogEventScraper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;

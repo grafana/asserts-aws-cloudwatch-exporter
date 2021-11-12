@@ -2,11 +2,11 @@
  * Copyright © 2021
  * Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch.metrics;
+package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
@@ -30,8 +30,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -41,7 +41,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     private Integer delay;
     private MetricQueryProvider metricQueryProvider;
     private QueryBatcher queryBatcher;
-    private GaugeExporter gaugeExporter;
+    private BasicMetricCollector metricCollector;
     private AWSClientProvider awsClientProvider;
     private CloudWatchClient cloudWatchClient;
     private Instant now;
@@ -60,7 +60,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         delay = 0;
         metricQueryProvider = mock(MetricQueryProvider.class);
         queryBatcher = mock(QueryBatcher.class);
-        gaugeExporter = mock(GaugeExporter.class);
+        metricCollector = mock(BasicMetricCollector.class);
         awsClientProvider = mock(AWSClientProvider.class);
         cloudWatchClient = mock(CloudWatchClient.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
@@ -72,7 +72,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass = new MetricScrapeTask(region, interval, delay);
         testClass.setMetricQueryProvider(metricQueryProvider);
         testClass.setQueryBatcher(queryBatcher);
-        testClass.setGaugeExporter(gaugeExporter);
+        testClass.setMetricCollector(metricCollector);
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setSampleBuilder(sampleBuilder);
         testClass.setTimeWindowBuilder(timeWindowBuilder);
@@ -135,7 +135,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                         .nextToken("token1")
                         .build()
         );
-        gaugeExporter.exportMetric(anyString(), anyString(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(sampleBuilder.buildSamples(region, queries.get(0), mdr1))
                 .andReturn(ImmutableList.of(sample));
@@ -162,7 +162,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                         .build()
         );
 
-        gaugeExporter.exportMetric(anyString(), anyString(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(sampleBuilder.buildSamples(region, queries.get(1), mdr2))
                 .andReturn(ImmutableList.of(sample));
