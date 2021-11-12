@@ -11,14 +11,12 @@ import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
-import com.google.common.annotations.VisibleForTesting;
 import io.prometheus.client.Collector;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -49,10 +47,5 @@ public class LogEventMetricEmitter {
             return Optional.of(sampleBuilder.buildSingleSample("aws_lambda_logs", logLabels, 1.0D));
         }
         return Optional.empty();
-    }
-
-    @VisibleForTesting
-    Instant getNow() {
-        return Instant.now();
     }
 }
