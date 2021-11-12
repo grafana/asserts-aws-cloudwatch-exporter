@@ -135,7 +135,6 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
 
         replayAll();
-        testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
         verifyAll();
     }
@@ -148,7 +147,6 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         lambdaClient.close();
         replayAll();
-        testClass.update();
         testClass.collect();
         verifyAll();
     }

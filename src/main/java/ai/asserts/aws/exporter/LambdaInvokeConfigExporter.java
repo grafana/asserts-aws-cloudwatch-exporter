@@ -60,7 +60,7 @@ public class LambdaInvokeConfigExporter extends Collector {
         this.resourceMapper = resourceMapper;
         this.metricSampleBuilder = metricSampleBuilder;
         this.metricCollector = metricCollector;
-        this.cache = Suppliers.memoizeWithExpiration(this::getInvokeConfigs, 15, TimeUnit.MINUTES);
+        this.cache = Suppliers.memoizeWithExpiration(this::getInvokeConfigs, 5, TimeUnit.MINUTES);
     }
 
     @Override
