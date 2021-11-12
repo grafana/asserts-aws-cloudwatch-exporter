@@ -2,8 +2,9 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch.metrics;
+package ai.asserts.aws.cloudwatch;
 
+import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

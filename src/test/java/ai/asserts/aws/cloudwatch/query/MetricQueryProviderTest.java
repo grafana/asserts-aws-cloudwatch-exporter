@@ -12,7 +12,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableList;
@@ -27,7 +27,10 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Average;
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Sum;
+import static org.easymock.EasyMock.anyInt;
+import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 
 public class MetricQueryProviderTest extends EasyMockSupport {
@@ -43,7 +46,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     private NamespaceConfig namespaceConfig;
     private MetricConfig metricConfig;
     private MetricQuery metricQuery;
-    private GaugeExporter gaugeExporter;
+    private BasicMetricCollector metricCollector;
     private MetricQueryProvider testClass;
     private final CWNamespace _CW_namespace = CWNamespace.lambda;
     private final String metricName = "Invocations";
@@ -62,7 +65,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         metricConfig = mock(MetricConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
         metricQuery = mock(MetricQuery.class);
-        gaugeExporter = mock(GaugeExporter.class);
+        metricCollector = mock(BasicMetricCollector.class);
         metric = Metric.builder()
                 .namespace(CWNamespace.lambda.getNamespace())
                 .metricName(metricName)
@@ -71,7 +74,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder().build());
         replayAll();
         testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
-                awsClientProvider, tagFilterResourceProvider, metricQueryBuilder, gaugeExporter);
+                awsClientProvider, tagFilterResourceProvider, metricQueryBuilder, metricCollector);
         verifyAll();
         resetAll();
     }
@@ -107,12 +110,13 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(cloudWatchClient.listMetrics(ListMetricsRequest.builder()
                 .namespace(_CW_namespace.getNamespace())
                 .build())).andReturn(listMetricsResponse1);
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(metricQuery.getMetric()).andReturn(metric).anyTimes();
         expect(metricQuery.getMetricConfig()).andReturn(metricConfig).anyTimes();
         expect(metricQuery.getMetricStat()).andReturn(Sum);
         expectMetricQuery(Sum, "metric_sum");
+        metricCollector.exportMetricMeta("region1", metricQuery);
 
         ListMetricsResponse listMetricsResponse2 = ListMetricsResponse.builder()
                 .metrics(ImmutableList.of(metric))
@@ -122,10 +126,11 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .nextToken("token-1")
                 .namespace(_CW_namespace.getNamespace())
                 .build())).andReturn(listMetricsResponse2);
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(metricQuery.getMetricStat()).andReturn(Average);
         expectMetricQuery(Average, "metric_avg");
+        metricCollector.exportMetricMeta("region1", metricQuery);
         cloudWatchClient.close();
         replayAll();
         testClass.getMetricQueries();
@@ -142,7 +147,9 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(false).anyTimes();
+        expect(namespaceConfig.getName()).andReturn("lambda");
         expect(awsClientProvider.getCloudWatchClient("region1")).andThrow(new RuntimeException());
+        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         replayAll();
         testClass.getMetricQueries();
         verifyAll();

@@ -7,10 +7,13 @@ package ai.asserts.aws;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.metrics.MetricScrapeTask;
-import ai.asserts.aws.lambda.LambdaCapacityExporter;
-import ai.asserts.aws.lambda.LambdaEventSourceExporter;
-import ai.asserts.aws.lambda.LambdaLogMetricScrapeTask;
+import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
+import ai.asserts.aws.exporter.MetricScrapeTask;
+import ai.asserts.aws.exporter.LambdaCapacityExporter;
+import ai.asserts.aws.exporter.LambdaEventSourceExporter;
+import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
+import ai.asserts.aws.exporter.ResourceTagExporter;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
@@ -39,6 +42,10 @@ public class ScrapeTaskManager implements InitializingBean {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final LambdaCapacityExporter lambdaCapacityExporter;
     private final LambdaEventSourceExporter lambdaEventSourceExporter;
+    private final LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
+    private final BasicMetricCollector metricCollector;
+    private final ResourceTagExporter resourceTagExporter;
+
     /**
      * Maintains the last scrape time for all the metricso of a given scrape interval. The scrapes are
      * not expected to happen concurrently so no need to worry about thread safety
@@ -95,6 +102,9 @@ public class ScrapeTaskManager implements InitializingBean {
     private void setupMetadataTasks() {
         lambdaCapacityExporter.register(collectorRegistry);
         lambdaEventSourceExporter.register(collectorRegistry);
+        lambdaInvokeConfigExporter.register(collectorRegistry);
+        resourceTagExporter.register(collectorRegistry);
+        metricCollector.register(collectorRegistry);
     }
 
     @VisibleForTesting

@@ -2,19 +2,18 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.lambda;
+package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
-import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
+import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -23,7 +22,6 @@ import software.amazon.awssdk.services.lambda.model.GetAccountSettingsResponse;
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsRequest;
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsResponse;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +30,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -42,20 +41,20 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
-    private final GaugeExporter gaugeExporter;
+    private final BasicMetricCollector metricCollector;
     private final MetricSampleBuilder sampleBuilder;
     private final LambdaFunctionScraper functionScraper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private volatile List<MetricFamilySamples> cache;
 
     public LambdaCapacityExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                  MetricNameUtil metricNameUtil, GaugeExporter gaugeExporter,
+                                  MetricNameUtil metricNameUtil, BasicMetricCollector metricCollector,
                                   MetricSampleBuilder sampleBuilder, LambdaFunctionScraper functionScraper,
                                   TagFilterResourceProvider tagFilterResourceProvider) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
-        this.gaugeExporter = gaugeExporter;
+        this.metricCollector = metricCollector;
         this.sampleBuilder = sampleBuilder;
         this.functionScraper = functionScraper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
@@ -155,6 +154,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                 });
             } catch (Exception e) {
                 log.error("Failed to get lambda provisioned capacity for region " + region, e);
+                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, operationLabels(region), 1);
             }
         }));
         return samples.values().stream()
@@ -163,10 +163,14 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     }
 
     private void captureLatency(String region, long timeTaken) {
-        gaugeExporter.exportMetric(SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
-                ImmutableMap.of(
-                        SCRAPE_REGION_LABEL, region,
-                        SCRAPE_OPERATION_LABEL, "list_provisioned_concurrency_configs"
-                ), Instant.now(), timeTaken * 1.0D);
+        metricCollector.recordLatency(SCRAPE_LATENCY_METRIC,
+                operationLabels(region), timeTaken);
+    }
+
+    private ImmutableSortedMap<String, String> operationLabels(String region) {
+        return ImmutableSortedMap.of(
+                SCRAPE_REGION_LABEL, region,
+                SCRAPE_OPERATION_LABEL, "list_provisioned_concurrency_configs"
+        );
     }
 }

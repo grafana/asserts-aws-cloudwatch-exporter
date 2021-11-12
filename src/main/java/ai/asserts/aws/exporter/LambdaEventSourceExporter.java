@@ -2,17 +2,16 @@
  * Copyright © 2021
  * Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.lambda;
+package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
-import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
+import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.extern.slf4j.Slf4j;
@@ -31,32 +30,37 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 import static java.lang.String.format;
 
 @Component
 @Slf4j
 public class LambdaEventSourceExporter extends Collector implements MetricProvider {
-    public static final String HELP_TEXT = "Metric with lambda event source information";
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
     private final ResourceMapper resourceMapper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricSampleBuilder sampleBuilder;
+    private final BasicMetricCollector metricCollector;
     private volatile Map<String, List<EventSourceMappingConfiguration>> eventSourceMappings;
 
     public LambdaEventSourceExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                      MetricNameUtil metricNameUtil,
                                      ResourceMapper resourceMapper,
                                      TagFilterResourceProvider tagFilterResourceProvider,
-                                     MetricSampleBuilder sampleBuilder) {
+                                     MetricSampleBuilder sampleBuilder,
+                                     BasicMetricCollector metricCollector) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
         this.resourceMapper = resourceMapper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.sampleBuilder = sampleBuilder;
+        this.metricCollector = metricCollector;
         this.eventSourceMappings = new TreeMap<>();
     }
 
@@ -114,6 +118,9 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                 } while (StringUtils.hasText(nextToken));
             } catch (Exception e) {
                 log.info("Failed to discover event source mappings", e);
+                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
+                        SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, "ListEventSourceMappings"
+                ), 1);
             }
         }));
         return byRegion;

@@ -9,7 +9,7 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
 import java.util.Optional;
 
+import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +39,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
     private ResourceMapper resourceMapper;
     private Resource resource;
     private NamespaceConfig namespaceConfig;
-    private GaugeExporter gaugeExporter;
+    private BasicMetricCollector metricCollector;
     private TagFilterResourceProvider testClass;
 
     @BeforeEach
@@ -50,14 +51,14 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         apiClient = mock(ResourceGroupsTaggingApiClient.class);
         resource = mock(Resource.class);
-        gaugeExporter = mock(GaugeExporter.class);
+        metricCollector = mock(BasicMetricCollector.class);
 
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
         replayAll();
         testClass = new TagFilterResourceProvider(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                gaugeExporter);
+                metricCollector);
         verifyAll();
         resetAll();
     }
@@ -93,7 +94,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                         .paginationToken("token1")
                         .build()
         );
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
@@ -113,7 +114,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                         .paginationToken(null)
                         .build()
         );
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
@@ -151,7 +152,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                         .paginationToken("token1")
                         .build()
         );
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
 
@@ -167,7 +168,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                         .paginationToken(null)
                         .build()
         );
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
 

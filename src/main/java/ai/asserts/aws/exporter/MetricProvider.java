@@ -2,7 +2,7 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch.prometheus;
+package ai.asserts.aws.exporter;
 
 import io.prometheus.client.Collector;
 

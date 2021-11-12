@@ -2,12 +2,13 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch.metrics;
+package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
-import ai.asserts.aws.cloudwatch.prometheus.LabelBuilder;
+import ai.asserts.aws.exporter.LabelBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
+import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;

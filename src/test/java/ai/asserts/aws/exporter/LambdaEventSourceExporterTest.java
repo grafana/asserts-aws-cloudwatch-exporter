@@ -2,14 +2,13 @@
  * Copyright © 2021
  * Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.lambda;
+package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
@@ -28,6 +27,9 @@ import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsRespo
 
 import java.util.Optional;
 
+import static org.easymock.EasyMock.anyInt;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -37,6 +39,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
     private ResourceMapper resourceMapper;
     private NamespaceConfig namespaceConfig;
     private TagFilterResourceProvider tagFilterResourceProvider;
+    private BasicMetricCollector metricCollector;
     private LambdaEventSourceExporter testClass;
     private Resource fnResource;
     private Resource sourceResource;
@@ -55,6 +58,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
+        metricCollector = mock(BasicMetricCollector.class);
 
         namespaceConfig = mock(NamespaceConfig.class);
         expect(namespaceConfig.getName()).andReturn("lambda").anyTimes();
@@ -70,7 +74,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient).anyTimes();
 
         testClass = new LambdaEventSourceExporter(scrapeConfigProvider, awsClientProvider,
-                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder);
+                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder, metricCollector);
     }
 
     @Test
@@ -104,8 +108,6 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource, fnResource));
-
-        String help = "Metric with lambda event source information";
 
         expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
 
@@ -143,6 +145,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
                 .build();
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
+        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         lambdaClient.close();
         replayAll();
         testClass.update();

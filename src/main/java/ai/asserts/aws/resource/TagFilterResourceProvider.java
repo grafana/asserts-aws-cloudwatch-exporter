@@ -9,11 +9,11 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import io.micrometer.core.instrument.util.StringUtils;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -26,11 +26,11 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.GetResourc
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.GetResourcesResponse;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -45,14 +45,14 @@ import static java.util.stream.Collectors.joining;
 public class TagFilterResourceProvider {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
-    private final GaugeExporter gaugeExporter;
+    private final BasicMetricCollector metricCollector;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
 
     public TagFilterResourceProvider(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                     ResourceMapper resourceMapper, GaugeExporter gaugeExporter) {
+                                     ResourceMapper resourceMapper, BasicMetricCollector metricCollector) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
-        this.gaugeExporter = gaugeExporter;
+        this.metricCollector = metricCollector;
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         resourceCache = CacheBuilder.newBuilder()
@@ -70,6 +70,10 @@ public class TagFilterResourceProvider {
                 .region(region)
                 .namespace(namespaceConfig)
                 .build());
+    }
+
+    public LoadingCache<Key, Set<Resource>> getResourceCache() {
+        return resourceCache;
     }
 
     private Set<Resource> getResourcesInternal(Key key) {
@@ -117,6 +121,9 @@ public class TagFilterResourceProvider {
             } while (!StringUtils.isEmpty(nextToken));
         } catch (Exception e) {
             log.error("Failed to get resources using resource tag api", e);
+            metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
+                    SCRAPE_REGION_LABEL, key.region, SCRAPE_OPERATION_LABEL, "TagAPI.getResources"
+            ), 1);
         }
         log.info("Found {}", resources.stream()
                 .collect(groupingBy(Resource::getType))
@@ -128,12 +135,12 @@ public class TagFilterResourceProvider {
     }
 
     private void captureLatency(String region, CWNamespace cwNamespace, long timeTaken) {
-        gaugeExporter.exportMetric(SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
-                ImmutableMap.of(
+        metricCollector.recordLatency(SCRAPE_LATENCY_METRIC,
+                ImmutableSortedMap.of(
                         SCRAPE_REGION_LABEL, region,
                         SCRAPE_OPERATION_LABEL, "get_resources_with_tags",
                         SCRAPE_NAMESPACE_LABEL, cwNamespace.getNamespace()
-                ), Instant.now(), timeTaken * 1.0D);
+                ), timeTaken);
     }
 
     @EqualsAndHashCode

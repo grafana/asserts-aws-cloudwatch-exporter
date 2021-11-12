@@ -2,16 +2,15 @@
  * Copyright © 2021
  * Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch.metrics;
+package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
-import ai.asserts.aws.cloudwatch.prometheus.MetricProvider;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
 import lombok.EqualsAndHashCode;
@@ -60,7 +59,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     @Autowired
     private QueryBatcher queryBatcher;
     @Autowired
-    private GaugeExporter gaugeExporter;
+    private BasicMetricCollector metricCollector;
     @Autowired
     private MetricSampleBuilder sampleBuilder;
     @Autowired
@@ -184,13 +183,13 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     }
 
     private void captureLatency(long timeTaken) {
-        gaugeExporter.exportMetric(
-                SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
-                ImmutableMap.of(
+        metricCollector.recordLatency(
+                SCRAPE_LATENCY_METRIC,
+                ImmutableSortedMap.of(
                         SCRAPE_REGION_LABEL, region,
                         SCRAPE_OPERATION_LABEL, "get_metric_data",
                         SCRAPE_INTERVAL_LABEL, intervalSeconds + ""
-                ), Instant.now(), timeTaken * 1.0D);
+                ), timeTaken);
     }
 
     private Map<String, MetricQuery> mapQueriesById(List<MetricQuery> queries) {

@@ -2,7 +2,7 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch.metrics;
+package ai.asserts.aws.cloudwatch;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
