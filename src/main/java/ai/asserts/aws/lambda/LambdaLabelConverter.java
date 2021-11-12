@@ -19,8 +19,8 @@ import static java.lang.String.format;
 @Component
 @AllArgsConstructor
 public class LambdaLabelConverter {
-    private MetricNameUtil metricNameUtil;
-    private static Set<String> LAMBDA_NAMESPACES = ImmutableSet.of("AWS/Lambda", "LambdaInsights");
+    private final MetricNameUtil metricNameUtil;
+    private static final Set<String> LAMBDA_NAMESPACES = ImmutableSet.of("AWS/Lambda", "LambdaInsights");
 
     public boolean shouldUseForNamespace(String namespace) {
         return LAMBDA_NAMESPACES.contains(namespace);

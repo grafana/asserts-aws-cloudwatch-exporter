@@ -8,12 +8,10 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.exporter.MetricProvider;
 import ai.asserts.aws.lambda.LambdaFunction;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.lambda.LogEventMetricEmitter;
 import ai.asserts.aws.lambda.LogEventScraper;
-import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -32,9 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static io.prometheus.client.Collector.Type.GAUGE;
 
 /**
