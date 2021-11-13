@@ -11,7 +11,6 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -29,11 +28,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
@@ -41,7 +39,7 @@ import static java.lang.String.format;
 
 @Component
 @Slf4j
-public class LambdaEventSourceExporter extends Collector {
+public class LambdaEventSourceExporter extends Collector implements MetricProvider {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
@@ -49,7 +47,7 @@ public class LambdaEventSourceExporter extends Collector {
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricSampleBuilder sampleBuilder;
     private final BasicMetricCollector metricCollector;
-    private final Supplier<Map<String, List<EventSourceMappingConfiguration>>> eventSourceMappings;
+    private volatile List<MetricFamilySamples> metrics;
 
     public LambdaEventSourceExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                      MetricNameUtil metricNameUtil,
@@ -64,36 +62,22 @@ public class LambdaEventSourceExporter extends Collector {
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.sampleBuilder = sampleBuilder;
         this.metricCollector = metricCollector;
-        this.eventSourceMappings = Suppliers.memoizeWithExpiration(this::getMappings, 5, TimeUnit.MINUTES);
+        this.metrics = new ArrayList<>();
     }
 
     public List<MetricFamilySamples> collect() {
-        Map<String, List<Sample>> samples = new TreeMap<>();
-        scrapeConfigProvider.getScrapeConfig().getLambdaConfig().ifPresent(nc ->
-        {
-            Map<String, List<EventSourceMappingConfiguration>> copy = eventSourceMappings.get();
-            copy.forEach((region, mappings) -> {
-                Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, nc);
-                mappings.forEach(mappingConfiguration -> {
-                    Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
-                            .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
-                            .findFirst()
-                            .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
-                    Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
-                    eventResourceOpt.ifPresent(eventResource ->
-                            fnResource.ifPresent(fn -> buildSample(region, fn, eventResource, samples))
-                    );
-                });
-            });
-        });
-        return samples.values().stream()
-                .map(sampleBuilder::buildFamily)
-                .collect(Collectors.toList());
+        return metrics;
     }
 
-    private Map<String, List<EventSourceMappingConfiguration>> getMappings() {
-        Map<String, List<EventSourceMappingConfiguration>> byRegion = new TreeMap<>();
+    @Override
+    public void update() {
+        this.metrics = getMappings();
+    }
 
+    private List<MetricFamilySamples> getMappings() {
+        Map<String, List<Sample>> samples = new TreeMap<>();
+
+        Map<String, List<EventSourceMappingConfiguration>> byRegion = new TreeMap<>();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getLambdaConfig().ifPresent(namespaceConfig -> scrapeConfig.getRegions().forEach(region -> {
             try (LambdaClient client = awsClientProvider.getLambdaClient(region)) {
@@ -105,6 +89,7 @@ public class LambdaEventSourceExporter extends Collector {
                             .marker(nextToken)
                             .build();
                     ListEventSourceMappingsResponse response = client.listEventSourceMappings(req);
+                    metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, operationLabels(region), 1);
                     if (response.hasEventSourceMappings()) {
                         byRegion.computeIfAbsent(region, k -> new ArrayList<>())
                                 .addAll(response.eventSourceMappings().stream()
@@ -116,12 +101,30 @@ public class LambdaEventSourceExporter extends Collector {
                 } while (StringUtils.hasText(nextToken));
             } catch (Exception e) {
                 log.info("Failed to discover event source mappings", e);
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
-                        SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, "ListEventSourceMappings"
-                ), 1);
+                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, operationLabels(region), 1);
             }
+
+            Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, namespaceConfig);
+            byRegion.computeIfAbsent(region, k -> new ArrayList<>()).forEach(mappingConfiguration -> {
+                Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
+                        .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
+                        .findFirst()
+                        .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
+                Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
+                eventResourceOpt.ifPresent(eventResource ->
+                        fnResource.ifPresent(fn -> buildSample(region, fn, eventResource, samples))
+                );
+            });
         }));
-        return byRegion;
+        return samples.values().stream()
+                .map(sampleBuilder::buildFamily)
+                .collect(Collectors.toList());
+    }
+
+    private ImmutableSortedMap<String, String> operationLabels(String region) {
+        return ImmutableSortedMap.of(
+                SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, "ListEventSourceMappings"
+        );
     }
 
     private void buildSample(String region, Resource functionResource, Resource eventSourceResource,

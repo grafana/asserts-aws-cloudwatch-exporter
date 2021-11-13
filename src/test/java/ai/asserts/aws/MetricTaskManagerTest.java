@@ -10,59 +10,52 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.exporter.BasicMetricCollector;
-import ai.asserts.aws.exporter.LambdaCapacityExporter;
-import ai.asserts.aws.exporter.LambdaEventSourceExporter;
-import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricScrapeTask;
-import ai.asserts.aws.exporter.ResourceTagExporter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.CollectorRegistry;
+import org.easymock.Capture;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
+import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.newCapture;
 
-public class ScrapeTaskManagerTest extends EasyMockSupport {
+public class MetricTaskManagerTest extends EasyMockSupport {
     private CollectorRegistry collectorRegistry;
-    private LambdaCapacityExporter lambdaCapacityExporter;
-    private ScrapeTaskManager testClass;
+    private MetricTaskManager testClass;
     private AutowireCapableBeanFactory beanFactory;
     private ScrapeConfigProvider scrapeConfigProvider;
     private NamespaceConfig namespaceConfig;
-    private LambdaEventSourceExporter lambdaEventSourceExporter;
     private MetricScrapeTask metricScrapeTask;
     private LambdaLogMetricScrapeTask logMetricScrapeTask;
-    private LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
-    private BasicMetricCollector metricCollector;
-    private ResourceTagExporter resourceTagExporter;
     private ScrapeConfig scrapeConfig;
+    private TaskThreadPool taskThreadPool;
+    private ExecutorService executorService;
 
     @BeforeEach
     public void setup() {
         beanFactory = mock(AutowireCapableBeanFactory.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        lambdaEventSourceExporter = mock(LambdaEventSourceExporter.class);
         scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
         metricScrapeTask = mock(MetricScrapeTask.class);
         collectorRegistry = mock(CollectorRegistry.class);
-        lambdaCapacityExporter = mock(LambdaCapacityExporter.class);
         logMetricScrapeTask = mock(LambdaLogMetricScrapeTask.class);
-        lambdaInvokeConfigExporter = mock(LambdaInvokeConfigExporter.class);
-        resourceTagExporter = mock(ResourceTagExporter.class);
-        metricCollector = mock(BasicMetricCollector.class);
+        taskThreadPool = mock(TaskThreadPool.class);
+        executorService = mock(ExecutorService.class);
 
         replayAll();
-        testClass = new ScrapeTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, lambdaCapacityExporter,
-                lambdaEventSourceExporter, lambdaInvokeConfigExporter, metricCollector, resourceTagExporter) {
+        testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, taskThreadPool) {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
@@ -79,7 +72,7 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
 
     @Test
     @SuppressWarnings("all")
-    void setupScrapeTasks() {
+    void afterPropertiesSet() {
         int delay = 60;
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
@@ -114,15 +107,32 @@ public class ScrapeTaskManagerTest extends EasyMockSupport {
         beanFactory.autowireBean(logMetricScrapeTask);
         expect(logMetricScrapeTask.register(collectorRegistry)).andReturn(null);
 
-        expect(lambdaCapacityExporter.register(collectorRegistry)).andReturn(null);
-        expect(lambdaEventSourceExporter.register(collectorRegistry)).andReturn(null);
-        expect(lambdaInvokeConfigExporter.register(collectorRegistry)).andReturn(null);
-        expect(metricCollector.register(collectorRegistry)).andReturn(null);
-        expect(resourceTagExporter.register(collectorRegistry)).andReturn(null);
-
         replayAll();
         testClass.afterPropertiesSet();
         verifyAll();
     }
 
+    @Test
+    void triggerScrapes() {
+        testClass.getMetricScrapeTasks().put(60, ImmutableMap.of("region1", metricScrapeTask));
+        testClass.getLogScrapeTasks().put(60, ImmutableMap.of("region1", ImmutableSet.of(logMetricScrapeTask)));
+
+        Capture<Runnable> capture1 = newCapture();
+        Capture<Runnable> capture2 = newCapture();
+
+        expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
+        metricScrapeTask.update();
+        logMetricScrapeTask.update();
+
+        expect(executorService.submit(capture(capture1))).andReturn(null);
+        expect(executorService.submit(capture(capture2))).andReturn(null);
+
+        replayAll();
+        testClass.triggerScrapes();
+
+        capture1.getValue().run();
+        capture2.getValue().run();
+
+        verifyAll();
+    }
 }

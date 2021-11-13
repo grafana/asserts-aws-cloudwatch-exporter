@@ -28,6 +28,7 @@ import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsRespo
 import java.util.Optional;
 
 import static org.easymock.EasyMock.anyInt;
+import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
@@ -105,16 +106,19 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                         ))
                         .build()
         );
+        metricCollector.recordLatency(anyString(), anyObject(), anyLong());
+
+        expect(resourceMapper.map("fn1_arn")).andReturn(Optional.of(fnResource)).times(2);
+        expect(resourceMapper.map("queue_arn")).andReturn(Optional.of(sourceResource));
+        lambdaClient.close();
+
+        expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
 
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource, fnResource));
 
-        expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
-
         expect(fnResource.getName()).andReturn("fn1");
         expect(fnResource.getArn()).andReturn("fn1_arn");
-        expect(resourceMapper.map("fn1_arn")).andReturn(Optional.of(fnResource)).times(2);
-        expect(resourceMapper.map("queue_arn")).andReturn(Optional.of(sourceResource));
         fnResource.addTagLabels(fn1Labels, metricNameUtil);
         sourceResource.addLabels(fn1Labels, "event_source");
 
@@ -130,11 +134,12 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("aws_lambda_event_source",
                 fn2Labels,
                 1.0D)).andReturn(sample);
-        lambdaClient.close();
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
 
         replayAll();
+        testClass.update();
+        testClass.collect();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
         verifyAll();
     }
@@ -145,8 +150,11 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                 .build();
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
+        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+                .andReturn(ImmutableSet.of(fnResource, fnResource));
         lambdaClient.close();
         replayAll();
+        testClass.update();
         testClass.collect();
         verifyAll();
     }

@@ -11,7 +11,6 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.ResourceMapper;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -23,12 +22,11 @@ import software.amazon.awssdk.services.lambda.model.ListFunctionEventInvokeConfi
 import software.amazon.awssdk.services.lambda.model.ListFunctionEventInvokeConfigsResponse;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -38,7 +36,7 @@ import static java.lang.String.format;
 
 @Component
 @Slf4j
-public class LambdaInvokeConfigExporter extends Collector {
+public class LambdaInvokeConfigExporter extends Collector implements MetricProvider {
     private final LambdaFunctionScraper fnScraper;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
@@ -46,7 +44,7 @@ public class LambdaInvokeConfigExporter extends Collector {
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder metricSampleBuilder;
     private final BasicMetricCollector metricCollector;
-    private final Supplier<List<MetricFamilySamples>> cache;
+    private volatile List<MetricFamilySamples> cache;
 
     public LambdaInvokeConfigExporter(LambdaFunctionScraper fnScraper, AWSClientProvider awsClientProvider,
                                       MetricNameUtil metricNameUtil,
@@ -60,12 +58,17 @@ public class LambdaInvokeConfigExporter extends Collector {
         this.resourceMapper = resourceMapper;
         this.metricSampleBuilder = metricSampleBuilder;
         this.metricCollector = metricCollector;
-        this.cache = Suppliers.memoizeWithExpiration(this::getInvokeConfigs, 5, TimeUnit.MINUTES);
+        this.cache = Collections.emptyList();
     }
 
     @Override
     public List<MetricFamilySamples> collect() {
-        return cache.get();
+        return cache;
+    }
+
+    @Override
+    public void update() {
+        cache = getInvokeConfigs();
     }
 
     List<MetricFamilySamples> getInvokeConfigs() {

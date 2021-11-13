@@ -171,6 +171,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(familySamples);
 
         replayAll();
+        testClass.update();
+        testClass.collect();
         assertEquals(ImmutableList.of(familySamples, familySamples, familySamples, familySamples, familySamples),
                 testClass.collect());
         verifyAll();
@@ -206,6 +208,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
 
         replayAll();
+        testClass.update();
+        testClass.collect();
         assertEquals(ImmutableList.of(familySamples, familySamples), testClass.collect());
         verifyAll();
     }
@@ -222,6 +226,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         replayAll();
+        testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
         verifyAll();
     }
