@@ -12,7 +12,6 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -29,8 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
@@ -40,7 +37,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 @Slf4j
-public class LambdaCapacityExporter extends Collector {
+public class LambdaCapacityExporter extends Collector implements MetricProvider {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
@@ -48,7 +45,7 @@ public class LambdaCapacityExporter extends Collector {
     private final MetricSampleBuilder sampleBuilder;
     private final LambdaFunctionScraper functionScraper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
-    private final Supplier<List<MetricFamilySamples>> cache;
+    private volatile List<MetricFamilySamples> cache;
 
     public LambdaCapacityExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                   MetricNameUtil metricNameUtil, BasicMetricCollector metricCollector,
@@ -61,11 +58,16 @@ public class LambdaCapacityExporter extends Collector {
         this.sampleBuilder = sampleBuilder;
         this.functionScraper = functionScraper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
-        this.cache = Suppliers.memoizeWithExpiration(this::getMetrics, 5, TimeUnit.MINUTES);
+        this.cache = new ArrayList<>();
     }
 
     public List<MetricFamilySamples> collect() {
-        return cache.get();
+        return cache;
+    }
+
+    @Override
+    public void update() {
+        cache = getMetrics();
     }
 
     private List<MetricFamilySamples> getMetrics() {
