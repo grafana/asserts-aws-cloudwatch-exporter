@@ -48,7 +48,7 @@ namespaces:
         stats:
           - Maximum
     logs:
-      - lambdaFunctionName: Function.+
+      - lambdaFunctionName: (Function.+)|(OrderProcessor)
         logFilterPattern: "About to put message in SQS Queue"
         regexPattern: ".*put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)"
         labels:
