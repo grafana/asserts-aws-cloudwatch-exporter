@@ -11,6 +11,19 @@
       java_packages:
         - openjdk-8-jdk
     - role: ansible-vmagent
+      vmagent_global:
+        scrape_interval: 60s
+        scrape_timeout: 30s
+      vmagent_scrape_configs:
+        - job_name: vmagent
+          static_configs:
+          - targets:
+            - localhost:8429
+        - job_name: aws-exporter
+          metrics_path: '/aws-exporter/actuator/prometheus'
+          static_configs:
+          - targets:
+            - localhost:8010    
   post_tasks:
     - name: Install package
       apt:
