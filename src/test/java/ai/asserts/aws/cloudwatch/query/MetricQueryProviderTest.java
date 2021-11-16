@@ -22,6 +22,9 @@ import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest;
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
+import java.util.Optional;
+
+import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Average;
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Sum;
 import static org.easymock.EasyMock.anyInt;
@@ -45,7 +48,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     private MetricQuery metricQuery;
     private BasicMetricCollector metricCollector;
     private MetricQueryProvider testClass;
-    private final CWNamespace _CW_namespace = CWNamespace.lambda;
+    private final CWNamespace _CW_namespace = lambda;
     private final String metricName = "Invocations";
 
     @BeforeEach
@@ -64,7 +67,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         metricQuery = mock(MetricQuery.class);
         metricCollector = mock(BasicMetricCollector.class);
         metric = Metric.builder()
-                .namespace(CWNamespace.lambda.getNamespace())
+                .namespace(lambda.getNamespace())
                 .metricName(metricName)
                 .build();
 
@@ -84,6 +87,8 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .build();
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getStandardNamespace(_CW_namespace.name()))
+                .andReturn(Optional.of(lambda)).anyTimes();
         expect(awsClientProvider.getCloudWatchClient("region1")).andReturn(cloudWatchClient);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
@@ -142,10 +147,15 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .build();
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(awsClientProvider.getCloudWatchClient("region1")).andReturn(cloudWatchClient);
 
-        expect(namespaceConfig.hasTagFilters()).andReturn(false).anyTimes();
+        expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
+
+        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+                .andThrow(new RuntimeException());
+
         expect(namespaceConfig.getName()).andReturn("lambda");
-        expect(awsClientProvider.getCloudWatchClient("region1")).andThrow(new RuntimeException());
+        cloudWatchClient.close();
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         replayAll();
         testClass.getMetricQueries();

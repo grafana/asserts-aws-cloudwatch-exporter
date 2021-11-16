@@ -20,8 +20,8 @@ public enum CWNamespace {
     ec("AWS/Elasticache", "aws_elasticache", "ec"),
     ec2("AWS/EC2", "aws_ec2", "ec2"),
     ec2Spot("AWS/EC2Spot", "aws_ec2spot", "ec2Spot"),
-    ecs_svc("AWS/ECS", "aws_ecs", "ecs","cluster", "service", "task-definition"),
-    ecs_containerinsights("ECS/ContainerInsights", "aws_ecs_containerinsights", "ecs","cluster", "service", "task-definition"),
+    ecs_svc("AWS/ECS", "aws_ecs", "ecs", "cluster", "service", "task-definition"),
+    ecs_containerinsights("ECS/ContainerInsights", "aws_ecs_containerinsights", "ecs", "cluster", "service", "task-definition"),
     efs("AWS/EFS", "aws_efs", "efs"),
     elb("AWS/ELB", "aws_elb", "elb"),
     emr("AWS/ElasticMapReduce", "aws_emr", "emr"),
@@ -51,8 +51,8 @@ public enum CWNamespace {
     wafv2("AWS/WAFV2", "aws_wav2", "wafv2");
 
     private final String namespace;
-    private final String serviceName;
     private final String metricPrefix;
+    private final String serviceName;
     private final Set<String> resourceTypes;
 
     CWNamespace(String namespace, String prefix, String serviceName, String... resourceTypes) {
