@@ -1,7 +1,4 @@
-/*
- * Copyright © 2021
- * Asserts, Inc. - All Rights Reserved
- */
+
 package ai.asserts.aws;
 
 import ai.asserts.aws.cloudwatch.model.MetricStat;
