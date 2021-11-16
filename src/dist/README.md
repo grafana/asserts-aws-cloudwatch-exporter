@@ -8,7 +8,50 @@ This software is available under [Apache 2.0 License](https://www.apache.org/lic
 
 # Configuration
 The exporter needs to be configured to extract metrics for one or more AWS Service types. AWS Service types map to a
-namespace in CloudWatch. The supported names are :-
+namespace in CloudWatch. The supported CloudWatch namespaces are :-
+
+* AWS/ApplicationELB
+* AWS/ApiGateway
+* AWS/AppSync
+* AWS/Billing
+* AWS/CloudFront
+* AWS/DocDB
+* AWS/DynamoDB
+* AWS/EBS
+* AWS/Elasticache
+* AWS/EC2
+* AWS/EC2Spot
+* AWS/ECS
+* ECS/ContainerInsights
+* AWS/EFS
+* AWS/ELB
+* AWS/ElasticMapReduce
+* AWS/ES
+* AWS/FSx
+* AWS/GameLift
+* Glue
+* AWS/Kinesis
+* AWS/NetworkFirewall
+* AWS/NATGateway
+* AWS/Lambda
+* LambdaInsights
+* AWS/NetworkELB
+* AWS/Redshift
+* AWS/RDS
+* AWS/Route53Resolver
+* AWS/S3
+* AWS/SES
+* AWS/SQS
+* AWS/TransitGateway
+* AWS/VPN
+* AWS/AutoScaling
+* AWS/Kafka
+* AWS/Firehose
+* AWS/SNS
+* AWS/States
+* AWS/WAFV2
+
+Quick reference for most commonly used namespaces
 
 | AWS Service | CloudWatch Namespace | List of Metrics |
 |--------------|--------------|------------------------|
