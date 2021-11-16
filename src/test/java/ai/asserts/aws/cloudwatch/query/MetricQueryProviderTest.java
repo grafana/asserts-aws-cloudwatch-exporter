@@ -87,7 +87,8 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .build();
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfigProvider.getStandardNamespace(namespaceConfig)).andReturn(Optional.of(lambda)).anyTimes();
+        expect(scrapeConfigProvider.getStandardNamespace(_CW_namespace.name()))
+                .andReturn(Optional.of(lambda)).anyTimes();
         expect(awsClientProvider.getCloudWatchClient("region1")).andReturn(cloudWatchClient);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();

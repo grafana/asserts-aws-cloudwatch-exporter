@@ -78,8 +78,8 @@ public class ScrapeConfigProvider {
         }
     }
 
-    public Optional<CWNamespace> getStandardNamespace(NamespaceConfig namespaceConfig) {
-        return Optional.ofNullable(byNamespace.getOrDefault(namespaceConfig.getName(),
-                byServiceName.getOrDefault(namespaceConfig.getName(), null)));
+    public Optional<CWNamespace> getStandardNamespace(String namespace) {
+        return Optional.ofNullable(byNamespace.getOrDefault(namespace,
+                byServiceName.getOrDefault(namespace, null)));
     }
 }

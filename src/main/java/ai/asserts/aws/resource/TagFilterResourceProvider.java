@@ -80,7 +80,7 @@ public class TagFilterResourceProvider {
 
     private Set<Resource> getResourcesInternal(Key key) {
         Set<Resource> resources = new HashSet<>();
-        if (scrapeConfigProvider.getStandardNamespace(key.namespace).isPresent()) {
+        if (scrapeConfigProvider.getStandardNamespace(key.namespace.getName()).isPresent()) {
             CWNamespace cwNamespace = CWNamespace.valueOf(key.getNamespace().getName());
             GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
             if (cwNamespace.getResourceTypes().size() > 0) {
@@ -143,7 +143,7 @@ public class TagFilterResourceProvider {
                 ImmutableSortedMap.of(
                         SCRAPE_REGION_LABEL, region,
                         SCRAPE_OPERATION_LABEL, "get_resources_with_tags",
-                        SCRAPE_NAMESPACE_LABEL, cwNamespace.getNamespace()
+                        SCRAPE_NAMESPACE_LABEL, cwNamespace.getServiceName()
                 ), timeTaken);
     }
 

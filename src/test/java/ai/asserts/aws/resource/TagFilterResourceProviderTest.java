@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
 import java.util.Optional;
 
+import static ai.asserts.aws.cloudwatch.model.CWNamespace.kafka;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
@@ -66,8 +67,8 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
 
     @Test
     void filterResources() {
-        expect(scrapeConfigProvider.getStandardNamespace(namespaceConfig)).andReturn(Optional.of(lambda));
-        expect(namespaceConfig.getName()).andReturn(lambda.name());
+        expect(namespaceConfig.getName()).andReturn(lambda.name()).anyTimes();
+        expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.of(lambda));
         expect(namespaceConfig.hasTagFilters()).andReturn(true);
         expect(namespaceConfig.getTagFilters()).andReturn(ImmutableMap.of(
                 "tag", ImmutableSortedSet.of("value1", "value2")
@@ -130,8 +131,8 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
 
     @Test
     void filterResources_noResourceTypes() {
-        expect(scrapeConfigProvider.getStandardNamespace(namespaceConfig)).andReturn(Optional.of(lambda));
-        expect(namespaceConfig.getName()).andReturn(CWNamespace.kafka.name());
+        expect(namespaceConfig.getName()).andReturn(CWNamespace.kafka.name()).anyTimes();
+        expect(scrapeConfigProvider.getStandardNamespace("kafka")).andReturn(Optional.of(kafka));
         expect(namespaceConfig.hasTagFilters()).andReturn(false);
         expect(awsClientProvider.getResourceTagClient("region")).andReturn(apiClient);
 
@@ -183,7 +184,8 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
 
     @Test
     void filterResources_customNamespace() {
-        expect(scrapeConfigProvider.getStandardNamespace(namespaceConfig)).andReturn(Optional.empty());
+        expect(namespaceConfig.getName()).andReturn("lambda");
+        expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.empty());
         replayAll();
         assertEquals(ImmutableSet.of(), testClass.getFilteredResources("region", namespaceConfig));
         verifyAll();

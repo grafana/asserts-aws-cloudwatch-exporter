@@ -89,7 +89,7 @@ public class MetricQueryProvider {
                     do {
                         ListMetricsRequest.Builder builder = ListMetricsRequest.builder()
                                 .nextToken(nextToken);
-                        Optional<CWNamespace> nsOpt = scrapeConfigProvider.getStandardNamespace(ns);
+                        Optional<CWNamespace> nsOpt = scrapeConfigProvider.getStandardNamespace(ns.getName());
                         if (nsOpt.isPresent()) {
                             builder = builder.namespace(nsOpt.get().getNamespace());
                         } else {
