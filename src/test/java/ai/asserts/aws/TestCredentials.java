@@ -1,7 +1,4 @@
-/*
- * Copyright © 2021
- * Asserts, Inc. - All Rights Reserved
- */
+
 package ai.asserts.aws;
 
 import org.springframework.stereotype.Component;
@@ -14,9 +11,9 @@ import java.util.Optional;
 public class TestCredentials {
     public Optional<AwsSessionCredentials> getSessionCredentials() {
         Credentials credentials = Credentials.builder()
-                .accessKeyId("ASIAU7XAO4EF7R7Z3BHH")
-                .secretAccessKey("00W1mINvYf81Ui5vQzb884XirWYtBEtl4J9QtZE+")
-                .sessionToken("FwoGZXIvYXdzEO7//////////wEaDDey72tuUJ/XkB8+1SK4AdrBvpT3mEQxtBB3U9zHoHtr/t0npzB+6Z85sZsiAJJ6gA1wDI0j6DY5L0W9YWawKwWuV6M7brRExFZ9lEPHfGub2hbQdQ5pYDxS2KjnouAMlwvCje0bOWY6KKLi3lRbpUJrdYzawfvWE/c8GFaBJM4w7Q1Ga0m9h34S2U6taWevcMEodH37cp5bNMv1kUR2xWvPnfunNJzK+EGe4MBIU1Qyzsdvn7S3lUYCSnL1Tz2z4PBVz/IUxIoo4bLvigYyLeQR0/sHyhD5Br4ZF5d0VtS8PJcxtkD91pzidaryQIdNfejEtIbZcEzA073Crg==")
+                .accessKeyId("ASIAU7XAO4EF5R73QZ63")
+                .secretAccessKey("mRiek8/jZoLVdbl46Y4GPDDgDehRd6muXM6ZoXn5")
+                .sessionToken("FwoGZXIvYXdzEMj//////////wEaDMtfXEnOmj1lKgUKwiK4AX58l6zz/VeaD7Vl51TdmlPly5e+Fvfa55bTiGV4SqqZBHIWqNJv/r/zo7CS90UZBypU0EfXjIKSRzoYDd1ulidJyhQlcJhqZA96gkeCma0eWdk+/Eglz98XqVrC+wNDWc8GE4ZdItwaMd9mShRf2yE/l/SvPaiPloNVOmfzhQ9/LTazJEZ6Cq8V+1+Gxh7R91vBoBo0+KUA6FRswCjamPEoT3hseO6X5OR2AZp4A/KUyB8TXMAr4JAoh/PHjAYyLXj4U/JI6qvRpju16QJew0IwL6MarielZMVCKjZ1s5E9Pq+g+gRfAC8VjJYzgw==")
                 .build();
 
         return Optional.of(AwsSessionCredentials.create(

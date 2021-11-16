@@ -3,6 +3,9 @@ Standalone exporter to export
 [AWS CloudWatch Metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html) and 
 Logs as prometheus metrics. This exporter uses AWS APIs and fetches both metadata and metric data
 
+# License
+This software is available under [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0.txt)
+
 # Configuration
 The exporter needs to be configured to extract metrics for one or more AWS Service types. AWS Service types map to a
 namespace in CloudWatch. The supported names are :-
@@ -214,7 +217,8 @@ namespaces:
           - Sum
 ```
 
-You can specify one or more regions. The specified configuration will be applicable to all regions. If different regions need different configurations then a different instance of the exporter will need to be run for each set of configuration
+You can specify one or more regions. The specified configuration will be applicable to all regions. If different regions 
+need different configurations then a different instance of the exporter will need to be run for each set of configuration
 
 # Metric names
 
@@ -262,31 +266,15 @@ Here is a sample output of metrics
 # HELP aws_sqs_number_of_messages_deleted_sum 
 # TYPE aws_sqs_number_of_messages_deleted_sum gauge
 aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-input-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625100000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-input-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625160000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-input-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 11.0 1633625220000
 aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-output-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625100000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-output-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625160000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-output-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625220000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="aws-lambda-poc-destination-queue",region="us-west-2",} 0.0 1633625100000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="aws-lambda-poc-destination-queue",region="us-west-2",} 0.0 1633625160000
 aws_sqs_number_of_messages_deleted_sum{d_queue_name="aws-lambda-poc-destination-queue",region="us-west-2",} 0.0 1633625220000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-dl-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625100000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-dl-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625160000
 aws_sqs_number_of_messages_deleted_sum{d_queue_name="lamda-sqs-poc-dl-queue",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625220000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="openvpn-requests-queue",region="us-west-2",} 0.0 1633625100000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="openvpn-requests-queue",region="us-west-2",} 0.0 1633625160000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="openvpn-requests-queue",region="us-west-2",} 0.0 1633625220000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="openvpn-revocations-queue",region="us-west-2",} 0.0 1633625100000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="openvpn-revocations-queue",region="us-west-2",} 0.0 1633625160000
-aws_sqs_number_of_messages_deleted_sum{d_queue_name="openvpn-revocations-queue",region="us-west-2",} 0.0 1633625220000
 
 # HELP aws_lambda_errors_sum 
 # TYPE aws_lambda_errors_sum gauge
 aws_lambda_errors_sum{d_function_name="first-lambda-function",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625220000
 aws_lambda_errors_sum{region="us-west-2",} 0.0 1633625220000
 aws_lambda_errors_sum{d_function_name="first-lambda-function",d_resource="first-lambda-function:version2",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625220000
-aws_lambda_errors_sum{d_function_name="first-lambda-function",d_resource="first-lambda-function:version1",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625220000
-aws_lambda_errors_sum{d_executed_version="2",d_function_name="first-lambda-function",d_resource="first-lambda-function:version1",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625220000
 aws_lambda_errors_sum{d_executed_version="2",d_function_name="first-lambda-function",d_resource="first-lambda-function:version2",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625220000
 aws_lambda_errors_sum{d_function_name="first-lambda-function",d_resource="first-lambda-function",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 0.0 1633625220000
 
@@ -294,26 +282,9 @@ aws_lambda_errors_sum{d_function_name="first-lambda-function",d_resource="first-
 # TYPE aws_lambda_concurrent_executions_sum gauge
 aws_lambda_concurrent_executions_sum{d_function_name="first-lambda-function",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 18.0 1633625220000
 aws_lambda_concurrent_executions_sum{region="us-west-2",} 18.0 1633625220000
-aws_lambda_concurrent_executions_sum{d_function_name="first-lambda-function",d_resource="first-lambda-function:version2",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 4.0 1633625220000
 aws_lambda_concurrent_executions_sum{d_function_name="first-lambda-function",d_resource="first-lambda-function:version1",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 2.0 1633625220000
-aws_lambda_concurrent_executions_sum{d_executed_version="2",d_function_name="first-lambda-function",d_resource="first-lambda-function:version1",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 2.0 1633625220000
 aws_lambda_concurrent_executions_sum{d_executed_version="2",d_function_name="first-lambda-function",d_resource="first-lambda-function:version2",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 4.0 1633625220000
 aws_lambda_concurrent_executions_sum{d_function_name="first-lambda-function",d_resource="first-lambda-function",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 4.0 1633625220000
-
-# HELP cw_scrape_period_seconds 
-# TYPE cw_scrape_period_seconds gauge
-cw_scrape_period_seconds{region="us-west-2",metric_name="aws_lambda_concurrent_executions_sum",} 300.0 1633625164968
-cw_scrape_period_seconds{region="us-west-2",metric_name="aws_lambda_concurrent_executions_sum",} 300.0 1633625164969
-
-# HELP cw_scrape_interval_seconds 
-# TYPE cw_scrape_interval_seconds gauge
-cw_scrape_interval_seconds{region="us-west-2",metric_name="aws_lambda_concurrent_executions_sum",} 60.0 1633625164968
-cw_scrape_interval_seconds{region="us-west-2",metric_name="aws_lambda_concurrent_executions_sum",} 60.0 1633625164969
-
-# HELP cw_scrape_milliseconds scraper Instrumentation
-# TYPE cw_scrape_milliseconds gauge
-cw_scrape_milliseconds{region="us-west-2",operation="scrape_lambda_logs",function_name="first-lambda-function",} 319.0 1633625476847
-cw_scrape_milliseconds{region="us-west-2",operation="get_metric_data",interval="60",} 3010.0 1633625345019
 ```
 
 # AWS IAM Permissions
