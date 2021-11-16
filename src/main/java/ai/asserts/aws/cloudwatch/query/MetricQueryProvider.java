@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
@@ -87,8 +88,13 @@ public class MetricQueryProvider {
                     String nextToken = null;
                     do {
                         ListMetricsRequest.Builder builder = ListMetricsRequest.builder()
-                                .nextToken(nextToken)
-                                .namespace(CWNamespace.valueOf(ns.getName()).getNamespace());
+                                .nextToken(nextToken);
+                        Optional<CWNamespace> nsOpt = scrapeConfigProvider.getStandardNamespace(ns);
+                        if (nsOpt.isPresent()) {
+                            builder = builder.namespace(nsOpt.get().getNamespace());
+                        } else {
+                            builder = builder.namespace(ns.getName());
+                        }
 
                         log.info("Discovering all metrics for region={}, namespace={} ", region, ns.getName());
 
@@ -144,7 +150,7 @@ public class MetricQueryProvider {
         return ImmutableSortedMap.of(
                 SCRAPE_REGION_LABEL, region,
                 SCRAPE_OPERATION_LABEL, "list_metrics",
-                SCRAPE_NAMESPACE_LABEL, CWNamespace.valueOf(ns.getName()).getNamespace()
+                SCRAPE_NAMESPACE_LABEL, ns.getName()
         );
     }
 

@@ -47,9 +47,11 @@ public class TagFilterResourceProvider {
     private final ResourceMapper resourceMapper;
     private final BasicMetricCollector metricCollector;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
+    private final ScrapeConfigProvider scrapeConfigProvider;
 
     public TagFilterResourceProvider(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                      ResourceMapper resourceMapper, BasicMetricCollector metricCollector) {
+        this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.metricCollector = metricCollector;
@@ -78,59 +80,61 @@ public class TagFilterResourceProvider {
 
     private Set<Resource> getResourcesInternal(Key key) {
         Set<Resource> resources = new HashSet<>();
-        CWNamespace cwNamespace = CWNamespace.valueOf(key.getNamespace().getName());
-        GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
-        if (cwNamespace.getResourceTypes().size() > 0) {
-            Set<String> resourceTypeFilters = cwNamespace.getResourceTypes().stream()
-                    .map(type -> format("%s:%s", cwNamespace.getServiceName(), type))
-                    .collect(Collectors.toSet());
-            builder = builder.resourceTypeFilters(resourceTypeFilters);
-            log.info("Applying resource type filters {}", resourceTypeFilters);
-        } else {
-            builder = builder.resourceTypeFilters(cwNamespace.getServiceName());
-            log.info("Applying resource type filters {}", cwNamespace.getServiceName());
-        }
+        if (scrapeConfigProvider.getStandardNamespace(key.namespace).isPresent()) {
+            CWNamespace cwNamespace = CWNamespace.valueOf(key.getNamespace().getName());
+            GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
+            if (cwNamespace.getResourceTypes().size() > 0) {
+                Set<String> resourceTypeFilters = cwNamespace.getResourceTypes().stream()
+                        .map(type -> format("%s:%s", cwNamespace.getServiceName(), type))
+                        .collect(Collectors.toSet());
+                builder = builder.resourceTypeFilters(resourceTypeFilters);
+                log.info("Applying resource type filters {}", resourceTypeFilters);
+            } else {
+                builder = builder.resourceTypeFilters(cwNamespace.getServiceName());
+                log.info("Applying resource type filters {}", cwNamespace.getServiceName());
+            }
 
-        if (key.getNamespace().hasTagFilters()) {
-            builder = builder.tagFilters(key.getNamespace().getTagFilters().entrySet().stream()
-                    .map(entry -> TagFilter.builder()
-                            .key(entry.getKey())
-                            .values(entry.getValue())
-                            .build())
-                    .collect(Collectors.toSet()));
-        }
+            if (key.getNamespace().hasTagFilters()) {
+                builder = builder.tagFilters(key.getNamespace().getTagFilters().entrySet().stream()
+                        .map(entry -> TagFilter.builder()
+                                .key(entry.getKey())
+                                .values(entry.getValue())
+                                .build())
+                        .collect(Collectors.toSet()));
+            }
 
-        String nextToken = null;
-        try (ResourceGroupsTaggingApiClient resourceTagClient = awsClientProvider.getResourceTagClient(key.region)) {
-            do {
-                long timeTaken = System.currentTimeMillis();
-                GetResourcesResponse response = resourceTagClient.getResources(builder
-                        .paginationToken(nextToken)
-                        .build());
-                timeTaken = System.currentTimeMillis() - timeTaken;
-                captureLatency(key.region, cwNamespace, timeTaken);
+            String nextToken = null;
+            try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(key.region)) {
+                do {
+                    long timeTaken = System.currentTimeMillis();
+                    GetResourcesResponse response = client.getResources(builder
+                            .paginationToken(nextToken)
+                            .build());
+                    timeTaken = System.currentTimeMillis() - timeTaken;
+                    captureLatency(key.region, cwNamespace, timeTaken);
 
-                if (response.hasResourceTagMappingList()) {
-                    response.resourceTagMappingList().forEach(resourceTagMapping ->
-                            resourceMapper.map(resourceTagMapping.resourceARN()).ifPresent(resource -> {
-                                resource.setTags(resourceTagMapping.tags());
-                                resources.add(resource);
-                            }));
-                }
-                nextToken = response.paginationToken();
-            } while (!StringUtils.isEmpty(nextToken));
-        } catch (Exception e) {
-            log.error("Failed to get resources using resource tag api", e);
-            metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
-                    SCRAPE_REGION_LABEL, key.region, SCRAPE_OPERATION_LABEL, "TagAPI.getResources"
-            ), 1);
+                    if (response.hasResourceTagMappingList()) {
+                        response.resourceTagMappingList().forEach(resourceTagMapping ->
+                                resourceMapper.map(resourceTagMapping.resourceARN()).ifPresent(resource -> {
+                                    resource.setTags(resourceTagMapping.tags());
+                                    resources.add(resource);
+                                }));
+                    }
+                    nextToken = response.paginationToken();
+                } while (!StringUtils.isEmpty(nextToken));
+            } catch (Exception e) {
+                log.error("Failed to get resources using resource tag api", e);
+                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
+                        SCRAPE_REGION_LABEL, key.region, SCRAPE_OPERATION_LABEL, "TagAPI.getResources"
+                ), 1);
+            }
+            log.info("Found {}", resources.stream()
+                    .collect(groupingBy(Resource::getType))
+                    .entrySet()
+                    .stream()
+                    .map(entry -> format("%d %s(s)", entry.getValue().size(), entry.getKey().name()))
+                    .collect(joining(", ")));
         }
-        log.info("Found {}", resources.stream()
-                .collect(groupingBy(Resource::getType))
-                .entrySet()
-                .stream()
-                .map(entry -> format("%d %s(s)", entry.getValue().size(), entry.getKey().name()))
-                .collect(joining(", ")));
         return resources;
     }
 

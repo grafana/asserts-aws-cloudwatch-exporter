@@ -1,6 +1,7 @@
 
 package ai.asserts.aws.cloudwatch.config;
 
+import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,7 +19,11 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URL;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 @Component
 @Slf4j
@@ -31,10 +36,16 @@ public class ScrapeConfigProvider {
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
     private final String scrapeConfigFile;
     private final Supplier<ScrapeConfig> configCache;
+    private final Map<String, CWNamespace> byNamespace = new TreeMap<>();
+    private final Map<String, CWNamespace> byServiceName = new TreeMap<>();
 
     public ScrapeConfigProvider(@Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile) {
         this.scrapeConfigFile = scrapeConfigFile;
         configCache = Suppliers.memoize(this::load);
+        Stream.of(CWNamespace.values()).forEach(namespace -> {
+            byNamespace.put(namespace.getNamespace(), namespace);
+            byServiceName.put(namespace.getServiceName(), namespace);
+        });
     }
 
     public ScrapeConfig getScrapeConfig() {
@@ -65,5 +76,10 @@ public class ScrapeConfigProvider {
             namespaceConfig.setScrapeConfig(scrapeConfig);
             namespaceConfig.validate(i);
         }
+    }
+
+    public Optional<CWNamespace> getStandardNamespace(NamespaceConfig namespaceConfig) {
+        return Optional.ofNullable(byNamespace.getOrDefault(namespaceConfig.getName(),
+                byServiceName.getOrDefault(namespaceConfig.getName(), null)));
     }
 }
