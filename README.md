@@ -243,7 +243,7 @@ function name is available as the dimension `FunctionName` in the CloudWatch met
 If the AWS Resource has tags, the tags will be discovered and reported as labels with a prefix `tag_`. For example if
 the Lambda function has a tag `env` with a value of `dev`, it will be exported as `tag_env="dev"`
 
-#Exporter internal metrics
+# Exporter internal metrics
 The exporter also exports the following metrics to enable monitoring itself
 
 |Metric Name|Description|
