@@ -58,7 +58,7 @@ public class LambdaFunctionScraper {
         Map<String, Map<String, LambdaFunction>> functionsByRegion = new TreeMap<>();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Optional<NamespaceConfig> lambdaNSOpt = scrapeConfig.getNamespaces().stream()
-                .filter(ns -> CWNamespace.lambda.name().equals(ns.getName()))
+                .filter(ns -> CWNamespace.lambda.getNamespace().equals(ns.getName()))
                 .findFirst();
         lambdaNSOpt.ifPresent(lambdaNS -> scrapeConfig.getRegions().forEach(region -> {
             try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {

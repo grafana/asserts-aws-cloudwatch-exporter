@@ -48,7 +48,7 @@ public class ScrapeConfig {
             return Optional.empty();
         }
         return namespaces.stream()
-                .filter(namespaceConfig -> namespaceConfig.getName().equals(CWNamespace.lambda.name()))
+                .filter(namespaceConfig -> namespaceConfig.getName().equals(CWNamespace.lambda.getNamespace()))
                 .findFirst();
     }
 }
