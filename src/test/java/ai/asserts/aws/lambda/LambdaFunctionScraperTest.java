@@ -22,7 +22,6 @@ import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.easymock.EasyMock.anyDouble;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
@@ -66,7 +65,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 .regions(ImmutableSortedSet.of("region1", "region2"))
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build()).anyTimes();
-        expect(namespaceConfig.getName()).andReturn("lambda").anyTimes();
+        expect(namespaceConfig.getName()).andReturn("AWS/Lambda").anyTimes();
     }
 
     @Test

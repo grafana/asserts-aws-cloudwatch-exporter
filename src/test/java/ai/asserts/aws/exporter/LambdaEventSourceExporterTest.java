@@ -59,7 +59,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
 
         namespaceConfig = mock(NamespaceConfig.class);
-        expect(namespaceConfig.getName()).andReturn("lambda").anyTimes();
+        expect(namespaceConfig.getName()).andReturn("AWS/Lambda").anyTimes();
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(
                 ScrapeConfig.builder()
