@@ -291,9 +291,10 @@ The exporter also exports the following metrics to enable monitoring itself
 
 |Metric Name|Description|
 |---|---|
-|cw_scrape_milliseconds| Latency of all AWS API calls|
-|cw_scrape_interval_seconds|The scrape interval metric for each metric|
-|cw_scrape_period_seconds| The statistic period for each metric|
+|aws_exporter_milliseconds_sum| AWS API Latency Counter |
+|aws_exporter_milliseconds_count| AWS API Count |
+|aws_exporter_interval_seconds|The scrape interval metric for each namespace|
+|aws_exporter_period_seconds| The statistic period for each namespace|
 
 # Running it locally
 ```
