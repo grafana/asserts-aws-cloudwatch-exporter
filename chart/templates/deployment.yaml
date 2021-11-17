@@ -21,9 +21,9 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         resources:
           limits:
-            memory: 4Gi
+            memory: 500Mi
           requests:
-            memory: 4Gi
+            memory: 500Mi
         ports:
           - name: aws
             containerPort: {{ .Values.service.aws.port }}
