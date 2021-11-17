@@ -53,14 +53,14 @@ namespace in CloudWatch. The supported CloudWatch namespaces are :-
 
 Quick reference for most commonly used namespaces
 
-| AWS Service | CloudWatch Namespace | List of Metrics |
-|--------------|--------------|------------------------|
-| Lambda | lambda | [Lambda metrics](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics.html)|
-| SQS Queue | sqs| [SQS Metrics](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-available-cloudwatch-metrics.html)|
-| DynamoDB | dynamodb | [DynamoDB Metrics](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html)|
-| S3 | s3| [S3 Metrics](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metrics-dimensions.html)|
-| ECS Metrics| ecs_svc| [ECS Metrics](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cloudwatch-metrics.html#available_cloudwatch_metrics)|
-| ECS Container Insights| ecs_containerinsights| [ECS Container Metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-metrics-ECS.html)|
+| AWS Service | List of Metrics |
+|--------------|------------------------|
+| Lambda | [Lambda metrics](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics.html)|
+| SQS Queue | [SQS Metrics](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-available-cloudwatch-metrics.html)|
+| DynamoDB | [DynamoDB Metrics](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html)|
+| S3 | [S3 Metrics](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metrics-dimensions.html)|
+| ECS Metrics| [ECS Metrics](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cloudwatch-metrics.html#available_cloudwatch_metrics)|
+| ECS Container Insights| [ECS Container Metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-metrics-ECS.html)|
 
 **Time interval configurations**
 
