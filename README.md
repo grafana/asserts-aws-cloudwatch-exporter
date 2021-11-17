@@ -89,7 +89,7 @@ or `1` if `period > scrapeInterval`
 regions:
   - us-west-2
 namespaces:
-  - name: lambda
+  - name: AWS/Lambda
     scrapeInterval: 60
     period: 60
     dimensionFilters:
@@ -134,7 +134,7 @@ namespaces:
       - name: IteratorAge
         stats:
           - Maximum
-  - name: sqs
+  - name: AWS/SQS
     metrics:
       - name: NumberOfMessagesDeleted
         stats:
@@ -154,7 +154,7 @@ namespaces:
       - name: ApproximateAgeOfOldestMessage
         stats:
           - Maximum
-  - name: dynamodb
+  - name: AWS/DynamoDB
     metrics:
       - name: ConsumedReadCapacityUnits
         stats:
@@ -176,7 +176,7 @@ namespaces:
       - name: WriteThrottleEvents
         stats:
           - Sum
-  - name: s3
+  - name: AWS/S3
     period: 86400
     scrapeInterval: 86400
     metrics:
@@ -186,7 +186,7 @@ namespaces:
       - name: BucketSizeBytes
         stats:
           - Average
-  - name: lambdainsights
+  - name: LambdaInsights
     scrapeInterval: 60
     period: 60
     dimensionFilters:
@@ -210,7 +210,7 @@ namespaces:
       - name: rx_bytes
         stats:
           - Sum
-  - name: ecs_svc
+  - name: AWS/ECS
     scrapeInterval: 60
     period: 60
     dimensionFilters:
@@ -224,7 +224,7 @@ namespaces:
         stats:
           - Average
           - Maximum
-  - name: ecs_containerinsights
+  - name: ECS/ContainerInsights
     scrapeInterval: 60
     period: 60
     dimensionFilters:

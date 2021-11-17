@@ -29,9 +29,9 @@ public class ScrapeConfigProviderTest {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(60, namespaceConfig.getScrapeInterval());
-        assertEquals(300, namespaceConfig.getPeriod());
+        assertEquals(60, namespaceConfig.getPeriod());
         assertEquals(60, metricConfig.getScrapeInterval());
-        assertEquals(300, metricConfig.getPeriod());
+        assertEquals(60, metricConfig.getPeriod());
     }
 
     @Test

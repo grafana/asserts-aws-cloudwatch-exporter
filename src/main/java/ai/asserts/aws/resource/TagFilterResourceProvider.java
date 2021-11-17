@@ -80,8 +80,7 @@ public class TagFilterResourceProvider {
 
     private Set<Resource> getResourcesInternal(Key key) {
         Set<Resource> resources = new HashSet<>();
-        if (scrapeConfigProvider.getStandardNamespace(key.namespace.getName()).isPresent()) {
-            CWNamespace cwNamespace = CWNamespace.valueOf(key.getNamespace().getName());
+        scrapeConfigProvider.getStandardNamespace(key.namespace.getName()).ifPresent(cwNamespace -> {
             GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
             if (cwNamespace.getResourceTypes().size() > 0) {
                 Set<String> resourceTypeFilters = cwNamespace.getResourceTypes().stream()
@@ -134,7 +133,7 @@ public class TagFilterResourceProvider {
                     .stream()
                     .map(entry -> format("%d %s(s)", entry.getValue().size(), entry.getKey().name()))
                     .collect(joining(", ")));
-        }
+        });
         return resources;
     }
 
