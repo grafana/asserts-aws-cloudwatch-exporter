@@ -9,12 +9,14 @@ import ai.asserts.aws.exporter.ResourceTagExporter;
 import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
 @AllArgsConstructor
+@Slf4j
 public class MetadataTaskManager implements InitializingBean {
     private final CollectorRegistry collectorRegistry;
     private final LambdaCapacityExporter lambdaCapacityExporter;
@@ -38,8 +40,18 @@ public class MetadataTaskManager implements InitializingBean {
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void updateMetadata() {
         taskThreadPool.getExecutorService().submit(lambdaCapacityExporter::update);
+        sleep(1000);
         taskThreadPool.getExecutorService().submit(lambdaEventSourceExporter::update);
+        sleep(1000);
         taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
+    }
+
+    private void sleep(long time) {
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            log.error("Interrupted", e);
+        }
     }
 
 }
