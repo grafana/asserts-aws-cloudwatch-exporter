@@ -91,12 +91,14 @@ public class MetricQueryProvider {
                                 .nextToken(nextToken);
                         Optional<CWNamespace> nsOpt = scrapeConfigProvider.getStandardNamespace(ns.getName());
                         if (nsOpt.isPresent()) {
-                            builder = builder.namespace(nsOpt.get().getNamespace());
+                            String namespace = nsOpt.get().getNamespace();
+                            builder = builder.namespace(namespace);
+                            log.info("Discovering all metrics for region={}, namespace={} ", region, namespace);
                         } else {
                             builder = builder.namespace(ns.getName());
+                            log.info("Discovering all metrics for region={}, namespace={} ", region, ns.getName());
                         }
 
-                        log.info("Discovering all metrics for region={}, namespace={} ", region, ns.getName());
 
                         long timeTaken = System.currentTimeMillis();
                         ListMetricsResponse response = cloudWatchClient.listMetrics(builder.build());
