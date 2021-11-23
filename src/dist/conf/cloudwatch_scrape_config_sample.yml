@@ -6,7 +6,7 @@ namespaces:
     scrapeInterval: 60
     period: 60
     dimensionFilters:
-      FunctionName: (.+)
+      FunctionName: .+
     metrics:
       - name: Invocations
         stats:
@@ -110,7 +110,7 @@ namespaces:
     scrapeInterval: 60
     period: 60
     dimensionFilters:
-      FunctionName: (.+)
+      FunctionName: .+
     metrics:
       - name: memory_utilization
         stats:
@@ -134,7 +134,7 @@ namespaces:
     scrapeInterval: 60
     period: 60
     dimensionFilters:
-      FunctionName: (.+)
+      ServiceName: .+
     metrics:
       - name: MemoryUtilization
         stats:
@@ -148,7 +148,7 @@ namespaces:
     scrapeInterval: 60
     period: 60
     dimensionFilters:
-      FunctionName: (.+)
+      ServiceName: .+
     metrics:
       - name: MemoryReserved
         stats:
