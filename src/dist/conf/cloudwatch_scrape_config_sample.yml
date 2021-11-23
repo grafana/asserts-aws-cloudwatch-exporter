@@ -110,7 +110,7 @@ namespaces:
     scrapeInterval: 60
     period: 60
     dimensionFilters:
-      FunctionName: .+
+      function_name: .+
     metrics:
       - name: memory_utilization
         stats:

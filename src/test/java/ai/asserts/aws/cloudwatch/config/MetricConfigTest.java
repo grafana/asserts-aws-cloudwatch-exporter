@@ -136,7 +136,7 @@ public class MetricConfigTest extends EasyMockSupport {
     }
 
     @Test
-    void matches_DimensionPattern() {
+    void matches_DimensionPattern_NoFilter() {
         NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
         MetricConfig metricConfig = MetricConfig.builder()
                 .name("metric")
@@ -146,17 +146,37 @@ public class MetricConfigTest extends EasyMockSupport {
                 .stats(ImmutableSet.of(MetricStat.Sum))
                 .build();
 
-        expect(namespaceConfig.getDimensionFilterPattern()).andReturn(ImmutableMap.of());
-        expect(namespaceConfig.getDimensionFilterPattern()).andReturn(ImmutableMap.of(
-                "FunctionName", Pattern.compile("fn.*")
-        )).anyTimes();
+        expect(namespaceConfig.getDimensionFilterPattern()).andReturn(ImmutableMap.of()).anyTimes();
 
         replayAll();
+        assertTrue(metricConfig.matchesMetric(Metric.builder()
+                .build()));
         assertTrue(metricConfig.matchesMetric(Metric.builder()
                 .dimensions(Dimension.builder()
                         .name("FunctionName")
                         .value("fn-1")
                         .build())
+                .build()));
+        verifyAll();
+    }
+
+    @Test
+    void matches_DimensionPattern_FilterSpecified() {
+        NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
+        MetricConfig metricConfig = MetricConfig.builder()
+                .name("metric")
+                .namespace(namespaceConfig)
+                .scrapeInterval(60)
+                .period(300)
+                .stats(ImmutableSet.of(MetricStat.Sum))
+                .build();
+
+        expect(namespaceConfig.getDimensionFilterPattern()).andReturn(ImmutableMap.of(
+                "FunctionName", Pattern.compile("fn.*")
+        )).anyTimes();
+
+        replayAll();
+        assertFalse(metricConfig.matchesMetric(Metric.builder()
                 .build()));
         assertFalse(metricConfig.matchesMetric(Metric.builder()
                 .dimensions(Dimension.builder()

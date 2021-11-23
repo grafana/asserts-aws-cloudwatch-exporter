@@ -2,7 +2,7 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.MetricNameUtil;
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableList;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -15,33 +15,30 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static java.lang.String.format;
 
 @Getter
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode()
 @Builder
 @ToString
 public class Resource {
-    @EqualsAndHashCode.Include
     private final ResourceType type;
-    private final String arn;
-    @EqualsAndHashCode.Include
     private final String name;
-    @EqualsAndHashCode.Include
     private final String region;
+    private final Resource childOf;
+    @EqualsAndHashCode.Exclude
+    private final String arn;
 
+    @EqualsAndHashCode.Exclude
     @Setter
     private List<Tag> tags;
 
     public boolean matches(Metric metric) {
-        return metric.hasDimensions() && metric.dimensions().stream().anyMatch(this::matches);
+        List<List<Dimension>> toBeMatched = metricDimensions();
+        return metric.hasDimensions() && toBeMatched.stream().anyMatch(list -> metric.dimensions().containsAll(list));
     }
 
-    boolean matches(Dimension dimension) {
-        return metricDimensionNames().contains(dimension.name()) && name.equals(dimension.value());
-    }
 
     public void addLabels(Map<String, String> labels, String prefix) {
         labels.put(format("%s_type", prefix), type.name());
@@ -54,18 +51,41 @@ public class Resource {
         }
     }
 
-    private Set<String> metricDimensionNames() {
+    private List<List<Dimension>> metricDimensions() {
         switch (type) {
             case LambdaFunction:
-                return Sets.newHashSet("FunctionName", "function_name");
+                return ImmutableList.of(
+                        ImmutableList.of(Dimension.builder().name("FunctionName").value(name).build()),
+                        ImmutableList.of(Dimension.builder().name("function_name").value(name).build())
+                );
             case SQSQueue:
-                return Sets.newHashSet("QueueName");
+                return ImmutableList.of(
+                        ImmutableList.of(Dimension.builder().name("QueueName").value(name).build())
+                );
             case DynamoDBTable:
-                return Sets.newHashSet("TableName");
+                return ImmutableList.of(
+                        ImmutableList.of(Dimension.builder().name("TableName").value(name).build())
+                );
             case S3Bucket:
-                return Sets.newHashSet("BucketName");
+                return ImmutableList.of(
+                        ImmutableList.of(Dimension.builder().name("BucketName").value(name).build())
+                );
+            case ECSCluster:
+                return ImmutableList.of(
+                        ImmutableList.of(Dimension.builder().name("ClusterName").value(name).build())
+                );
+            case ECSService:
+                return ImmutableList.of(
+                        ImmutableList.of(
+                                Dimension.builder().name("ServiceName").value(name).build(),
+                                Dimension.builder().name("ClusterName").value(childOf.name).build())
+                );
+            case ECSTaskDef:
+                return ImmutableList.of(
+                        ImmutableList.of(Dimension.builder().name("TaskDefinitionFamily").value(name).build())
+                );
             default:
-                return Sets.newHashSet();
+                return ImmutableList.of();
         }
     }
 }

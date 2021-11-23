@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
+import static ai.asserts.aws.resource.ResourceType.ECSCluster;
+import static ai.asserts.aws.resource.ResourceType.ECSService;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 import static ai.asserts.aws.resource.ResourceType.S3Bucket;
 import static ai.asserts.aws.resource.ResourceType.SQSQueue;
@@ -107,6 +109,33 @@ public class ResourceTest extends EasyMockSupport {
                 .dimensions(Dimension.builder()
                         .name("BucketName").value("bucket")
                         .build())
+                .build()));
+    }
+
+    @Test
+    public void matches_ECSService() {
+        Resource resource = Resource.builder()
+                .type(ECSService)
+                .name("service")
+                .region("region1")
+                .childOf(Resource.builder().type(ECSCluster).name("ecs-cluster").build())
+                .build();
+
+        assertFalse(resource.matches(Metric.builder().build()));
+        assertFalse(resource.matches(Metric.builder()
+                .dimensions(Dimension.builder()
+                        .name("ServiceName").value("service1")
+                        .build())
+                .build()));
+        assertFalse(resource.matches(Metric.builder()
+                .dimensions(
+                        Dimension.builder().name("ClusterName").value("ecs-cluster1").build(),
+                        Dimension.builder().name("ServiceName").value("service").build())
+                .build()));
+        assertTrue(resource.matches(Metric.builder()
+                .dimensions(
+                        Dimension.builder().name("ClusterName").value("ecs-cluster").build(),
+                        Dimension.builder().name("ServiceName").value("service").build())
                 .build()));
     }
 
