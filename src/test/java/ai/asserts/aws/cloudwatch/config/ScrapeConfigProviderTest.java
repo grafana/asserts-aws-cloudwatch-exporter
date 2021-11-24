@@ -1,16 +1,25 @@
 
 package ai.asserts.aws.cloudwatch.config;
 
+import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.easymock.EasyMockSupport;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class ScrapeConfigProviderTest {
+public class ScrapeConfigProviderTest extends EasyMockSupport {
+    private ScrapeConfigProvider testClass;
+
+    @BeforeEach
+    public void setup() {
+        testClass = new ScrapeConfigProvider(new ObjectMapperFactory(), null);
+    }
 
     @Test
     void validWithDefaults() {
@@ -26,7 +35,6 @@ public class ScrapeConfigProviderTest {
                 .regions(ImmutableSet.of("region1"))
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(60, namespaceConfig.getScrapeInterval());
         assertEquals(60, namespaceConfig.getPeriod());
@@ -50,7 +58,6 @@ public class ScrapeConfigProviderTest {
                 .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
         assertEquals(300, namespaceConfig.getPeriod());
@@ -77,7 +84,6 @@ public class ScrapeConfigProviderTest {
                 .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
         assertEquals(300, namespaceConfig.getPeriod());
@@ -105,7 +111,6 @@ public class ScrapeConfigProviderTest {
                 .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider(null);
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
         assertEquals(300, namespaceConfig.getPeriod());
@@ -115,7 +120,9 @@ public class ScrapeConfigProviderTest {
 
     @Test
     void integrationTest() {
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider("src/test/resources/cloudwatch_scrape_config.yml");
+        ScrapeConfigProvider testClass = new ScrapeConfigProvider(
+                new ObjectMapperFactory(),
+                "src/test/resources/cloudwatch_scrape_config.yml");
         assertNotNull(testClass.getScrapeConfig());
     }
 }

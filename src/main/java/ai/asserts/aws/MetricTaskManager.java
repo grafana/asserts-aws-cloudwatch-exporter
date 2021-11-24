@@ -4,6 +4,7 @@ package ai.asserts.aws;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
@@ -32,6 +33,7 @@ public class MetricTaskManager implements InitializingBean {
     private final CollectorRegistry collectorRegistry;
     private final AutowireCapableBeanFactory beanFactory;
     private final ScrapeConfigProvider scrapeConfigProvider;
+    private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskThreadPool taskThreadPool;
 
     /**
@@ -88,6 +90,8 @@ public class MetricTaskManager implements InitializingBean {
                     executorService.submit(task::update);
                     sleep(2000L);
                 });
+
+        executorService.submit(ecsServiceDiscoveryExporter);
     }
 
     private void sleep(long time) {

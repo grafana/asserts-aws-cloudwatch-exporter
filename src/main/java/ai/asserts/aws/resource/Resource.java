@@ -26,6 +26,7 @@ public class Resource {
     private final ResourceType type;
     private final String name;
     private final String region;
+    private final String version;
     private final Resource childOf;
     @EqualsAndHashCode.Exclude
     private final String arn;

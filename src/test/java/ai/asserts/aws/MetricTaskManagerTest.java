@@ -7,6 +7,7 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +37,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private MetricScrapeTask metricScrapeTask;
     private LambdaLogMetricScrapeTask logMetricScrapeTask;
     private ScrapeConfig scrapeConfig;
+    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
 
@@ -48,11 +50,13 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         metricScrapeTask = mock(MetricScrapeTask.class);
         collectorRegistry = mock(CollectorRegistry.class);
         logMetricScrapeTask = mock(LambdaLogMetricScrapeTask.class);
+        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
 
         replayAll();
-        testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, taskThreadPool) {
+        testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, ecsServiceDiscoveryExporter,
+                taskThreadPool) {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
@@ -123,6 +127,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
         expect(executorService.submit(capture(capture2))).andReturn(null);
+
+        expect(executorService.submit(ecsServiceDiscoveryExporter)).andReturn(null);
 
         replayAll();
         testClass.triggerScrapes();

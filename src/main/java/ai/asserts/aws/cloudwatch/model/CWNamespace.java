@@ -78,4 +78,8 @@ public enum CWNamespace {
                 normalizedNamespace = namespace;
         }
     }
+
+    public boolean isThisNamespace(String name) {
+        return name().equals(name) || namespace.equals(name);
+    }
 }
