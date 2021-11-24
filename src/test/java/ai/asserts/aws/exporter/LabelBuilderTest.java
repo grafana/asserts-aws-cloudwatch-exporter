@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric;
 import java.util.Map;
 import java.util.Optional;
 
+import static ai.asserts.aws.cloudwatch.model.CWNamespace.ecs_containerinsights;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.sqs;
 import static org.easymock.EasyMock.expect;
@@ -122,6 +123,34 @@ public class LabelBuilderTest extends EasyMockSupport {
                 "namespace", "AWS/SQS",
                 "d_queue_name", "queue1",
                 "topic", "queue1"
+        ), labels);
+    }
+
+    @Test
+    void buildLabels_ECS_ContainerInsights_Metric() {
+        expect(scrapeConfigProvider.getStandardNamespace("ECS/ContainerInsights"))
+                .andReturn(Optional.of(ecs_containerinsights));
+        expect(lambdaLabelConverter.shouldUseForNamespace("ECS/ContainerInsights")).andReturn(false);
+        expect(metricNameUtil.toSnakeCase("ServiceName")).andReturn("service_name");
+
+        replayAll();
+        Map<String, String> labels = labelBuilder.buildLabels("region1", MetricQuery.builder()
+                .metric(Metric.builder()
+                        .metricName("CPUUtilization")
+                        .namespace("ECS/ContainerInsights")
+                        .dimensions(Dimension.builder()
+                                .name("ServiceName")
+                                .value("service-name")
+                                .build())
+                        .build())
+                .build());
+        verifyAll();
+
+        assertEquals(ImmutableMap.of(
+                "region", "region1",
+                "namespace", "AWS/ECS",
+                "d_service_name", "service-name",
+                "job", "service-name"
         ), labels);
     }
 }
