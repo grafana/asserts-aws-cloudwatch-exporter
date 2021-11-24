@@ -107,7 +107,7 @@ public class MetricConfig {
 
     private boolean matchesDimension(software.amazon.awssdk.services.cloudwatch.model.Dimension dimension) {
         Map<String, Pattern> _dimensionFilterPattern = namespace.getDimensionFilterPattern();
-        return !_dimensionFilterPattern.containsKey(dimension.name()) ||
+        return _dimensionFilterPattern.containsKey(dimension.name()) &&
                 _dimensionFilterPattern.get(dimension.name()).matcher(dimension.value()).matches();
     }
 }

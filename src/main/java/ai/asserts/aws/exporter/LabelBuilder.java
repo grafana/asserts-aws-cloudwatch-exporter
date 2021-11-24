@@ -5,11 +5,11 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
+import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.lambda.LambdaLabelConverter;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.cloudwatch.model.Dimension;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
@@ -22,12 +22,16 @@ import static java.lang.String.format;
 @Component
 @AllArgsConstructor
 public class LabelBuilder {
+    private final ScrapeConfigProvider scrapeConfigProvider;
     private final MetricNameUtil metricNameUtil;
     private final LambdaLabelConverter lambdaLabelConverter;
 
     public Map<String, String> buildLabels(String region, MetricQuery metricQuery) {
         Map<String, String> labels = new TreeMap<>();
         labels.put("region", region);
+        scrapeConfigProvider.getStandardNamespace(metricQuery.getMetric().namespace())
+                .ifPresent(ns -> labels.put("namespace", ns.getNormalizedNamespace()));
+
 
         if (lambdaLabelConverter.shouldUseForNamespace(metricQuery.getMetric().namespace())) {
             metricQuery.getMetric().dimensions().forEach(dimension ->
@@ -39,9 +43,8 @@ public class LabelBuilder {
             });
         }
 
-        if (metricQuery.getResource() != null && !CollectionUtils.isEmpty(metricQuery.getResource().getTags())) {
-            metricQuery.getResource().getTags().forEach(tag ->
-                    labels.put(format("tag_%s", metricNameUtil.toSnakeCase(tag.key())), tag.value()));
+        if (metricQuery.getResource() != null) {
+            metricQuery.getResource().addTagLabels(labels, metricNameUtil);
         }
         getJob(metricQuery.getMetric()).ifPresent(jobName -> labels.put("job", jobName));
         getTopic(metricQuery.getMetric()).ifPresent(queueName -> labels.put("topic", queueName));

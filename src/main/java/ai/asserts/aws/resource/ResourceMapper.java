@@ -28,12 +28,12 @@ public class ResourceMapper {
     private static final Pattern SNS_ARN_PATTERN = Pattern.compile("arn:aws:sns:(.+?):.+?:(.+)");
     private static final Pattern EVENTBUS_ARN_PATTERN = Pattern.compile("arn:aws:events:(.+?):.+?:event-bus/(.+)");
     private static final Pattern ECS_CLUSTER_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:cluster/(.+)");
-    private static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:service/(.+)");
+    private static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:service/(.+?)/(.+)");
     private static final Pattern ECS_TASK_DEFINITION_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:task-definition/(.+?)(:.+)?");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
             .add(arn -> {
-                if (arn.contains("sqs")) {
+                if (arn.contains(":sqs")) {
                     Matcher matcher = SQS_QUEUE_ARN_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
@@ -47,7 +47,7 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("dynamodb") && arn.contains("table")) {
+                if (arn.contains(":dynamodb") && arn.contains(":table")) {
                     Matcher matcher = DYNAMODB_TABLE_ARN_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
@@ -61,7 +61,7 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("lambda") && arn.contains("function")) {
+                if (arn.contains(":lambda") && arn.contains(":function")) {
                     Matcher matcher = LAMBDA_ARN_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
@@ -75,7 +75,7 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("s3")) {
+                if (arn.contains(":s3")) {
                     Matcher matcher = S3_ARN_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
@@ -89,7 +89,7 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("sns")) {
+                if (arn.contains(":sns")) {
                     Matcher matcher = SNS_ARN_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
@@ -103,7 +103,7 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("events") && arn.contains("event-bus")) {
+                if (arn.contains(":events") && arn.contains(":event-bus")) {
                     Matcher matcher = EVENTBUS_ARN_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
@@ -117,7 +117,7 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("ecs") && arn.contains("cluster")) {
+                if (arn.contains(":ecs") && arn.contains(":cluster")) {
                     Matcher matcher = ECS_CLUSTER_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
@@ -131,21 +131,26 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("ecs") && arn.contains("service")) {
+                if (arn.contains(":ecs") && arn.contains(":service")) {
                     Matcher matcher = ECS_SERVICE_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
                                 .type(ECSService)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(2))
+                                .name(matcher.group(3))
+                                .childOf(Resource.builder()
+                                        .type(ECSCluster)
+                                        .region(matcher.group(1))
+                                        .name(matcher.group(2))
+                                        .build())
                                 .build());
                     }
                 }
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("ecs") && arn.contains("task-definition")) {
+                if (arn.contains(":ecs") && arn.contains(":task-definition")) {
                     Matcher matcher = ECS_TASK_DEFINITION_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()

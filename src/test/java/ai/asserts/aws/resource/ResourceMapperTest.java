@@ -139,12 +139,13 @@ public class ResourceMapperTest {
 
     @Test
     public void map_ECS_Service() {
-        String arn = "arn:aws:ecs:us-west-2:342994379019:service/service1";
+        String arn = "arn:aws:ecs:us-west-2:342994379019:service/ecs-cluster/service1";
         assertEquals(
                 Optional.of(Resource.builder()
                         .type(ECSService).arn(arn)
                         .region("us-west-2")
                         .name("service1")
+                        .childOf(Resource.builder().type(ECSCluster).name("ecs-cluster").region("us-west-2").build())
                         .build()),
                 testClass.map(arn)
         );

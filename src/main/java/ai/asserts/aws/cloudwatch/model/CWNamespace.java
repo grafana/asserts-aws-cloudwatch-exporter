@@ -51,6 +51,11 @@ public enum CWNamespace {
     wafv2("AWS/WAFV2", "aws_wav2", "wafv2");
 
     private final String namespace;
+    /**
+     * In some cases the same AWS Resource like a Lambda Function or ECS Service has metrics under different
+     * namespaces. We unify these under a single namespace in such cases using the normalized namespace
+     */
+    private final String normalizedNamespace;
     private final String metricPrefix;
     private final String serviceName;
     private final Set<String> resourceTypes;
@@ -60,5 +65,17 @@ public enum CWNamespace {
         this.serviceName = serviceName;
         this.metricPrefix = prefix;
         this.resourceTypes = new TreeSet<>(Arrays.asList(resourceTypes));
+        switch(namespace) {
+            case "AWS/ECS":
+            case "ECS/ContainerInsights":
+                normalizedNamespace = "AWS/ECS";
+                break;
+            case "AWS/Lambda":
+            case "LambdaInsights":
+                normalizedNamespace = "AWS/Lambda";
+                break;
+            default:
+                normalizedNamespace = namespace;
+        }
     }
 }
