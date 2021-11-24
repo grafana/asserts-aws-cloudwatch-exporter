@@ -65,6 +65,11 @@ public class LabelBuilder {
                                 dimension.name().equals("function_name") || dimension.name().equals("FunctionName"))
                         .map(Dimension::value)
                         .findFirst();
+            } else if ("AWS/ECS".equals(metric.namespace()) || "ECS/ContainerInsights".equals(metric.namespace())) {
+                return metric.dimensions().stream()
+                        .filter(dimension -> dimension.name().equals("ServiceName"))
+                        .map(Dimension::value)
+                        .findFirst();
             }
         }
         return Optional.empty();
