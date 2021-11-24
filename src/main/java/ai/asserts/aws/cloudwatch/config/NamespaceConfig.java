@@ -1,6 +1,7 @@
 
 package ai.asserts.aws.cloudwatch.config;
 
+import ai.asserts.aws.resource.Resource;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.util.CollectionUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
@@ -41,6 +43,7 @@ public class NamespaceConfig {
     private Map<String, Set<String>> tagFilters;
     private List<MetricConfig> metrics;
     private List<LogScrapeConfig> logs;
+    private List<ECSTaskDefScrapeConfig> ecsTaskDefScrapeConfigs;
 
     public void validate(int index) {
         List<String> errors = new ArrayList<>();

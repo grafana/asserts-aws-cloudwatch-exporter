@@ -9,6 +9,7 @@ import java.util.Optional;
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
 import static ai.asserts.aws.resource.ResourceType.ECSCluster;
 import static ai.asserts.aws.resource.ResourceType.ECSService;
+import static ai.asserts.aws.resource.ResourceType.ECSTask;
 import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
 import static ai.asserts.aws.resource.ResourceType.EventBus;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
@@ -153,12 +154,26 @@ public class ResourceMapperTest {
 
     @Test
     public void map_ECS_TaskDefinition() {
-        String arn = "arn:aws:ecs:us-west-2:342994379019:task-definition/task-definition:1";
+        String arn = "arn:aws:ecs:us-west-2:342994379019:task-definition/item-service-v2:5";
         assertEquals(
                 Optional.of(Resource.builder()
                         .type(ECSTaskDef).arn(arn)
                         .region("us-west-2")
-                        .name("task-definition")
+                        .name("item-service-v2")
+                        .version("5")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_ECS_Task() {
+        String arn = "arn:aws:ecs:us-west-2:342994379019:task/ecs-sample-app/34c11488dc56429fb67e2996b5ceaa74";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(ECSTask).arn(arn)
+                        .region("us-west-2")
+                        .name("34c11488dc56429fb67e2996b5ceaa74")
                         .build()),
                 testClass.map(arn)
         );

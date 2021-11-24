@@ -39,6 +39,7 @@ dependencies {
             "software.amazon.awssdk:lambda:$awsSdkVersion",
             "software.amazon.awssdk:dynamodb:$awsSdkVersion",
             "software.amazon.awssdk:s3:$awsSdkVersion",
+            "software.amazon.awssdk:ecs:$awsSdkVersion",
             "software.amazon.awssdk:resourcegroupstaggingapi:$awsSdkVersion",
     )
 

@@ -5,6 +5,7 @@ public enum ResourceType {
     ECSCluster,
     ECSService,
     ECSTaskDef,
+    ECSTask,
     SNSTopic,
     EventBus,
     SQSQueue, // SQS Queue

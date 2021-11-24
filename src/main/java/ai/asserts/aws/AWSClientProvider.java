@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
+import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 
@@ -27,5 +28,9 @@ public class AWSClientProvider {
 
     public ResourceGroupsTaggingApiClient getResourceTagClient(String region) {
         return ResourceGroupsTaggingApiClient.builder().region(Region.of(region)).build();
+    }
+
+    public EcsClient getECSClient(String region) {
+        return EcsClient.builder().region(Region.of(region)).build();
     }
 }
