@@ -192,5 +192,6 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         private final String taskDefVersion;
         @JsonProperty("ecs_task_id")
         private final String taskId;
+        private final String namespace = "AWS/ECS";
     }
 }
