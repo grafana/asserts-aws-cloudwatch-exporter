@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import org.easymock.EasyMockSupport;
@@ -21,14 +20,14 @@ public class CallRateLimiterTest extends EasyMockSupport {
         CallRateLimiter callRateLimiter = new CallRateLimiter(scrapeConfigProvider);
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.getAwsAPICallsPerMinute()).andReturn(30).anyTimes();
+        expect(scrapeConfig.getAwsAPICallsSpacingMillis()).andReturn(1000).anyTimes();
 
         replayAll();
         callRateLimiter.acquireTurn();
         long t1 = System.currentTimeMillis();
         callRateLimiter.acquireTurn();
         long t2 = System.currentTimeMillis();
-        assertTrue(t2 - t1 > 2000);
+        assertTrue(t2 - t1 > 1000);
         verifyAll();
     }
 }

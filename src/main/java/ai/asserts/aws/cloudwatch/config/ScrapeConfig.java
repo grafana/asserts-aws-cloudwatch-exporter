@@ -48,7 +48,7 @@ public class ScrapeConfig {
     private Integer numTaskThreads = 10;
 
     @Builder.Default
-    private Integer awsAPICallsPerMinute = 30;
+    private Integer awsAPICallsSpacingMillis = 1000;
 
     private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
 

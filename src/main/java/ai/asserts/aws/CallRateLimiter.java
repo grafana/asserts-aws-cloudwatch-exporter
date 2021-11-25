@@ -20,7 +20,7 @@ public class CallRateLimiter {
 
     public void acquireTurn() {
         long timeSince = System.currentTimeMillis() - lastCallTime.get();
-        int spacing = 60_000 / scrapeConfigProvider.getScrapeConfig().getAwsAPICallsPerMinute();
+        int spacing = scrapeConfigProvider.getScrapeConfig().getAwsAPICallsSpacingMillis();
         if (timeSince < spacing) {
             try {
                 Thread.sleep(spacing - timeSince + 5);
