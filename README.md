@@ -346,80 +346,34 @@ The following IAM permissions need to be configured for the exporter
         },
         {
             "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": "arn:aws:apigateway:*::/restapis/*/resources/*/methods/*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": "arn:aws:apigateway:*::/restapis/*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": [
-                "arn:aws:apigateway:*::/restapis/*/deployments/*",
-                "arn:aws:apigateway:*::/restapis/*/stages/*",
-                "arn:aws:apigateway:*::/restapis/*/resources",
-                "arn:aws:apigateway:*::/restapis/*/deployments",
-                "arn:aws:apigateway:*::/restapis/*/resources/*/methods/*/integration",
-                "arn:aws:apigateway:*::/restapis/*/stages",
-                "arn:aws:apigateway:*::/restapis"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": "arn:aws:apigateway:*::/apis/*/stages/*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": [
-                "arn:aws:apigateway:*::/apis/*/routes/*",
-                "arn:aws:apigateway:*::/apis/*/stages",
-                "arn:aws:apigateway:*::/apis/*/integrations/*",
-                "arn:aws:apigateway:*::/apis/*/integrations",
-                "arn:aws:apigateway:*::/apis/*/routes",
-                "arn:aws:apigateway:*::/apis/*/stages/*/routesettings/*",
-                "arn:aws:apigateway:*::/apis/*/deployments",
-                "arn:aws:apigateway:*::/apis/*/deployments/*",
-                "arn:aws:apigateway:*::/apis"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": "arn:aws:apigateway:*::/apis/*"
-        },
-        {
-            "Effect": "Allow",
             "Action": [
-                "lambda:ListProvisionedConcurrencyConfigs",
-                "lambda:ListFunctionEventInvokeConfigs",
+                "cloudwatch:ListMetrics",
+                "cloudwatch:GetMetricData",
+                "logs:FilterLogEvents",
                 "tag:GetResources",
+                "lambda:GetAccountSettings",
                 "lambda:ListFunctions",
                 "lambda:ListVersionsByFunction",
-                "cloudwatch:GetMetricData",
                 "lambda:ListAliases",
+                "lambda:ListProvisionedConcurrencyConfigs",
+                "lambda:ListFunctionEventInvokeConfigs",
+                "lambda:GetProvisionedConcurrencyConfig",
+                "lambda:GetFunctionConcurrency",
                 "lambda:ListEventSourceMappings",
-                "cloudwatch:ListMetrics",
-                "lambda:GetAccountSettings"
+                "ecs:ListTaskDefinitionFamilies",
+                "ecs:ListTaskDefinitions",
+                "ecs:ListClusters"
+                "ecs:ListServices",
+                "ecs:ListContainerInstances",
+                "ecs:ListTasks",
+                "ecs:ListAccountSettings",
+                "ecs:DescribeServices",
+                "ecs:DescribeContainerInstances",
+                "ecs:DescribeTasks",
+                "ecs:DescribeTaskDefinition"
             ],
             "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "logs:FilterLogEvents",
-                "apigateway:GET"
-            ],
-            "Resource": [
-                "arn:aws:apigateway:*::/restapis/*/resources/*",
-                "arn:aws:logs:*:123456789123:log-group:*"
-            ]
         }
     ]
 }
-
 ```
