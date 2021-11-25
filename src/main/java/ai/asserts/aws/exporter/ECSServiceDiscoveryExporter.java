@@ -91,8 +91,10 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 }
             }
             try {
+                File resultFile = new File(scrapeConfig.getEcsTargetSDFile());
                 objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter()
-                        .writeValue(new File("ecs_task_scrape_targets.yml"), latestTargets);
+                        .writeValue(resultFile, latestTargets);
+                log.info("Wrote ECS scrape target SD file {}", resultFile.toURI());
             } catch (IOException e) {
                 metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
                         SCRAPE_OPERATION_LABEL, "ecs_sd_file_generation"), 1);

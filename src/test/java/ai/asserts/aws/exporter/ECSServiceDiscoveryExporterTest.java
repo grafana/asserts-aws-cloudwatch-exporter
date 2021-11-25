@@ -86,6 +86,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     @Test
     public void run() throws Exception {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isECSMonitoringOn()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
@@ -132,6 +133,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     @Test
     public void run_JacksonWriteException() throws Exception {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isECSMonitoringOn()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
@@ -181,6 +183,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     @Test
     public void run_AWSException() throws Exception {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isECSMonitoringOn()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
