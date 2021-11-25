@@ -3,6 +3,7 @@ package ai.asserts.aws.cloudwatch.query;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
@@ -10,7 +11,6 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import ai.asserts.aws.exporter.BasicMetricCollector;
-import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableList;
@@ -48,7 +48,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     private MetricConfig metricConfig;
     private MetricQuery metricQuery;
     private BasicMetricCollector metricCollector;
-    private CallRateLimiter callRateLimiter;
     private MetricQueryProvider testClass;
     private final CWNamespace _CW_namespace = lambda;
     private final String metricName = "Invocations";
@@ -68,7 +67,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         metricQuery = mock(MetricQuery.class);
         metricCollector = mock(BasicMetricCollector.class);
-        callRateLimiter = mock(CallRateLimiter.class);
 
         metric = Metric.builder()
                 .namespace(lambda.getNamespace())
@@ -79,7 +77,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         replayAll();
         testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
                 awsClientProvider, tagFilterResourceProvider, metricQueryBuilder, metricCollector,
-                callRateLimiter);
+                new RateLimiter());
         verifyAll();
         resetAll();
     }
@@ -114,7 +112,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .metrics(ImmutableList.of(metric))
                 .nextToken("token-1")
                 .build();
-        callRateLimiter.acquireTurn();
         expect(cloudWatchClient.listMetrics(ListMetricsRequest.builder()
                 .namespace(_CW_namespace.getNamespace())
                 .build())).andReturn(listMetricsResponse1);
@@ -130,7 +127,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .metrics(ImmutableList.of(metric))
                 .nextToken(null)
                 .build();
-        callRateLimiter.acquireTurn();
         expect(cloudWatchClient.listMetrics(ListMetricsRequest.builder()
                 .nextToken("token-1")
                 .namespace(_CW_namespace.getNamespace())

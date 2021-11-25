@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.MetricNameUtil;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
@@ -48,7 +48,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private LambdaFunctionScraper functionScraper;
     private TagFilterResourceProvider tagFilterResourceProvider;
-    private CallRateLimiter callRateLimiter;
     private LambdaFunction lambdaFunction;
     private Resource resource;
     private MetricSampleBuilder sampleBuilder;
@@ -72,10 +71,11 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
-        callRateLimiter = mock(CallRateLimiter.class);
+
+        resetAll();
 
         testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil, metricCollector,
-                sampleBuilder, functionScraper, tagFilterResourceProvider, callRateLimiter);
+                sampleBuilder, functionScraper, tagFilterResourceProvider, new RateLimiter());
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(metricNameUtil.getLambdaMetric("available_concurrency")).andReturn("available");
@@ -101,7 +101,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expect(lambdaFunction.getName()).andReturn("fn1").times(3);
         expect(lambdaFunction.getTimeoutSeconds()).andReturn(120);
-        callRateLimiter.acquireTurn();
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn1")
                 .build()))
@@ -141,7 +140,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expect(lambdaFunction.getName()).andReturn("fn2").times(3);
         expect(lambdaFunction.getTimeoutSeconds()).andReturn(60);
-        callRateLimiter.acquireTurn();
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn2")
                 .build()))
@@ -197,7 +195,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expect(lambdaFunction.getName()).andReturn("fn1").times(3);
         expect(lambdaFunction.getTimeoutSeconds()).andReturn(60);
-        callRateLimiter.acquireTurn();
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn1")
                 .build()))
@@ -239,7 +236,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
     private void expectAccountSettings(String region) {
         expect(awsClientProvider.getLambdaClient(region)).andReturn(lambdaClient);
-        callRateLimiter.acquireTurn();
         expect(lambdaClient.getAccountSettings()).andReturn(GetAccountSettingsResponse.builder()
                 .accountLimit(AccountLimit.builder()
                         .concurrentExecutions(10)

@@ -2,11 +2,11 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.BasicMetricCollector;
-import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +38,6 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     private TagFilterResourceProvider tagFilterResourceProvider;
     private NamespaceConfig namespaceConfig;
     private LambdaFunction lambdaFunction;
-    private CallRateLimiter callRateLimiter;
     private LambdaFunctionScraper lambdaFunctionScraper;
     private Resource fnResource;
 
@@ -52,7 +51,6 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
         fnResource = mock(Resource.class);
-        callRateLimiter = mock(CallRateLimiter.class);
 
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -62,7 +60,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         replayAll();
         lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider,
-                metricCollector, tagFilterResourceProvider, lambdaFunctionBuilder, callRateLimiter);
+                metricCollector, tagFilterResourceProvider, lambdaFunctionBuilder, new RateLimiter());
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -96,7 +94,6 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
 
-        callRateLimiter.acquireTurn();
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(fn1Config, fn2Config)).build());
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
@@ -111,7 +108,6 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
 
-        callRateLimiter.acquireTurn();
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(fn3Config, fn4Config)).build());
         expect(tagFilterResourceProvider.getFilteredResources("region2", namespaceConfig))
@@ -137,12 +133,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     @Test
     public void getFunctions_Exception() {
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
-        callRateLimiter.acquireTurn();
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
         lambdaClient.close();
 
         expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
-        callRateLimiter.acquireTurn();
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
         lambdaClient.close();
         replayAll();

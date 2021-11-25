@@ -2,7 +2,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.CallRateLimiter;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
@@ -47,7 +47,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     private Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private TimeWindowBuilder timeWindowBuilder;
-    private CallRateLimiter callRateLimiter;
     private MetricScrapeTask testClass;
 
     @BeforeEach
@@ -67,7 +66,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                 1.0D, now.toEpochMilli());
         familySamples = mock(Collector.MetricFamilySamples.class);
         timeWindowBuilder = mock(TimeWindowBuilder.class);
-        callRateLimiter = mock(CallRateLimiter.class);
 
         testClass = new MetricScrapeTask(region, interval, delay);
         testClass.setMetricQueryProvider(metricQueryProvider);
@@ -76,7 +74,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setSampleBuilder(sampleBuilder);
         testClass.setTimeWindowBuilder(timeWindowBuilder);
-        testClass.setCallRateLimiter(callRateLimiter);
+        testClass.setRateLimiter(new RateLimiter());
     }
 
     @Test
@@ -130,7 +128,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                 .id("id1")
                 .build();
 
-        callRateLimiter.acquireTurn();
         expect(cloudWatchClient.getMetricData(request)).andReturn(
                 GetMetricDataResponse.builder()
                         .metricDataResults(ImmutableList.of(mdr1))
@@ -158,7 +155,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                 .id("id2")
                 .build();
 
-        callRateLimiter.acquireTurn();
         expect(cloudWatchClient.getMetricData(request)).andReturn(
                 GetMetricDataResponse.builder()
                         .metricDataResults(ImmutableList.of(mdr2))
