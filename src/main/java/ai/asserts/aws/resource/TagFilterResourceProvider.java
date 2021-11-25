@@ -10,6 +10,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.CallRateLimiter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -48,13 +49,16 @@ public class TagFilterResourceProvider {
     private final BasicMetricCollector metricCollector;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
     private final ScrapeConfigProvider scrapeConfigProvider;
+    private final CallRateLimiter callRateLimiter;
 
     public TagFilterResourceProvider(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                     ResourceMapper resourceMapper, BasicMetricCollector metricCollector) {
+                                     ResourceMapper resourceMapper, BasicMetricCollector metricCollector,
+                                     CallRateLimiter callRateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.metricCollector = metricCollector;
+        this.callRateLimiter = callRateLimiter;
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         resourceCache = CacheBuilder.newBuilder()
@@ -72,10 +76,6 @@ public class TagFilterResourceProvider {
                 .region(region)
                 .namespace(namespaceConfig)
                 .build());
-    }
-
-    public LoadingCache<Key, Set<Resource>> getResourceCache() {
-        return resourceCache;
     }
 
     private Set<Resource> getResourcesInternal(Key key) {
@@ -106,6 +106,7 @@ public class TagFilterResourceProvider {
             try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(key.region)) {
                 do {
                     long timeTaken = System.currentTimeMillis();
+                    callRateLimiter.acquireTurn();
                     GetResourcesResponse response = client.getResources(builder
                             .paginationToken(nextToken)
                             .build());

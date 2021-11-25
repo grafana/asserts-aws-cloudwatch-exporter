@@ -2,6 +2,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
@@ -38,6 +39,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
     private NamespaceConfig namespaceConfig;
     private TagFilterResourceProvider tagFilterResourceProvider;
     private BasicMetricCollector metricCollector;
+    private CallRateLimiter callRateLimiter;
     private LambdaEventSourceExporter testClass;
     private Resource fnResource;
     private Resource sourceResource;
@@ -57,7 +59,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         sample = mock(Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         metricCollector = mock(BasicMetricCollector.class);
-
+        callRateLimiter = mock(CallRateLimiter.class);
         namespaceConfig = mock(NamespaceConfig.class);
         expect(namespaceConfig.getName()).andReturn("AWS/Lambda").anyTimes();
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
@@ -72,7 +74,8 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient).anyTimes();
 
         testClass = new LambdaEventSourceExporter(scrapeConfigProvider, awsClientProvider,
-                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder, metricCollector);
+                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder, metricCollector,
+                callRateLimiter);
     }
 
     @Test
@@ -89,6 +92,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
                 .build();
+        callRateLimiter.acquireTurn();
         expect(lambdaClient.listEventSourceMappings(request)).andReturn(
                 ListEventSourceMappingsResponse.builder()
                         .eventSourceMappings(ImmutableList.of(
@@ -145,6 +149,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
     public void exportEventSourceMappings_Exception() {
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
                 .build();
+        callRateLimiter.acquireTurn();
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))

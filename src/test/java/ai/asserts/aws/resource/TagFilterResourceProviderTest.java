@@ -10,6 +10,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.CallRateLimiter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,32 +36,32 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TagFilterResourceProviderTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
-    private ScrapeConfig scrapeConfig;
     private AWSClientProvider awsClientProvider;
     private ResourceGroupsTaggingApiClient apiClient;
     private ResourceMapper resourceMapper;
     private Resource resource;
     private NamespaceConfig namespaceConfig;
     private BasicMetricCollector metricCollector;
+    private CallRateLimiter callRateLimiter;
     private TagFilterResourceProvider testClass;
 
     @BeforeEach
     public void setup() {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        scrapeConfig = mock(ScrapeConfig.class);
+        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
         resourceMapper = mock(ResourceMapper.class);
         namespaceConfig = mock(NamespaceConfig.class);
         apiClient = mock(ResourceGroupsTaggingApiClient.class);
         resource = mock(Resource.class);
         metricCollector = mock(BasicMetricCollector.class);
-
+        callRateLimiter = mock(CallRateLimiter.class);
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
         replayAll();
         testClass = new TagFilterResourceProvider(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                metricCollector);
+                metricCollector, callRateLimiter);
         verifyAll();
         resetAll();
     }
@@ -83,6 +84,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                 .key("tag").value("value2")
                 .build();
 
+        callRateLimiter.acquireTurn();
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .resourceTypeFilters(ImmutableList.of("lambda:function"))
                 .tagFilters(ImmutableList.of(TagFilter.builder()
@@ -102,6 +104,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
 
+        callRateLimiter.acquireTurn();
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .paginationToken("token1")
                 .resourceTypeFilters(ImmutableList.of("lambda:function"))
@@ -144,6 +147,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                 .key("tag").value("value2")
                 .build();
 
+        callRateLimiter.acquireTurn();
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .resourceTypeFilters(ImmutableList.of("kafka"))
                 .build())).andReturn(
@@ -159,6 +163,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
 
+        callRateLimiter.acquireTurn();
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .paginationToken("token1")
                 .resourceTypeFilters(ImmutableList.of("kafka"))
