@@ -5,7 +5,6 @@ import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
-import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
@@ -17,12 +16,8 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 
@@ -42,8 +37,6 @@ public class MetricTaskManager implements InitializingBean {
      */
     @Getter
     private final Map<Integer, Map<String, MetricScrapeTask>> metricScrapeTasks = new TreeMap<>();
-    @Getter
-    private final Map<Integer, Map<String, Set<LambdaLogMetricScrapeTask>>> logScrapeTasks = new TreeMap<>();
 
     public void afterPropertiesSet() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
@@ -58,16 +51,6 @@ public class MetricTaskManager implements InitializingBean {
                             }
                         }
                 )));
-
-        scrapeConfig.getLambdaConfig().ifPresent(nc -> {
-            if (!CollectionUtils.isEmpty(nc.getLogs())) {
-                scrapeConfig.getRegions().forEach(region -> logScrapeTasks
-                        .computeIfAbsent(60, k -> new TreeMap<>())
-                        .computeIfAbsent(region, k -> new HashSet<>())
-                        .add(lambdaLogScrapeTask(nc, region))
-                );
-            }
-        });
     }
 
     @SuppressWarnings("unused")
@@ -80,31 +63,12 @@ public class MetricTaskManager implements InitializingBean {
                 .flatMap(map -> map.values().stream())
                 .forEach(task -> executorService.submit(task::update));
 
-        logScrapeTasks.values().stream()
-                .flatMap(map -> map.values().stream())
-                .flatMap(Collection::stream)
-                .forEach(task -> executorService.submit(task::update));
-
         executorService.submit(ecsServiceDiscoveryExporter);
     }
 
     @VisibleForTesting
     MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
         return new MetricScrapeTask(region, interval, delay);
-    }
-
-    @VisibleForTesting
-    LambdaLogMetricScrapeTask newLogScrapeTask(String region) {
-        return new LambdaLogMetricScrapeTask(region);
-    }
-
-    private LambdaLogMetricScrapeTask lambdaLogScrapeTask(ai.asserts.aws.cloudwatch.config.NamespaceConfig nc,
-                                                          String region) {
-        log.info("Setup lambda log scrape task for region {} with scrape configs {}", region, nc.getLogs());
-        LambdaLogMetricScrapeTask logScraperTask = newLogScrapeTask(region);
-        beanFactory.autowireBean(logScraperTask);
-        logScraperTask.register(collectorRegistry);
-        return logScraperTask;
     }
 
     private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay) {

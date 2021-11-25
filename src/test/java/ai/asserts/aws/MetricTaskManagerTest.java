@@ -8,7 +8,6 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
-import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,7 +19,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static org.easymock.EasyMock.capture;
@@ -35,7 +33,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
     private NamespaceConfig namespaceConfig;
     private MetricScrapeTask metricScrapeTask;
-    private LambdaLogMetricScrapeTask logMetricScrapeTask;
     private ScrapeConfig scrapeConfig;
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private TaskThreadPool taskThreadPool;
@@ -49,7 +46,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         metricScrapeTask = mock(MetricScrapeTask.class);
         collectorRegistry = mock(CollectorRegistry.class);
-        logMetricScrapeTask = mock(LambdaLogMetricScrapeTask.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
@@ -60,11 +56,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
-            }
-
-            @Override
-            LambdaLogMetricScrapeTask newLogScrapeTask(String region) {
-                return logMetricScrapeTask;
             }
         };
         verifyAll();
@@ -77,7 +68,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         int delay = 60;
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(scrapeConfig.getDelay()).andReturn(delay).anyTimes();
 
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2")).anyTimes();
@@ -103,11 +93,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expectLastCall().times(4);
         expect(metricScrapeTask.register(collectorRegistry)).andReturn(null).times(4);
 
-        beanFactory.autowireBean(logMetricScrapeTask);
-        expect(logMetricScrapeTask.register(collectorRegistry)).andReturn(null);
-        beanFactory.autowireBean(logMetricScrapeTask);
-        expect(logMetricScrapeTask.register(collectorRegistry)).andReturn(null);
-
         replayAll();
         testClass.afterPropertiesSet();
         verifyAll();
@@ -116,17 +101,13 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes() {
         testClass.getMetricScrapeTasks().put(60, ImmutableMap.of("region1", metricScrapeTask));
-        testClass.getLogScrapeTasks().put(60, ImmutableMap.of("region1", ImmutableSet.of(logMetricScrapeTask)));
 
         Capture<Runnable> capture1 = newCapture();
-        Capture<Runnable> capture2 = newCapture();
 
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         metricScrapeTask.update();
-        logMetricScrapeTask.update();
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
-        expect(executorService.submit(capture(capture2))).andReturn(null);
 
         expect(executorService.submit(ecsServiceDiscoveryExporter)).andReturn(null);
 
@@ -134,7 +115,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         testClass.triggerScrapes();
 
         capture1.getValue().run();
-        capture2.getValue().run();
 
         verifyAll();
     }

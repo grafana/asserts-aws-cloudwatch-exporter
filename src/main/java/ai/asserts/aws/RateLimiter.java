@@ -34,7 +34,7 @@ public class RateLimiter {
             theSemaphore.acquire();
             V returnValue = k.makeCall();
             if (api.contains(CloudWatchLogsClient.class.getSimpleName())) {
-                sleep(5000);
+                sleep(3000);
             }
             return returnValue;
         } catch (InterruptedException e) {
