@@ -32,11 +32,7 @@ public class RateLimiter {
         Semaphore theSemaphore = semaphores.getOrDefault(api.split("/")[0], defaultSemaphore);
         try {
             theSemaphore.acquire();
-            V returnValue = k.makeCall();
-            if (api.contains(CloudWatchLogsClient.class.getSimpleName())) {
-                sleep(10000);
-            }
-            return returnValue;
+            return k.makeCall();
         } catch (InterruptedException e) {
             log.error("Interrupted Exception", e);
             throw new RuntimeException(e);
@@ -47,13 +43,5 @@ public class RateLimiter {
 
     public interface AWSAPICall<V> {
         V makeCall();
-    }
-
-    private void sleep(long time) {
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException e) {
-            log.error("Interrupted", e);
-        }
     }
 }
