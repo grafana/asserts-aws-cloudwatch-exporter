@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
@@ -56,6 +57,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     private final ECSTaskUtil ecsTaskUtil;
     private final BasicMetricCollector metricCollector;
     private final ObjectMapperFactory objectMapperFactory;
+    private final CallRateLimiter callRateLimiter;
 
     @Override
     public void run() {
@@ -70,6 +72,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 try (EcsClient ecsClient = awsClientProvider.getECSClient(region)) {
                     // List clusters just returns the cluster ARN. There is no need to paginate
                     long tick = System.currentTimeMillis();
+                    callRateLimiter.acquireTurn();
                     ListClustersResponse listClustersResponse = ecsClient.listClusters();
                     tick = System.currentTimeMillis() - tick;
                     metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, TELEMETRY_LABELS, tick);
@@ -105,6 +108,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         ListServicesRequest serviceReq = ListServicesRequest.builder()
                 .cluster(cluster.getName())
                 .build();
+        callRateLimiter.acquireTurn();
         ListServicesResponse serviceResp = ecsClient.listServices(serviceReq);
         if (serviceResp.hasServiceArns()) {
             serviceResp.serviceArns()
@@ -125,6 +129,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         Set<String> taskIds = new TreeSet<>();
         String nextToken = null;
         do {
+            callRateLimiter.acquireTurn();
             long time = System.currentTimeMillis();
             ListTasksResponse tasksResp = ecsClient.listTasks(ListTasksRequest.builder()
                     .cluster(cluster.getName())
@@ -156,6 +161,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     List<StaticConfig> buildTaskTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
                                         Resource service, Set<String> taskARNs) {
         List<StaticConfig> configs = new ArrayList<>();
+        callRateLimiter.acquireTurn();
         DescribeTasksResponse taskResponse = ecsClient.describeTasks(DescribeTasksRequest.builder()
                 .cluster(cluster.getName())
                 .tasks(taskARNs)

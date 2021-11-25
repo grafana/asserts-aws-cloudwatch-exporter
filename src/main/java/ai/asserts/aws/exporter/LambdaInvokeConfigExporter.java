@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
@@ -44,13 +45,15 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder metricSampleBuilder;
     private final BasicMetricCollector metricCollector;
+    private final CallRateLimiter callRateLimiter;
     private volatile List<MetricFamilySamples> cache;
 
     public LambdaInvokeConfigExporter(LambdaFunctionScraper fnScraper, AWSClientProvider awsClientProvider,
                                       MetricNameUtil metricNameUtil,
                                       ScrapeConfigProvider scrapeConfigProvider, ResourceMapper resourceMapper,
                                       MetricSampleBuilder metricSampleBuilder,
-                                      BasicMetricCollector metricCollector) {
+                                      BasicMetricCollector metricCollector,
+                                      CallRateLimiter callRateLimiter) {
         this.fnScraper = fnScraper;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
@@ -58,6 +61,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
         this.resourceMapper = resourceMapper;
         this.metricSampleBuilder = metricSampleBuilder;
         this.metricCollector = metricCollector;
+        this.callRateLimiter = callRateLimiter;
         this.cache = Collections.emptyList();
     }
 
@@ -82,6 +86,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                 ListFunctionEventInvokeConfigsRequest request = ListFunctionEventInvokeConfigsRequest.builder()
                         .functionName(fnConfig.getName())
                         .build();
+                callRateLimiter.acquireTurn();
                 ListFunctionEventInvokeConfigsResponse resp = client.listFunctionEventInvokeConfigs(request);
                 if (resp.hasFunctionEventInvokeConfigs() && resp.functionEventInvokeConfigs().size() > 0) {
                     log.info("Function {} has invoke configs", fnConfig.getName());

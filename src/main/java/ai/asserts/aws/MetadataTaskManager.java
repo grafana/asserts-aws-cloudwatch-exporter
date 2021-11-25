@@ -40,18 +40,7 @@ public class MetadataTaskManager implements InitializingBean {
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void updateMetadata() {
         taskThreadPool.getExecutorService().submit(lambdaCapacityExporter::update);
-        sleep(1000);
         taskThreadPool.getExecutorService().submit(lambdaEventSourceExporter::update);
-        sleep(1000);
         taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
     }
-
-    private void sleep(long time) {
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException e) {
-            log.error("Interrupted", e);
-        }
-    }
-
 }

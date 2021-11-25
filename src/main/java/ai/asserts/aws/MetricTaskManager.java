@@ -78,28 +78,14 @@ public class MetricTaskManager implements InitializingBean {
         ExecutorService executorService = taskThreadPool.getExecutorService();
         metricScrapeTasks.values().stream()
                 .flatMap(map -> map.values().stream())
-                .forEach(task -> {
-                    executorService.submit(task::update);
-                    sleep(2001L);
-                });
+                .forEach(task -> executorService.submit(task::update));
 
         logScrapeTasks.values().stream()
                 .flatMap(map -> map.values().stream())
                 .flatMap(Collection::stream)
-                .forEach(task -> {
-                    executorService.submit(task::update);
-                    sleep(2000L);
-                });
+                .forEach(task -> executorService.submit(task::update));
 
         executorService.submit(ecsServiceDiscoveryExporter);
-    }
-
-    private void sleep(long time) {
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException e) {
-            log.error("Interrupted", e);
-        }
     }
 
     @VisibleForTesting

@@ -9,6 +9,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.base.Suppliers;
@@ -47,6 +48,7 @@ public class MetricQueryProvider {
     private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<Integer, List<MetricQuery>>>> metricQueryCache;
     private final BasicMetricCollector metricCollector;
+    private final CallRateLimiter callRateLimiter;
 
     public MetricQueryProvider(ScrapeConfigProvider scrapeConfigProvider,
                                QueryIdGenerator queryIdGenerator,
@@ -54,7 +56,8 @@ public class MetricQueryProvider {
                                AWSClientProvider awsClientProvider,
                                TagFilterResourceProvider tagFilterResourceProvider,
                                MetricQueryBuilder metricQueryBuilder,
-                               BasicMetricCollector metricCollector) {
+                               BasicMetricCollector metricCollector,
+                               CallRateLimiter callRateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
         this.metricNameUtil = metricNameUtil;
@@ -62,6 +65,7 @@ public class MetricQueryProvider {
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.metricQueryBuilder = metricQueryBuilder;
         this.metricCollector = metricCollector;
+        this.callRateLimiter = callRateLimiter;
         metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
                 scrapeConfigProvider.getScrapeConfig().getListMetricsResultCacheTTLMinutes(), MINUTES);
         log.info("Initialized..");
@@ -87,6 +91,7 @@ public class MetricQueryProvider {
 
                     String nextToken = null;
                     do {
+                        callRateLimiter.acquireTurn();
                         ListMetricsRequest.Builder builder = ListMetricsRequest.builder()
                                 .nextToken(nextToken);
                         Optional<CWNamespace> nsOpt = scrapeConfigProvider.getStandardNamespace(ns.getName());

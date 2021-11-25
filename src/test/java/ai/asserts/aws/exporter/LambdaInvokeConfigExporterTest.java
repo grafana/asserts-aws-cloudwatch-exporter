@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
@@ -45,6 +46,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
     private MetricSampleBuilder metricSampleBuilder;
     private Collector.MetricFamilySamples.Sample sample;
     private BasicMetricCollector metricCollector;
+    private CallRateLimiter callRateLimiter;
     private LambdaInvokeConfigExporter testClass;
 
     @BeforeEach
@@ -61,8 +63,9 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         metricSampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         metricCollector = mock(BasicMetricCollector.class);
+        callRateLimiter = mock(CallRateLimiter.class);
         testClass = new LambdaInvokeConfigExporter(fnScraper, awsClientProvider, metricNameUtil,
-                scrapeConfigProvider, resourceMapper, metricSampleBuilder, metricCollector);
+                scrapeConfigProvider, resourceMapper, metricSampleBuilder, metricCollector, callRateLimiter);
 
         expect(metricNameUtil.getMetricPrefix(CWNamespace.lambda.getNamespace())).andReturn("prefix");
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
@@ -95,6 +98,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
                         .build())
                 .build();
 
+        callRateLimiter.acquireTurn();
         expect(lambdaClient.listFunctionEventInvokeConfigs(request)).andReturn(response);
 
         expect(fnScraper.getFunctions()).andReturn(ImmutableMap.of(
