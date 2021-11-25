@@ -5,12 +5,12 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
-import ai.asserts.aws.CallRateLimiter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -49,16 +49,16 @@ public class TagFilterResourceProvider {
     private final BasicMetricCollector metricCollector;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
     private final ScrapeConfigProvider scrapeConfigProvider;
-    private final CallRateLimiter callRateLimiter;
+    private final RateLimiter rateLimiter;
 
     public TagFilterResourceProvider(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                      ResourceMapper resourceMapper, BasicMetricCollector metricCollector,
-                                     CallRateLimiter callRateLimiter) {
+                                     RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.metricCollector = metricCollector;
-        this.callRateLimiter = callRateLimiter;
+        this.rateLimiter = rateLimiter;
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         resourceCache = CacheBuilder.newBuilder()
@@ -106,10 +106,12 @@ public class TagFilterResourceProvider {
             try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(key.region)) {
                 do {
                     long timeTaken = System.currentTimeMillis();
-                    callRateLimiter.acquireTurn();
-                    GetResourcesResponse response = client.getResources(builder
+                    GetResourcesRequest req = builder
                             .paginationToken(nextToken)
-                            .build());
+                            .build();
+                    GetResourcesResponse response = rateLimiter.doWithRateLimit(
+                            "ResourceGroupsTaggingApiClient/getResources",
+                            () -> client.getResources(req));
                     timeTaken = System.currentTimeMillis() - timeTaken;
                     captureLatency(key.region, cwNamespace, timeTaken);
 

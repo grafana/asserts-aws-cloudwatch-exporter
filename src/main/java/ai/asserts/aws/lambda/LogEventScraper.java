@@ -4,10 +4,10 @@
  */
 package ai.asserts.aws.lambda;
 
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
-import ai.asserts.aws.CallRateLimiter;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +33,7 @@ import static java.lang.String.format;
 public class LogEventScraper {
     private final BasicMetricCollector metricCollector;
     private final TimeWindowBuilder timeWindowBuilder;
-    private final CallRateLimiter callRateLimiter;
+    private final RateLimiter rateLimiter;
 
     public Optional<FilteredLogEvent> findLogEvent(CloudWatchLogsClient cloudWatchLogsClient,
                                                    LambdaFunction functionConfig,
@@ -52,9 +52,10 @@ public class LogEventScraper {
                     .logGroupName(logGroupName)
                     .build();
 
-            callRateLimiter.acquireTurn();
             long timeTaken = System.currentTimeMillis();
-            FilterLogEventsResponse response = cloudWatchLogsClient.filterLogEvents(logEventsRequest);
+            FilterLogEventsResponse response = rateLimiter.doWithRateLimit(
+                    "CloudWatchLogsClient/filterLogEvents", () ->
+                            cloudWatchLogsClient.filterLogEvents(logEventsRequest));
             timeTaken = System.currentTimeMillis() - timeTaken;
             metricCollector.recordLatency(SCRAPE_LATENCY_METRIC,
                     ImmutableSortedMap.of(

@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.MetricNameUtil;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
@@ -46,14 +46,14 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private final MetricSampleBuilder sampleBuilder;
     private final LambdaFunctionScraper functionScraper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
-    private final CallRateLimiter callRateLimiter;
+    private final RateLimiter rateLimiter;
     private volatile List<MetricFamilySamples> cache;
 
     public LambdaCapacityExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                   MetricNameUtil metricNameUtil, BasicMetricCollector metricCollector,
                                   MetricSampleBuilder sampleBuilder, LambdaFunctionScraper functionScraper,
                                   TagFilterResourceProvider tagFilterResourceProvider,
-                                  CallRateLimiter callRateLimiter) {
+                                  RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
@@ -61,7 +61,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         this.sampleBuilder = sampleBuilder;
         this.functionScraper = functionScraper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
-        this.callRateLimiter = callRateLimiter;
+        this.rateLimiter = rateLimiter;
         this.cache = new ArrayList<>();
     }
 
@@ -88,8 +88,9 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         optional.ifPresent(lambdaConfig -> functionScraper.getFunctions().forEach((region, functions) -> {
             log.info(" - Getting Lambda account and provisioned concurrency for region {}", region);
             try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {
-                callRateLimiter.acquireTurn();
-                GetAccountSettingsResponse accountSettings = lambdaClient.getAccountSettings();
+                GetAccountSettingsResponse accountSettings = rateLimiter.doWithRateLimit(
+                        "LambdaClient/getAccountSettings",
+                        lambdaClient::getAccountSettings);
 
                 MetricFamilySamples.Sample sample = sampleBuilder.buildSingleSample(accountLimitMetric, ImmutableMap.of(
                         "region", region,
@@ -127,10 +128,11 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                             .functionName(lambdaFunction.getName())
                             .build();
 
-                    callRateLimiter.acquireTurn();
                     long timeTaken = System.currentTimeMillis();
-                    ListProvisionedConcurrencyConfigsResponse response = lambdaClient.listProvisionedConcurrencyConfigs(
-                            request);
+                    ListProvisionedConcurrencyConfigsResponse response =
+                            rateLimiter.doWithRateLimit(
+                                    "LambdaClient/listProvisionedConcurrencyConfigs",
+                                    () -> lambdaClient.listProvisionedConcurrencyConfigs(request));
                     timeTaken = System.currentTimeMillis() - timeTaken;
                     captureLatency(region, timeTaken);
 

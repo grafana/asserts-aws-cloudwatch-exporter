@@ -2,7 +2,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.CallRateLimiter;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
@@ -65,7 +65,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     @Autowired
     private TimeWindowBuilder timeWindowBuilder;
     @Autowired
-    private CallRateLimiter callRateLimiter;
+    private RateLimiter rateLimiter;
     @EqualsAndHashCode.Include
     private final String region;
     @EqualsAndHashCode.Include
@@ -138,9 +138,11 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                                     .map(MetricQuery::getMetricDataQuery)
                                     .collect(Collectors.toList()));
 
-                    callRateLimiter.acquireTurn();
                     long timeTaken = System.currentTimeMillis();
-                    GetMetricDataResponse metricData = cloudWatchClient.getMetricData(requestBuilder.build());
+                    GetMetricDataRequest req = requestBuilder.build();
+                    GetMetricDataResponse metricData = rateLimiter.doWithRateLimit(
+                            "CloudWatchClient/getMetricData",
+                            () -> cloudWatchClient.getMetricData(req));
                     timeTaken = System.currentTimeMillis() - timeTaken;
                     captureLatency(timeTaken);
 

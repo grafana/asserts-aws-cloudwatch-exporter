@@ -2,12 +2,12 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
-import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.base.Suppliers;
@@ -37,18 +37,18 @@ public class LambdaFunctionScraper {
     private final LambdaFunctionBuilder fnBuilder;
     private final BasicMetricCollector metricCollector;
     private final TagFilterResourceProvider tagFilterResourceProvider;
-    private final CallRateLimiter callRateLimiter;
+    private final RateLimiter rateLimiter;
     private final Supplier<Map<String, Map<String, LambdaFunction>>> functionsByRegion;
 
     public LambdaFunctionScraper(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                  BasicMetricCollector metricCollector, TagFilterResourceProvider tagFilterResourceProvider,
-                                 LambdaFunctionBuilder fnBuilder, CallRateLimiter callRateLimiter) {
+                                 LambdaFunctionBuilder fnBuilder, RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricCollector = metricCollector;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.fnBuilder = fnBuilder;
-        this.callRateLimiter = callRateLimiter;
+        this.rateLimiter = rateLimiter;
         this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions,
                 scrapeConfigProvider.getScrapeConfig().getListFunctionsResultCacheTTLMinutes(), MINUTES);
     }
@@ -67,8 +67,9 @@ public class LambdaFunctionScraper {
             try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {
                 // Get all the functions
                 long timeTaken = System.currentTimeMillis();
-                callRateLimiter.acquireTurn();
-                ListFunctionsResponse response = lambdaClient.listFunctions();
+                ListFunctionsResponse response = rateLimiter.doWithRateLimit(
+                        "LambdaClient/listFunctions",
+                        lambdaClient::listFunctions);
                 captureLatency(region, System.currentTimeMillis() - timeTaken);
                 if (response.hasFunctions()) {
                     Set<Resource> resources = tagFilterResourceProvider.getFilteredResources(region, lambdaNS);

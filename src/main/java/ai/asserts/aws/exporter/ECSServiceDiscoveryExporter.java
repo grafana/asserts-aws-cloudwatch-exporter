@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.ObjectMapperFactory;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
@@ -57,7 +57,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     private final ECSTaskUtil ecsTaskUtil;
     private final BasicMetricCollector metricCollector;
     private final ObjectMapperFactory objectMapperFactory;
-    private final CallRateLimiter callRateLimiter;
+    private final RateLimiter rateLimiter;
 
     @Override
     public void run() {
@@ -72,8 +72,8 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 try (EcsClient ecsClient = awsClientProvider.getECSClient(region)) {
                     // List clusters just returns the cluster ARN. There is no need to paginate
                     long tick = System.currentTimeMillis();
-                    callRateLimiter.acquireTurn();
-                    ListClustersResponse listClustersResponse = ecsClient.listClusters();
+                    ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(
+                            "EcsClient/listClusters", ecsClient::listClusters);
                     tick = System.currentTimeMillis() - tick;
                     metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, TELEMETRY_LABELS, tick);
                     if (listClustersResponse.hasClusterArns()) {
@@ -108,8 +108,8 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         ListServicesRequest serviceReq = ListServicesRequest.builder()
                 .cluster(cluster.getName())
                 .build();
-        callRateLimiter.acquireTurn();
-        ListServicesResponse serviceResp = ecsClient.listServices(serviceReq);
+        ListServicesResponse serviceResp = rateLimiter.doWithRateLimit("EcsClient/listServices",
+                () -> ecsClient.listServices(serviceReq));
         if (serviceResp.hasServiceArns()) {
             serviceResp.serviceArns()
                     .stream()
@@ -129,13 +129,14 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         Set<String> taskIds = new TreeSet<>();
         String nextToken = null;
         do {
-            callRateLimiter.acquireTurn();
             long time = System.currentTimeMillis();
-            ListTasksResponse tasksResp = ecsClient.listTasks(ListTasksRequest.builder()
+            ListTasksRequest request = ListTasksRequest.builder()
                     .cluster(cluster.getName())
                     .serviceName(service.getName())
                     .nextToken(nextToken)
-                    .build());
+                    .build();
+            ListTasksResponse tasksResp = rateLimiter.doWithRateLimit("EcsClient/listTasks",
+                    () -> ecsClient.listTasks(request));
             time = System.currentTimeMillis() - time;
             metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, ImmutableSortedMap.of(), time);
             nextToken = tasksResp.nextToken();
@@ -161,11 +162,12 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     List<StaticConfig> buildTaskTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
                                         Resource service, Set<String> taskARNs) {
         List<StaticConfig> configs = new ArrayList<>();
-        callRateLimiter.acquireTurn();
-        DescribeTasksResponse taskResponse = ecsClient.describeTasks(DescribeTasksRequest.builder()
+        DescribeTasksRequest request = DescribeTasksRequest.builder()
                 .cluster(cluster.getName())
                 .tasks(taskARNs)
-                .build());
+                .build();
+        DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit("EcsClient/describeTasks",
+                () -> ecsClient.describeTasks(request));
         if (taskResponse.hasTasks()) {
             configs.addAll(taskResponse.tasks().stream()
                     .filter(ecsTaskUtil::hasAllInfo)

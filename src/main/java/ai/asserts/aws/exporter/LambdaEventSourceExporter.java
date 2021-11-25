@@ -2,8 +2,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.CallRateLimiter;
 import ai.asserts.aws.MetricNameUtil;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
@@ -45,7 +45,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricSampleBuilder sampleBuilder;
     private final BasicMetricCollector metricCollector;
-    private final CallRateLimiter callRateLimiter;
+    private final RateLimiter rateLimiter;
     private volatile List<MetricFamilySamples> metrics;
 
     public LambdaEventSourceExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
@@ -54,7 +54,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                                      TagFilterResourceProvider tagFilterResourceProvider,
                                      MetricSampleBuilder sampleBuilder,
                                      BasicMetricCollector metricCollector,
-                                     CallRateLimiter callRateLimiter) {
+                                     RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
@@ -62,7 +62,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.sampleBuilder = sampleBuilder;
         this.metricCollector = metricCollector;
-        this.callRateLimiter = callRateLimiter;
+        this.rateLimiter = rateLimiter;
         this.metrics = new ArrayList<>();
     }
 
@@ -89,8 +89,9 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                     ListEventSourceMappingsRequest req = ListEventSourceMappingsRequest.builder()
                             .marker(nextToken)
                             .build();
-                    callRateLimiter.acquireTurn();
-                    ListEventSourceMappingsResponse response = client.listEventSourceMappings(req);
+                    ListEventSourceMappingsResponse response = rateLimiter.doWithRateLimit(
+                            "LambdaClient/listEventSourceMappings",
+                            () -> client.listEventSourceMappings(req));
                     metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, operationLabels(region), 1);
                     if (response.hasEventSourceMappings()) {
                         byRegion.computeIfAbsent(region, k -> new ArrayList<>())

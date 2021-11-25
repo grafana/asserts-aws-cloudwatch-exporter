@@ -4,10 +4,10 @@
  */
 package ai.asserts.aws.lambda;
 
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
-import ai.asserts.aws.CallRateLimiter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import org.easymock.EasyMockSupport;
@@ -41,7 +41,6 @@ public class LogEventScraperTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private Instant now;
     private TimeWindowBuilder timeWindowBuilder;
-    private CallRateLimiter callRateLimiter;
     private LogEventScraper testClass;
 
     @BeforeEach
@@ -51,10 +50,9 @@ public class LogEventScraperTest extends EasyMockSupport {
         logScrapeConfig = mock(LogScrapeConfig.class);
         metricCollector = mock(BasicMetricCollector.class);
         timeWindowBuilder = mock(TimeWindowBuilder.class);
-        callRateLimiter = mock(CallRateLimiter.class);
 
         now = Instant.now();
-        testClass = new LogEventScraper(metricCollector, timeWindowBuilder, callRateLimiter);
+        testClass = new LogEventScraper(metricCollector, timeWindowBuilder, new RateLimiter());
     }
 
     @Test
@@ -79,7 +77,6 @@ public class LogEventScraperTest extends EasyMockSupport {
         expect(lambdaFunction.getName()).andReturn("function-1").anyTimes();
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
         expect(logScrapeConfig.getLogFilterPattern()).andReturn("filterPattern");
-        callRateLimiter.acquireTurn();
         expect(cloudWatchLogsClient.filterLogEvents(request)).andReturn(response);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), eq(ImmutableSortedMap.of(
                 SCRAPE_REGION_LABEL, "region1",
@@ -109,7 +106,6 @@ public class LogEventScraperTest extends EasyMockSupport {
         expect(lambdaFunction.getName()).andReturn("function-1").anyTimes();
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
         expect(logScrapeConfig.getLogFilterPattern()).andReturn("filterPattern");
-        callRateLimiter.acquireTurn();
         expect(cloudWatchLogsClient.filterLogEvents(request)).andThrow(new RuntimeException());
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         replayAll();
