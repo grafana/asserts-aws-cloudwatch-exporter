@@ -6,7 +6,6 @@ import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.lambda.LambdaFunction;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.lambda.LogEventMetricEmitter;
@@ -73,6 +72,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     void scrape_whenLambdaEnabled() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig)).anyTimes();
+        expect(scrapeConfig.getLogScrapeDelaySeconds()).andReturn(1);
         expect(namespaceConfig.getLogs()).andReturn(ImmutableList.of(logScrapeConfig)).anyTimes();
         expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of(
                 region, ImmutableMap.of("arn1", lambdaFunction))

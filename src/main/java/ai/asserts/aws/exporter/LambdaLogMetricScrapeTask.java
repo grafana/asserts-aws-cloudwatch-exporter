@@ -87,7 +87,7 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
                             .filter(logScrapeConfig -> logScrapeConfig.shouldScrapeLogsFor(functionConfig.getName()))
                             .findFirst()
                             .ifPresent(logScrapeConfig -> {
-                                sleep(5000);
+                                sleep(scrapeConfig.getLogScrapeDelaySeconds() * 1000);
                                 Optional<FilteredLogEvent> logEventOpt = logEventScraper.findLogEvent(
                                         cloudWatchLogsClient, functionConfig, logScrapeConfig);
                                 logEventOpt.ifPresent(logEvent ->

@@ -47,6 +47,12 @@ public class ScrapeConfig {
     @Builder.Default
     private Integer numTaskThreads = 10;
 
+    @Builder.Default
+    private String ecsTargetSDFile = "ecs-task-scrape-targets.yml";
+
+    @Builder.Default
+    private Integer logScrapeDelaySeconds = 15;
+
     private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
 
     public Optional<NamespaceConfig> getLambdaConfig() {
