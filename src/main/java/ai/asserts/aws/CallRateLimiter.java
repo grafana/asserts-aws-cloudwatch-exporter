@@ -22,18 +22,15 @@ public class CallRateLimiter {
     }
 
     public void acquireTurn() {
+        Integer delay = scrapeConfigProvider.getScrapeConfig().getAwsAPICallsSpacingMillis();
         try {
             semaphore.acquire();
             long currentTime = System.currentTimeMillis();
-            Integer delay = scrapeConfigProvider.getScrapeConfig().getAwsAPICallsSpacingMillis();
-            long elapsed = currentTime - lastCallTime;
-            if (elapsed < delay) {
-                lastCallTime = lastCallTime + delay;
-                semaphore.release();
-                Thread.sleep(delay - elapsed);
-            } else {
-                lastCallTime = System.currentTimeMillis();
-                semaphore.release();
+            long allowedCallTime = lastCallTime + delay + 10;
+            lastCallTime = Math.max(allowedCallTime, currentTime);
+            semaphore.release();
+            if (currentTime < allowedCallTime) {
+                Thread.sleep(allowedCallTime - currentTime);
             }
         } catch (InterruptedException e) {
             log.error("Sleep interrupted", e);

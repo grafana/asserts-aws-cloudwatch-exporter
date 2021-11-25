@@ -42,8 +42,12 @@ public class CallRateLimiterTest extends EasyMockSupport {
             callRateLimiter.acquireTurn();
             t3.set(System.currentTimeMillis());
         }).get();
-        assertTrue(t2.get() - t1.get() > 1000);
-        assertTrue(t3.get() - t2.get() > 1000);
+        long delay1 = t2.get() - t1.get();
+        long delay2 = t3.get() - t2.get();
+        System.out.println(delay1);
+        System.out.println(delay2);
+        assertTrue(delay1 >= 1000);
+        assertTrue(delay2 >= 1000);
         verifyAll();
     }
 }
