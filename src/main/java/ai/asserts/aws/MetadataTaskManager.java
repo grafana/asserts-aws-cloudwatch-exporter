@@ -37,6 +37,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final ResourceTagExporter resourceTagExporter;
     private final TaskThreadPool taskThreadPool;
     private final ScrapeConfigProvider scrapeConfigProvider;
+
     @Getter
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
 
@@ -68,6 +69,7 @@ public class MetadataTaskManager implements InitializingBean {
 
         taskThreadPool.getExecutorService().submit(() ->
                 logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));
+        scrapeConfigProvider.update();
     }
 
     @VisibleForTesting

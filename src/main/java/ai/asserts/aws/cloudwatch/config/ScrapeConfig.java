@@ -45,7 +45,7 @@ public class ScrapeConfig {
     private Integer getResourcesResultCacheTTLMinutes = 5;
 
     @Builder.Default
-    private Integer numTaskThreads = 10;
+    private Integer numTaskThreads = 5;
 
     @Builder.Default
     private String ecsTargetSDFile = "ecs-task-scrape-targets.yml";

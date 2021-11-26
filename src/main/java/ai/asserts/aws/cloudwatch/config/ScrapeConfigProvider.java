@@ -5,7 +5,6 @@ import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResourceLoader;
@@ -20,7 +19,8 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.function.Supplier;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 @Component
@@ -29,7 +29,8 @@ public class ScrapeConfigProvider {
     private final ObjectMapperFactory objectMapperFactory;
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
     private final String scrapeConfigFile;
-    private final Supplier<ScrapeConfig> configCache;
+    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private volatile ScrapeConfig configCache;
     private final Map<String, CWNamespace> byNamespace = new TreeMap<>();
     private final Map<String, CWNamespace> byServiceName = new TreeMap<>();
 
@@ -37,33 +38,21 @@ public class ScrapeConfigProvider {
                                 @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile) {
         this.objectMapperFactory = objectMapperFactory;
         this.scrapeConfigFile = scrapeConfigFile;
-        configCache = Suppliers.memoize(this::load);
-        Stream.of(CWNamespace.values()).forEach(namespace -> {
-            byNamespace.put(namespace.getNamespace(), namespace);
-            byServiceName.put(namespace.getServiceName(), namespace);
-        });
+        loadAndBuildLookups();
     }
+
 
     public ScrapeConfig getScrapeConfig() {
-        return configCache.get();
+        try {
+            readWriteLock.readLock().lock();
+            return configCache;
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
     }
 
-    private ScrapeConfig load() {
-        URL url;
-        try {
-            Resource resource = resourceLoader.getResource(scrapeConfigFile);
-            url = resource.getURL();
-            ScrapeConfig scrapeConfig = objectMapperFactory.getObjectMapper()
-                    .readValue(url, new TypeReference<ScrapeConfig>() {
-                    });
-
-            validateConfig(scrapeConfig);
-            log.info("Loaded cloudwatch scrape configuration from url={}", url);
-            return scrapeConfig;
-        } catch (IOException e) {
-            log.error("Failed to load scrape configuration from file " + scrapeConfigFile, e);
-            throw new UncheckedIOException(e);
-        }
+    public void update() {
+        loadAndBuildLookups();
     }
 
     @VisibleForTesting
@@ -84,5 +73,38 @@ public class ScrapeConfigProvider {
     public Optional<CWNamespace> getStandardNamespace(String namespace) {
         return Optional.ofNullable(byNamespace.getOrDefault(namespace,
                 byServiceName.getOrDefault(namespace, null)));
+    }
+
+    private void loadAndBuildLookups() {
+        try {
+            readWriteLock.writeLock().lock();
+            configCache = load();
+            byNamespace.clear();
+            byServiceName.clear();
+            Stream.of(CWNamespace.values()).forEach(namespace -> {
+                byNamespace.put(namespace.getNamespace(), namespace);
+                byServiceName.put(namespace.getServiceName(), namespace);
+            });
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
+    }
+
+    private ScrapeConfig load() {
+        URL url;
+        try {
+            Resource resource = resourceLoader.getResource(scrapeConfigFile);
+            url = resource.getURL();
+            ScrapeConfig scrapeConfig = objectMapperFactory.getObjectMapper()
+                    .readValue(url, new TypeReference<ScrapeConfig>() {
+                    });
+
+            validateConfig(scrapeConfig);
+            log.info("Loaded cloudwatch scrape configuration from url={}", url);
+            return scrapeConfig;
+        } catch (IOException e) {
+            log.error("Failed to load scrape configuration from file " + scrapeConfigFile, e);
+            throw new UncheckedIOException(e);
+        }
     }
 }

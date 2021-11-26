@@ -1,9 +1,12 @@
+delay: 60
+period: 300
+scrapeInterval: 300
 regions:
   - us-west-2
 namespaces:
-  - name: lambda
-    scrapeInterval: 60
-    period: 300
+  - name: AWS/Lambda
+    dimensionFilters:
+      FunctionName: .+
     metrics:
       - name: Invocations
         stats:
@@ -11,66 +14,91 @@ namespaces:
       - name: Errors
         stats:
           - Sum
-      - name: DeadLetterErrors
-        stats:
-          - Sum
+      #      - name: DeadLetterErrors
+      #        stats:
+      #          - Sum
       - name: Throttles
         stats:
           - Sum
-      - name: DestinationDeliveryFailures
+      #      - name: DestinationDeliveryFailures
+      #        stats:
+      #          - Sum
+      - name: Duration
         stats:
-          - Sum
-      - name: IteratorAge
-        stats:
-          - Maximum
+          - p99
           - Average
+          - Maximum
+      #      - name: ProvisionedConcurrencyInvocations
+      #        stats:
+      #          - Sum
+      #      - name: ProvisionedConcurrencySpilloverInvocations
+      #        stats:
+      #          - Sum
       - name: ConcurrentExecutions
         stats:
-          - Sum
-      - name: ProvisionedConcurrencyUtilization
-        stats:
+          - Average
           - Maximum
-    logs:
-      - lambdaFunctionName: Function.+
-        logFilterPattern: "About to put message in SQS Queue"
-        regexPattern: ".*put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)"
-        labels:
-          "destination_type": "SQSQueue"
-          "destination_name": "$1"
-  - name: sqs
+  #      - name: ProvisionedConcurrentExecutions
+  #        stats:
+  #          - Average
+  #      - name: UnreservedConcurrentExecutions
+  #        stats:
+  #          - Average
+  #      - name: IteratorAge
+  #        stats:
+  #          - Maximum
+  #    logs:
+  #      - lambdaFunctionName: (Function.+)|(OrderProcessor)
+  #        logFilterPattern: "About to put message in SQS Queue"
+  #        regexPattern: ".*put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)"
+  #        labels:
+  #          "destination_type": "SQSQueue"
+  #          "destination_name": "$1"
+  - name: AWS/SQS
     metrics:
-      - name: NumberOfMessagesReceived
-        stats:
-          - Sum
+      #      - name: NumberOfMessagesDeleted
+      #        stats:
+      #          - Sum
       - name: NumberOfMessagesSent
         stats:
           - Sum
-      - name: NumberOfMessagesDeleted
-        stats:
-          - Sum
-  - name: dynamodb
-    metrics:
-      - name: ConsumedReadCapacityUnits
-        stats:
-          - Maximum
-          - Average
-      - name: ConsumedWriteCapacityUnits
-        stats:
-          - Maximum
-          - Average
-      - name: ProvisionedReadCapacityUnits
-        stats:
-          - Average
-      - name: ProvisionedWriteCapacityUnits
-        stats:
-          - Average
-      - name: ReadThrottleEvents
-        stats:
-          - Sum
-      - name: WriteThrottleEvents
-        stats:
-          - Sum
-  - name: s3
+  #      - name: ApproximateNumberOfMessagesVisible
+  #        stats:
+  #          - Average
+  #      - name: SentMessageSize
+  #        stats:
+  #          - Average
+  #      - name: NumberOfEmptyReceives
+  #        stats:
+  #          - Sum
+  #      - name: ApproximateAgeOfOldestMessage
+  #        stats:
+  #          - Maximum
+  #  - name: AWS/DynamoDB
+  #    scrapeInterval: 300
+  #    period: 300
+  #    metrics:
+  #      - name: ConsumedReadCapacityUnits
+  #        stats:
+  #          - Maximum
+  #          - Average
+  #      - name: ConsumedWriteCapacityUnits
+  #        stats:
+  #          - Maximum
+  #          - Average
+  #      - name: ProvisionedReadCapacityUnits
+  #        stats:
+  #          - Average
+  #      - name: ProvisionedWriteCapacityUnits
+  #        stats:
+  #          - Average
+  #      - name: ReadThrottleEvents
+  #        stats:
+  #          - Sum
+  #      - name: WriteThrottleEvents
+  #        stats:
+  #          - Sum
+  - name: AWS/S3
     period: 86400
     scrapeInterval: 86400
     metrics:
@@ -80,3 +108,69 @@ namespaces:
       - name: BucketSizeBytes
         stats:
           - Average
+  - name: LambdaInsights
+    dimensionFilters:
+      function_name: .+
+    metrics:
+      - name: memory_utilization
+        stats:
+          - Average
+      - name: total_memory
+        stats:
+          - Average
+      - name: used_memory_max
+        stats:
+          - Average
+      - name: cpu_total_time
+        stats:
+          - Sum
+      - name: tx_bytes
+        stats:
+          - Sum
+      - name: rx_bytes
+        stats:
+          - Sum
+#  - name: AWS/ECS
+#    dimensionFilters:
+#      ServiceName: .+
+#    metrics:
+#      - name: MemoryUtilization
+#        stats:
+#          - Average
+#          - Maximum
+#      - name: CPUUtilization
+#        stats:
+#          - Average
+#          - Maximum
+#  - name: ECS/ContainerInsights
+#    dimensionFilters:
+#      ServiceName: .+
+#    metrics:
+#      - name: MemoryReserved
+#        stats:
+#          - Average
+#          - Maximum
+#      - name: MemoryUtilized
+#        stats:
+#          - Average
+#          - Maximum
+#      - name: CpuReserved
+#        stats:
+#          - Average
+#          - Maximum
+#      - name: CpuUtilized
+#        stats:
+#          - Average
+#          - Maximum
+#      - name: NetworkRxBytes
+#        stats:
+#          - Sum
+#      - name: NetworkTxBytes
+#        stats:
+#          - Sum
+#      - name: StorageReadBytes
+#        stats:
+#          - Sum
+#      - name: StorageWriteBytes
+#        stats:
+#          - Sum
