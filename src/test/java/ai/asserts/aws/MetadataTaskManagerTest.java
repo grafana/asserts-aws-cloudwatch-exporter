@@ -110,6 +110,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         lambdaEventSourceExporter.update();
         lambdaInvokeConfigExporter.update();
         logMetricScrapeTask.update();
+        scrapeConfigProvider.update();
 
         replayAll();
         testClass.updateMetadata();

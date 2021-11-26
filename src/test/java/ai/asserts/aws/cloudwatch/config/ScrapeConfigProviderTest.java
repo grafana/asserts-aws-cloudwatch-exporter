@@ -18,7 +18,8 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        testClass = new ScrapeConfigProvider(new ObjectMapperFactory(), null);
+        testClass = new ScrapeConfigProvider(new ObjectMapperFactory(),
+                "cloudwatch_scrape_config.yml");
     }
 
     @Test
