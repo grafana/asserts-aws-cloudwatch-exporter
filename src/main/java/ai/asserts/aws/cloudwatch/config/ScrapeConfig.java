@@ -2,12 +2,13 @@
 package ai.asserts.aws.cloudwatch.config;
 
 
-import ai.asserts.aws.resource.Resource;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.util.CollectionUtils;
+import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
+import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,9 +29,6 @@ public class ScrapeConfig {
 
     @Builder.Default
     private Integer scrapeInterval = 60;
-
-    @Builder.Default
-    private Integer period = 60;
 
     @Builder.Default
     private Integer delay = 0;
@@ -73,12 +71,14 @@ public class ScrapeConfig {
                         ecs_containerinsights.isThisNamespace(nsConfig.getName()));
     }
 
-    public Optional<ECSTaskDefScrapeConfig> getECSScrapeConfig(Resource task) {
+    public Optional<ECSTaskDefScrapeConfig> getECSScrapeConfig(TaskDefinition task) {
         if (CollectionUtils.isEmpty(ecsTaskScrapeConfigs)) {
             return Optional.empty();
         }
         return ecsTaskScrapeConfigs.stream()
-                .filter(config -> config.isApplicable(task))
+                .filter(config -> task.hasContainerDefinitions() && task.containerDefinitions().stream()
+                        .map(ContainerDefinition::name)
+                        .anyMatch(name -> name.equals(config.getContainerDefinitionName())))
                 .findFirst();
     }
 }

@@ -1,7 +1,6 @@
 
 package ai.asserts.aws.cloudwatch.config;
 
-import ai.asserts.aws.resource.Resource;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
@@ -16,7 +15,6 @@ import org.springframework.util.CollectionUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
@@ -81,14 +79,6 @@ public class NamespaceConfig {
             return scrapeInterval;
         } else {
             return scrapeConfig.getScrapeInterval();
-        }
-    }
-
-    public Integer getPeriod() {
-        if (period != null) {
-            return period;
-        } else {
-            return scrapeConfig.getPeriod();
         }
     }
 

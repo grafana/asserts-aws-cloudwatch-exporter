@@ -38,9 +38,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .build();
         testClass.validateConfig(scrapeConfig);
         assertEquals(60, namespaceConfig.getScrapeInterval());
-        assertEquals(60, namespaceConfig.getPeriod());
         assertEquals(60, metricConfig.getScrapeInterval());
-        assertEquals(60, metricConfig.getPeriod());
     }
 
     @Test
@@ -56,14 +54,11 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
                 .scrapeInterval(600)
-                .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
-        assertEquals(300, namespaceConfig.getPeriod());
         assertEquals(600, metricConfig.getScrapeInterval());
-        assertEquals(300, metricConfig.getPeriod());
     }
 
     @Test
@@ -75,21 +70,17 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         NamespaceConfig namespaceConfig = NamespaceConfig.builder()
                 .name("AWS/Lambda")
                 .scrapeInterval(600)
-                .period(300)
                 .metrics(ImmutableList.of(metricConfig))
                 .dimensionFilters(ImmutableMap.of("dimension1", "pattern"))
                 .build();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
                 .scrapeInterval(60)
-                .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
-        assertEquals(300, namespaceConfig.getPeriod());
         assertEquals(600, metricConfig.getScrapeInterval());
-        assertEquals(300, metricConfig.getPeriod());
     }
 
     @Test
@@ -98,7 +89,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .name("Invocations")
                 .stats(ImmutableSet.of(MetricStat.Sum))
                 .scrapeInterval(900)
-                .period(60)
                 .build();
         NamespaceConfig namespaceConfig = NamespaceConfig.builder()
                 .name("AWS/Lambda")
@@ -109,14 +99,11 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
                 .scrapeInterval(60)
-                .period(300)
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
         testClass.validateConfig(scrapeConfig);
         assertEquals(600, namespaceConfig.getScrapeInterval());
-        assertEquals(300, namespaceConfig.getPeriod());
         assertEquals(900, metricConfig.getScrapeInterval());
-        assertEquals(60, metricConfig.getPeriod());
     }
 
     @Test

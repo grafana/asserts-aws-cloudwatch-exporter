@@ -37,7 +37,7 @@ public class MetricQueryBuilder {
                            ai.asserts.aws.cloudwatch.model.MetricStat stat,
                            Metric metric) {
         MetricStat metricStat = MetricStat.builder()
-                .period(metricConfig.getPeriod())
+                .period(metricConfig.getScrapeInterval())
                 .stat(stat.toString())
                 .metric(metric)
                 .build();

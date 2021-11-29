@@ -141,7 +141,7 @@ public class MetricQueryProvider {
                     if (metricNames.add(exportedMetricName)) {
                         log.info("Will scrape {} agg over {} seconds every {} seconds",
                                 exportedMetricName,
-                                metricQuery.getMetricConfig().getPeriod(),
+                                metricQuery.getMetricConfig().getScrapeInterval(),
                                 interval);
                     }
                 })));

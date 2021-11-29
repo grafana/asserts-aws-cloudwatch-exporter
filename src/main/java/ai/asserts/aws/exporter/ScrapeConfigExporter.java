@@ -32,20 +32,15 @@ public class ScrapeConfigExporter extends Collector implements InitializingBean 
     @Override
     public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
-        List<MetricFamilySamples.Sample> periodSamples = new ArrayList<>();
         List<MetricFamilySamples.Sample> intervalSamples = new ArrayList<>();
         scrapeConfigProvider.getScrapeConfig().getNamespaces().forEach(namespaceConfig ->
                 scrapeConfigProvider.getStandardNamespace(namespaceConfig.getName())
-                        .ifPresent(cwNamespace -> {
-                            periodSamples.add(sampleBuilder.buildSingleSample("aws_exporter_metric_period",
-                                    ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, cwNamespace.getNormalizedNamespace()),
-                                    namespaceConfig.getPeriod() * 1.0D));
-                            intervalSamples.add(sampleBuilder.buildSingleSample("aws_exporter_scrape_interval",
-                                    ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, cwNamespace.getNormalizedNamespace()),
-                                    namespaceConfig.getScrapeInterval() * 1.0D));
-                        }));
+                        .ifPresent(cwNamespace ->
+                                intervalSamples.add(sampleBuilder.buildSingleSample(
+                                        "aws_exporter_scrape_interval",
+                                        ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, cwNamespace.getNormalizedNamespace()),
+                                        namespaceConfig.getScrapeInterval() * 1.0D))));
 
-        metricFamilySamples.add(sampleBuilder.buildFamily(periodSamples));
         metricFamilySamples.add(sampleBuilder.buildFamily(intervalSamples));
         return metricFamilySamples;
     }

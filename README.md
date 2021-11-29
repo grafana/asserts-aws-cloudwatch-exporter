@@ -75,23 +75,17 @@ configured at in the following different ways
 
 **Number of metric samples**
 
-The number of metric samples retrieved in each scrape will be `scrapeInterval / period` if ` scrapeInterval > period `
-or `1` if `period > scrapeInterval`
-
-| Scrape Interval | Period | Number of Samples in each scrape|
-|-----------------|--------|---------------------------------|
-| 300 | 60 | 5|
-| 60 | 300 | 1|
+In each scrape one sample of the metric statistic is retrieved with the period for the statistic being the same
+as the scrape interval.
 
 
 **Sample Configuration**
 ```
+scrapeInterval: 60
 regions:
   - us-west-2
 namespaces:
   - name: AWS/Lambda
-    scrapeInterval: 60
-    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -177,7 +171,6 @@ namespaces:
         stats:
           - Sum
   - name: AWS/S3
-    period: 86400
     scrapeInterval: 86400
     metrics:
       - name: NumberOfObjects
@@ -187,8 +180,6 @@ namespaces:
         stats:
           - Average
   - name: LambdaInsights
-    scrapeInterval: 60
-    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -211,8 +202,6 @@ namespaces:
         stats:
           - Sum
   - name: AWS/ECS
-    scrapeInterval: 60
-    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -225,8 +214,6 @@ namespaces:
           - Average
           - Maximum
   - name: ECS/ContainerInsights
-    scrapeInterval: 60
-    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -340,86 +327,33 @@ The following IAM permissions need to be configured for the exporter
         {
             "Effect": "Allow",
             "Action": [
-                "elasticfilesystem:*"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": "arn:aws:apigateway:*::/restapis/*/resources/*/methods/*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": "arn:aws:apigateway:*::/restapis/*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": [
-                "arn:aws:apigateway:*::/restapis/*/deployments/*",
-                "arn:aws:apigateway:*::/restapis/*/stages/*",
-                "arn:aws:apigateway:*::/restapis/*/resources",
-                "arn:aws:apigateway:*::/restapis/*/deployments",
-                "arn:aws:apigateway:*::/restapis/*/resources/*/methods/*/integration",
-                "arn:aws:apigateway:*::/restapis/*/stages",
-                "arn:aws:apigateway:*::/restapis"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": "arn:aws:apigateway:*::/apis/*/stages/*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": [
-                "arn:aws:apigateway:*::/apis/*/routes/*",
-                "arn:aws:apigateway:*::/apis/*/stages",
-                "arn:aws:apigateway:*::/apis/*/integrations/*",
-                "arn:aws:apigateway:*::/apis/*/integrations",
-                "arn:aws:apigateway:*::/apis/*/routes",
-                "arn:aws:apigateway:*::/apis/*/stages/*/routesettings/*",
-                "arn:aws:apigateway:*::/apis/*/deployments",
-                "arn:aws:apigateway:*::/apis/*/deployments/*",
-                "arn:aws:apigateway:*::/apis"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": "apigateway:GET",
-            "Resource": "arn:aws:apigateway:*::/apis/*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "lambda:ListProvisionedConcurrencyConfigs",
-                "lambda:ListFunctionEventInvokeConfigs",
+                "cloudwatch:ListMetrics",
+                "cloudwatch:GetMetricData",
+                "logs:FilterLogEvents",
                 "tag:GetResources",
+                "lambda:GetAccountSettings",
                 "lambda:ListFunctions",
                 "lambda:ListVersionsByFunction",
-                "cloudwatch:GetMetricData",
                 "lambda:ListAliases",
+                "lambda:ListProvisionedConcurrencyConfigs",
+                "lambda:ListFunctionEventInvokeConfigs",
+                "lambda:GetProvisionedConcurrencyConfig",
+                "lambda:GetFunctionConcurrency",
                 "lambda:ListEventSourceMappings",
-                "cloudwatch:ListMetrics",
-                "lambda:GetAccountSettings"
+                "ecs:ListTaskDefinitionFamilies",
+                "ecs:ListTaskDefinitions",
+                "ecs:ListClusters"
+                "ecs:ListServices",
+                "ecs:ListContainerInstances",
+                "ecs:ListTasks",
+                "ecs:ListAccountSettings",
+                "ecs:DescribeServices",
+                "ecs:DescribeContainerInstances",
+                "ecs:DescribeTasks",
+                "ecs:DescribeTaskDefinition"
             ],
             "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "logs:FilterLogEvents",
-                "apigateway:GET"
-            ],
-            "Resource": [
-                "arn:aws:apigateway:*::/restapis/*/resources/*",
-                "arn:aws:logs:*:123456789123:log-group:*"
-            ]
         }
     ]
 }
-
 ```
