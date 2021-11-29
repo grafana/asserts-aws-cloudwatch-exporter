@@ -57,7 +57,7 @@ public class LogEventScraperTest extends EasyMockSupport {
 
     @Test
     public void findLogEvent() {
-        expect(timeWindowBuilder.getTimePeriod("region1")).andReturn(new Instant[]{now.minusSeconds(60), now});
+        expect(timeWindowBuilder.getTimePeriod("region1", 60)).andReturn(new Instant[]{now.minusSeconds(60), now});
         FilterLogEventsRequest request = FilterLogEventsRequest.builder()
                 .limit(1)
                 .endTime(now.minusSeconds(60).toEpochMilli())
@@ -94,7 +94,7 @@ public class LogEventScraperTest extends EasyMockSupport {
 
     @Test
     public void findLogEvent_Exception() {
-        expect(timeWindowBuilder.getTimePeriod("region1")).andReturn(new Instant[]{now.minusSeconds(60), now});
+        expect(timeWindowBuilder.getTimePeriod("region1", 60)).andReturn(new Instant[]{now.minusSeconds(60), now});
         FilterLogEventsRequest request = FilterLogEventsRequest.builder()
                 .limit(1)
                 .endTime(now.minusSeconds(60).toEpochMilli())

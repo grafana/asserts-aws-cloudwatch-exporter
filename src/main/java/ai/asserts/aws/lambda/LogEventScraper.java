@@ -38,7 +38,7 @@ public class LogEventScraper {
     public Optional<FilteredLogEvent> findLogEvent(CloudWatchLogsClient cloudWatchLogsClient,
                                                    LambdaFunction functionConfig,
                                                    LogScrapeConfig logScrapeConfig) {
-        Instant[] timePeriod = timeWindowBuilder.getTimePeriod(functionConfig.getRegion());
+        Instant[] timePeriod = timeWindowBuilder.getTimePeriod(functionConfig.getRegion(), 60);
         Instant endTime = timePeriod[1].minusSeconds(60);
         Instant startTime = timePeriod[0].minusSeconds(60);
         String logGroupName = format("/aws/lambda/%s", functionConfig.getName());

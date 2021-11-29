@@ -107,7 +107,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
 
         expect(awsClientProvider.getCloudWatchClient(region)).andReturn(cloudWatchClient);
 
-        expect(timeWindowBuilder.getTimePeriod(region)).andReturn(new Instant[]{now.minusSeconds(60), now});
+        expect(timeWindowBuilder.getTimePeriod(region, interval)).andReturn(new Instant[]{now.minusSeconds(60), now});
 
         expect(queryBatcher.splitIntoBatches(queries)).andReturn(ImmutableList.of(queries));
 
