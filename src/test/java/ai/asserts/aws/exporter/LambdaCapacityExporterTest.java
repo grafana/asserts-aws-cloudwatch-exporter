@@ -82,6 +82,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(metricNameUtil.getLambdaMetric("requested_concurrency")).andReturn("requested");
         expect(metricNameUtil.getLambdaMetric("allocated_concurrency")).andReturn("allocated");
         expect(metricNameUtil.getLambdaMetric("timeout_seconds")).andReturn("timeout");
+        expect(metricNameUtil.getLambdaMetric("memory_limit_mb")).andReturn("memory_limit");
         expect(metricNameUtil.getLambdaMetric("account_limit")).andReturn("limit");
     }
 
@@ -101,6 +102,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expect(lambdaFunction.getName()).andReturn("fn1").times(3);
         expect(lambdaFunction.getTimeoutSeconds()).andReturn(120);
+        expect(lambdaFunction.getMemoryMB()).andReturn(128);
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn1")
                 .build()))
@@ -115,6 +117,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "job", "fn1"
         ), 120.0D)).andReturn(sample);
+
+        expect(sampleBuilder.buildSingleSample("memory_limit", ImmutableMap.of(
+                "region", "region1", "d_function_name", "fn1", "job", "fn1"
+        ), 128.0D)).andReturn(sample);
 
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(sampleBuilder.buildSingleSample("available", ImmutableMap.of(
@@ -140,6 +146,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expect(lambdaFunction.getName()).andReturn("fn2").times(3);
         expect(lambdaFunction.getTimeoutSeconds()).andReturn(60);
+        expect(lambdaFunction.getMemoryMB()).andReturn(128);
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn2")
                 .build()))
@@ -154,6 +161,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
                 "region", "region2", "d_function_name", "fn2", "job", "fn2"
         ), 60.0D)).andReturn(sample);
+
+        expect(sampleBuilder.buildSingleSample("memory_limit", ImmutableMap.of(
+                "region", "region2", "d_function_name", "fn2", "job", "fn2"
+        ), 128.0D)).andReturn(sample);
 
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(sampleBuilder.buildSingleSample("available", ImmutableMap.of(
@@ -170,13 +181,14 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         ), 20.0D)).andReturn(sample);
         lambdaClient.close();
 
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples).times(4);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples).times(5);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(familySamples);
 
         replayAll();
         testClass.update();
         testClass.collect();
-        assertEquals(ImmutableList.of(familySamples, familySamples, familySamples, familySamples, familySamples),
+        assertEquals(ImmutableList.of(familySamples, familySamples, familySamples, familySamples, familySamples,
+                familySamples),
                 testClass.collect());
         verifyAll();
     }
@@ -195,25 +207,32 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expect(lambdaFunction.getName()).andReturn("fn1").times(3);
         expect(lambdaFunction.getTimeoutSeconds()).andReturn(60);
+        expect(lambdaFunction.getMemoryMB()).andReturn(128);
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn1")
                 .build()))
                 .andReturn(ListProvisionedConcurrencyConfigsResponse.builder()
                         .provisionedConcurrencyConfigs(Collections.emptyList())
                         .build());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
+
         expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "job", "fn1"
         ), 60.0D)).andReturn(sample);
-        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
+
+        expect(sampleBuilder.buildSingleSample("memory_limit", ImmutableMap.of(
+                "region", "region1", "d_function_name", "fn1", "job", "fn1"
+        ), 128.0D)).andReturn(sample);
+
         lambdaClient.close();
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples).times(2);
 
         replayAll();
         testClass.update();
         testClass.collect();
-        assertEquals(ImmutableList.of(familySamples, familySamples), testClass.collect());
+        assertEquals(ImmutableList.of(familySamples, familySamples, familySamples), testClass.collect());
         verifyAll();
     }
 

@@ -81,6 +81,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         String requestedMetric = metricNameUtil.getLambdaMetric("requested_concurrency");
         String allocatedMetric = metricNameUtil.getLambdaMetric("allocated_concurrency");
         String timeoutMetric = metricNameUtil.getLambdaMetric("timeout_seconds");
+        String memoryLimit = metricNameUtil.getLambdaMetric("memory_limit_mb");
         String accountLimitMetric = metricNameUtil.getLambdaMetric("account_limit");
 
         Map<String, List<MetricFamilySamples.Sample>> samples = new TreeMap<>();
@@ -121,6 +122,9 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                     double timeout = lambdaFunction.getTimeoutSeconds() * 1.0D;
                     samples.computeIfAbsent(timeoutMetric, k -> new ArrayList<>())
                             .add(sampleBuilder.buildSingleSample(timeoutMetric, labels, timeout));
+
+                    samples.computeIfAbsent(memoryLimit, k -> new ArrayList<>())
+                            .add(sampleBuilder.buildSingleSample(memoryLimit, labels, lambdaFunction.getMemoryMB() * 1.0D));
 
 
                     ListProvisionedConcurrencyConfigsRequest request = ListProvisionedConcurrencyConfigsRequest
