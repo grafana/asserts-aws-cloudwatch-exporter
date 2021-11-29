@@ -30,7 +30,7 @@ public class LabelBuilder {
         Map<String, String> labels = new TreeMap<>();
         labels.put("region", region);
         scrapeConfigProvider.getStandardNamespace(metricQuery.getMetric().namespace())
-                .ifPresent(ns -> labels.put("namespace", ns.getNormalizedNamespace()));
+                .ifPresent(ns -> labels.put("cw_namespace", ns.getNormalizedNamespace()));
 
 
         if (lambdaLabelConverter.shouldUseForNamespace(metricQuery.getMetric().namespace())) {
