@@ -109,31 +109,33 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
-        expect(scrapeConfig.getECSScrapeConfig(taskDef)).andReturn(Optional.empty());
+        TaskDefinition taskDefinition = TaskDefinition.builder()
+                .containerDefinitions(ContainerDefinition.builder()
+                                .name("model-builder")
+                                .portMappings(PortMapping.builder()
+                                        .containerPort(8080)
+                                        .hostPort(53234)
+                                        .build())
+                                .dockerLabels(ImmutableMap.of(
+                                        PROMETHEUS_METRIC_PATH_DOCKER_LABEL, "/metric/path",
+                                        PROMETHEUS_PORT_DOCKER_LABEL, "8080"
+                                ))
+                                .build(),
+                        ContainerDefinition.builder()
+                                .name("sidecar")
+                                .portMappings(PortMapping.builder()
+                                        .containerPort(8081)
+                                        .hostPort(53235)
+                                        .build())
+                                .build())
+                .build();
+
+        expect(scrapeConfig.getECSScrapeConfig(taskDefinition)).andReturn(Optional.empty());
 
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
-                .taskDefinition(TaskDefinition.builder()
-                        .containerDefinitions(ContainerDefinition.builder()
-                                        .name("model-builder")
-                                        .portMappings(PortMapping.builder()
-                                                .containerPort(8080)
-                                                .hostPort(53234)
-                                                .build())
-                                        .dockerLabels(ImmutableMap.of(
-                                                PROMETHEUS_METRIC_PATH_DOCKER_LABEL, "/metric/path",
-                                                PROMETHEUS_PORT_DOCKER_LABEL, "8080"
-                                        ))
-                                        .build(),
-                                ContainerDefinition.builder()
-                                        .name("sidecar")
-                                        .portMappings(PortMapping.builder()
-                                                .containerPort(8081)
-                                                .hostPort(53235)
-                                                .build())
-                                        .build())
-                        .build())
+                .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
@@ -170,31 +172,34 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
-        expect(scrapeConfig.getECSScrapeConfig(taskDef)).andReturn(Optional.of(taskDefScrapeConfig));
         expect(taskDefScrapeConfig.getContainerDefinitionName()).andReturn("model-builder");
         expect(taskDefScrapeConfig.getMetricPath()).andReturn("/metric/path").anyTimes();
         expect(taskDefScrapeConfig.getContainerPort()).andReturn(8080).anyTimes();
 
+        TaskDefinition taskDefinition = TaskDefinition.builder()
+                .containerDefinitions(ContainerDefinition.builder()
+                                .name("model-builder")
+                                .portMappings(PortMapping.builder()
+                                        .containerPort(8080)
+                                        .hostPort(53234)
+                                        .build())
+                                .build(),
+                        ContainerDefinition.builder()
+                                .name("sidecar")
+                                .portMappings(PortMapping.builder()
+                                        .containerPort(8081)
+                                        .hostPort(53235)
+                                        .build())
+                                .build())
+                .build();
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
-                .taskDefinition(TaskDefinition.builder()
-                        .containerDefinitions(ContainerDefinition.builder()
-                                        .name("model-builder")
-                                        .portMappings(PortMapping.builder()
-                                                .containerPort(8080)
-                                                .hostPort(53234)
-                                                .build())
-                                        .build(),
-                                ContainerDefinition.builder()
-                                        .name("sidecar")
-                                        .portMappings(PortMapping.builder()
-                                                .containerPort(8081)
-                                                .hostPort(53235)
-                                                .build())
-                                        .build())
-                        .build())
+                .taskDefinition(taskDefinition)
                 .build());
+
+        expect(scrapeConfig.getECSScrapeConfig(taskDefinition)).andReturn(Optional.of(taskDefScrapeConfig));
+
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
         replayAll();
@@ -230,19 +235,20 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
-        expect(scrapeConfig.getECSScrapeConfig(taskDef)).andReturn(Optional.empty());
+        TaskDefinition taskDefinition = TaskDefinition.builder()
+                .containerDefinitions(ContainerDefinition.builder()
+                        .name("model-builder")
+                        .portMappings(PortMapping.builder()
+                                .containerPort(8080)
+                                .hostPort(53234)
+                                .build())
+                        .build())
+                .build();
+        expect(scrapeConfig.getECSScrapeConfig(taskDefinition)).andReturn(Optional.empty());
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
-                .taskDefinition(TaskDefinition.builder()
-                        .containerDefinitions(ContainerDefinition.builder()
-                                .name("model-builder")
-                                .portMappings(PortMapping.builder()
-                                        .containerPort(8080)
-                                        .hostPort(53234)
-                                        .build())
-                                .build())
-                        .build())
+                .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
@@ -278,26 +284,27 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
-        expect(scrapeConfig.getECSScrapeConfig(taskDef)).andReturn(Optional.empty());
+        TaskDefinition taskDefinition = TaskDefinition.builder()
+                .containerDefinitions(ContainerDefinition.builder()
+                                .name("model-builder")
+                                .portMappings(PortMapping.builder()
+                                        .containerPort(8080)
+                                        .hostPort(53234)
+                                        .build())
+                                .build(),
+                        ContainerDefinition.builder()
+                                .name("sidecar")
+                                .portMappings(PortMapping.builder()
+                                        .containerPort(8081)
+                                        .hostPort(53235)
+                                        .build())
+                                .build())
+                .build();
+        expect(scrapeConfig.getECSScrapeConfig(taskDefinition)).andReturn(Optional.empty());
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
-                .taskDefinition(TaskDefinition.builder()
-                        .containerDefinitions(ContainerDefinition.builder()
-                                        .name("model-builder")
-                                        .portMappings(PortMapping.builder()
-                                                .containerPort(8080)
-                                                .hostPort(53234)
-                                                .build())
-                                        .build(),
-                                ContainerDefinition.builder()
-                                        .name("sidecar")
-                                        .portMappings(PortMapping.builder()
-                                                .containerPort(8081)
-                                                .hostPort(53235)
-                                                .build())
-                                        .build())
-                        .build())
+                .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
@@ -323,10 +330,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     public void buildScrapeTarget_use_taskdef_config_exception() {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
-
-        expect(scrapeConfig.getECSScrapeConfig(taskDef)).andReturn(Optional.of(taskDefScrapeConfig));
-        expect(taskDefScrapeConfig.getContainerDefinitionName()).andReturn("model-builder");
-        expect(taskDefScrapeConfig.getContainerPort()).andReturn(8080).anyTimes();
 
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")

@@ -26,7 +26,6 @@ import software.amazon.awssdk.services.ecs.model.PortMapping;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -111,46 +110,27 @@ public class ECSTaskUtil {
                 labelsBuilder = labelsBuilder.metricsPath(metricPathUsingDockerLabel.get());
             }
 
-            Optional<ECSTaskDefScrapeConfig> defOpt = scrapeConfig.getECSScrapeConfig(taskDefResource);
-            String containerName = defOpt.map(ECSTaskDefScrapeConfig::getContainerDefinitionName).orElse(null);
-            if (defOpt.isPresent() && taskDefinition.hasContainerDefinitions()) {
+            Optional<ECSTaskDefScrapeConfig> defOpt = scrapeConfig.getECSScrapeConfig(taskDefinition);
+            Optional<String> containerNameOpt = defOpt.map(ECSTaskDefScrapeConfig::getContainerDefinitionName);
+            if (taskDefinition.hasContainerDefinitions()) {
                 List<ContainerDefinition> containerDefinitions = taskDefinition.containerDefinitions();
-                List<PortMapping> portMappings = Collections.emptyList();
-                if (containerDefinitions.size() == 1) {
-                    portMappings = containerDefinitions.get(0).portMappings();
-                } else {
+                if (containerDefinitions.size() == 1 && containerDefinitions.get(0).portMappings().size() == 1) {
+                    targets.add(format("%s:%d", ipAddress, containerDefinitions.get(0).portMappings().get(0).hostPort()));
+                } else if (defOpt.isPresent() && containerNameOpt.isPresent()) {
                     Optional<ContainerDefinition> container = containerDefinitions.stream()
-                            .filter(containerDefinition -> containerDefinition.name().equals(containerName))
+                            .filter(containerDefinition -> containerDefinition.name().equals(containerNameOpt.get()))
                             .findFirst();
-                    if (container.isPresent()) {
-                        portMappings = container.get().portMappings();
+                    if (container.isPresent() && container.get().hasPortMappings()) {
+                        Optional<Integer> portOpt = container.get().portMappings().stream()
+                                .filter(portMapping -> portMapping.containerPort()
+                                        .equals(defOpt.get().getContainerPort()))
+                                .map(PortMapping::hostPort)
+                                .findFirst();
+                        portOpt.ifPresent(port -> targets.add(format("%s:%d", ipAddress, port)));
+                        if (StringUtils.isNotEmpty(defOpt.get().getMetricPath())) {
+                            labelsBuilder = labelsBuilder.metricsPath(defOpt.get().getMetricPath());
+                        }
                     }
-                }
-
-                Optional<PortMapping> specifiedPort = Optional.empty();
-                ECSTaskDefScrapeConfig taskDefConfig = defOpt.get();
-                if (taskDefConfig.getContainerPort() != null) {
-                    specifiedPort = portMappings.stream()
-                            .filter(mapping -> mapping.containerPort().equals(taskDefConfig.getContainerPort()))
-                            .findFirst();
-                }
-                if (!specifiedPort.isPresent()) {
-                    log.warn("No scrape target port found as per configuration {}", taskDefConfig);
-                }
-                if (StringUtils.isNotEmpty(taskDefConfig.getMetricPath())) {
-                    labelsBuilder = labelsBuilder.metricsPath(taskDefConfig.getMetricPath());
-                }
-
-                if (specifiedPort.isPresent()) {
-                    targets.add(format("%s:%d", ipAddress, specifiedPort.get().hostPort()));
-                } else if (portMappings.size() == 1) {
-                    log.warn("For task {} in Cluster {}, Service {}, Task Definition {} picking only known port ",
-                            task.taskArn(), cluster.getName(), service.getName(), taskDefResource.getName());
-                    targets.add(format("%s:%d", ipAddress, portMappings.get(0).hostPort()));
-                } else {
-                    log.error("For task {} in Cluster {}, Service {}, Task Definition {} could not pick scrape port ",
-                            task.taskArn(), cluster.getName(), service.getName(), taskDefResource.getName());
-                    return Optional.empty();
                 }
             }
         } catch (Exception e) {
@@ -158,10 +138,16 @@ public class ECSTaskUtil {
             log.error("Failed to describe task definition", e);
             return Optional.empty();
         }
-        return Optional.of(staticConfigBuilder
-                .labels(labelsBuilder.build())
-                .targets(targets)
-                .build());
+
+        if (targets.size() == 1) {
+            return Optional.of(staticConfigBuilder
+                    .labels(labelsBuilder.build())
+                    .targets(targets)
+                    .build());
+        } else {
+            log.error("Failed to build target");
+            return Optional.empty();
+        }
     }
 
     Optional<String> getTargetUsingDockerLabels(String ipAddress, TaskDefinition taskDefinition) {
@@ -197,7 +183,7 @@ public class ECSTaskUtil {
                         .filter(entry -> entry.getKey().equals(PROMETHEUS_METRIC_PATH_DOCKER_LABEL))
                         .map(Map.Entry::getValue)
                         .findFirst();
-                if( path.isPresent()) {
+                if (path.isPresent()) {
                     break;
                 }
             }

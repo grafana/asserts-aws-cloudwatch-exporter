@@ -22,8 +22,6 @@ import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
 @With
 @AllArgsConstructor
 public class ECSTaskDefScrapeConfig {
-    private String taskDefinitionName;
-    private String taskDefinitionVersion;
     private String containerDefinitionName;
     private Integer containerPort;
     private String metricPath;
@@ -37,12 +35,6 @@ public class ECSTaskDefScrapeConfig {
     }
 
     public boolean validate() {
-        return StringUtils.isNotEmpty(taskDefinitionName) && (containerPort != null || metricPath != null);
-    }
-
-    public boolean isApplicable(Resource taskDefResource) {
-        return taskDefResource.getType().equals(ECSTaskDef) &&
-                taskDefResource.getName().equals(taskDefinitionName) &&
-                (taskDefinitionVersion == null || taskDefResource.getVersion().equals(taskDefinitionVersion));
+        return StringUtils.isNotEmpty(containerDefinitionName) && (containerPort != null || metricPath != null);
     }
 }

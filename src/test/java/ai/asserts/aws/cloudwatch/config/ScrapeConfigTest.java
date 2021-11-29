@@ -4,10 +4,11 @@
  */
 package ai.asserts.aws.cloudwatch.config;
 
-import ai.asserts.aws.resource.Resource;
 import com.google.common.collect.ImmutableList;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
+import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
 import java.util.Optional;
 
@@ -91,7 +92,7 @@ public class ScrapeConfigTest extends EasyMockSupport {
     @Test
     public void getECSScrapeConfig_None() {
         ScrapeConfig scrapeConfig = ScrapeConfig.builder().build();
-        assertEquals(Optional.empty(), scrapeConfig.getECSScrapeConfig(Resource.builder().build()));
+        assertEquals(Optional.empty(), scrapeConfig.getECSScrapeConfig(TaskDefinition.builder().build()));
     }
 
     @Test
@@ -100,12 +101,14 @@ public class ScrapeConfigTest extends EasyMockSupport {
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .ecsTaskScrapeConfigs(ImmutableList.of(mockConfig))
                 .build();
-        Resource resource = mock(Resource.class);
+        TaskDefinition taskDefinition = TaskDefinition.builder()
+                .containerDefinitions(ContainerDefinition.builder().name("cn").build())
+                .build();
 
-        expect(mockConfig.isApplicable(resource)).andReturn(true);
+        expect(mockConfig.getContainerDefinitionName()).andReturn("cn");
 
         replayAll();
-        assertEquals(Optional.of(mockConfig), scrapeConfig.getECSScrapeConfig(resource));
+        assertEquals(Optional.of(mockConfig), scrapeConfig.getECSScrapeConfig(taskDefinition));
         verifyAll();
     }
 }
