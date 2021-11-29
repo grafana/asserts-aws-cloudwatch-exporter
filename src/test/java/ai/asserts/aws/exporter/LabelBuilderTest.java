@@ -64,7 +64,7 @@ public class LabelBuilderTest extends EasyMockSupport {
 
         assertEquals(ImmutableMap.of(
                 "region", "region1",
-                "namespace", "AWS/Lambda",
+                "cw_namespace", "AWS/Lambda",
                 "d_function_name", "function1",
                 "job", "function1"
         ), labels);
@@ -93,7 +93,7 @@ public class LabelBuilderTest extends EasyMockSupport {
 
         assertEquals(ImmutableMap.of(
                 "region", "region1",
-                "namespace", "AWS/Lambda",
+                "cw_namespace", "AWS/Lambda",
                 "d_function_name", "function1",
                 "job", "function1"
         ), labels);
@@ -120,7 +120,7 @@ public class LabelBuilderTest extends EasyMockSupport {
 
         assertEquals(ImmutableMap.of(
                 "region", "region1",
-                "namespace", "AWS/SQS",
+                "cw_namespace", "AWS/SQS",
                 "d_queue_name", "queue1",
                 "topic", "queue1"
         ), labels);
@@ -148,7 +148,7 @@ public class LabelBuilderTest extends EasyMockSupport {
 
         assertEquals(ImmutableMap.of(
                 "region", "region1",
-                "namespace", "AWS/ECS",
+                "cw_namespace", "AWS/ECS",
                 "d_service_name", "service-name",
                 "job", "service-name"
         ), labels);
