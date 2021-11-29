@@ -18,14 +18,14 @@ import java.time.ZonedDateTime;
 @Component
 @Slf4j
 public class TimeWindowBuilder {
-    public Instant[] getTimePeriod(String region) {
+    public Instant[] getTimePeriod(String region, int scrapeIntervalSeconds) {
 
         Instant start, end;
 
         ZonedDateTime now = getZonedDateTime(region);
         end = now.minusSeconds(now.getSecond())
                 .toInstant();
-        start = end.minusSeconds(60);
+        start = end.minusSeconds(scrapeIntervalSeconds);
         return new Instant[]{start, end};
     }
 

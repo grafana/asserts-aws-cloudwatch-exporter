@@ -17,7 +17,7 @@ public class TimeWindowBuilderTest {
     @Test
     void getTimePeriod_us_west_2() {
         TimeWindowBuilder testClass = new TimeWindowBuilder();
-        Instant[] timePeriod = testClass.getTimePeriod("us-west-2");
+        Instant[] timePeriod = testClass.getTimePeriod("us-west-2", 60);
         ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(timePeriod[0], ZoneId.of("America/Los_Angeles"));
         assertEquals(0, zonedDateTime.getSecond());
         assertEquals(60_000, timePeriod[1].toEpochMilli() - timePeriod[0].toEpochMilli());

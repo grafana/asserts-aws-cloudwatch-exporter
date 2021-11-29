@@ -125,7 +125,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                 String nextToken = null;
                 // For now, S3 is the only one which has a different period of 1 day. All other metrics are 1m
                 Instant[] timePeriod = s3DailyMetric ? timeWindowBuilder.getDailyMetricTimeWindow(region) :
-                        timeWindowBuilder.getTimePeriod(region);
+                        timeWindowBuilder.getTimePeriod(region, intervalSeconds);
                 log.info("Scraping metrics for time period {} - {}", timePeriod[0], timePeriod[1]);
                 do {
                     GetMetricDataRequest.Builder requestBuilder = GetMetricDataRequest.builder()
