@@ -112,12 +112,7 @@ namespaces:
       - name: memory_utilization
         stats:
           - Average
-      - name: total_memory
-        stats:
-          - Average
-      - name: used_memory_max
-        stats:
-          - Average
+          - Maximum
       - name: cpu_total_time
         stats:
           - Sum
