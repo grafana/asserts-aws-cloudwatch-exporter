@@ -36,22 +36,6 @@ public class NamespaceConfigTest extends EasyMockSupport {
     }
 
     @Test
-    void getPeriod() {
-        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
-        NamespaceConfig namespaceConfig = NamespaceConfig.builder()
-                .scrapeConfig(scrapeConfig)
-                .build();
-
-        expect(scrapeConfig.getPeriod()).andReturn(60);
-        replayAll();
-        assertEquals(60, namespaceConfig.getPeriod());
-        verifyAll();
-
-        namespaceConfig.setPeriod(120);
-        assertEquals(120, namespaceConfig.getPeriod());
-    }
-
-    @Test
     void validate_noName() {
         NamespaceConfig namespaceConfig = NamespaceConfig.builder()
                 .build();

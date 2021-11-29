@@ -61,19 +61,14 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
         expect(namespaceConfig.getName()).andReturn("ns1");
         expect(scrapeConfigProvider.getStandardNamespace("ns1")).andReturn(Optional.of(lambda));
 
-        expect(namespaceConfig.getPeriod()).andReturn(60);
-        expect(metricSampleBuilder.buildSingleSample("aws_exporter_metric_period",
-                ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"), 60.0D)).andReturn(sample);
-
         expect(namespaceConfig.getScrapeInterval()).andReturn(61);
         expect(metricSampleBuilder.buildSingleSample("aws_exporter_scrape_interval",
                 ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"), 61.0D)).andReturn(sample);
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
-        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
 
         replayAll();
-        assertEquals(ImmutableList.of(metricFamilySamples, metricFamilySamples), testClass.collect());
+        assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());
         verifyAll();
     }
 }

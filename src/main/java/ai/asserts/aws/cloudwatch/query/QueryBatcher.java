@@ -26,9 +26,8 @@ public class QueryBatcher {
         batches.add(new ArrayList<>());
         queries.forEach(metricQuery -> {
             List<MetricQuery> currentBatch = batches.get(batches.size() - 1);
-            int sumTillNow = currentBatch.stream().mapToInt(mQ -> mQ.getMetricConfig().numSamplesPerScrape()).sum();
-            if (sumTillNow + metricQuery.getMetricConfig().numSamplesPerScrape() < dataLimit &&
-                    currentBatch.size() < queryCountLimit) {
+            int sumTillNow = currentBatch.size();
+            if (sumTillNow + 1 < dataLimit && currentBatch.size() < queryCountLimit) {
                 currentBatch.add(metricQuery);
             } else {
                 currentBatch = new ArrayList<>();

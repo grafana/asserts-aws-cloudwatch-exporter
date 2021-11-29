@@ -1,5 +1,4 @@
 delay: 60
-period: 300
 scrapeInterval: 300
 regions:
   - us-west-2
@@ -76,7 +75,6 @@ namespaces:
 #          - Maximum
 #  - name: AWS/DynamoDB
 #    scrapeInterval: 300
-#    period: 300
 #    metrics:
 #      - name: ConsumedReadCapacityUnits
 #        stats:
@@ -99,7 +97,6 @@ namespaces:
 #        stats:
 #          - Sum
   - name: AWS/S3
-    period: 86400
     scrapeInterval: 86400
     metrics:
       - name: NumberOfObjects

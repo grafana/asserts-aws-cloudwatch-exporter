@@ -4,7 +4,6 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
-import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
@@ -43,7 +42,6 @@ import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLE
  *     <li>A maximum of 100800 data points returned in each call</li>
  * </ol>
  * <p>
- * The number of samples per metric is determined by {@link MetricConfig#numSamplesPerScrape()}
  */
 @Slf4j
 @Setter

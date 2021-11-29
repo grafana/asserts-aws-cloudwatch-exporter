@@ -32,6 +32,8 @@ public class MetricQueryBuilderTest extends EasyMockSupport {
 
         MetricQueryBuilder metricQueryBuilder = new MetricQueryBuilder();
 
+        expect(namespaceConfig.getScrapeInterval()).andReturn(300).anyTimes();
+
         expect(queryIdGenerator.next()).andReturn("q1");
         expect(queryIdGenerator.next()).andReturn("q2");
 
@@ -39,7 +41,6 @@ public class MetricQueryBuilderTest extends EasyMockSupport {
                 .namespace(namespaceConfig)
                 .name("metric")
                 .stats(new LinkedHashSet<>(Arrays.asList(Average, Maximum)))
-                .period(300)
                 .build();
 
         Metric metric = Metric.builder()

@@ -1,6 +1,6 @@
 # aws-exporter
-Standalone exporter to export 
-[AWS CloudWatch Metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html) and 
+Standalone exporter to export
+[AWS CloudWatch Metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html) and
 Logs as prometheus metrics. This exporter uses AWS APIs and fetches both metadata and metric data
 
 # License
@@ -75,23 +75,17 @@ configured at in the following different ways
 
 **Number of metric samples**
 
-The number of metric samples retrieved in each scrape will be `scrapeInterval / period` if ` scrapeInterval > period `
-or `1` if `period > scrapeInterval`
-
-| Scrape Interval | Period | Number of Samples in each scrape|
-|-----------------|--------|---------------------------------|
-| 300 | 60 | 5|
-| 60 | 300 | 1|
+In each scrape one sample of the metric statistic is retrieved with the period for the statistic being the same
+as the scrape interval.
 
 
 **Sample Configuration**
 ```
+scrapeInterval: 60
 regions:
   - us-west-2
 namespaces:
   - name: AWS/Lambda
-    scrapeInterval: 60
-    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -177,7 +171,6 @@ namespaces:
         stats:
           - Sum
   - name: AWS/S3
-    period: 86400
     scrapeInterval: 86400
     metrics:
       - name: NumberOfObjects
@@ -187,8 +180,6 @@ namespaces:
         stats:
           - Average
   - name: LambdaInsights
-    scrapeInterval: 60
-    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -211,8 +202,6 @@ namespaces:
         stats:
           - Sum
   - name: AWS/ECS
-    scrapeInterval: 60
-    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -225,8 +214,6 @@ namespaces:
           - Average
           - Maximum
   - name: ECS/ContainerInsights
-    scrapeInterval: 60
-    period: 60
     dimensionFilters:
       FunctionName: (.+)
     metrics:
@@ -260,7 +247,7 @@ namespaces:
           - Sum
 ```
 
-You can specify one or more regions. The specified configuration will be applicable to all regions. If different regions 
+You can specify one or more regions. The specified configuration will be applicable to all regions. If different regions
 need different configurations then a different instance of the exporter will need to be run for each set of configuration
 
 # Metric names
@@ -291,9 +278,10 @@ The exporter also exports the following metrics to enable monitoring itself
 
 |Metric Name|Description|
 |---|---|
-|cw_scrape_milliseconds| Latency of all AWS API calls|
-|cw_scrape_interval_seconds|The scrape interval metric for each metric|
-|cw_scrape_period_seconds| The statistic period for each metric|
+|aws_exporter_milliseconds_sum| AWS API Latency Counter |
+|aws_exporter_milliseconds_count| AWS API Count |
+|aws_exporter_interval_seconds|The scrape interval metric for each namespace|
+|aws_exporter_period_seconds| The statistic period for each namespace|
 
 # Running it locally
 ```

@@ -30,9 +30,6 @@ public class ScrapeConfig {
     private Integer scrapeInterval = 60;
 
     @Builder.Default
-    private Integer period = 60;
-
-    @Builder.Default
     private Integer delay = 0;
 
     @Builder.Default

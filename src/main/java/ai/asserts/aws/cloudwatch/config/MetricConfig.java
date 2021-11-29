@@ -36,37 +36,14 @@ public class MetricConfig {
     @EqualsAndHashCode.Exclude
     private NamespaceConfig namespace;
     private String name;
-    /**
-     * The time period for which the statistic needs to be computed.
-     */
-    private Integer period;
     private Integer scrapeInterval;
     private Set<MetricStat> stats;
-
-    /**
-     * The number of samples that will be returned in each scrape of this metric. This is determined by the
-     * {@link #getScrapeInterval()} and {@link #getPeriod()}. If <code> period < scrapeInterval </code> then this
-     * would be <code>scrapeInterval / period</code>. Else this would be just <code>1</code>
-     *
-     * @return The number of samples per scrape
-     */
-    public int numSamplesPerScrape() {
-        return getScrapeInterval() > getPeriod() ? getScrapeInterval() / getPeriod() : 1;
-    }
 
     public Integer getScrapeInterval() {
         if (scrapeInterval != null) {
             return scrapeInterval;
         } else {
             return namespace.getScrapeInterval();
-        }
-    }
-
-    public Integer getPeriod() {
-        if (period != null) {
-            return period;
-        } else {
-            return namespace.getPeriod();
         }
     }
 
@@ -86,11 +63,6 @@ public class MetricConfig {
 
         if (scrapeInterval != null && (scrapeInterval < 60 || scrapeInterval % 60 != 0)) {
             errors.add("metricConfigs[%d].scrapeInterval has to be a multiple of 60" +
-                    Arrays.asList(MetricStat.values()));
-        }
-
-        if (period != null && (period < 60 || period % 60 != 0)) {
-            errors.add("metricConfigs[%d].period has to be a multiple of 60" +
                     Arrays.asList(MetricStat.values()));
         }
 

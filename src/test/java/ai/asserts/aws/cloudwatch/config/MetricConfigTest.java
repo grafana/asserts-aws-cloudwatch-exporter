@@ -38,38 +38,6 @@ public class MetricConfigTest extends EasyMockSupport {
     }
 
     @Test
-    void getPeriod() {
-        NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
-        MetricConfig metricConfig = MetricConfig.builder()
-                .namespace(namespaceConfig)
-                .build();
-
-        expect(namespaceConfig.getPeriod()).andReturn(60);
-        replayAll();
-        assertEquals(60, metricConfig.getPeriod());
-        verifyAll();
-
-        metricConfig.setPeriod(120);
-        assertEquals(120, metricConfig.getPeriod());
-    }
-
-    @Test
-    void numSamplesPerScrape() {
-        NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
-        MetricConfig metricConfig = MetricConfig.builder()
-                .namespace(namespaceConfig)
-                .build();
-
-        metricConfig.setPeriod(300);
-        metricConfig.setScrapeInterval(60);
-        assertEquals(1, metricConfig.numSamplesPerScrape());
-
-        metricConfig.setPeriod(60);
-        metricConfig.setScrapeInterval(300);
-        assertEquals(5, metricConfig.numSamplesPerScrape());
-    }
-
-    @Test
     void validate_noName() {
         NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
         MetricConfig metricConfig = MetricConfig.builder()
@@ -94,20 +62,6 @@ public class MetricConfigTest extends EasyMockSupport {
         assertThrows(RuntimeException.class, () -> metricConfig.validate(0));
     }
 
-    @Test
-    void validate_invalidPeriod() {
-        NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
-        MetricConfig metricConfig = MetricConfig.builder()
-                .name("metric")
-                .namespace(namespaceConfig)
-                .period(5)
-                .build();
-
-        assertThrows(RuntimeException.class, () -> metricConfig.validate(0));
-
-        metricConfig.setPeriod(61);
-        assertThrows(RuntimeException.class, () -> metricConfig.validate(0));
-    }
 
     @Test
     void validate_statsMissing() {
@@ -116,7 +70,6 @@ public class MetricConfigTest extends EasyMockSupport {
                 .name("metric")
                 .namespace(namespaceConfig)
                 .scrapeInterval(60)
-                .period(300)
                 .build();
 
         assertThrows(RuntimeException.class, () -> metricConfig.validate(0));
@@ -129,7 +82,6 @@ public class MetricConfigTest extends EasyMockSupport {
                 .name("metric")
                 .namespace(namespaceConfig)
                 .scrapeInterval(60)
-                .period(300)
                 .stats(ImmutableSet.of(MetricStat.Sum))
                 .build();
         metricConfig.validate(0);
@@ -142,7 +94,6 @@ public class MetricConfigTest extends EasyMockSupport {
                 .name("metric")
                 .namespace(namespaceConfig)
                 .scrapeInterval(60)
-                .period(300)
                 .stats(ImmutableSet.of(MetricStat.Sum))
                 .build();
 
@@ -167,7 +118,6 @@ public class MetricConfigTest extends EasyMockSupport {
                 .name("metric")
                 .namespace(namespaceConfig)
                 .scrapeInterval(60)
-                .period(300)
                 .stats(ImmutableSet.of(MetricStat.Sum))
                 .build();
 

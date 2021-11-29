@@ -33,11 +33,6 @@ public class BasicMetricCollector extends Collector {
 
     public void exportMetricMeta(String region, MetricQuery query) {
         Integer scrapeInterval = query.getMetricConfig().getNamespace().getScrapeInterval();
-        Integer period = query.getMetricConfig().getNamespace().getPeriod();
-        recordGaugeValue("cw_scrape_period_seconds", ImmutableSortedMap.of(
-                "region", region,
-                "namespace", query.getMetricConfig().getNamespace().getName()
-        ), 1.0D * period);
         recordGaugeValue("cw_scrape_interval_seconds", ImmutableSortedMap.of(
                 "region", region,
                 "namespace", query.getMetricConfig().getNamespace().getName()
