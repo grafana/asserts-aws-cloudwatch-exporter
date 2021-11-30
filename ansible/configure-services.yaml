@@ -11,9 +11,14 @@
       java_packages:
         - openjdk-8-jdk
     - role: ansible-vmagent
+      vmagent_remote_write:
+        - url: PASTE_THE_URL -remoteWrite.basicAuth.username=USERNAME -remoteWrite.basicAuth.password=PASSWORD
       vmagent_global:
         scrape_interval: 60s
         scrape_timeout: 30s
+        external_labels:
+          asserts_tenant: "NAME OF TENANT"
+          asserts_env: "NAME OF ENVIRONMENT"
       vmagent_scrape_configs:
         - job_name: vmagent
           static_configs:
@@ -23,27 +28,19 @@
           metrics_path: '/aws-exporter/actuator/prometheus'
           static_configs:
           - targets:
-            - localhost:8010    
+            - localhost:8010
+          metricRelabelings:
+          - sourceLabels: [__name__, region]
+            regex: aws_.+;(.+)
+            targetLabel: asserts_site
+            action: replace
+            replacement: $1
+
   post_tasks:
-    - name: Install package
-      apt:
-        name: "{{ item }}"
-      with_items:
-        - awscli
-        - unzip
-    - name: "Pull artifacts from S3"
-      command: "aws s3 cp --only-show-errors s3://test-vmbackupmanager/latest/aws-exporter-21.11.0.22e7832.zip /home/ubuntu/aws-exporter/"
-
-    - name: Extract overpass aws exporter tar.gz into /aws-exporter/
-      unarchive:
-        src: "/home/ubuntu/aws-exporter/aws-exporter-21.11.0.22e7832.zip"
-        dest: "/home/ubuntu/aws-exporter/"
-        remote_src: yes
-
     - name: Run the exporter
       shell: |
-        cd aws-exporter-21.11.0.22e7832/
+        cd AWS_EXPORTER_DIRECTORY_NAME/
         cp conf/cloudwatch_scrape_config_sample.yml .
         mv cloudwatch_scrape_config_sample.yml cloudwatch_scrape_config.yml
-        bin/aws-exporter &
+        bin/aws-cloudwatch-exporter &
         exit 0
