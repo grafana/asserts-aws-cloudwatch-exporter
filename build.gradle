@@ -6,7 +6,7 @@ plugins {
 }
 
 group 'ai.asserts'
-version = new Date().format("YY.M.0") + '.' + 'git rev-parse --short HEAD'.execute().text.trim()
+version = 'gitversion -output json -showvariable SemVer'.execute().text.trim()
 
 
 
