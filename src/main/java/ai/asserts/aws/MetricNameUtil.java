@@ -1,44 +1,33 @@
-/*
- * Copyright © 2021
- * Asserts, Inc. - All Rights Reserved
- */
+
 package ai.asserts.aws;
 
+import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
-import com.google.common.collect.ImmutableMap;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 @Component
+@AllArgsConstructor
 public class MetricNameUtil {
-    public static final String SCRAPE_LATENCY_METRIC = "cw_scrape_milliseconds";
+    private final ScrapeConfigProvider scrapeConfigProvider;
+    public static final String SCRAPE_LATENCY_METRIC = "aws_exporter_milliseconds";
+    public static final String SCRAPE_ERROR_COUNT_METRIC = "aws_exporter_error_total";
     public static final String SCRAPE_OPERATION_LABEL = "operation";
     public static final String SCRAPE_REGION_LABEL = "region";
     public static final String SCRAPE_NAMESPACE_LABEL = "cw_namespace";
     public static final String SCRAPE_INTERVAL_LABEL = "interval";
     public static final String SCRAPE_FUNCTION_NAME_LABEL = "function_name";
 
-    private final Map<String, String> NAMESPACE_TO_METRIC_PREFIX = new ImmutableMap.Builder<String, String>()
-            .put(CWNamespace.lambda.getNamespace(), "aws_lambda")
-            .put(CWNamespace.lambdainsights.getNamespace(), "aws_lambda")
-            .put(CWNamespace.sqs.getNamespace(), "aws_sqs")
-            .put(CWNamespace.s3.getNamespace(), "aws_s3")
-            .put(CWNamespace.dynamodb.getNamespace(), "aws_dynamodb")
-            .put(CWNamespace.alb.getNamespace(), "aws_alb")
-            .put(CWNamespace.elb.getNamespace(), "aws_elb")
-            .put(CWNamespace.ebs.getNamespace(), "aws_ebs")
-            .put(CWNamespace.efs.getNamespace(), "aws_efs")
-            .put(CWNamespace.kinesis.getNamespace(), "aws_kinesis")
-            .put(CWNamespace.ecs_containerinsights.getNamespace(), "aws_ecscontainerinsights")
-            .build();
 
     public String exportedMetricName(Metric metric, MetricStat metricStat) {
         String namespace = metric.namespace();
@@ -62,7 +51,12 @@ public class MetricNameUtil {
     }
 
     public String getMetricPrefix(String namespace) {
-        return NAMESPACE_TO_METRIC_PREFIX.get(namespace);
+        Optional<CWNamespace> nsOpt = scrapeConfigProvider.getStandardNamespace(namespace);
+        if (nsOpt.isPresent()) {
+            return nsOpt.get().getMetricPrefix();
+        } else {
+            return toSnakeCase(namespace);
+        }
     }
 
     public String getLambdaMetric(String suffix) {
@@ -75,7 +69,7 @@ public class MetricNameUtil {
         int numContiguousUpperCase = 0;
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
-            if (c == '-') {
+            if (c == '-' || c == ':' || c == '/') {
                 builder.append("_");
                 numContiguousUpperCase = 0;
                 continue;

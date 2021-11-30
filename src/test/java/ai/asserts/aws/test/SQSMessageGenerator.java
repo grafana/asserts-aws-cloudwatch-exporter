@@ -1,7 +1,4 @@
-/*
- * Copyright © 2021
- * Asserts, Inc. - All Rights Reserved
- */
+
 package ai.asserts.aws.test;
 
 import ai.asserts.aws.TestCredentials;
@@ -52,17 +49,18 @@ public class SQSMessageGenerator {
         // Then become normal 10 minutes
         // Then cause error spike level1 10 minutes
         // Increase error rate 10 minutes
-        commands.add(new TestMessage(latency, 4250, 10L));
-        commands.add(new TestMessage(latency, 4750, 10L));
-        commands.add(new TestMessage(normal, 0, 15L));
-        commands.add(new TestMessage(memory, 400, 10L));
-        commands.add(new TestMessage(memory, 600, 10L));
-        commands.add(new TestMessage(normal, 0, 15L));
-        commands.add(new TestMessage(error, 5, 10L));
-        commands.add(new TestMessage(error, 10, 10L));
-        commands.add(new TestMessage(error, 15, 10L));
-        commands.add(new TestMessage(error, 20, 10L));
-        commands.add(new TestMessage(normal, 0, 15L));
+        commands.add(new TestMessage(normal, 0, 120L));
+//        commands.add(new TestMessage(memory, 300, 5L));
+//        commands.add(new TestMessage(memory, 600, 10L));
+//        commands.add(new TestMessage(memory, 800, 10L));
+//        commands.add(new TestMessage(normal, 0, 430L));
+//        commands.add(new TestMessage(error, 30, 10L));
+//        commands.add(new TestMessage(normal, 0, 10L));
+//        commands.add(new TestMessage(latency, 2250, 10L));
+//        commands.add(new TestMessage(latency, 3250, 10L));
+//        commands.add(new TestMessage(latency, 4750, 10L));
+//        commands.add(new TestMessage(normal, 0, 30L));
+
 
         int i = 0;
         TestMessage current = commands.get(0);
@@ -80,7 +78,7 @@ public class SQSMessageGenerator {
                 messages.add(buildMessage(UUID.randomUUID().toString(), current));
             }
 
-            Stream.of("LatencyDemo-Input").forEach(qName -> {
+            Stream.of("Orders", "Queue1", "Queue4", "Queue7").forEach(qName -> {
                 SendMessageBatchRequest batchRequest = SendMessageBatchRequest.builder()
                         .queueUrl("https://sqs.us-west-2.amazonaws.com/342994379019/" + qName)
                         .entries(messages.toArray(new SendMessageBatchRequestEntry[0]))
@@ -112,7 +110,7 @@ public class SQSMessageGenerator {
 
     public static class TestMessage {
         private final Problem problem;
-        private final int measure;
+        private final double measure;
         @JsonIgnore
         private final long durationMinutes;
         @JsonIgnore
@@ -120,7 +118,7 @@ public class SQSMessageGenerator {
         @JsonIgnore
         private long endTime;
 
-        public TestMessage(Problem problem, int measure, long durationMinutes) {
+        public TestMessage(Problem problem, double measure, long durationMinutes) {
             this.problem = problem;
             this.measure = measure;
             this.durationMinutes = durationMinutes;
@@ -131,7 +129,7 @@ public class SQSMessageGenerator {
         }
 
 
-        public int getMeasure() {
+        public double getMeasure() {
             return measure;
         }
 

@@ -1,7 +1,4 @@
-/*
- * Copyright © 2021
- * Asserts, Inc. - All Rights Reserved
- */
+
 package ai.asserts.aws.cloudwatch.config;
 
 import com.google.common.annotations.VisibleForTesting;

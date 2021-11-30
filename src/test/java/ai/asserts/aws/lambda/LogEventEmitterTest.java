@@ -7,7 +7,8 @@ package ai.asserts.aws.lambda;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
-import ai.asserts.aws.cloudwatch.metrics.MetricSampleBuilder;
+import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
+import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableSet;
@@ -17,7 +18,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,7 +30,6 @@ public class LogEventEmitterTest extends EasyMockSupport {
     private MetricNameUtil metricNameUtil;
     private MetricSampleBuilder sampleBuilder;
     private Collector.MetricFamilySamples.Sample sample;
-    private Instant now;
     private NamespaceConfig namespaceConfig;
     private LambdaFunction lambdaFunction;
     private LogScrapeConfig logScrapeConfig;
@@ -49,13 +48,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
         logScrapeConfig = mock(LogScrapeConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
 
-        now = Instant.now();
-        testClass = new LogEventMetricEmitter(tagFilterResourceProvider, metricNameUtil, sampleBuilder) {
-            @Override
-            Instant getNow() {
-                return now;
-            }
-        };
+        testClass = new LogEventMetricEmitter(tagFilterResourceProvider, metricNameUtil, sampleBuilder);
     }
 
     @Test

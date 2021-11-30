@@ -1,10 +1,11 @@
-/*
- * Copyright © 2021
- * Asserts, Inc. - All Rights Reserved
- */
+
 package ai.asserts.aws.resource;
 
 public enum ResourceType {
+    ECSCluster,
+    ECSService,
+    ECSTaskDef,
+    ECSTask,
     SNSTopic,
     EventBus,
     SQSQueue, // SQS Queue

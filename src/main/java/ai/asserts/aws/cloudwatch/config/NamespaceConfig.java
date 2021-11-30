@@ -1,7 +1,4 @@
-/*
- * Copyright © 2021
- * Asserts, Inc. - All Rights Reserved
- */
+
 package ai.asserts.aws.cloudwatch.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -44,6 +41,7 @@ public class NamespaceConfig {
     private Map<String, Set<String>> tagFilters;
     private List<MetricConfig> metrics;
     private List<LogScrapeConfig> logs;
+    private List<ECSTaskDefScrapeConfig> ecsTaskDefScrapeConfigs;
 
     public void validate(int index) {
         List<String> errors = new ArrayList<>();
@@ -81,14 +79,6 @@ public class NamespaceConfig {
             return scrapeInterval;
         } else {
             return scrapeConfig.getScrapeInterval();
-        }
-    }
-
-    public Integer getPeriod() {
-        if (period != null) {
-            return period;
-        } else {
-            return scrapeConfig.getPeriod();
         }
     }
 

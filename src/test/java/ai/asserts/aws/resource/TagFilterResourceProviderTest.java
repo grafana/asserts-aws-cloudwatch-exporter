@@ -5,11 +5,12 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,45 +27,47 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
 import java.util.Optional;
 
+import static ai.asserts.aws.cloudwatch.model.CWNamespace.kafka;
+import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
+import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TagFilterResourceProviderTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
-    private ScrapeConfig scrapeConfig;
     private AWSClientProvider awsClientProvider;
     private ResourceGroupsTaggingApiClient apiClient;
     private ResourceMapper resourceMapper;
     private Resource resource;
     private NamespaceConfig namespaceConfig;
-    private GaugeExporter gaugeExporter;
+    private BasicMetricCollector metricCollector;
     private TagFilterResourceProvider testClass;
 
     @BeforeEach
     public void setup() {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        scrapeConfig = mock(ScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
         resourceMapper = mock(ResourceMapper.class);
         namespaceConfig = mock(NamespaceConfig.class);
         apiClient = mock(ResourceGroupsTaggingApiClient.class);
         resource = mock(Resource.class);
-        gaugeExporter = mock(GaugeExporter.class);
+        metricCollector = mock(BasicMetricCollector.class);
 
-
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
         replayAll();
         testClass = new TagFilterResourceProvider(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                gaugeExporter);
+                metricCollector, new RateLimiter());
         verifyAll();
         resetAll();
     }
 
     @Test
     void filterResources() {
-        expect(namespaceConfig.getName()).andReturn(CWNamespace.lambda.name());
+        expect(namespaceConfig.getName()).andReturn(lambda.name()).anyTimes();
+        expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.of(lambda));
         expect(namespaceConfig.hasTagFilters()).andReturn(true);
         expect(namespaceConfig.getTagFilters()).andReturn(ImmutableMap.of(
                 "tag", ImmutableSortedSet.of("value1", "value2")
@@ -93,7 +96,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                         .paginationToken("token1")
                         .build()
         );
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
@@ -113,7 +116,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                         .paginationToken(null)
                         .build()
         );
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
@@ -127,8 +130,8 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
 
     @Test
     void filterResources_noResourceTypes() {
-
-        expect(namespaceConfig.getName()).andReturn(CWNamespace.kafka.name());
+        expect(namespaceConfig.getName()).andReturn(CWNamespace.kafka.name()).anyTimes();
+        expect(scrapeConfigProvider.getStandardNamespace("kafka")).andReturn(Optional.of(kafka));
         expect(namespaceConfig.hasTagFilters()).andReturn(false);
         expect(awsClientProvider.getResourceTagClient("region")).andReturn(apiClient);
 
@@ -151,7 +154,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                         .paginationToken("token1")
                         .build()
         );
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
 
@@ -167,7 +170,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
                         .paginationToken(null)
                         .build()
         );
-        gaugeExporter.exportMetric(anyObject(), anyObject(), anyObject(), anyObject(), anyObject());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
 
@@ -175,6 +178,15 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         apiClient.close();
         replayAll();
         assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources("region", namespaceConfig));
+        verifyAll();
+    }
+
+    @Test
+    void filterResources_customNamespace() {
+        expect(namespaceConfig.getName()).andReturn("lambda");
+        expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.empty());
+        replayAll();
+        assertEquals(ImmutableSet.of(), testClass.getFilteredResources("region", namespaceConfig));
         verifyAll();
     }
 }

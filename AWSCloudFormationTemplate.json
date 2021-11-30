@@ -1,0 +1,132 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Metadata": {
+    "AWS::CloudFormation::Designer": {
+
+    }
+  },
+  "Resources": {
+    "IAMROLE": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName" : "asserts-aws-exporter-role",
+        "AssumeRolePolicyDocument": {
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {
+              "Service": ["ec2.amazonaws.com"]
+            },
+            "Action": ["sts:AssumeRole"]
+          }]
+        },
+        "Path": "/"
+      }
+    },
+    "AssertsAWSExporterInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "InstanceProfileName" : "asserts-aws-exporter-role",        
+        "Roles": [{ "Ref": "IAMROLE" }]
+      }
+    },
+    "IAMPOLICY": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "asserts-aws-exporter-policy",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "VisualEditor0",
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObjectVersionTagging",
+                "s3:GetStorageLensConfigurationTagging",
+                "ecs:DescribeTaskDefinition",
+                "s3:GetObjectAcl",
+                "s3:GetBucketObjectLockConfiguration",
+                "lambda:ListProvisionedConcurrencyConfigs",
+                "s3:GetIntelligentTieringConfiguration",
+                "lambda:GetProvisionedConcurrencyConfig",
+                "s3:GetObjectVersionAcl",
+                "logs:FilterLogEvents",
+                "ecs:ListTaskDefinitions",
+                "s3:GetBucketPolicyStatus",
+                "s3:GetObjectRetention",
+                "s3:GetBucketWebsite",
+                "lambda:ListFunctions",
+                "s3:GetJobTagging",
+                "s3:GetMultiRegionAccessPoint",
+                "lambda:ListAliases",
+                "s3:GetObjectLegalHold",
+                "s3:GetBucketNotification",
+                "s3:DescribeMultiRegionAccessPointOperation",
+                "s3:GetReplicationConfiguration",
+                "s3:GetObject",
+                "lambda:ListFunctionEventInvokeConfigs",
+                "s3:DescribeJob",
+                "lambda:GetFunctionConcurrency",
+                "lambda:ListEventSourceMappings",
+                "s3:GetAnalyticsConfiguration",
+                "s3:GetObjectVersionForReplication",
+                "ecs:ListContainerInstances",
+                "s3:GetAccessPointForObjectLambda",
+                "s3:GetStorageLensDashboard",
+                "s3:GetLifecycleConfiguration",
+                "s3:GetAccessPoint",
+                "tag:GetResources",
+                "s3:GetInventoryConfiguration",
+                "s3:GetBucketTagging",
+                "lambda:ListVersionsByFunction",
+                "cloudwatch:GetMetricData",
+                "s3:GetAccessPointPolicyForObjectLambda",
+                "s3:GetBucketLogging",
+                "s3:ListBucket",
+                "s3:GetAccelerateConfiguration",
+                "lambda:GetAccountSettings",
+                "s3:GetBucketPolicy",
+                "cloudwatch:ListMetrics",
+                "ecs:ListServices",
+                "s3:GetEncryptionConfiguration",
+                "s3:GetObjectVersionTorrent",
+                "s3:GetBucketRequestPayment",
+                "ecs:ListTasks",
+                "s3:GetAccessPointPolicyStatus",
+                "s3:GetObjectTagging",
+                "s3:GetMetricsConfiguration",
+                "s3:GetBucketOwnershipControls",
+                "ecs:DescribeServices",
+                "ecs:DescribeContainerInstances",
+                "ecs:DescribeTasks",
+                "ecs:ListClusters",
+                "s3:GetBucketPublicAccessBlock",
+                "s3:GetMultiRegionAccessPointPolicyStatus",
+                "s3:GetMultiRegionAccessPointPolicy",
+                "s3:GetAccessPointPolicyStatusForObjectLambda",
+                "s3:GetBucketVersioning",
+                "s3:GetBucketAcl",
+                "s3:GetAccessPointConfigurationForObjectLambda",
+                "ecs:ListAccountSettings",
+                "s3:GetObjectTorrent",
+                "s3:GetStorageLensConfiguration",
+                "s3:GetAccountPublicAccessBlock",
+                "ecs:ListTaskDefinitionFamilies",
+                "s3:GetBucketCORS",
+                "s3:GetBucketLocation",
+                "s3:GetAccessPointPolicy",
+                "s3:GetObjectVersion"
+              ],
+              "Resource": "*"
+            }
+          ]
+        },
+        "Roles": [
+          {
+            "Ref": "IAMROLE"
+          }
+        ]
+      }
+    }
+  }
+}

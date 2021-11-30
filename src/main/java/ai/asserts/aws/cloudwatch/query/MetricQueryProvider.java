@@ -1,21 +1,19 @@
-/*
- * Copyright © 2021
- * Asserts, Inc. - All Rights Reserved
- */
+
 package ai.asserts.aws.cloudwatch.query;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.cloudwatch.prometheus.GaugeExporter;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
@@ -23,15 +21,16 @@ import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest;
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -48,7 +47,8 @@ public class MetricQueryProvider {
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<Integer, List<MetricQuery>>>> metricQueryCache;
-    private final GaugeExporter gaugeExporter;
+    private final BasicMetricCollector metricCollector;
+    private final RateLimiter rateLimiter;
 
     public MetricQueryProvider(ScrapeConfigProvider scrapeConfigProvider,
                                QueryIdGenerator queryIdGenerator,
@@ -56,14 +56,16 @@ public class MetricQueryProvider {
                                AWSClientProvider awsClientProvider,
                                TagFilterResourceProvider tagFilterResourceProvider,
                                MetricQueryBuilder metricQueryBuilder,
-                               GaugeExporter gaugeExporter) {
+                               BasicMetricCollector metricCollector,
+                               RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
         this.metricNameUtil = metricNameUtil;
         this.awsClientProvider = awsClientProvider;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.metricQueryBuilder = metricQueryBuilder;
-        this.gaugeExporter = gaugeExporter;
+        this.metricCollector = metricCollector;
+        this.rateLimiter = rateLimiter;
         metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
                 scrapeConfigProvider.getScrapeConfig().getListMetricsResultCacheTTLMinutes(), MINUTES);
         log.info("Initialized..");
@@ -90,13 +92,22 @@ public class MetricQueryProvider {
                     String nextToken = null;
                     do {
                         ListMetricsRequest.Builder builder = ListMetricsRequest.builder()
-                                .nextToken(nextToken)
-                                .namespace(CWNamespace.valueOf(ns.getName()).getNamespace());
-
-                        log.info("Discovering all metrics for region={}, namespace={} ", region, ns.getName());
+                                .nextToken(nextToken);
+                        Optional<CWNamespace> nsOpt = scrapeConfigProvider.getStandardNamespace(ns.getName());
+                        if (nsOpt.isPresent()) {
+                            String namespace = nsOpt.get().getNamespace();
+                            builder = builder.namespace(namespace);
+                            log.info("Discovering all metrics for region={}, namespace={} ", region, namespace);
+                        } else {
+                            builder = builder.namespace(ns.getName());
+                            log.info("Discovering all metrics for region={}, namespace={} ", region, ns.getName());
+                        }
 
                         long timeTaken = System.currentTimeMillis();
-                        ListMetricsResponse response = cloudWatchClient.listMetrics(builder.build());
+                        ListMetricsRequest request = builder.build();
+                        ListMetricsResponse response = rateLimiter.doWithRateLimit(
+                                "CloudWatchClient/listMetrics",
+                                () -> cloudWatchClient.listMetrics(request));
                         timeTaken = System.currentTimeMillis() - timeTaken;
                         captureLatency(region, ns, timeTaken);
 
@@ -117,6 +128,7 @@ public class MetricQueryProvider {
                 }
             } catch (Exception e) {
                 log.info("Failed to scrape metrics", e);
+                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, operationLabels(region, ns), 1);
             }
         }));
 
@@ -125,24 +137,29 @@ public class MetricQueryProvider {
                 queriesByInterval.get(region).get(interval).forEach(metricQuery -> {
                     String exportedMetricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(),
                             metricQuery.getMetricStat());
+                    metricCollector.exportMetricMeta(region, metricQuery);
                     if (metricNames.add(exportedMetricName)) {
                         log.info("Will scrape {} agg over {} seconds every {} seconds",
                                 exportedMetricName,
-                                metricQuery.getMetricConfig().getPeriod(),
+                                metricQuery.getMetricConfig().getScrapeInterval(),
                                 interval);
                     }
                 })));
+
 
         return queriesByInterval;
     }
 
     private void captureLatency(String region, NamespaceConfig ns, long timeTaken) {
-        gaugeExporter.exportMetric(SCRAPE_LATENCY_METRIC, "scraper Instrumentation",
-                ImmutableMap.of(
-                        SCRAPE_REGION_LABEL, region,
-                        SCRAPE_OPERATION_LABEL, "list_metrics",
-                        SCRAPE_NAMESPACE_LABEL, CWNamespace.valueOf(ns.getName()).getNamespace()
-                ), Instant.now(), timeTaken * 1.0D);
+        metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, operationLabels(region, ns), timeTaken);
+    }
+
+    private ImmutableSortedMap<String, String> operationLabels(String region, NamespaceConfig ns) {
+        return ImmutableSortedMap.of(
+                SCRAPE_REGION_LABEL, region,
+                SCRAPE_OPERATION_LABEL, "list_metrics",
+                SCRAPE_NAMESPACE_LABEL, ns.getName()
+        );
     }
 
     private boolean belongsToFilteredResource(NamespaceConfig namespaceConfig, Set<Resource> tagFilteredResources,
@@ -160,8 +177,7 @@ public class MetricQueryProvider {
         List<MetricQuery> metricQueries = byIntervalWithDimensions
                 .computeIfAbsent(region, k -> new TreeMap<>())
                 .computeIfAbsent(metricConfig.getScrapeInterval(), k -> new ArrayList<>());
-        List<MetricQuery> moreQueries = metricQueryBuilder.buildQueries(queryIdGenerator, resources, metricConfig,
-                metric);
-        metricQueries.addAll(moreQueries);
+        metricQueries.addAll(metricQueryBuilder.buildQueries(queryIdGenerator, resources, metricConfig,
+                metric));
     }
 }
