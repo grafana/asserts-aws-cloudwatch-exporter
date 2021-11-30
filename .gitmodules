@@ -1,0 +1,6 @@
+[submodule "ansible/roles/ansible-role-java"]
+	path = ansible/roles/ansible-role-java
+	url = https://github.com/juju4/ansible-role-java.git
+[submodule "ansible/roles/ansible-vmagent"]
+	path = ansible/roles/ansible-vmagent
+	url = https://github.com/v98765/ansible-vmagent.git
