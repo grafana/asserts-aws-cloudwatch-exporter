@@ -9,7 +9,7 @@
     "IAMROLE": {
       "Type": "AWS::IAM::Role",
       "Properties": {
-        "RoleName" : "AssertsAWSExporterRole",
+        "RoleName" : "asserts-aws-exporter-role",
         "AssumeRolePolicyDocument": {
           "Statement": [{
             "Effect": "Allow",
@@ -26,13 +26,14 @@
       "Type": "AWS::IAM::InstanceProfile",
       "Properties": {
         "Path": "/",
+        "InstanceProfileName" : "asserts-aws-exporter-role",        
         "Roles": [{ "Ref": "IAMROLE" }]
       }
     },
     "IAMPOLICY": {
       "Type": "AWS::IAM::Policy",
       "Properties": {
-        "PolicyName": "AssertsAWSExporterPolicy",
+        "PolicyName": "asserts-aws-exporter-policy",
         "PolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
