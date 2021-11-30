@@ -17,9 +17,7 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 
@@ -49,8 +47,10 @@ public class MetricConfig {
 
     public boolean matchesMetric(Metric cwMetric) {
         return CollectionUtils.isEmpty(namespace.getDimensionFilterPattern()) ||
-                (cwMetric.hasDimensions() && cwMetric.dimensions().stream()
-                        .allMatch(this::matchesDimension));
+                (cwMetric.hasDimensions() && namespace.getDimensionFilterPattern().entrySet().stream()
+                        .allMatch(entry -> cwMetric.dimensions().stream().anyMatch(
+                                d -> entry.getKey().equals(d.name()) &&
+                                        entry.getValue().matcher(d.value()).matches())));
     }
 
     void validate(int position) {
@@ -74,12 +74,5 @@ public class MetricConfig {
         if (errors.size() > 0) {
             throw new RuntimeException(String.join("\n", errors));
         }
-    }
-
-
-    private boolean matchesDimension(software.amazon.awssdk.services.cloudwatch.model.Dimension dimension) {
-        Map<String, Pattern> _dimensionFilterPattern = namespace.getDimensionFilterPattern();
-        return _dimensionFilterPattern.containsKey(dimension.name()) &&
-                _dimensionFilterPattern.get(dimension.name()).matcher(dimension.value()).matches();
     }
 }
