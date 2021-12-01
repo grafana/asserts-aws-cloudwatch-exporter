@@ -1,4 +1,6 @@
 # Stage 1 - Build
+ARG VM_VERSION=v1.69.0
+FROM victoriametrics/vmagent:$VM_VERSION as vmagent
 FROM gradle:jdk8 as builder
 RUN gradle --version && java -version
 RUN apt-get install git && git --version
@@ -31,6 +33,7 @@ COPY --from=builder /home/gradle/app/src/dist/conf/cloudwatch_scrape_config_samp
 COPY --from=builder /home/gradle/app/build/libs/* ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.xml ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.properties ./
+COPY --from=vmagent /vmagent-prod /bin/vmagent
 # COPY jmx_prometheus_javaagent-0.16.1.jar ./
 # COPY httpserver_config.yml ./
 CMD ["/bin/sh", "-c", "java -jar app-*.jar --spring.config.location=application.properties"]
