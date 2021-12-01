@@ -70,6 +70,7 @@ public class ECSTaskUtil {
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskArn()));
 
         LabelsBuilder labelsBuilder = Labels.builder()
+                .region(cluster.getRegion())
                 .cluster(cluster.getName())
                 .job(service.getName())
                 .taskDefName(taskDefResource.getName())
