@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.ecs_containerinsights;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.ecs_svc;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 
 @Getter
@@ -51,7 +49,11 @@ public class ScrapeConfig {
     @Builder.Default
     private Integer logScrapeDelaySeconds = 15;
 
+    @Builder.Default
+    private boolean discoverECSTasks = false;
+
     private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
+
 
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {
@@ -60,15 +62,6 @@ public class ScrapeConfig {
         return namespaces.stream()
                 .filter(namespaceConfig -> lambda.isThisNamespace(namespaceConfig.getName()))
                 .findFirst();
-    }
-
-    public boolean isECSMonitoringOn() {
-        if (CollectionUtils.isEmpty(namespaces)) {
-            return false;
-        }
-        return namespaces.stream()
-                .anyMatch(nsConfig -> ecs_svc.isThisNamespace(nsConfig.getName()) ||
-                        ecs_containerinsights.isThisNamespace(nsConfig.getName()));
     }
 
     public Optional<ECSTaskDefScrapeConfig> getECSScrapeConfig(TaskDefinition task) {

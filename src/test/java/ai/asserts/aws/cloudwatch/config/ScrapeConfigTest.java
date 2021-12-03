@@ -14,8 +14,6 @@ import java.util.Optional;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ScrapeConfigTest extends EasyMockSupport {
     @Test
@@ -57,36 +55,6 @@ public class ScrapeConfigTest extends EasyMockSupport {
         replayAll();
         assertEquals(Optional.empty(), scrapeConfig.getLambdaConfig());
         verifyAll();
-    }
-
-    @Test
-    public void isECSMonitoringOn_True() {
-        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
-                .namespaces(ImmutableList.of(NamespaceConfig.builder()
-                        .name("AWS/ECS")
-                        .build()))
-                .build();
-        assertTrue(scrapeConfig.isECSMonitoringOn());
-
-        scrapeConfig = ScrapeConfig.builder()
-                .namespaces(ImmutableList.of(NamespaceConfig.builder()
-                        .name("ECS/ContainerInsights")
-                        .build()))
-                .build();
-        assertTrue(scrapeConfig.isECSMonitoringOn());
-    }
-
-    @Test
-    public void isECSMonitoringOn_False() {
-        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
-                .namespaces(ImmutableList.of(NamespaceConfig.builder()
-                        .name("AWS/Lambda")
-                        .build()))
-                .build();
-        assertFalse(scrapeConfig.isECSMonitoringOn());
-
-        scrapeConfig = ScrapeConfig.builder().build();
-        assertFalse(scrapeConfig.isECSMonitoringOn());
     }
 
     @Test
