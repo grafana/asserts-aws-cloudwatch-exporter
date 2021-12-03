@@ -10,6 +10,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
@@ -35,6 +36,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 
 @Component
 @Slf4j
@@ -94,13 +96,13 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                         lambdaClient::getAccountSettings);
 
                 MetricFamilySamples.Sample sample = sampleBuilder.buildSingleSample(accountLimitMetric, ImmutableMap.of(
-                        "region", region,
+                        "region", region, "cw_namespace", lambda.getNormalizedNamespace(),
                         "type", "concurrent_executions"
                 ), accountSettings.accountLimit().concurrentExecutions() * 1.0D);
                 samples.computeIfAbsent(accountLimitMetric, k -> new ArrayList<>()).add(sample);
 
                 sample = sampleBuilder.buildSingleSample(accountLimitMetric, ImmutableMap.of(
-                        "region", region,
+                        "region", region, "cw_namespace", lambda.getNormalizedNamespace(),
                         "type", "unreserved_concurrent_executions"
                 ), accountSettings.accountLimit().unreservedConcurrentExecutions() * 1.0D);
                 samples.computeIfAbsent(accountLimitMetric, k -> new ArrayList<>()).add(sample);
@@ -115,6 +117,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                     fnResourceOpt.ifPresent(fnResource -> fnResource.addTagLabels(labels, metricNameUtil));
 
                     labels.put("region", region);
+                    labels.put("cw_namespace", lambda.getNormalizedNamespace());
                     labels.put("d_function_name", lambdaFunction.getName());
                     labels.put("job", lambdaFunction.getName());
 
