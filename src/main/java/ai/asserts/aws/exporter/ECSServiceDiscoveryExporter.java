@@ -62,7 +62,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     @Override
     public void run() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (scrapeConfig.isECSMonitoringOn()) {
+        if (scrapeConfig.isDiscoverECSTasks()) {
             List<StaticConfig> latestTargets = new ArrayList<>();
             Set<String> regions = scrapeConfig.getRegions();
             ImmutableSortedMap<String, String> TELEMETRY_LABELS = ImmutableSortedMap.of(
