@@ -8,7 +8,10 @@ This software is available under [Apache 2.0 License](https://www.apache.org/lic
 
 # Configuration
 The exporter needs to be configured to extract metrics for one or more AWS Service types. AWS Service types map to a
-namespace in CloudWatch. The supported CloudWatch namespaces are :-
+namespace in CloudWatch.
+
+<details>
+  <summary>Supported CloudWatch namespaces</summary>
 
 * AWS/ApplicationELB
 * AWS/ApiGateway
@@ -50,19 +53,9 @@ namespace in CloudWatch. The supported CloudWatch namespaces are :-
 * AWS/SNS
 * AWS/States
 * AWS/WAFV2
+</details>  
 
-Quick reference for most commonly used namespaces
-
-| AWS Service | List of Metrics |
-|--------------|------------------------|
-| Lambda | [Lambda metrics](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics.html)|
-| SQS Queue | [SQS Metrics](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-available-cloudwatch-metrics.html)|
-| DynamoDB | [DynamoDB Metrics](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html)|
-| S3 | [S3 Metrics](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metrics-dimensions.html)|
-| ECS Metrics| [ECS Metrics](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cloudwatch-metrics.html#available_cloudwatch_metrics)|
-| ECS Container Insights| [ECS Container Metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-metrics-ECS.html)|
-
-**Time interval configurations**
+**Scrape Interval**
 
 The exporter scrapes metrics periodically at a frequency determined by the **scrapeInterval**. In each scrape the
 exporter requests an aggregate statistic for a specific **period**. The unit for time interval configuration is
@@ -73,207 +66,24 @@ configured at in the following different ways
 * **Namespace** This will apply to all metrics for a specific namespace
 * **Metric** This will apply to a specific metric in a specific namespace
 
-**Number of metric samples**
+<details>
+  <summary>ECS Tasks Service Discovery</summary>
 
-In each scrape one sample of the metric statistic is retrieved with the period for the statistic being the same
-as the scrape interval.
+The exporter can discover ECS Tasks and generate scrape targets. The target port and metric scrape url path will be automatically detected from the docker labels
+`PROMETHEUS_EXPORTER_PORT` and `PROMETHEUS_EXPORTER_PATH`. If the `PROMETHEUS_EXPORTER_PATH` is not specified it will be defaulted to `/metrics`. If the `PROMETHEUS_EXPORTER_PORT` is not specified, and the task has only one container which exposes only one port, this port will be used. If the container has multiple ports exposed or if there are multiple containers in the task then task target ports need to be specified in the scrape configuration yaml as follows
 
-
-**Sample Configuration**
 ```
-scrapeInterval: 60
-regions:
-  - us-west-2
-namespaces:
-  - name: AWS/Lambda
-    dimensionFilters:
-      FunctionName: (.+)
-    metrics:
-      - name: Invocations
-        stats:
-          - Sum
-      - name: Errors
-        stats:
-          - Sum
-      - name: DeadLetterErrors
-        stats:
-          - Sum
-      - name: Throttles
-        stats:
-          - Sum
-      - name: DestinationDeliveryFailures
-        stats:
-          - Sum
-      - name: Duration
-        stats:
-          - p99
-          - Average
-          - Maximum
-      - name: ProvisionedConcurrencyInvocations
-        stats:
-          - Sum
-      - name: ProvisionedConcurrencySpilloverInvocations
-        stats:
-          - Sum
-      - name: ConcurrentExecutions
-        stats:
-          - Average
-          - Maximum
-      - name: ProvisionedConcurrentExecutions
-        stats:
-          - Average
-      - name: UnreservedConcurrentExecutions
-        stats:
-          - Average
-      - name: IteratorAge
-        stats:
-          - Maximum
-  - name: AWS/SQS
-    metrics:
-      - name: NumberOfMessagesDeleted
-        stats:
-          - Sum
-      - name: NumberOfMessagesSent
-        stats:
-          - Sum
-      - name: ApproximateNumberOfMessagesVisible
-        stats:
-          - Average
-      - name: SentMessageSize
-        stats:
-          - Average
-      - name: NumberOfEmptyReceives
-        stats:
-          - Sum
-      - name: ApproximateAgeOfOldestMessage
-        stats:
-          - Maximum
-  - name: AWS/DynamoDB
-    metrics:
-      - name: ConsumedReadCapacityUnits
-        stats:
-          - Maximum
-          - Average
-      - name: ConsumedWriteCapacityUnits
-        stats:
-          - Maximum
-          - Average
-      - name: ProvisionedReadCapacityUnits
-        stats:
-          - Average
-      - name: ProvisionedWriteCapacityUnits
-        stats:
-          - Average
-      - name: ReadThrottleEvents
-        stats:
-          - Sum
-      - name: WriteThrottleEvents
-        stats:
-          - Sum
-  - name: AWS/S3
-    scrapeInterval: 86400
-    metrics:
-      - name: NumberOfObjects
-        stats:
-          - Average
-      - name: BucketSizeBytes
-        stats:
-          - Average
-  - name: LambdaInsights
-    dimensionFilters:
-      FunctionName: (.+)
-    metrics:
-      - name: memory_utilization
-        stats:
-          - Average
-      - name: total_memory
-        stats:
-          - Average
-      - name: used_memory_max
-        stats:
-          - Average
-      - name: cpu_total_time
-        stats:
-          - Sum
-      - name: tx_bytes
-        stats:
-          - Sum
-      - name: rx_bytes
-        stats:
-          - Sum
-  - name: AWS/ECS
-    dimensionFilters:
-      FunctionName: (.+)
-    metrics:
-      - name: MemoryUtilization
-        stats:
-          - Average
-          - Maximum
-      - name: CPUUtilization
-        stats:
-          - Average
-          - Maximum
-  - name: ECS/ContainerInsights
-    dimensionFilters:
-      FunctionName: (.+)
-    metrics:
-      - name: MemoryReserved
-        stats:
-          - Average
-          - Maximum
-      - name: MemoryUtilized
-        stats:
-          - Average
-          - Maximum
-      - name: CpuReserved
-        stats:
-          - Average
-          - Maximum
-      - name: CpuUtilized
-        stats:
-          - Average
-          - Maximum
-      - name: NetworkRxBytes
-        stats:
-          - Sum
-      - name: NetworkTxBytes
-        stats:
-          - Sum
-      - name: StorageReadBytes
-        stats:
-          - Sum
-      - name: StorageWriteBytes
-        stats:
-          - Sum
+- ecsTaskScrapeConfigs
+  - containerDefinitionName: model-builder
+    containerPort: 8080
+    metricPath: /model-builder/actuator/prometheus
 ```
+The `metricPath` is still optional. If not specified the default value of `/metrics` will be used
+</details>
 
-You can specify one or more regions. The specified configuration will be applicable to all regions. If different regions
-need different configurations then a different instance of the exporter will need to be run for each set of configuration
 
-# Metric names
-
-All metric and label names are in snake case. The metrics will be prefixed with `aws` followed by the AWS Service name.
-For example the `Sum` statistic for the `Invocations` metric in the `lambda` namespace will be exported as
-`aws_lambda_invocations_sum`
-
-# Label names
-
-**Region**
-
-The aws region will be exported as the label `region`. For e.g. `region="us-west-2"`
-
-**CloudWatch metric dimension**
-
-All dimensions in a metric will be exported as labels. For e.g. for the `aws_lambda_invocations_sum`, the Lambda
-function name is available as the dimension `FunctionName` in the CloudWatch metric. This will be exported as
-`d_function_name`. The dimension name will be converted to snake case and prefixed with a `d_`
-
-**Tags**
-
-If the AWS Resource has tags, the tags will be discovered and reported as labels with a prefix `tag_`. For example if
-the Lambda function has a tag `env` with a value of `dev`, it will be exported as `tag_env="dev"`
-
-# Exporter internal metrics
+<details>
+  <summary>Exporter internal metrics</summary>
 The exporter also exports the following metrics to enable monitoring itself
 
 |Metric Name|Description|
@@ -282,8 +92,10 @@ The exporter also exports the following metrics to enable monitoring itself
 |aws_exporter_milliseconds_count| AWS API Count |
 |aws_exporter_interval_seconds|The scrape interval metric for each namespace|
 |aws_exporter_period_seconds| The statistic period for each namespace|
+</details>
 
-# Running it locally
+<details>
+  <summary>Running it locally</summary>
 ```
 cp conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml
 ./bin/aws-exporter
@@ -317,8 +129,10 @@ aws_lambda_concurrent_executions_sum{d_function_name="first-lambda-function",d_r
 aws_lambda_concurrent_executions_sum{d_executed_version="2",d_function_name="first-lambda-function",d_resource="first-lambda-function:version2",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 4.0 1633625220000
 aws_lambda_concurrent_executions_sum{d_function_name="first-lambda-function",d_resource="first-lambda-function",region="us-west-2",tag_asserts_aws_resource="tag_for_discovery",} 4.0 1633625220000
 ```
+  </details>
 
-# AWS IAM Permissions
+<details>
+  <summary>AWS IAM Permissions</summary>
 The following IAM permissions need to be configured for the exporter
 ```
 {
@@ -357,3 +171,4 @@ The following IAM permissions need to be configured for the exporter
     ]
 }
 ```
+  </details>
