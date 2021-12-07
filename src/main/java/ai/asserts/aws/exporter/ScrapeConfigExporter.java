@@ -41,7 +41,9 @@ public class ScrapeConfigExporter extends Collector implements InitializingBean 
                                         ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, cwNamespace.getNormalizedNamespace()),
                                         namespaceConfig.getScrapeInterval() * 1.0D))));
 
-        metricFamilySamples.add(sampleBuilder.buildFamily(intervalSamples));
+        if (intervalSamples.size() > 0) {
+            metricFamilySamples.add(sampleBuilder.buildFamily(intervalSamples));
+        }
         return metricFamilySamples;
     }
 }
