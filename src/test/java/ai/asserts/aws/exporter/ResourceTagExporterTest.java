@@ -72,4 +72,20 @@ public class ResourceTagExporterTest extends EasyMockSupport {
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
         verifyAll();
     }
+
+    @Test
+    void collect_Empty() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2")).anyTimes();
+        expect(scrapeConfig.getNamespaces()).andReturn(ImmutableList.of(namespaceConfig, namespaceConfig));
+
+        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+                .andReturn(ImmutableSet.of()).times(2);
+        expect(tagFilterResourceProvider.getFilteredResources("region2", namespaceConfig))
+                .andReturn(ImmutableSet.of()).times(2);
+
+        replayAll();
+        assertEquals(ImmutableList.of(), testClass.collect());
+        verifyAll();
+    }
 }

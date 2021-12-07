@@ -37,7 +37,7 @@ public class ResourceTagExporter extends Collector {
         Set<Resource> allResources = new HashSet<>();
         scrapeConfig.getRegions().forEach(region -> namespaces.forEach(ns ->
                 allResources.addAll(tagFilterResourceProvider.getFilteredResources(region, ns))));
-        return Collections.singletonList(metricSampleBuilder.buildFamily(allResources
+        List<MetricFamilySamples.Sample> samples = allResources
                 .stream()
                 .map(resource -> {
                     SortedMap<String, String> labels = new TreeMap<>();
@@ -46,6 +46,11 @@ public class ResourceTagExporter extends Collector {
                     resource.addTagLabels(labels, metricNameUtil);
                     return metricSampleBuilder.buildSingleSample("aws_resource_tags", labels, 1.0D);
                 })
-                .collect(Collectors.toList())));
+                .collect(Collectors.toList());
+        if (samples.size() > 0) {
+            return Collections.singletonList(metricSampleBuilder.buildFamily(samples));
+        } else {
+            return Collections.emptyList();
+        }
     }
 }
