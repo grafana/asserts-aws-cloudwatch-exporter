@@ -110,6 +110,10 @@ namespaces:
     dimensionFilters:
       function_name: .+
     metrics:
+      - name: memory_utilization
+        stats:
+          - Average
+          - Maximum
       - name: used_memory_max
         stats:
           - Average
