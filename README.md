@@ -58,13 +58,12 @@ namespace in CloudWatch.
 **Scrape Interval**
 
 The exporter scrapes metrics periodically at a frequency determined by the **scrapeInterval**. In each scrape the
-exporter requests an aggregate statistic for a specific **period**. The unit for time interval configuration is
-`second`. The default scrape interval is `60` seconds. The default period is `60` seconds. The time intervals can be
-configured at in the following different ways
+exporter requests an aggregate statistic with period of **scrapeInterval** using the [GetMetricData API](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html). The unit for time interval configuration is
+`second`. The default scrape interval is `60` seconds. The time interval can beconfigured in the following different ways
 
 * **Global** This will apply to all metrics across all namespaces
 * **Namespace** This will apply to all metrics for a specific namespace
-* **Metric** This will apply to a specific metric in a specific namespace
+* **Metric** This will apply to a specific metric in a namespace
 
 <details>
   <summary>ECS Tasks Service Discovery</summary>
@@ -91,20 +90,19 @@ The exporter also exports the following metrics to enable monitoring itself
 |aws_exporter_milliseconds_sum| AWS API Latency Counter |
 |aws_exporter_milliseconds_count| AWS API Count |
 |aws_exporter_interval_seconds|The scrape interval metric for each namespace|
-|aws_exporter_period_seconds| The statistic period for each namespace|
 </details>
 
 <details>
   <summary>Running it locally</summary>
+  
 ```
-cp conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml
-./bin/aws-exporter
+$ cp conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml 
+$ ./bin/aws-exporter
 ```
 
 The exporter listens on port `8010` by default. The metrics can be scraped from
-`http://localhost:8010/aws-exporter/actuator/prometheus`. Here is a sample output
+`http://localhost:8010/aws-exporter/actuator/prometheus`. Here is a sample output of metrics
 
-Here is a sample output of metrics
 ```
 # HELP aws_sqs_number_of_messages_deleted_sum 
 # TYPE aws_sqs_number_of_messages_deleted_sum gauge
@@ -134,6 +132,7 @@ aws_lambda_concurrent_executions_sum{d_function_name="first-lambda-function",d_r
 <details>
   <summary>AWS IAM Permissions</summary>
 The following IAM permissions need to be configured for the exporter
+  
 ```
 {
     "Version": "2012-10-17",
