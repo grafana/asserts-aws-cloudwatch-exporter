@@ -10,7 +10,6 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
@@ -21,6 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetAccountSettingsResponse;
+import software.amazon.awssdk.services.lambda.model.GetFunctionConcurrencyRequest;
+import software.amazon.awssdk.services.lambda.model.GetFunctionConcurrencyResponse;
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsRequest;
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsResponse;
 
@@ -82,6 +83,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         String availableMetric = metricNameUtil.getLambdaMetric("available_concurrency");
         String requestedMetric = metricNameUtil.getLambdaMetric("requested_concurrency");
         String allocatedMetric = metricNameUtil.getLambdaMetric("allocated_concurrency");
+        String reservedMetric = metricNameUtil.getLambdaMetric("reserved_concurrency");
         String timeoutMetric = metricNameUtil.getLambdaMetric("timeout_seconds");
         String memoryLimit = metricNameUtil.getLambdaMetric("memory_limit_mb");
         String accountLimitMetric = metricNameUtil.getLambdaMetric("account_limit");
@@ -109,6 +111,18 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
 
                 Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, lambdaConfig);
                 functions.forEach((functionArn, lambdaFunction) -> {
+                    GetFunctionConcurrencyResponse fCResponse = lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
+                            .functionName(lambdaFunction.getArn())
+                            .build());
+
+                    if (fCResponse.reservedConcurrentExecutions() != null) {
+                        MetricFamilySamples.Sample reserved = sampleBuilder.buildSingleSample(reservedMetric, ImmutableMap.of(
+                                "region", region, "cw_namespace", lambda.getNormalizedNamespace(),
+                                "d_function_name", lambdaFunction.getName(), "job", lambdaFunction.getName()
+                        ), fCResponse.reservedConcurrentExecutions().doubleValue());
+                        samples.computeIfAbsent(reservedMetric, k -> new ArrayList<>()).add(reserved);
+                    }
+
                     Optional<Resource> fnResourceOpt = fnResources.stream()
                             .filter(resource -> functionArn.equals(resource.getArn()))
                             .findFirst();
