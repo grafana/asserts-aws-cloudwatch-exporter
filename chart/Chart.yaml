@@ -1,11 +1,10 @@
 apiVersion: v2
-name: aws-exporter
-description: Runs aws-exporter
 type: application
-
+name: aws-exporter
+description: Helm Char for Asserts Aws-Exporter
 version: 0.1.0
 appVersion: 0.1.0
-
+icon: https://www.asserts.ai/favicon.png
 maintainers:
   - name: Asserts
     url: https://github.com/asserts

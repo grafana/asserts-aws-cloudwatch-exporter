@@ -22,3 +22,6 @@ serviceMonitor:
     - port: aws
       path: /aws-exporter/actuator/prometheus
     # - port: jmx
+
+serviceAccount:
+  create: false
