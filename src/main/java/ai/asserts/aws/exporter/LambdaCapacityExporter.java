@@ -33,8 +33,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
@@ -45,7 +44,6 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
-    private final BasicMetricCollector metricCollector;
     private final MetricSampleBuilder sampleBuilder;
     private final LambdaFunctionScraper functionScraper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
@@ -53,14 +51,13 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private volatile List<MetricFamilySamples> cache;
 
     public LambdaCapacityExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                  MetricNameUtil metricNameUtil, BasicMetricCollector metricCollector,
+                                  MetricNameUtil metricNameUtil,
                                   MetricSampleBuilder sampleBuilder, LambdaFunctionScraper functionScraper,
                                   TagFilterResourceProvider tagFilterResourceProvider,
                                   RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
-        this.metricCollector = metricCollector;
         this.sampleBuilder = sampleBuilder;
         this.functionScraper = functionScraper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
@@ -95,6 +92,11 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
             try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {
                 GetAccountSettingsResponse accountSettings = rateLimiter.doWithRateLimit(
                         "LambdaClient/getAccountSettings",
+                        ImmutableSortedMap.of(
+                                SCRAPE_REGION_LABEL, region,
+                                SCRAPE_OPERATION_LABEL, "getAccountSettings",
+                                SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
+                        ),
                         lambdaClient::getAccountSettings);
 
                 MetricFamilySamples.Sample sample = sampleBuilder.buildSingleSample(accountLimitMetric, ImmutableMap.of(
@@ -111,9 +113,14 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
 
                 Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, lambdaConfig);
                 functions.forEach((functionArn, lambdaFunction) -> {
-                    GetFunctionConcurrencyResponse fCResponse = lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
-                            .functionName(lambdaFunction.getArn())
-                            .build());
+                    GetFunctionConcurrencyResponse fCResponse = rateLimiter.doWithRateLimit("LambdaClient/getFunctionConcurrency",
+                            ImmutableSortedMap.of(
+                                    SCRAPE_REGION_LABEL, region,
+                                    SCRAPE_OPERATION_LABEL, "getFunctionConcurrency",
+                                    SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
+                            ), () -> lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
+                                    .functionName(lambdaFunction.getArn())
+                                    .build()));
 
                     if (fCResponse.reservedConcurrentExecutions() != null) {
                         MetricFamilySamples.Sample reserved = sampleBuilder.buildSingleSample(reservedMetric, ImmutableMap.of(
@@ -149,13 +156,15 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                             .functionName(lambdaFunction.getName())
                             .build();
 
-                    long timeTaken = System.currentTimeMillis();
                     ListProvisionedConcurrencyConfigsResponse response =
                             rateLimiter.doWithRateLimit(
                                     "LambdaClient/listProvisionedConcurrencyConfigs",
+                                    ImmutableSortedMap.of(
+                                            SCRAPE_REGION_LABEL, region,
+                                            SCRAPE_OPERATION_LABEL, "listProvisionedConcurrencyConfigs",
+                                            SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
+                                    ),
                                     () -> lambdaClient.listProvisionedConcurrencyConfigs(request));
-                    timeTaken = System.currentTimeMillis() - timeTaken;
-                    captureLatency(region, timeTaken);
 
                     if (response.hasProvisionedConcurrencyConfigs()) {
                         response.provisionedConcurrencyConfigs().forEach(config -> {
@@ -184,21 +193,22 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                 });
             } catch (Exception e) {
                 log.error("Failed to get lambda provisioned capacity for region " + region, e);
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, operationLabels(region), 1);
             }
         }));
-        return samples.values().stream()
-                .map(sampleBuilder::buildFamily)
-                .collect(Collectors.toList());
-    }
+        return samples.values().
 
-    private void captureLatency(String region, long timeTaken) {
-        metricCollector.recordLatency(SCRAPE_LATENCY_METRIC,
-                operationLabels(region), timeTaken);
+                stream()
+                .
+
+                        map(sampleBuilder::buildFamily)
+                .
+
+                        collect(Collectors.toList());
     }
 
     private ImmutableSortedMap<String, String> operationLabels(String region) {
         return ImmutableSortedMap.of(
+                SCRAPE_NAMESPACE_LABEL, "AWS/Lambda",
                 SCRAPE_REGION_LABEL, region,
                 SCRAPE_OPERATION_LABEL, "list_provisioned_concurrency_configs"
         );

@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
@@ -25,6 +26,7 @@ import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
 import java.util.Optional;
+import java.util.SortedMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
@@ -60,7 +62,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         ecsClient = mock(EcsClient.class);
         scrapeConfig = mock(ScrapeConfig.class);
         taskDefScrapeConfig = mock(ECSTaskDefScrapeConfig.class);
-        testClass = new ECSTaskUtil(resourceMapper, metricCollector);
+        testClass = new ECSTaskUtil(resourceMapper, new RateLimiter(metricCollector));
 
         cluster = Resource.builder()
                 .name("cluster")
@@ -334,7 +336,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andThrow(new RuntimeException());
-        metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(), eq(1));
+        metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(SortedMap.class), eq(1));
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
 
         replayAll();
         Optional<StaticConfig> staticConfigOpt = testClass.buildScrapeTarget(scrapeConfig, ecsClient, cluster,

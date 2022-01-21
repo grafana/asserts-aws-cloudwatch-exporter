@@ -28,10 +28,8 @@ import java.util.Optional;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Average;
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Sum;
-import static org.easymock.EasyMock.anyInt;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 
 public class MetricQueryProviderTest extends EasyMockSupport {
@@ -77,7 +75,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         replayAll();
         testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
                 awsClientProvider, tagFilterResourceProvider, metricQueryBuilder, metricCollector,
-                new RateLimiter());
+                new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
     }
@@ -156,9 +154,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andThrow(new RuntimeException());
 
-        expect(namespaceConfig.getName()).andReturn("lambda");
         cloudWatchClient.close();
-        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         replayAll();
         testClass.getMetricQueries();
         verifyAll();

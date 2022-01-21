@@ -33,12 +33,15 @@ import software.amazon.awssdk.services.lambda.model.ProvisionedConcurrencyConfig
 
 import java.util.Collections;
 import java.util.Optional;
+import java.util.SortedMap;
 
-import static org.easymock.EasyMock.anyInt;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
@@ -76,8 +79,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         resetAll();
 
-        testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil, metricCollector,
-                sampleBuilder, functionScraper, tagFilterResourceProvider, new RateLimiter());
+        testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil,
+                sampleBuilder, functionScraper, tagFilterResourceProvider, new RateLimiter(metricCollector));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(metricNameUtil.getLambdaMetric("available_concurrency")).andReturn("available");
@@ -113,6 +116,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andReturn(GetFunctionConcurrencyResponse.builder()
                         .reservedConcurrentExecutions(100)
                         .build());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn1")
                 .build()))
@@ -173,6 +177,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andReturn(GetFunctionConcurrencyResponse.builder()
                         .reservedConcurrentExecutions(null)
                         .build());
+        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(lambdaClient.listProvisionedConcurrencyConfigs(ListProvisionedConcurrencyConfigsRequest.builder()
                 .functionName("fn2")
                 .build()))
@@ -251,7 +256,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andReturn(ListProvisionedConcurrencyConfigsResponse.builder()
                         .provisionedConcurrencyConfigs(Collections.emptyList())
                         .build());
-        metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
         expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "job", "fn1",
@@ -267,7 +271,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples).times(2);
-
+        metricCollector.recordLatency(anyString(), anyObject(), anyLong());
+        expectLastCall().times(2);
         replayAll();
         testClass.update();
         testClass.collect();
@@ -285,7 +290,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andThrow(new RuntimeException());
         lambdaClient.close();
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
-        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
@@ -300,6 +304,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                         .unreservedConcurrentExecutions(20)
                         .build())
                 .build());
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
                 "region", region, "type", "concurrent_executions", "cw_namespace", "AWS/Lambda"), 10.0D
         )).andReturn(sample);

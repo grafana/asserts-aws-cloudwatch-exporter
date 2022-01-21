@@ -7,7 +7,6 @@ package ai.asserts.aws.lambda;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,9 +19,7 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 import java.time.Instant;
 import java.util.Optional;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_FUNCTION_NAME_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.lang.String.format;
@@ -31,7 +28,6 @@ import static java.lang.String.format;
 @Slf4j
 @AllArgsConstructor
 public class LogEventScraper {
-    private final BasicMetricCollector metricCollector;
     private final TimeWindowBuilder timeWindowBuilder;
     private final RateLimiter rateLimiter;
 
@@ -52,17 +48,13 @@ public class LogEventScraper {
                     .logGroupName(logGroupName)
                     .build();
 
-            long timeTaken = System.currentTimeMillis();
             FilterLogEventsResponse response = rateLimiter.doWithRateLimit(
-                    "CloudWatchLogsClient/filterLogEvents", () ->
-                            cloudWatchLogsClient.filterLogEvents(logEventsRequest));
-            timeTaken = System.currentTimeMillis() - timeTaken;
-            metricCollector.recordLatency(SCRAPE_LATENCY_METRIC,
+                    "CloudWatchLogsClient/filterLogEvents",
                     ImmutableSortedMap.of(
                             SCRAPE_REGION_LABEL, functionConfig.getRegion(),
-                            SCRAPE_OPERATION_LABEL, "scrape_lambda_logs",
-                            SCRAPE_FUNCTION_NAME_LABEL, functionConfig.getName()
-                    ), timeTaken);
+                            SCRAPE_OPERATION_LABEL, "filterLogEvents(" + functionConfig.getName() + ")",
+                            SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
+                    ), () -> cloudWatchLogsClient.filterLogEvents(logEventsRequest));
 
             if (response.hasEvents()) {
                 log.info("log scrape config {} matched {} events", logScrapeConfig, response.events().size());
@@ -70,9 +62,6 @@ public class LogEventScraper {
             }
         } catch (Exception e) {
             log.error("Failed to scrape logs from log group " + logGroupName, e);
-            metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
-                    SCRAPE_REGION_LABEL, functionConfig.getRegion(), SCRAPE_OPERATION_LABEL, "findLogEvent"
-            ), 1);
         }
         return Optional.empty();
     }

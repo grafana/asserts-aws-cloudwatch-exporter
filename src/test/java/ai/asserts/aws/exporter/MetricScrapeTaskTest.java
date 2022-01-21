@@ -70,11 +70,10 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass = new MetricScrapeTask(region, interval, delay);
         testClass.setMetricQueryProvider(metricQueryProvider);
         testClass.setQueryBatcher(queryBatcher);
-        testClass.setMetricCollector(metricCollector);
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setSampleBuilder(sampleBuilder);
         testClass.setTimeWindowBuilder(timeWindowBuilder);
-        testClass.setRateLimiter(new RateLimiter());
+        testClass.setRateLimiter(new RateLimiter(metricCollector));
     }
 
     @Test

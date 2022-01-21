@@ -59,7 +59,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
         replayAll();
         testClass = new TagFilterResourceProvider(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                metricCollector, new RateLimiter());
+                new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
     }
