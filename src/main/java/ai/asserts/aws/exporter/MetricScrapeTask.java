@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_INTERVAL_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLETE;
@@ -137,7 +138,8 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                             "CloudWatchClient/getMetricData",
                             ImmutableSortedMap.of(
                                     SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_OPERATION_LABEL, "getMetricData"
+                                    SCRAPE_OPERATION_LABEL, "getMetricData",
+                                    SCRAPE_INTERVAL_LABEL, intervalSeconds + ""
                             ),
                             () -> cloudWatchClient.getMetricData(req));
 
