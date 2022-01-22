@@ -74,7 +74,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder().build());
         replayAll();
         testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
-                awsClientProvider, tagFilterResourceProvider, metricQueryBuilder, metricCollector,
+                awsClientProvider, tagFilterResourceProvider, metricQueryBuilder,
                 new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
@@ -118,7 +118,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(metricQuery.getMetricConfig()).andReturn(metricConfig).anyTimes();
         expect(metricQuery.getMetricStat()).andReturn(Sum);
         expectMetricQuery(Sum, "metric_sum");
-        metricCollector.exportMetricMeta("region1", metricQuery);
 
         ListMetricsResponse listMetricsResponse2 = ListMetricsResponse.builder()
                 .metrics(ImmutableList.of(metric))
@@ -132,7 +131,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
         expect(metricQuery.getMetricStat()).andReturn(Average);
         expectMetricQuery(Average, "metric_avg");
-        metricCollector.exportMetricMeta("region1", metricQuery);
         cloudWatchClient.close();
         replayAll();
         testClass.getMetricQueries();

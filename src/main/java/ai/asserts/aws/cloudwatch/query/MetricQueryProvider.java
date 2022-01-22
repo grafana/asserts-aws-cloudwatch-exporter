@@ -9,7 +9,6 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.base.Suppliers;
@@ -45,7 +44,6 @@ public class MetricQueryProvider {
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<Integer, List<MetricQuery>>>> metricQueryCache;
-    private final BasicMetricCollector metricCollector;
     private final RateLimiter rateLimiter;
 
     public MetricQueryProvider(ScrapeConfigProvider scrapeConfigProvider,
@@ -54,7 +52,6 @@ public class MetricQueryProvider {
                                AWSClientProvider awsClientProvider,
                                TagFilterResourceProvider tagFilterResourceProvider,
                                MetricQueryBuilder metricQueryBuilder,
-                               BasicMetricCollector metricCollector,
                                RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
@@ -62,7 +59,6 @@ public class MetricQueryProvider {
         this.awsClientProvider = awsClientProvider;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.metricQueryBuilder = metricQueryBuilder;
-        this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
         metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
                 scrapeConfigProvider.getScrapeConfig().getListMetricsResultCacheTTLMinutes(), MINUTES);
@@ -132,7 +128,6 @@ public class MetricQueryProvider {
                 queriesByInterval.get(region).get(interval).forEach(metricQuery -> {
                     String exportedMetricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(),
                             metricQuery.getMetricStat());
-                    metricCollector.exportMetricMeta(region, metricQuery);
                     if (metricNames.add(exportedMetricName)) {
                         log.info("Will scrape {} agg over {} seconds every {} seconds",
                                 exportedMetricName,
