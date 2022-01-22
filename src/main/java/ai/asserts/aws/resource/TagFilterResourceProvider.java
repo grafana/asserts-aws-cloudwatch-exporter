@@ -9,8 +9,6 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -31,8 +29,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -46,18 +42,16 @@ import static java.util.stream.Collectors.joining;
 public class TagFilterResourceProvider {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
-    private final BasicMetricCollector metricCollector;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RateLimiter rateLimiter;
 
     public TagFilterResourceProvider(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                     ResourceMapper resourceMapper, BasicMetricCollector metricCollector,
+                                     ResourceMapper resourceMapper,
                                      RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
-        this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
@@ -105,15 +99,17 @@ public class TagFilterResourceProvider {
             String nextToken = null;
             try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(key.region)) {
                 do {
-                    long timeTaken = System.currentTimeMillis();
                     GetResourcesRequest req = builder
                             .paginationToken(nextToken)
                             .build();
                     GetResourcesResponse response = rateLimiter.doWithRateLimit(
                             "ResourceGroupsTaggingApiClient/getResources",
+                            ImmutableSortedMap.of(
+                                    SCRAPE_REGION_LABEL, key.region,
+                                    SCRAPE_NAMESPACE_LABEL, key.namespace.getName(),
+                                    SCRAPE_OPERATION_LABEL, "getResources"
+                            ),
                             () -> client.getResources(req));
-                    timeTaken = System.currentTimeMillis() - timeTaken;
-                    captureLatency(key.region, cwNamespace, timeTaken);
 
                     if (response.hasResourceTagMappingList()) {
                         response.resourceTagMappingList().forEach(resourceTagMapping ->
@@ -126,9 +122,6 @@ public class TagFilterResourceProvider {
                 } while (!StringUtils.isEmpty(nextToken));
             } catch (Exception e) {
                 log.error("Failed to get resources using resource tag api", e);
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
-                        SCRAPE_REGION_LABEL, key.region, SCRAPE_OPERATION_LABEL, "TagAPI.getResources"
-                ), 1);
             }
             log.info("Found {}", resources.stream()
                     .collect(groupingBy(Resource::getType))
@@ -138,15 +131,6 @@ public class TagFilterResourceProvider {
                     .collect(joining(", ")));
         });
         return resources;
-    }
-
-    private void captureLatency(String region, CWNamespace cwNamespace, long timeTaken) {
-        metricCollector.recordLatency(SCRAPE_LATENCY_METRIC,
-                ImmutableSortedMap.of(
-                        SCRAPE_REGION_LABEL, region,
-                        SCRAPE_OPERATION_LABEL, "get_resources_with_tags",
-                        SCRAPE_NAMESPACE_LABEL, cwNamespace.getServiceName()
-                ), timeTaken);
     }
 
     @EqualsAndHashCode

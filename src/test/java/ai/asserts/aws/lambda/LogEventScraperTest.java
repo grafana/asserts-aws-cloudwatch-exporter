@@ -9,7 +9,6 @@ import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedMap;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,15 +19,12 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.SortedMap;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_FUNCTION_NAME_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
-import static org.easymock.EasyMock.anyInt;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
@@ -52,7 +48,7 @@ public class LogEventScraperTest extends EasyMockSupport {
         timeWindowBuilder = mock(TimeWindowBuilder.class);
 
         now = Instant.now();
-        testClass = new LogEventScraper(metricCollector, timeWindowBuilder, new RateLimiter());
+        testClass = new LogEventScraper(timeWindowBuilder, new RateLimiter(metricCollector));
     }
 
     @Test
@@ -78,11 +74,7 @@ public class LogEventScraperTest extends EasyMockSupport {
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
         expect(logScrapeConfig.getLogFilterPattern()).andReturn("filterPattern");
         expect(cloudWatchLogsClient.filterLogEvents(request)).andReturn(response);
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), eq(ImmutableSortedMap.of(
-                SCRAPE_REGION_LABEL, "region1",
-                SCRAPE_OPERATION_LABEL, "scrape_lambda_logs",
-                SCRAPE_FUNCTION_NAME_LABEL, "function-1"
-        )), anyLong());
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expectLastCall();
         replayAll();
         assertEquals(
@@ -107,7 +99,8 @@ public class LogEventScraperTest extends EasyMockSupport {
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
         expect(logScrapeConfig.getLogFilterPattern()).andReturn("filterPattern");
         expect(cloudWatchLogsClient.filterLogEvents(request)).andThrow(new RuntimeException());
-        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
+        metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(SortedMap.class), eq(1));
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         replayAll();
         assertEquals(
                 Optional.empty(),

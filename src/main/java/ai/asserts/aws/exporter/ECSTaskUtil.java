@@ -4,9 +4,9 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels.LabelsBuilder;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
@@ -32,8 +32,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -44,7 +42,7 @@ import static java.lang.String.format;
 @AllArgsConstructor
 public class ECSTaskUtil {
     private final ResourceMapper resourceMapper;
-    private final BasicMetricCollector metricCollector;
+    private final RateLimiter rateLimiter;
     public static final String ENI = "ElasticNetworkInterface";
     public static final String PRIVATE_IPv4ADDRESS = "privateIPv4Address";
     public static final String PROMETHEUS_PORT_DOCKER_LABEL = "PROMETHEUS_EXPORTER_PORT";
@@ -90,19 +88,17 @@ public class ECSTaskUtil {
             return Optional.empty();
         }
 
-        ImmutableSortedMap<String, String> telemetryLabels = ImmutableSortedMap.of(
-                SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace(),
-                SCRAPE_OPERATION_LABEL, "describeTaskDefinition",
-                SCRAPE_REGION_LABEL, cluster.getRegion()
-        );
-
         try {
-            long tick = System.currentTimeMillis();
-            TaskDefinition taskDefinition = ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
-                    .taskDefinition(task.taskDefinitionArn())
-                    .build()).taskDefinition();
-            tick = System.currentTimeMillis() - tick;
-            metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, telemetryLabels, tick);
+            TaskDefinition taskDefinition = rateLimiter.doWithRateLimit("EcsClient/describeTaskDefinition",
+                    ImmutableSortedMap.of(
+                            SCRAPE_REGION_LABEL, cluster.getRegion(),
+                            SCRAPE_OPERATION_LABEL, "describeTaskDefinition",
+                            SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
+                    ), () ->
+                            ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
+                                    .taskDefinition(task.taskDefinitionArn())
+                                    .build()).taskDefinition()
+            );
 
             // Build targets using docker labels if present
             getTargetUsingDockerLabels(ipAddress, taskDefinition).ifPresent(targets::add);
@@ -135,7 +131,6 @@ public class ECSTaskUtil {
                 }
             }
         } catch (Exception e) {
-            metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, telemetryLabels, 1);
             log.error("Failed to describe task definition", e);
             return Optional.empty();
         }

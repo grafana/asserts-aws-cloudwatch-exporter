@@ -22,11 +22,16 @@ import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,7 +65,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         replayAll();
         lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider,
-                metricCollector, tagFilterResourceProvider, lambdaFunctionBuilder, new RateLimiter());
+                tagFilterResourceProvider, lambdaFunctionBuilder, new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -138,6 +143,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
+        metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(SortedMap.class), eq(1));
+        expectLastCall().times(2);
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        expectLastCall().times(2);
         lambdaClient.close();
         replayAll();
         Map<String, Map<String, LambdaFunction>> functionsByRegion = lambdaFunctionScraper.getFunctions();

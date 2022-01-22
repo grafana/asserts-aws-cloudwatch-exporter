@@ -28,8 +28,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
@@ -44,7 +43,6 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
     private final ResourceMapper resourceMapper;
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricSampleBuilder sampleBuilder;
-    private final BasicMetricCollector metricCollector;
     private final RateLimiter rateLimiter;
     private volatile List<MetricFamilySamples> metrics;
 
@@ -53,7 +51,6 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                                      ResourceMapper resourceMapper,
                                      TagFilterResourceProvider tagFilterResourceProvider,
                                      MetricSampleBuilder sampleBuilder,
-                                     BasicMetricCollector metricCollector,
                                      RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -61,7 +58,6 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         this.resourceMapper = resourceMapper;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.sampleBuilder = sampleBuilder;
-        this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
         this.metrics = new ArrayList<>();
     }
@@ -91,8 +87,12 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                             .build();
                     ListEventSourceMappingsResponse response = rateLimiter.doWithRateLimit(
                             "LambdaClient/listEventSourceMappings",
+                            ImmutableSortedMap.of(
+                                    SCRAPE_REGION_LABEL, region,
+                                    SCRAPE_OPERATION_LABEL, "listEventSourceMappings",
+                                    SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
+                            ),
                             () -> client.listEventSourceMappings(req));
-                    metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, operationLabels(region), 1);
                     if (response.hasEventSourceMappings()) {
                         byRegion.computeIfAbsent(region, k -> new ArrayList<>())
                                 .addAll(response.eventSourceMappings().stream()
@@ -104,7 +104,6 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                 } while (StringUtils.hasText(nextToken));
             } catch (Exception e) {
                 log.info("Failed to discover event source mappings", e);
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, operationLabels(region), 1);
             }
 
             Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, namespaceConfig);
@@ -122,12 +121,6 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
                 .collect(Collectors.toList());
-    }
-
-    private ImmutableSortedMap<String, String> operationLabels(String region) {
-        return ImmutableSortedMap.of(
-                SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, "ListEventSourceMappings"
-        );
     }
 
     private void buildSample(String region, Resource functionResource, Resource eventSourceResource,

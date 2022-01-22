@@ -35,13 +35,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 /**
  * Exports the Service Discovery file with the list of task instances running in ECS across clusters and services
@@ -55,7 +56,6 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final ECSTaskUtil ecsTaskUtil;
-    private final BasicMetricCollector metricCollector;
     private final ObjectMapperFactory objectMapperFactory;
     private final RateLimiter rateLimiter;
 
@@ -69,13 +69,18 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                     SCRAPE_OPERATION_LABEL, "listClusters",
                     SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace());
             for (String region : regions) {
+                SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
                 try (EcsClient ecsClient = awsClientProvider.getECSClient(region)) {
                     // List clusters just returns the cluster ARN. There is no need to paginate
-                    long tick = System.currentTimeMillis();
                     ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(
-                            "EcsClient/listClusters", ecsClient::listClusters);
-                    tick = System.currentTimeMillis() - tick;
-                    metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, TELEMETRY_LABELS, tick);
+                            "EcsClient/listClusters",
+                            ImmutableSortedMap.of(
+                                    SCRAPE_REGION_LABEL, region,
+                                    SCRAPE_OPERATION_LABEL, "listClusters",
+                                    SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
+                            ),
+                            ecsClient::listClusters);
+                    labels.put(SCRAPE_REGION_LABEL, region);
                     if (listClustersResponse.hasClusterArns()) {
                         listClustersResponse.clusterArns()
                                 .stream()
@@ -86,7 +91,6 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                                         latestTargets.addAll(buildTargetsInCluster(scrapeConfig, ecsClient, cluster)));
                     }
                 } catch (Exception e) {
-                    metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, TELEMETRY_LABELS, 1);
                     log.error("Failed to get list of ECS Clusters", e);
                 }
             }
@@ -96,8 +100,6 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                         .writeValue(resultFile, latestTargets);
                 log.info("Wrote ECS scrape target SD file {}", resultFile.toURI());
             } catch (IOException e) {
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, ImmutableSortedMap.of(
-                        SCRAPE_OPERATION_LABEL, "ecs_sd_file_generation"), 1);
                 log.error("Failed to get list of ECS Clusters", e);
             }
         }
@@ -111,6 +113,11 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 .cluster(cluster.getName())
                 .build();
         ListServicesResponse serviceResp = rateLimiter.doWithRateLimit("EcsClient/listServices",
+                ImmutableSortedMap.of(
+                        SCRAPE_REGION_LABEL, cluster.getRegion(),
+                        SCRAPE_OPERATION_LABEL, "listServices",
+                        SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
+                ),
                 () -> ecsClient.listServices(serviceReq));
         if (serviceResp.hasServiceArns()) {
             serviceResp.serviceArns()
@@ -131,16 +138,19 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         Set<String> taskIds = new TreeSet<>();
         String nextToken = null;
         do {
-            long time = System.currentTimeMillis();
             ListTasksRequest request = ListTasksRequest.builder()
                     .cluster(cluster.getName())
                     .serviceName(service.getName())
                     .nextToken(nextToken)
                     .build();
             ListTasksResponse tasksResp = rateLimiter.doWithRateLimit("EcsClient/listTasks",
+                    ImmutableSortedMap.of(
+                            SCRAPE_REGION_LABEL, cluster.getRegion(),
+                            SCRAPE_OPERATION_LABEL, "listTasks",
+                            SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
+                    ),
                     () -> ecsClient.listTasks(request));
-            time = System.currentTimeMillis() - time;
-            metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, ImmutableSortedMap.of(), time);
+
             nextToken = tasksResp.nextToken();
             if (tasksResp.hasTaskArns()) {
                 for (String taskArn : tasksResp.taskArns()) {
@@ -169,6 +179,11 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 .tasks(taskARNs)
                 .build();
         DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit("EcsClient/describeTasks",
+                ImmutableSortedMap.of(
+                        SCRAPE_REGION_LABEL, cluster.getRegion(),
+                        SCRAPE_OPERATION_LABEL, "describeTasks",
+                        SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
+                ),
                 () -> ecsClient.describeTasks(request));
         if (taskResponse.hasTasks()) {
             configs.addAll(taskResponse.tasks().stream()

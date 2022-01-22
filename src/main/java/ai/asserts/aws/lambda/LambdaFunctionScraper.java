@@ -7,7 +7,6 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.base.Suppliers;
@@ -24,7 +23,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -35,17 +34,15 @@ public class LambdaFunctionScraper {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final LambdaFunctionBuilder fnBuilder;
-    private final BasicMetricCollector metricCollector;
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final RateLimiter rateLimiter;
     private final Supplier<Map<String, Map<String, LambdaFunction>>> functionsByRegion;
 
     public LambdaFunctionScraper(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                 BasicMetricCollector metricCollector, TagFilterResourceProvider tagFilterResourceProvider,
+                                 TagFilterResourceProvider tagFilterResourceProvider,
                                  LambdaFunctionBuilder fnBuilder, RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
-        this.metricCollector = metricCollector;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.fnBuilder = fnBuilder;
         this.rateLimiter = rateLimiter;
@@ -66,11 +63,14 @@ public class LambdaFunctionScraper {
         lambdaNSOpt.ifPresent(lambdaNS -> scrapeConfig.getRegions().forEach(region -> {
             try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {
                 // Get all the functions
-                long timeTaken = System.currentTimeMillis();
                 ListFunctionsResponse response = rateLimiter.doWithRateLimit(
                         "LambdaClient/listFunctions",
+                        ImmutableSortedMap.of(
+                                SCRAPE_REGION_LABEL, region,
+                                SCRAPE_NAMESPACE_LABEL, "AWS/Lambda",
+                                SCRAPE_OPERATION_LABEL, "listFunctions"
+                        ),
                         lambdaClient::listFunctions);
-                captureLatency(region, System.currentTimeMillis() - timeTaken);
                 if (response.hasFunctions()) {
                     Set<Resource> resources = tagFilterResourceProvider.getFilteredResources(region, lambdaNS);
                     response.functions().forEach(fnConfig -> {
@@ -94,13 +94,5 @@ public class LambdaFunctionScraper {
         return resources.stream()
                 .filter(resource -> resource.getArn().equals(functionConfiguration.functionArn()))
                 .findFirst();
-    }
-
-    private void captureLatency(String region, long timeTaken) {
-        metricCollector.recordLatency(SCRAPE_LATENCY_METRIC,
-                ImmutableSortedMap.of(
-                        SCRAPE_REGION_LABEL, region,
-                        SCRAPE_OPERATION_LABEL, "scrape_lambda_functions"
-                ), timeTaken);
     }
 }

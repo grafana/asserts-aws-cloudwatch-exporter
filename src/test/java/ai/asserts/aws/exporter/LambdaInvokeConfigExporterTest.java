@@ -33,6 +33,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static org.easymock.EasyMock.anyLong;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -45,6 +48,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
     private Resource resource;
     private MetricSampleBuilder metricSampleBuilder;
     private Collector.MetricFamilySamples.Sample sample;
+    private BasicMetricCollector metricCollector;
     private LambdaInvokeConfigExporter testClass;
 
     @BeforeEach
@@ -60,10 +64,10 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         resource = mock(Resource.class);
         metricSampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
-        BasicMetricCollector metricCollector = mock(BasicMetricCollector.class);
+        metricCollector = mock(BasicMetricCollector.class);
 
         testClass = new LambdaInvokeConfigExporter(fnScraper, awsClientProvider, metricNameUtil,
-                scrapeConfigProvider, resourceMapper, metricSampleBuilder, metricCollector, new RateLimiter());
+                scrapeConfigProvider, resourceMapper, metricSampleBuilder, new RateLimiter(metricCollector));
 
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
@@ -97,6 +101,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
                 .build();
 
         expect(lambdaClient.listFunctionEventInvokeConfigs(request)).andReturn(response);
+        metricCollector.recordLatency(anyString(), anyObject(), anyLong());
 
         expect(fnScraper.getFunctions()).andReturn(ImmutableMap.of(
                 "region1", ImmutableMap.of("fn1:arn", LambdaFunction.builder()
@@ -130,6 +135,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
                 .andReturn(sample);
 
         lambdaClient.close();
+
 
         replayAll();
         testClass.update();

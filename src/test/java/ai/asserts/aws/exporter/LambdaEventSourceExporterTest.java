@@ -73,8 +73,8 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient).anyTimes();
 
         testClass = new LambdaEventSourceExporter(scrapeConfigProvider, awsClientProvider,
-                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder, metricCollector,
-                new RateLimiter());
+                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder,
+                new RateLimiter(metricCollector));
     }
 
     @Test
@@ -148,10 +148,11 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
                 .build();
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
-        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource, fnResource));
         lambdaClient.close();
+        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
+        metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         replayAll();
         testClass.update();
         testClass.collect();

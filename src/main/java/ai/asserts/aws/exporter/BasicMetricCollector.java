@@ -4,8 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.cloudwatch.query.MetricQuery;
-import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.Builder;
@@ -30,14 +28,6 @@ public class BasicMetricCollector extends Collector {
     private final Map<Key, Double> gaugeValues = new ConcurrentHashMap<>();
     private final Map<Key, AtomicLong> counters = new ConcurrentHashMap<>();
     private final Map<Key, LatencyCounter> latencyCounters = new ConcurrentHashMap<>();
-
-    public void exportMetricMeta(String region, MetricQuery query) {
-        Integer scrapeInterval = query.getMetricConfig().getNamespace().getScrapeInterval();
-        recordGaugeValue("cw_scrape_interval_seconds", ImmutableSortedMap.of(
-                "region", region,
-                "namespace", query.getMetricConfig().getNamespace().getName()
-        ), 1.0D * scrapeInterval);
-    }
 
     @Override
     public List<MetricFamilySamples> collect() {

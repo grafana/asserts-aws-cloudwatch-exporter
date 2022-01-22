@@ -29,7 +29,6 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_INTERVAL_LABEL;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLETE;
@@ -54,8 +53,6 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private MetricQueryProvider metricQueryProvider;
     @Autowired
     private QueryBatcher queryBatcher;
-    @Autowired
-    private BasicMetricCollector metricCollector;
     @Autowired
     private MetricSampleBuilder sampleBuilder;
     @Autowired
@@ -136,13 +133,15 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                                     .map(MetricQuery::getMetricDataQuery)
                                     .collect(Collectors.toList()));
 
-                    long timeTaken = System.currentTimeMillis();
                     GetMetricDataRequest req = requestBuilder.build();
                     GetMetricDataResponse metricData = rateLimiter.doWithRateLimit(
                             "CloudWatchClient/getMetricData",
+                            ImmutableSortedMap.of(
+                                    SCRAPE_REGION_LABEL, region,
+                                    SCRAPE_OPERATION_LABEL, "getMetricData",
+                                    SCRAPE_INTERVAL_LABEL, intervalSeconds + ""
+                            ),
                             () -> cloudWatchClient.getMetricData(req));
-                    timeTaken = System.currentTimeMillis() - timeTaken;
-                    captureLatency(timeTaken);
 
                     if (metricData.hasMetricDataResults()) {
                         metricData.metricDataResults()
@@ -182,16 +181,6 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
         return familySamples;
-    }
-
-    private void captureLatency(long timeTaken) {
-        metricCollector.recordLatency(
-                SCRAPE_LATENCY_METRIC,
-                ImmutableSortedMap.of(
-                        SCRAPE_REGION_LABEL, region,
-                        SCRAPE_OPERATION_LABEL, "get_metric_data",
-                        SCRAPE_INTERVAL_LABEL, intervalSeconds + ""
-                ), timeTaken);
     }
 
     private Map<String, MetricQuery> mapQueriesById(List<MetricQuery> queries) {

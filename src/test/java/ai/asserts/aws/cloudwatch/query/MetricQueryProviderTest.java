@@ -28,10 +28,8 @@ import java.util.Optional;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Average;
 import static ai.asserts.aws.cloudwatch.model.MetricStat.Sum;
-import static org.easymock.EasyMock.anyInt;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 
 public class MetricQueryProviderTest extends EasyMockSupport {
@@ -76,8 +74,8 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder().build());
         replayAll();
         testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
-                awsClientProvider, tagFilterResourceProvider, metricQueryBuilder, metricCollector,
-                new RateLimiter());
+                awsClientProvider, tagFilterResourceProvider, metricQueryBuilder,
+                new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
     }
@@ -120,7 +118,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(metricQuery.getMetricConfig()).andReturn(metricConfig).anyTimes();
         expect(metricQuery.getMetricStat()).andReturn(Sum);
         expectMetricQuery(Sum, "metric_sum");
-        metricCollector.exportMetricMeta("region1", metricQuery);
 
         ListMetricsResponse listMetricsResponse2 = ListMetricsResponse.builder()
                 .metrics(ImmutableList.of(metric))
@@ -134,7 +131,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
         expect(metricQuery.getMetricStat()).andReturn(Average);
         expectMetricQuery(Average, "metric_avg");
-        metricCollector.exportMetricMeta("region1", metricQuery);
         cloudWatchClient.close();
         replayAll();
         testClass.getMetricQueries();
@@ -156,9 +152,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
                 .andThrow(new RuntimeException());
 
-        expect(namespaceConfig.getName()).andReturn("lambda");
         cloudWatchClient.close();
-        metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         replayAll();
         testClass.getMetricQueries();
         verifyAll();

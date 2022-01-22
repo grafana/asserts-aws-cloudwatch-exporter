@@ -9,7 +9,6 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.base.Suppliers;
@@ -30,8 +29,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -47,7 +44,6 @@ public class MetricQueryProvider {
     private final TagFilterResourceProvider tagFilterResourceProvider;
     private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<Integer, List<MetricQuery>>>> metricQueryCache;
-    private final BasicMetricCollector metricCollector;
     private final RateLimiter rateLimiter;
 
     public MetricQueryProvider(ScrapeConfigProvider scrapeConfigProvider,
@@ -56,7 +52,6 @@ public class MetricQueryProvider {
                                AWSClientProvider awsClientProvider,
                                TagFilterResourceProvider tagFilterResourceProvider,
                                MetricQueryBuilder metricQueryBuilder,
-                               BasicMetricCollector metricCollector,
                                RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
@@ -64,7 +59,6 @@ public class MetricQueryProvider {
         this.awsClientProvider = awsClientProvider;
         this.tagFilterResourceProvider = tagFilterResourceProvider;
         this.metricQueryBuilder = metricQueryBuilder;
-        this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
         metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
                 scrapeConfigProvider.getScrapeConfig().getListMetricsResultCacheTTLMinutes(), MINUTES);
@@ -103,13 +97,11 @@ public class MetricQueryProvider {
                             log.info("Discovering all metrics for region={}, namespace={} ", region, ns.getName());
                         }
 
-                        long timeTaken = System.currentTimeMillis();
                         ListMetricsRequest request = builder.build();
                         ListMetricsResponse response = rateLimiter.doWithRateLimit(
                                 "CloudWatchClient/listMetrics",
+                                operationLabels(region, ns),
                                 () -> cloudWatchClient.listMetrics(request));
-                        timeTaken = System.currentTimeMillis() - timeTaken;
-                        captureLatency(region, ns, timeTaken);
 
                         if (response.hasMetrics()) {
                             // Check if the metric is on a tag filtered resource
@@ -128,7 +120,6 @@ public class MetricQueryProvider {
                 }
             } catch (Exception e) {
                 log.info("Failed to scrape metrics", e);
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, operationLabels(region, ns), 1);
             }
         }));
 
@@ -137,7 +128,6 @@ public class MetricQueryProvider {
                 queriesByInterval.get(region).get(interval).forEach(metricQuery -> {
                     String exportedMetricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(),
                             metricQuery.getMetricStat());
-                    metricCollector.exportMetricMeta(region, metricQuery);
                     if (metricNames.add(exportedMetricName)) {
                         log.info("Will scrape {} agg over {} seconds every {} seconds",
                                 exportedMetricName,
@@ -148,10 +138,6 @@ public class MetricQueryProvider {
 
 
         return queriesByInterval;
-    }
-
-    private void captureLatency(String region, NamespaceConfig ns, long timeTaken) {
-        metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, operationLabels(region, ns), timeTaken);
     }
 
     private ImmutableSortedMap<String, String> operationLabels(String region, NamespaceConfig ns) {

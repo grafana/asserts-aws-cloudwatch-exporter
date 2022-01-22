@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
-import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
@@ -44,7 +44,6 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder metricSampleBuilder;
-    private final BasicMetricCollector metricCollector;
     private final RateLimiter rateLimiter;
     private volatile List<MetricFamilySamples> cache;
 
@@ -52,7 +51,6 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                                       MetricNameUtil metricNameUtil,
                                       ScrapeConfigProvider scrapeConfigProvider, ResourceMapper resourceMapper,
                                       MetricSampleBuilder metricSampleBuilder,
-                                      BasicMetricCollector metricCollector,
                                       RateLimiter rateLimiter) {
         this.fnScraper = fnScraper;
         this.awsClientProvider = awsClientProvider;
@@ -60,7 +58,6 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.resourceMapper = resourceMapper;
         this.metricSampleBuilder = metricSampleBuilder;
-        this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
         this.cache = Collections.emptyList();
     }
@@ -82,15 +79,17 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Optional<NamespaceConfig> opt = scrapeConfig.getLambdaConfig();
         opt.ifPresent(ns -> fnScraper.getFunctions().forEach((region, byARN) -> byARN.forEach((arn, fnConfig) -> {
-            ImmutableSortedMap<String, String> telemetryLabels = ImmutableSortedMap.of(
-                    SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, "ListEventSourceMappings"
-            );
             try (LambdaClient client = awsClientProvider.getLambdaClient(region)) {
                 ListFunctionEventInvokeConfigsRequest request = ListFunctionEventInvokeConfigsRequest.builder()
                         .functionName(fnConfig.getName())
                         .build();
                 ListFunctionEventInvokeConfigsResponse resp = rateLimiter.doWithRateLimit(
                         "LambdaClient/listFunctionEventInvokeConfigs",
+                        ImmutableSortedMap.of(
+                                SCRAPE_REGION_LABEL, region,
+                                SCRAPE_OPERATION_LABEL, "listFunctionEventInvokeConfigs",
+                                SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
+                        ),
                         () -> client.listFunctionEventInvokeConfigs(request));
                 if (resp.hasFunctionEventInvokeConfigs() && resp.functionEventInvokeConfigs().size() > 0) {
                     log.info("Function {} has invoke configs", fnConfig.getName());
@@ -129,7 +128,6 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                 }
             } catch (Exception e) {
                 log.error("Failed to get function invoke config for function " + fnConfig.getArn(), e);
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, telemetryLabels, 1);
             }
         })));
         return ImmutableList.of(new MetricFamilySamples(metricName, Type.GAUGE, "", samples));
