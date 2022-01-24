@@ -4,7 +4,7 @@ image:
   repository: asserts/aws-cloudwatch-exporter
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: 
+  tag:
 
 service:
   aws:
