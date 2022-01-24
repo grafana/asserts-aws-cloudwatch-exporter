@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "aws-exporter.labels" . | nindent 4 }}
 spec:
-type: {{ .Values.service.type }}
+  type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.aws.port }}
       targetPort: {{ .Values.service.aws.port }}
