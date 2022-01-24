@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aws-exporter
+  name: {{ include "aws-exporter.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: aws-exporter
+    {{- include "aws-exporter.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
@@ -15,6 +15,11 @@ spec:
       labels:
         app: aws-exporter
     spec:
+      {{- with .Values.serviceAccount.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aws-exporter.serviceAccountName" . }}
       containers:
       - image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         name: {{ .Chart.Name }}
