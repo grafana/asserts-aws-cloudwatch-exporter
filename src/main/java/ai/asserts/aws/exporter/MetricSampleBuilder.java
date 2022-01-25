@@ -52,6 +52,16 @@ public class MetricSampleBuilder {
                 metric);
     }
 
+    public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> labels,
+                                                        Double metric, Long time) {
+        return new MetricFamilySamples.Sample(
+                metricName,
+                new ArrayList<>(labels.keySet()),
+                new ArrayList<>(labels.values()),
+                metric,
+                time);
+    }
+
     public MetricFamilySamples buildFamily(List<MetricFamilySamples.Sample> samples) {
         return new MetricFamilySamples(samples.get(0).name, GAUGE, "", samples);
     }
