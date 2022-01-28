@@ -171,3 +171,19 @@ namespaces:
 #      - name: StorageWriteBytes
 #        stats:
 #          - Sum
+discoverResourceTypes:
+  - AWS::DynamoDB::Table
+  - AWS::S3::Bucket
+  - AWS::ElasticLoadBalancing::LoadBalancer
+  - AWS::ApiGateway::RestApi
+  - AWS::ApiGatewayV2::Api
+  - AWS::SQS::Queue
+  - AWS::SNS::Topic
+  - AWS::Kinesis::Stream
+  - AWS::Kinesis::StreamConsumer
+  - AWS::AutoScaling::AutoScalingGroup
+  - AWS::EC2::VPNGateway
+  - AWS::EC2::InternetGateway
+  - AWS::EC2::VPNGateway
+  - AWS::EC2::NatGateway
+  - AWS::EC2::EgressOnlyInternetGateway

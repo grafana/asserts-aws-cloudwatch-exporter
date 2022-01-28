@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 
@@ -52,8 +53,10 @@ public class ScrapeConfig {
     @Builder.Default
     private boolean discoverECSTasks = false;
 
-    private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
+    @Builder.Default
+    private Set<String> discoverResourceTypes = new TreeSet<>();
 
+    private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
 
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {

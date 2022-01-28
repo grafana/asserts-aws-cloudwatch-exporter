@@ -16,6 +16,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -40,17 +41,19 @@ public class MetricTaskManager implements InitializingBean {
 
     public void afterPropertiesSet() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        scrapeConfig.getNamespaces().forEach(nc -> nc.getMetrics().stream()
-                .map(MetricConfig::getScrapeInterval)
-                .forEach(interval -> scrapeConfig.getRegions().forEach(region -> {
-                            Map<String, MetricScrapeTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
-                                    k -> new TreeMap<>());
-                            if (!byRegion.containsKey(region)) {
-                                byRegion.put(region,
-                                        metricScrapeTask(region, interval, scrapeConfig.getDelay()));
-                            }
-                        }
-                )));
+        scrapeConfig.getNamespaces()
+                .stream().filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
+                .forEach(nc -> nc.getMetrics().stream()
+                        .map(MetricConfig::getScrapeInterval)
+                        .forEach(interval -> scrapeConfig.getRegions().forEach(region -> {
+                                    Map<String, MetricScrapeTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
+                                            k -> new TreeMap<>());
+                                    if (!byRegion.containsKey(region)) {
+                                        byRegion.put(region,
+                                                metricScrapeTask(region, interval, scrapeConfig.getDelay()));
+                                    }
+                                }
+                        )));
     }
 
     @SuppressWarnings("unused")
