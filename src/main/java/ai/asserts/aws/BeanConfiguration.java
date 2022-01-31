@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.controller.MetricStreamReceiverServlet;
+import ai.asserts.aws.cloudwatch.MetricStreamServlet;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,9 +13,9 @@ import org.springframework.context.annotation.Configuration;
 @SuppressWarnings("unused")
 public class BeanConfiguration {
     @Bean
-    public ServletRegistrationBean<MetricStreamReceiverServlet> exampleServletBean(MetricStreamReceiverServlet metricStreamReceiverServlet) {
-        ServletRegistrationBean<MetricStreamReceiverServlet> bean = new ServletRegistrationBean<>(
-                metricStreamReceiverServlet, "/receive-cloudwatch-metrics");
+    public ServletRegistrationBean<MetricStreamServlet> exampleServletBean(MetricStreamServlet metricStreamServlet) {
+        ServletRegistrationBean<MetricStreamServlet> bean = new ServletRegistrationBean<>(
+                metricStreamServlet, "/receive-cloudwatch-metrics");
         bean.setLoadOnStartup(1);
         return bean;
     }

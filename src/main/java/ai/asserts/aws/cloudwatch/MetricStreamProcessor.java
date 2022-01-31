@@ -2,7 +2,7 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.controller;
+package ai.asserts.aws.cloudwatch;
 
 import ai.asserts.aws.exporter.OpenTelemetryMetricConverter;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
@@ -11,7 +11,6 @@ import io.prometheus.client.CollectorRegistry;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
@@ -22,13 +21,13 @@ import java.util.List;
 @Component
 @Setter
 @Slf4j
-public class MetricStreamController extends Collector implements InitializingBean {
+public class MetricStreamProcessor extends Collector implements InitializingBean {
     private CollectorRegistry collectorRegistry;
     private OpenTelemetryMetricConverter openTelemetryMetricConverter;
     private volatile List<Collector.MetricFamilySamples> metricFamilySamplesList;
 
-    public MetricStreamController(CollectorRegistry collectorRegistry,
-                                  OpenTelemetryMetricConverter openTelemetryMetricConverter) {
+    public MetricStreamProcessor(CollectorRegistry collectorRegistry,
+                                 OpenTelemetryMetricConverter openTelemetryMetricConverter) {
         this.collectorRegistry = collectorRegistry;
         this.openTelemetryMetricConverter = openTelemetryMetricConverter;
         metricFamilySamplesList = new ArrayList<>();
@@ -40,10 +39,9 @@ public class MetricStreamController extends Collector implements InitializingBea
         collectorRegistry.register(this);
     }
 
-    public ResponseEntity<Void> receiveMetrics(ExportMetricsServiceRequest request) {
+    public void process(ExportMetricsServiceRequest request) {
         log.info("Received metrics payload from CloudWatch");
         metricFamilySamplesList.addAll(openTelemetryMetricConverter.buildSamplesFromOT(request));
-        return ResponseEntity.ok().build();
     }
 
     @Override

@@ -7,7 +7,6 @@ package ai.asserts.aws.cloudwatch;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.controller.MetricStreamController;
 import ai.asserts.aws.exporter.LabelBuilder;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.exporter.OpenTelemetryMetricConverter;
@@ -30,8 +29,8 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class MetricStreamControllerTest extends EasyMockSupport {
-    private MetricStreamController metricStreamController;
+public class MetricStreamProcessorTest extends EasyMockSupport {
+    private MetricStreamProcessor metricStreamProcessor;
     private CollectorRegistry collectorRegistry;
     private OpenTelemetryMetricConverter metricConverter;
     private static ExportMetricsServiceRequest request;
@@ -49,15 +48,15 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         metricFamilySamples = mock(Collector.MetricFamilySamples.class);
         collectorRegistry = mock(CollectorRegistry.class);
         metricConverter = mock(OpenTelemetryMetricConverter.class);
-        metricStreamController = new MetricStreamController(collectorRegistry, metricConverter);
-        metricStreamController.setCollectorRegistry(collectorRegistry);
+        metricStreamProcessor = new MetricStreamProcessor(collectorRegistry, metricConverter);
+        metricStreamProcessor.setCollectorRegistry(collectorRegistry);
     }
 
     @Test
     public void afterPropertiesSet() {
-        collectorRegistry.register(metricStreamController);
+        collectorRegistry.register(metricStreamProcessor);
         replayAll();
-        metricStreamController.afterPropertiesSet();
+        metricStreamProcessor.afterPropertiesSet();
         verifyAll();
     }
 
@@ -66,9 +65,9 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(metricConverter.buildSamplesFromOT(request)).andReturn(
                 ImmutableList.of(metricFamilySamples));
         replayAll();
-        metricStreamController.receiveMetrics(request);
-        assertEquals(ImmutableList.of(metricFamilySamples), metricStreamController.collect());
-        assertEquals(ImmutableList.of(), metricStreamController.collect());
+        metricStreamProcessor.process(request);
+        assertEquals(ImmutableList.of(metricFamilySamples), metricStreamProcessor.collect());
+        assertEquals(ImmutableList.of(), metricStreamProcessor.collect());
         verifyAll();
     }
 
@@ -81,10 +80,10 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         LambdaLabelConverter lambdaLabelConverter = new LambdaLabelConverter(metricNameUtil);
         LabelBuilder labelBuilder = new LabelBuilder(scrapeConfigProvider, metricNameUtil, lambdaLabelConverter);
         MetricSampleBuilder sampleBuilder = new MetricSampleBuilder(metricNameUtil, labelBuilder);
-        metricStreamController = new MetricStreamController(new CollectorRegistry(),
+        metricStreamProcessor = new MetricStreamProcessor(new CollectorRegistry(),
                 new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider));
-        metricStreamController.receiveMetrics(request);
-        List<Collector.MetricFamilySamples> metricFamilySamples = metricStreamController.collect();
+        metricStreamProcessor.process(request);
+        List<Collector.MetricFamilySamples> metricFamilySamples = metricStreamProcessor.collect();
         assertTrue(metricFamilySamples.size() > 0);
     }
 }
