@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -66,10 +68,11 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
 
     @Test
     public void metricNameFromOTName() {
+        expect(scrapeConfigProvider.getStandardNamespace("AWS/EFS")).andReturn(Optional.of(CWNamespace.efs));
         expect(metricNameUtil.toSnakeCase("MeteredIOBytes")).andReturn("metered_io_bytes");
         replayAll();
         String otMetricName = "amazonaws.com/AWS/EFS/MeteredIOBytes";
-        assertEquals("metered_io_bytes", testClass.metricNameFromOTMetricName("AWS/EFS", otMetricName));
+        assertEquals("aws_efs_metered_io_bytes", testClass.metricNameFromOTMetricName("AWS/EFS", otMetricName));
         verifyAll();
     }
 
@@ -200,12 +203,14 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
                 .setDoubleSummary(doubleSummary)
                 .build();
 
+        expect(scrapeConfigProvider.getStandardNamespace("AWS/DynamoDB")).andReturn(Optional.of(CWNamespace.dynamodb));
         expect(metricNameUtil.toSnakeCase("ReadCapacityUnits")).andReturn("read_capacity_units");
 
         SortedMap<String, String> labels = new TreeMap<>();
         Collector.MetricFamilySamples.Sample mockSample = new Collector.MetricFamilySamples.Sample(
                 "read_capacity_units", ImmutableList.of("label"), ImmutableList.of("value"), 10.0D, 20_000L
         );
+
 
         replayAll();
         testClass = new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider) {
@@ -214,7 +219,7 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
                                                                            String metricName,
                                                                            DoubleSummary actualDoubleSummary) {
                 assertEquals(labels, baseLabels);
-                assertEquals("read_capacity_units", metricName);
+                assertEquals("aws_dynamodb_read_capacity_units", metricName);
                 assertEquals(doubleSummary, actualDoubleSummary);
                 return ImmutableList.of(mockSample, mockSample);
             }
