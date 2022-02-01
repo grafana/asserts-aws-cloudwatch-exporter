@@ -28,7 +28,9 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.STREAM_LATENCY_METRIC;
 import static java.lang.String.format;
 
@@ -96,7 +98,13 @@ public class OpenTelemetryMetricConverter {
 
             Long instant = doubleSummaryDataPoint.getTimeUnixNano() / 1000000;
             long deliveryDelay = System.currentTimeMillis() - instant;
-            metricCollector.recordLatency(STREAM_LATENCY_METRIC, baseLabels, deliveryDelay);
+
+            SortedMap<String, String> delayLabels = new TreeMap<>();
+            delayLabels.put(SCRAPE_REGION_LABEL, baseLabels.get(SCRAPE_REGION_LABEL));
+            delayLabels.put(SCRAPE_NAMESPACE_LABEL, baseLabels.get(SCRAPE_NAMESPACE_LABEL));
+            delayLabels.put(SCRAPE_ACCOUNT_ID_LABEL, baseLabels.get(SCRAPE_ACCOUNT_ID_LABEL));
+            metricCollector.recordHistogram(STREAM_LATENCY_METRIC, delayLabels, deliveryDelay);
+
             String _sum = format("%s_sum", metricName);
             String _count = format("%s_count", metricName);
             String _min = format("%s_min", metricName);
@@ -128,7 +136,6 @@ public class OpenTelemetryMetricConverter {
         labels.remove("metric_name");
         labels.remove("aws_exporter_arn");
         labels.remove("provider");
-        labels.remove("namespace");
         return labels;
     }
 

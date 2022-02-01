@@ -25,6 +25,7 @@ public class MetricNameUtil {
     public static final String SCRAPE_ERROR_COUNT_METRIC = "aws_exporter_error_total";
     public static final String SCRAPE_OPERATION_LABEL = "operation";
     public static final String SCRAPE_REGION_LABEL = "region";
+    public static final String SCRAPE_ACCOUNT_ID_LABEL = "account_id";
     public static final String SCRAPE_NAMESPACE_LABEL = "cw_namespace";
     public static final String SCRAPE_INTERVAL_LABEL = "interval";
 

@@ -167,7 +167,7 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
         expect(metricNameUtil.toSnakeCase("DimensionName1")).andReturn("dim1").anyTimes();
         expect(metricNameUtil.toSnakeCase("DimensionName2")).andReturn("dim2").anyTimes();
 
-        metricCollector.recordLatency(eq(STREAM_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        metricCollector.recordHistogram(eq(STREAM_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expectLastCall().times(2);
 
         ImmutableSortedMap<String, String> metric1 = ImmutableSortedMap.of(

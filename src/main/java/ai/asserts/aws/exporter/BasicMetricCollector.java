@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import io.prometheus.client.Histogram;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -28,6 +29,7 @@ public class BasicMetricCollector extends Collector {
     private final Map<Key, Double> gaugeValues = new ConcurrentHashMap<>();
     private final Map<Key, AtomicLong> counters = new ConcurrentHashMap<>();
     private final Map<Key, LatencyCounter> latencyCounters = new ConcurrentHashMap<>();
+    private final Map<Key, Histogram> histograms = new ConcurrentHashMap<>();
 
     @Override
     public List<MetricFamilySamples> collect() {
@@ -56,6 +58,8 @@ public class BasicMetricCollector extends Collector {
             latencySamples.computeIfAbsent(key.metricName + "_sum", k -> new ArrayList<>())
                     .add(new Sample(key.metricName + "_sum", key.labelNames, key.labelValues, value));
         });
+
+        histograms.values().forEach(histogram -> familySamples.addAll(histogram.collect()));
 
         latencySamples.forEach((name, samples) ->
                 familySamples.add(new MetricFamilySamples(name, Type.COUNTER, "", samples)));
@@ -90,10 +94,26 @@ public class BasicMetricCollector extends Collector {
                 .labelValues(new ArrayList<>(labels.values()))
                 .build();
         latencyCounters.computeIfAbsent(key, k -> {
-            log.info("Creating counter {}{}", key.metricName + "_count", labels);
-            log.info("Creating counter {}{}", key.metricName + "_sum", labels);
+            log.info("Creating latency count counter {}{}", key.metricName + "_count", labels);
+            log.info("Creating latency total counter {}{}", key.metricName + "_sum", labels);
             return new LatencyCounter();
         }).increment(value);
+    }
+
+    public void recordHistogram(String metricName, SortedMap<String, String> labels, long value) {
+        Key key = Key.builder()
+                .metricName(metricName)
+                .labelNames(new ArrayList<>(labels.keySet()))
+                .labelValues(new ArrayList<>(labels.values()))
+                .build();
+        histograms.computeIfAbsent(key, k -> {
+            log.info("Creating histogram {}{}", key.metricName + "_count", labels);
+            return Histogram.build()
+                    .name(key.metricName)
+                    .labelNames(key.labelNames.toArray(new String[0]))
+                    .help("Histogram metric for " + key.metricName)
+                    .create();
+        }).labels(key.labelValues.toArray(new String[0])).observe(value);
     }
 
     @Builder
