@@ -57,10 +57,12 @@ public class NamespaceConfig {
             throw new RuntimeException(String.join("\n", errors));
         }
 
-        for (int j = 0; j < metrics.size(); j++) {
-            MetricConfig metricConfig = metrics.get(j);
-            metricConfig.setNamespace(this);
-            metricConfig.validate(j);
+        if (!CollectionUtils.isEmpty(metrics)) {
+            for (int j = 0; j < metrics.size(); j++) {
+                MetricConfig metricConfig = metrics.get(j);
+                metricConfig.setNamespace(this);
+                metricConfig.validate(j);
+            }
         }
 
         if (!CollectionUtils.isEmpty(logs)) {

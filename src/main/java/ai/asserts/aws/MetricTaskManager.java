@@ -16,8 +16,10 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 
@@ -40,17 +42,12 @@ public class MetricTaskManager implements InitializingBean {
 
     public void afterPropertiesSet() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        scrapeConfig.getNamespaces().forEach(nc -> nc.getMetrics().stream()
-                .map(MetricConfig::getScrapeInterval)
-                .forEach(interval -> scrapeConfig.getRegions().forEach(region -> {
-                            Map<String, MetricScrapeTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
-                                    k -> new TreeMap<>());
-                            if (!byRegion.containsKey(region)) {
-                                byRegion.put(region,
-                                        metricScrapeTask(region, interval, scrapeConfig.getDelay()));
-                            }
-                        }
-                )));
+        Set<String> regions = scrapeConfig.getRegions();
+        scrapeConfig.getNamespaces().stream()
+                .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
+                .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getScrapeInterval))
+                .forEach(interval ->
+                        regions.forEach(region -> addScrapeTask(scrapeConfig, interval, region)));
     }
 
     @SuppressWarnings("unused")
@@ -69,6 +66,14 @@ public class MetricTaskManager implements InitializingBean {
     @VisibleForTesting
     MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
         return new MetricScrapeTask(region, interval, delay);
+    }
+
+    private void addScrapeTask(ScrapeConfig scrapeConfig, Integer interval, String region) {
+        Map<String, MetricScrapeTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
+                k -> new TreeMap<>());
+        if (!byRegion.containsKey(region)) {
+            byRegion.put(region, metricScrapeTask(region, interval, scrapeConfig.getDelay()));
+        }
     }
 
     private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay) {

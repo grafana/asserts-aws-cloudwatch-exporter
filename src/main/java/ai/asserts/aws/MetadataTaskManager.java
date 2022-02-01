@@ -8,6 +8,7 @@ import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
+import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceTagExporter;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
@@ -34,6 +35,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final LambdaEventSourceExporter lambdaEventSourceExporter;
     private final LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
     private final BasicMetricCollector metricCollector;
+    private final ResourceExporter resourceExporter;
     private final ResourceTagExporter resourceTagExporter;
     private final TaskThreadPool taskThreadPool;
     private final ScrapeConfigProvider scrapeConfigProvider;
@@ -45,6 +47,7 @@ public class MetadataTaskManager implements InitializingBean {
         lambdaCapacityExporter.register(collectorRegistry);
         lambdaEventSourceExporter.register(collectorRegistry);
         lambdaInvokeConfigExporter.register(collectorRegistry);
+        resourceExporter.register(collectorRegistry);
         resourceTagExporter.register(collectorRegistry);
         metricCollector.register(collectorRegistry);
 
@@ -66,6 +69,7 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(lambdaCapacityExporter::update);
         taskThreadPool.getExecutorService().submit(lambdaEventSourceExporter::update);
         taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
+        taskThreadPool.getExecutorService().submit(resourceExporter::update);
 
         taskThreadPool.getExecutorService().submit(() ->
                 logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));

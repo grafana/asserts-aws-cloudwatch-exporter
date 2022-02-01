@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
+import software.amazon.awssdk.services.config.ConfigClient;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
@@ -29,13 +30,14 @@ public class RateLimiter {
     private final Semaphore defaultSemaphore = new Semaphore(2);
     private final BasicMetricCollector metricCollector;
 
-    private final Map<String, Semaphore> semaphores = ImmutableMap.of(
-            LambdaClient.class.getSimpleName(), new Semaphore(2),
-            EcsClient.class.getSimpleName(), new Semaphore(2),
-            CloudWatchClient.class.getSimpleName(), new Semaphore(2),
-            ResourceGroupsTaggingApiClient.class.getSimpleName(), new Semaphore(2),
-            CloudWatchLogsClient.class.getSimpleName(), new Semaphore(1)
-    );
+    private final Map<String, Semaphore> semaphores = new ImmutableMap.Builder<String, Semaphore>()
+            .put(LambdaClient.class.getSimpleName(), new Semaphore(2))
+            .put(EcsClient.class.getSimpleName(), new Semaphore(2))
+            .put(CloudWatchClient.class.getSimpleName(), new Semaphore(2))
+            .put(ResourceGroupsTaggingApiClient.class.getSimpleName(), new Semaphore(2))
+            .put(CloudWatchLogsClient.class.getSimpleName(), new Semaphore(1))
+            .put(ConfigClient.class.getSimpleName(), new Semaphore(1))
+            .build();
 
     public <K extends AWSAPICall<V>, V> V doWithRateLimit(String api, SortedMap<String, String> labels, K k) {
         Semaphore theSemaphore = semaphores.getOrDefault(api.split("/")[0], defaultSemaphore);

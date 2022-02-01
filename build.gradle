@@ -24,6 +24,7 @@ dependencies {
             "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
             "io.prometheus:simpleclient:$prometheusVersion",
             "io.prometheus:simpleclient_common:$prometheusVersion",
+            "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
             "org.aspectj:aspectjweaver:1.9.6",
             "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
             "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion",
@@ -41,6 +42,7 @@ dependencies {
             "software.amazon.awssdk:s3:$awsSdkVersion",
             "software.amazon.awssdk:ecs:$awsSdkVersion",
             "software.amazon.awssdk:resourcegroupstaggingapi:$awsSdkVersion",
+            "software.amazon.awssdk:config:$awsSdkVersion"
     )
 
     compileOnly(
