@@ -13,4 +13,4 @@ spec:
       protocol: TCP
       name: aws
   selector:
-    app: aws-exporter
+    {{- include "aws-exporter.selectorLabels" . | nindent 4 }}

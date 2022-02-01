@@ -8,12 +8,12 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: aws-exporter
+      {{- include "aws-exporter.labels" . | nindent 6 }}
   replicas: 1
   template:
     metadata:
       labels:
-        app: aws-exporter
+        {{- include "aws-exporter.labels" . | nindent 8 }}
     spec:
       {{- with .Values.serviceAccount.imagePullSecrets }}
       imagePullSecrets:
@@ -22,7 +22,7 @@ spec:
       serviceAccountName: {{ include "aws-exporter.serviceAccountName" . }}
       containers:
       - image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-        name: {{ .Chart.Name }}
+        name: {{ include "aws-exporter.fullname" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         resources:
           limits:
