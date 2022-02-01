@@ -7,6 +7,7 @@ package ai.asserts.aws.cloudwatch;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.LabelBuilder;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.exporter.OpenTelemetryMetricConverter;
@@ -34,6 +35,7 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
     private CollectorRegistry collectorRegistry;
     private OpenTelemetryMetricConverter metricConverter;
     private static ExportMetricsServiceRequest request;
+    private BasicMetricCollector metricCollector;
     private Collector.MetricFamilySamples metricFamilySamples;
 
     @BeforeAll
@@ -48,6 +50,7 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
         metricFamilySamples = mock(Collector.MetricFamilySamples.class);
         collectorRegistry = mock(CollectorRegistry.class);
         metricConverter = mock(OpenTelemetryMetricConverter.class);
+        metricCollector = mock(BasicMetricCollector.class);
         metricStreamProcessor = new MetricStreamProcessor(collectorRegistry, metricConverter);
         metricStreamProcessor.setCollectorRegistry(collectorRegistry);
     }
@@ -81,7 +84,7 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
         LabelBuilder labelBuilder = new LabelBuilder(scrapeConfigProvider, metricNameUtil, lambdaLabelConverter);
         MetricSampleBuilder sampleBuilder = new MetricSampleBuilder(metricNameUtil, labelBuilder);
         metricStreamProcessor = new MetricStreamProcessor(new CollectorRegistry(),
-                new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider));
+                new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider, metricCollector));
         metricStreamProcessor.process(request);
         List<Collector.MetricFamilySamples> metricFamilySamples = metricStreamProcessor.collect();
         assertTrue(metricFamilySamples.size() > 0);

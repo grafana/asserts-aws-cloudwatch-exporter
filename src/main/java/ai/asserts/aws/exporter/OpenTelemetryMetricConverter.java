@@ -29,6 +29,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
+import static ai.asserts.aws.MetricNameUtil.STREAM_LATENCY_METRIC;
 import static java.lang.String.format;
 
 @Component
@@ -39,7 +40,6 @@ public class OpenTelemetryMetricConverter {
     private final MetricSampleBuilder builder;
     private final ScrapeConfigProvider configProvider;
     private final BasicMetricCollector metricCollector;
-
 
     public List<Collector.MetricFamilySamples> buildSamplesFromOT(ExportMetricsServiceRequest request) {
         List<Collector.MetricFamilySamples> metricFamilySamples = new ArrayList<>();
@@ -95,6 +95,8 @@ public class OpenTelemetryMetricConverter {
             labels.remove("provider");
 
             Long instant = doubleSummaryDataPoint.getTimeUnixNano() / 1000;
+            long deliveryDelay = System.currentTimeMillis() - instant;
+            metricCollector.recordLatency(STREAM_LATENCY_METRIC, baseLabels, deliveryDelay);
             String _sum = format("%s_sum", metricName);
             String _count = format("%s_count", metricName);
             String _min = format("%s_min", metricName);

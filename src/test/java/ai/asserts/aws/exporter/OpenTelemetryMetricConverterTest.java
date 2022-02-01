@@ -37,8 +37,13 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.STREAM_LATENCY_METRIC;
 import static io.prometheus.client.Collector.Type.GAUGE;
+import static org.easymock.EasyMock.anyLong;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -47,6 +52,7 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
     private MetricSampleBuilder sampleBuilder;
     private Collector.MetricFamilySamples.Sample sample;
     private ScrapeConfigProvider scrapeConfigProvider;
+    private BasicMetricCollector metricCollector;
     private OpenTelemetryMetricConverter testClass;
     private static ExportMetricsServiceRequest request;
 
@@ -63,7 +69,8 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        testClass = new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider);
+        metricCollector = mock(BasicMetricCollector.class);
+        testClass = new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider, metricCollector);
     }
 
     @Test
@@ -159,6 +166,9 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
         expect(metricNameUtil.toSnakeCase("DimensionName1")).andReturn("dim1").anyTimes();
         expect(metricNameUtil.toSnakeCase("DimensionName2")).andReturn("dim2").anyTimes();
 
+        metricCollector.recordLatency(eq(STREAM_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        expectLastCall().times(2);
+
         ImmutableSortedMap<String, String> metric1 = ImmutableSortedMap.of(
                 "dim1", "value11", "dim2", "value21",
                 "region", "us-west-2", "cw_namespace", "AWS/Lambda");
@@ -213,7 +223,7 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
 
 
         replayAll();
-        testClass = new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider) {
+        testClass = new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider, metricCollector) {
             @Override
             List<Collector.MetricFamilySamples.Sample> fromOTDoubleSummary(SortedMap<String, String> baseLabels,
                                                                            String metricName,
@@ -266,7 +276,7 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(mockSample))).andReturn(metricFamilySamples);
 
         replayAll();
-        testClass = new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider) {
+        testClass = new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider, metricCollector) {
             @Override
             Map<String, String> extractAttributes(Resource actual) {
                 assertEquals(resource, actual);
