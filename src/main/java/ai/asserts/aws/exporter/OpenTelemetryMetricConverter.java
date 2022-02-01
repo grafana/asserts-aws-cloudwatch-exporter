@@ -94,7 +94,7 @@ public class OpenTelemetryMetricConverter {
             labels.remove("metric_name");
             labels.remove("provider");
 
-            Long instant = doubleSummaryDataPoint.getTimeUnixNano() / 1000;
+            Long instant = doubleSummaryDataPoint.getTimeUnixNano() / 1000000;
             long deliveryDelay = System.currentTimeMillis() - instant;
             metricCollector.recordLatency(STREAM_LATENCY_METRIC, baseLabels, deliveryDelay);
             String _sum = format("%s_sum", metricName);

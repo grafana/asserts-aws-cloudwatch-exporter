@@ -108,11 +108,12 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
         labels.put("region", "us-west-2");
 
         Instant endTime = Instant.now().minusSeconds(3600);
+        long endTimeNano = endTime.toEpochMilli() * 1_000_000;
         DoubleSummary doubleSummary = DoubleSummary.newBuilder()
                 .addDataPoints(DoubleSummaryDataPoint.newBuilder()
                         .setCount(1)
                         .setSum(10.0D)
-                        .setTimeUnixNano(endTime.toEpochMilli() * 1000)
+                        .setTimeUnixNano(endTimeNano)
                         .addQuantileValues(DoubleSummaryDataPoint.ValueAtQuantile.newBuilder()
                                 .setQuantile(0)
                                 .setValue(1.5D)
@@ -137,7 +138,7 @@ public class OpenTelemetryMetricConverterTest extends EasyMockSupport {
                 .addDataPoints(DoubleSummaryDataPoint.newBuilder()
                         .setCount(2)
                         .setSum(20.0D)
-                        .setTimeUnixNano(endTime.toEpochMilli() * 1000)
+                        .setTimeUnixNano(endTimeNano)
                         .addQuantileValues(DoubleSummaryDataPoint.ValueAtQuantile.newBuilder()
                                 .setQuantile(0)
                                 .setValue(3.0D)
