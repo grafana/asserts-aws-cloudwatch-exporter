@@ -38,6 +38,7 @@ public class OpenTelemetryMetricConverter {
     private final MetricNameUtil metricNameUtil;
     private final MetricSampleBuilder builder;
     private final ScrapeConfigProvider configProvider;
+    private final BasicMetricCollector metricCollector;
 
 
     public List<Collector.MetricFamilySamples> buildSamplesFromOT(ExportMetricsServiceRequest request) {
@@ -53,7 +54,10 @@ public class OpenTelemetryMetricConverter {
                     .flatMap(entry -> entry.getMetricsList().stream())
                     .forEach(metric -> buildFromOTMetric(samples, labels, metric));
         }
-        samples.forEach((key, value) -> metricFamilySamples.add(builder.buildFamily(value)));
+        samples.forEach((key, value) -> {
+            log.info("Gathered metrics for {}", key);
+            metricFamilySamples.add(builder.buildFamily(value));
+        });
         return metricFamilySamples;
     }
 

@@ -39,8 +39,12 @@ public class MetricStreamServlet extends HttpServlet {
 
     private void doPutDoPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         ServletInputStream inputStream = req.getInputStream();
-        ExportMetricsServiceRequest request = parsePayload(inputStream);
-        metricStreamProcessor.process(request);
+        try {
+            ExportMetricsServiceRequest request = parsePayload(inputStream);
+            metricStreamProcessor.process(request);
+        } catch (Exception e) {
+            log.error("Failed to process metric payload", e);
+        }
         resp.setStatus(204);
     }
 
