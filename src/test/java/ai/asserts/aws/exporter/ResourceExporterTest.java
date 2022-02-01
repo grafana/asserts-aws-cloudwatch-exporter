@@ -89,7 +89,8 @@ public class ResourceExporterTest extends EasyMockSupport {
                 ImmutableSortedMap.of(
                         SCRAPE_REGION_LABEL, "region",
                         "aws_resource_type", "DynamoDBTable",
-                        "name", "TableName"
+                        "name", "TableName",
+                        "job", "TableName"
                 ),
                 1.0D))
                 .andReturn(sample);
@@ -97,7 +98,8 @@ public class ResourceExporterTest extends EasyMockSupport {
                 ImmutableSortedMap.of(
                         SCRAPE_REGION_LABEL, "region",
                         "aws_resource_type", "S3Bucket",
-                        "name", "BucketName"
+                        "name", "BucketName",
+                        "job", "BucketName"
                 ),
                 1.0D))
                 .andReturn(sample);
