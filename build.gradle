@@ -42,9 +42,9 @@ dependencies {
             "software.amazon.awssdk:ecs:$awsSdkVersion",
             "software.amazon.awssdk:resourcegroupstaggingapi:$awsSdkVersion",
             "software.amazon.awssdk:config:$awsSdkVersion",
-            "io.opentelemetry:opentelemetry-proto:0.14.1",
-            "com.google.protobuf:protobuf-java:3.19.1",
-            "com.google.protobuf:protobuf-java-util:3.19.1"
+            "io.opentelemetry:opentelemetry-proto:$opentelemetryProtoBufVersion",
+            "com.google.protobuf:protobuf-java:$protobufVersion",
+            "com.google.protobuf:protobuf-java-util:$protobufVersion"
     )
 
     compileOnly(
