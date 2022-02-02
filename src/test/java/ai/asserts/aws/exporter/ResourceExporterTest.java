@@ -88,7 +88,7 @@ public class ResourceExporterTest extends EasyMockSupport {
         expect(metricSampleBuilder.buildSingleSample("aws_resource",
                 ImmutableSortedMap.of(
                         SCRAPE_REGION_LABEL, "region",
-                        "aws_resource_type", "DynamoDBTable",
+                        "aws_resource_type", "AWS::DynamoDB::Table",
                         "name", "TableName",
                         "job", "TableName"
                 ),
@@ -97,7 +97,7 @@ public class ResourceExporterTest extends EasyMockSupport {
         expect(metricSampleBuilder.buildSingleSample("aws_resource",
                 ImmutableSortedMap.of(
                         SCRAPE_REGION_LABEL, "region",
-                        "aws_resource_type", "S3Bucket",
+                        "aws_resource_type", "AWS::S3::Bucket",
                         "name", "BucketName",
                         "job", "BucketName"
                 ),
