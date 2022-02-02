@@ -8,7 +8,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      {{- include "aws-exporter.labels" . | nindent 6 }}
+      {{- include "aws-exporter.selectorLabels" . | nindent 6 }}
   replicas: 1
   template:
     metadata:
