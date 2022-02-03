@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -21,10 +22,12 @@ import software.amazon.awssdk.services.config.model.ListDiscoveredResourcesReque
 import software.amazon.awssdk.services.config.model.ListDiscoveredResourcesResponse;
 import software.amazon.awssdk.services.config.model.ResourceIdentifier;
 
+import java.util.Optional;
 import java.util.SortedMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
@@ -41,6 +44,7 @@ public class ResourceExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples metricFamilySamples;
     private MetricSampleBuilder metricSampleBuilder;
+    private ResourceMapper resourceMapper;
     private ResourceExporter testClass;
 
     @BeforeEach
@@ -53,7 +57,9 @@ public class ResourceExporterTest extends EasyMockSupport {
         metricSampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         metricFamilySamples = mock(Collector.MetricFamilySamples.class);
-        testClass = new ResourceExporter(scrapeConfigProvider, awsClientProvider, rateLimiter, metricSampleBuilder);
+        resourceMapper = mock(ResourceMapper.class);
+        testClass = new ResourceExporter(scrapeConfigProvider, awsClientProvider, rateLimiter, metricSampleBuilder,
+                resourceMapper);
     }
 
     @Test
@@ -81,6 +87,8 @@ public class ResourceExporterTest extends EasyMockSupport {
                 .includeDeletedResources(false)
                 .resourceType("type1")
                 .build())).andReturn(response);
+
+        expect(resourceMapper.map(anyString())).andReturn(Optional.empty()).anyTimes();
 
         expect(rateLimiter.doWithRateLimit(eq("ConfigClient/listDiscoveredResources"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
