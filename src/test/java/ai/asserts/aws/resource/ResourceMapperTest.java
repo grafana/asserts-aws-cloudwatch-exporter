@@ -6,6 +6,10 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static ai.asserts.aws.resource.ResourceType.ALB;
+import static ai.asserts.aws.resource.ResourceType.APIGateway;
+import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
+import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
 import static ai.asserts.aws.resource.ResourceType.ECSCluster;
 import static ai.asserts.aws.resource.ResourceType.ECSService;
@@ -36,6 +40,20 @@ public class ResourceMapperTest {
                         .name("lamda-sqs-poc-input-queue")
                         .build()),
                 testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_SQSQueue_URL() {
+        String url = "https://sqs.us-west-2.amazonaws.com/342994379019/ErrorDemo-Input";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(SQSQueue).arn("arn:aws:sqs:us-west-2:342994379019:ErrorDemo-Input")
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .name("ErrorDemo-Input")
+                        .build()),
+                testClass.map(url)
         );
     }
 
@@ -106,6 +124,7 @@ public class ResourceMapperTest {
                 Optional.of(Resource.builder()
                         .type(SNSTopic).arn(arn)
                         .region("us-west-2")
+                        .account("342994379019")
                         .name("topic-name")
                         .build()),
                 testClass.map(arn)
@@ -174,6 +193,68 @@ public class ResourceMapperTest {
                         .type(ECSTask).arn(arn)
                         .region("us-west-2")
                         .name("34c11488dc56429fb67e2996b5ceaa74")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_LoadBalancer() {
+        String arn = "arn:aws:elasticloadbalancing:us-west-2:342994379019:loadbalancer/app/k8s-assertsinternal-dabf78ac56/ffc311c1118b747a";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(ALB).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .subType("app")
+                        .name("k8s-assertsinternal-dabf78ac56/ffc311c1118b747a")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_AutoScalingGroup() {
+        String arn = "arn:aws:autoscaling:us-west-2:342994379019:autoScalingGroup:ffc311c1118b747a:autoScalingGroupName/groupName";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(AutoScalingGroup).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .id("ffc311c1118b747a")
+                        .name("groupName")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_APIGateway() {
+        String arn = "arn:aws:apigateway:us-west-2::/restapis/nvaaoiotuc";
+        assertEquals(Optional.of(Resource.builder()
+                        .type(APIGateway).arn(arn)
+                        .region("us-west-2")
+                        .account("")
+                        .name("nvaaoiotuc")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_APIGateway_Stage() {
+        String arn = "arn:aws:apigateway:us-west-2::/restapis/nvaaoiotuc/stages/dev";
+        assertEquals(Optional.of(Resource.builder()
+                        .type(APIGatewayStage).arn(arn)
+                        .region("us-west-2")
+                        .account("")
+                        .name("dev")
+                        .childOf(Resource.builder()
+                                .region("us-west-2")
+                                .type(APIGateway)
+                                .account("")
+                                .name("nvaaoiotuc")
+                                .build())
                         .build()),
                 testClass.map(arn)
         );

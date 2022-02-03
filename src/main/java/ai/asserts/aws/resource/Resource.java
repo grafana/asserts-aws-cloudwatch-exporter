@@ -24,9 +24,27 @@ import static java.lang.String.format;
 @ToString
 public class Resource {
     private final ResourceType type;
+    /**
+     * Some ARNs have uuid. See {@link ResourceMapper#ASG_PATTERN}
+     */
+    private final String id;
+
+    /**
+     * Some ARNs have sub type of resource. See {@link ResourceMapper#ALB_PATTERN}
+     */
+    private final String subType;
     private final String name;
     private final String region;
+    private final String account;
+
+    /**
+     * Some ARNs have version of the resource. See {@link ResourceMapper#LAMBDA_ARN_PATTERN}
+     */
     private final String version;
+
+    /**
+     * Some resources also have information about their parent resource.
+     */
     private final Resource childOf;
     @EqualsAndHashCode.Exclude
     private final String arn;
