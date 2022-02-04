@@ -1,6 +1,7 @@
 delay: 60
 scrapeInterval: 300
 discoverECSTasks: true
+importEvents: true
 regions:
   - us-west-2
 namespaces:

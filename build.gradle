@@ -44,7 +44,8 @@ dependencies {
             "software.amazon.awssdk:config:$awsSdkVersion",
             "io.opentelemetry:opentelemetry-proto:$opentelemetryProtoBufVersion",
             "com.google.protobuf:protobuf-java:$protobufVersion",
-            "com.google.protobuf:protobuf-java-util:$protobufVersion"
+            "com.google.protobuf:protobuf-java-util:$protobufVersion",
+            "software.amazon.awssdk:cloudtrail:$awsSdkVersion",
     )
 
     compileOnly(

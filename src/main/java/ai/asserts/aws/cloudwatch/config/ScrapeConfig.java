@@ -56,6 +56,9 @@ public class ScrapeConfig {
     @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
 
+    @Builder.Default
+    private boolean importEvents = false;
+
     private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
 
     public Optional<NamespaceConfig> getLambdaConfig() {

@@ -8,6 +8,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
+import ai.asserts.aws.exporter.EventsExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,6 +38,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
+    private EventsExporter eventsExporter;
 
     @BeforeEach
     public void setup() {
@@ -47,12 +49,13 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         metricScrapeTask = mock(MetricScrapeTask.class);
         collectorRegistry = mock(CollectorRegistry.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
+        eventsExporter = mock(EventsExporter.class);
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
 
         replayAll();
         testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, ecsServiceDiscoveryExporter,
-                taskThreadPool) {
+                taskThreadPool, eventsExporter) {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
@@ -92,6 +95,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         beanFactory.autowireBean(metricScrapeTask);
         expectLastCall().times(4);
         expect(metricScrapeTask.register(collectorRegistry)).andReturn(null).times(4);
+        expect(eventsExporter.register(collectorRegistry)).andReturn(null);
 
         replayAll();
         testClass.afterPropertiesSet();
@@ -104,6 +108,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         Capture<Runnable> capture1 = newCapture();
 
+        Capture<Runnable> capture2 = newCapture();
+
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         metricScrapeTask.update();
 
@@ -111,10 +117,15 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         expect(executorService.submit(ecsServiceDiscoveryExporter)).andReturn(null);
 
+        expect(executorService.submit(capture(capture2))).andReturn(null);
+        eventsExporter.update();
+
         replayAll();
         testClass.triggerScrapes();
 
         capture1.getValue().run();
+
+        capture2.getValue().run();
 
         verifyAll();
     }

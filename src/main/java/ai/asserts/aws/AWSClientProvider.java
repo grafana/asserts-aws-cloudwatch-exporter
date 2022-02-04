@@ -4,6 +4,7 @@ package ai.asserts.aws;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.cloudtrail.CloudTrailClient;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.config.ConfigClient;
@@ -37,5 +38,9 @@ public class AWSClientProvider {
 
     public ConfigClient getConfigClient(String region) {
         return ConfigClient.builder().region(Region.of(region)).build();
+    }
+
+    public CloudTrailClient getCloudTrailClient(String region) {
+        return CloudTrailClient.builder().region(Region.of(region)).build();
     }
 }

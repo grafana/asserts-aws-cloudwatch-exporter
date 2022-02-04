@@ -5,6 +5,7 @@ import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
+import ai.asserts.aws.exporter.EventsExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
@@ -32,6 +33,7 @@ public class MetricTaskManager implements InitializingBean {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskThreadPool taskThreadPool;
+    private final EventsExporter eventsExporter;
 
     /**
      * Maintains the last scrape time for all the metricso of a given scrape interval. The scrapes are
@@ -48,6 +50,7 @@ public class MetricTaskManager implements InitializingBean {
                 .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getScrapeInterval))
                 .forEach(interval ->
                         regions.forEach(region -> addScrapeTask(scrapeConfig, interval, region)));
+        eventsExporter.register(collectorRegistry);
     }
 
     @SuppressWarnings("unused")
@@ -61,6 +64,7 @@ public class MetricTaskManager implements InitializingBean {
                 .forEach(task -> executorService.submit(task::update));
 
         executorService.submit(ecsServiceDiscoveryExporter);
+        executorService.submit(eventsExporter::update);
     }
 
     @VisibleForTesting
