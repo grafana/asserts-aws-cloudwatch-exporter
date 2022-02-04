@@ -10,9 +10,6 @@ import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import io.prometheus.client.Collector;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -26,9 +23,7 @@ import software.amazon.awssdk.services.config.model.ResourceType;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -44,10 +39,7 @@ public class EventsExporter extends Collector implements MetricProvider {
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final TimeWindowBuilder timeWindowBuilder;
-    private final String ALARMS_TYPE = "AWS::CloudWatch::Alarm";
     private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
-    private Map<String, MetricFamilySamples.Sample> alert_samples = new TreeMap<>();
-    private List<String> deletedAlarms = new LinkedList<>();
 
     public EventsExporter(ScrapeConfigProvider scrapeConfigProvider,
                           AWSClientProvider awsClientProvider,
@@ -67,7 +59,6 @@ public class EventsExporter extends Collector implements MetricProvider {
         Integer intervalSeconds = scrapeConfig.getScrapeInterval();
         Integer delaySeconds = scrapeConfig.getDelay();
         Set<String> discoverResourceTypes = scrapeConfig.getDiscoverResourceTypes();
-        discoverResourceTypes.add(ALARMS_TYPE);
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         if (scrapeConfig.isImportEvents()) {
             scrapeConfig.getRegions().forEach(region -> {
@@ -95,15 +86,7 @@ public class EventsExporter extends Collector implements MetricProvider {
                                     () -> cloudTrailClient.lookupEvents(request));
                             if (response.hasEvents()) {
                                 response.events().forEach(event -> {
-                                    if (resource.equals(ALARMS_TYPE)) {
-                                        if (isAlarmFiring(event)) {
-                                            createErrorAlert(event, resource, region);
-                                        } else {
-                                            stopAlarm(event);
-                                        }
-                                    } else {
-                                        samples.add(createAmendAlert(event, resource, region));
-                                    }
+                                    samples.add(createAmendAlert(event, resource, region));
                                 });
                             }
                             nextToken = response.nextToken();
@@ -118,12 +101,7 @@ public class EventsExporter extends Collector implements MetricProvider {
                 log.info("Adding {} Events", samples.size());
                 latest.add(sampleBuilder.buildFamily(samples));
             }
-            if (alert_samples.size() > 0) {
-                log.info("Adding {} Alerts", alert_samples.size());
-                latest.add(sampleBuilder.buildFamily(new ArrayList<>(alert_samples.values())));
-            }
             metrics = latest;
-            removeAlarms();
         }
     }
 
@@ -147,56 +125,6 @@ public class EventsExporter extends Collector implements MetricProvider {
             }
         });
         return sampleBuilder.buildSingleSample("ALERTS", labels, 1.0);
-    }
-
-    private void createErrorAlert(Event event, String resource, String region) {
-        SortedMap<String, String> labels = new TreeMap<>();
-        labels.put(SCRAPE_REGION_LABEL, region);
-        String event_detail = event.cloudTrailEvent();
-        JsonElement element = JsonParser.parseString(event_detail);
-        String alarmName = null;
-        String namespace = null;
-        if (element.isJsonObject()) {
-            JsonObject json_obj = (JsonObject) element;
-            JsonElement requestParam = json_obj.get("requestParameters");
-            alarmName = getJsonProperty(requestParam, "alarmName");
-            namespace = getJsonProperty(requestParam, "namespace");
-
-        }
-        if (alarmName != null && namespace != null) {
-            labels.put("alertname", alarmName);
-            labels.put("alertstate", "firing");
-            labels.put("alertgroup", "aws_exporter");
-            labels.put("asserts_alert_category", "error");
-            labels.put("asserts_severity", "warning");
-            labels.put("asserts_source", event.eventSource());
-            labels.put("namespace", namespace);
-            event.resources().forEach(resource1 ->
-            {
-                if (resource.equals(resource1.resourceType())) {
-                    labels.put("service", resource1.resourceName());
-                    labels.put("job", resource1.resourceName());
-                    labels.put("asserts_entity_type", "Service");
-                }
-            });
-            MetricFamilySamples.Sample sample = sampleBuilder.buildSingleSample("ALERTS", labels, 1.0);
-            alert_samples.put(labels.get("job"), sample);
-        }
-    }
-
-    private String getJsonProperty(JsonElement requestParam, String name) {
-        if (requestParam != null) {
-            JsonObject json_requestParam = (JsonObject) requestParam;
-            JsonElement alarmName_ele = json_requestParam.get(name);
-            if (alarmName_ele != null && alarmName_ele.isJsonPrimitive()) {
-                return alarmName_ele.getAsString();
-            }
-        }
-        return null;
-    }
-
-    private boolean isAlarmFiring(Event event) {
-        return "PutMetricAlarm".equals(event.eventName());
     }
 
     private String getNamespace(String resource) {
@@ -252,22 +180,6 @@ public class EventsExporter extends Collector implements MetricProvider {
                 break;
         }
         return namespace;
-    }
-
-    private void stopAlarm(Event event) {
-        if ("DeleteAlarms".equals(event.eventName())) {
-            event.resources().forEach(resource -> {
-                deletedAlarms.add(resource.resourceName());
-            });
-        }
-    }
-
-    private void removeAlarms() {
-        if (deletedAlarms.size() > 0) {
-            deletedAlarms.forEach(key -> {
-                alert_samples.remove(key);
-            });
-        }
     }
 
     @Override

@@ -88,7 +88,7 @@ public class EventsExporterTest extends EasyMockSupport {
         Instant endTime = now.minusSeconds(0);
         Instant startTime = now.minusSeconds(60);
         expect(timeWindowBuilder.getTimePeriod("region", 60)).andReturn(new Instant[]{
-                now.minusSeconds(60), now}).times(2);
+                now.minusSeconds(60), now});
         LookupEventsRequest request = LookupEventsRequest.builder()
                 .startTime(startTime)
                 .endTime(endTime)
@@ -101,78 +101,13 @@ public class EventsExporterTest extends EasyMockSupport {
                 .build();
         expect(cloudTrailClient.lookupEvents(request)).andReturn(response);
         expect(rateLimiter.doWithRateLimit(eq("CloudTrailClient/lookupEvents"),
-                anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response).times(2);
+                anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         SortedMap<String, String> labels = new TreeMap<>();
         labels.put("alertname", "event1");
         labels.put("alertstate", "firing");
         labels.put("alertgroup", "aws_exporter");
         labels.put("asserts_alert_category", "amend");
         labels.put("asserts_severity", "info");
-        labels.put("asserts_source", "aws");
-        labels.put("service", "bucket1");
-        labels.put("job", "bucket1");
-        labels.put("asserts_entity_type", "Service");
-        labels.put("namespace", "AWS/S3");
-        labels.put("region", "region");
-        expect(sampleBuilder.buildSingleSample("ALERTS", labels, 1.0D)).andReturn(sample);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
-        cloudTrailClient.close();
-
-        replayAll();
-        testClass.update();
-
-        assertEquals(response, callbackCapture.getValue().makeCall());
-
-        assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());
-        verifyAll();
-    }
-
-    @Test
-    public void alarm() {
-        expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(new TreeSet<>());
-        expect(awsClientProvider.getCloudTrailClient("region")).andReturn(cloudTrailClient).anyTimes();
-        Capture<RateLimiter.AWSAPICall<LookupEventsResponse>> callbackCapture = Capture.newInstance();
-        Event event1 = Event.builder()
-                .eventName("PutMetricAlarm")
-                .eventSource("aws")
-                .cloudTrailEvent("{\n" +
-                        "   \"requestParameters\":{\n" +
-                        "      \"namespace\":\"AWS/S3\",\n" +
-                        "      \"alarmName\":\"alarm1\"\n" +
-                        "   }\n" +
-                        "}")
-                .resources(Resource.builder()
-                        .resourceType("AWS::CloudWatch::Alarm")
-                        .resourceName("bucket1")
-                        .build())
-                .build();
-        LookupEventsResponse response = LookupEventsResponse.builder()
-                .nextToken(null)
-                .events(ImmutableList.of(event1))
-                .build();
-        Instant endTime = now.minusSeconds(0);
-        Instant startTime = now.minusSeconds(60);
-        expect(timeWindowBuilder.getTimePeriod("region", 60)).andReturn(new Instant[]{
-                now.minusSeconds(60), now});
-        LookupEventsRequest request = LookupEventsRequest.builder()
-                .startTime(startTime)
-                .endTime(endTime)
-                .maxResults(20)
-                .nextToken(null)
-                .lookupAttributes(LookupAttribute.builder()
-                        .attributeKey(LookupAttributeKey.RESOURCE_TYPE)
-                        .attributeValue("AWS::CloudWatch::Alarm")
-                        .build())
-                .build();
-        expect(cloudTrailClient.lookupEvents(request)).andReturn(response);
-        expect(rateLimiter.doWithRateLimit(eq("CloudTrailClient/lookupEvents"),
-                anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
-        SortedMap<String, String> labels = new TreeMap<>();
-        labels.put("alertname", "alarm1");
-        labels.put("alertstate", "firing");
-        labels.put("alertgroup", "aws_exporter");
-        labels.put("asserts_alert_category", "error");
-        labels.put("asserts_severity", "warning");
         labels.put("asserts_source", "aws");
         labels.put("service", "bucket1");
         labels.put("job", "bucket1");
