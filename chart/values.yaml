@@ -12,6 +12,20 @@ service:
   # jmx:
   #   port: 8095
 
+# Ingress configuration
+ingress:
+  enabled: false
+  annotations: {}
+  hosts:
+    - host: aws-exporter.example.com
+      paths:
+        - /
+  # -- TLS configuration for the api-server ingress
+  tls:
+    - secretName: aws-exporter-tls
+      hosts:
+        - aws-exporter.example.com
+
 env:
   AWS_ACCESS_KEY_ID: ""
   AWS_SECRET_ACCESS_KEY: ""
