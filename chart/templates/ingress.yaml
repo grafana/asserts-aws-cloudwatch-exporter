@@ -1,3 +1,6 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "aws-exporter.fullname" . -}}
+{{- $svcPort := .Values.service.aws.port -}}
 {{- if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1beta1
 {{- else -}}
@@ -34,8 +37,8 @@ spec:
         {{- range .paths }}
           - path: {{ . }}
             backend:
-              serviceName: {{ include "aws-exporter.fullname" . }}
-              servicePort: {{ .Values.service.aws.port }}
+              serviceName: {{ $fullName }}
+              servicePort: {{ $svcPort }}
         {{- end }}
   {{- end }}
 {{- end }}
