@@ -21,7 +21,8 @@ public class AlarmController {
 
     @PostMapping(
             path = ALARMS,
-            produces = APPLICATION_JSON_VALUE)
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPost(
             @RequestBody Object alarmStateChange){
         log.info(alarmStateChange.toString());
@@ -30,7 +31,8 @@ public class AlarmController {
 
     @PutMapping(
             path = ALARMS,
-            produces = APPLICATION_JSON_VALUE)
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPut(
             @RequestBody Object alarmStateChange){
         log.info(alarmStateChange.toString());
