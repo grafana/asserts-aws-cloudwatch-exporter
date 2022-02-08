@@ -8,6 +8,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 public enum ResourceType {
+    Alarm("AlarmName"),
     ECSCluster("ClusterName"),
     ECSService("ServiceName"),
     ECSTaskDef("TaskDefinitionFamily"),

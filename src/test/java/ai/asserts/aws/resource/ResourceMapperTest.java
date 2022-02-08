@@ -10,6 +10,7 @@ import static ai.asserts.aws.resource.ResourceType.APIGateway;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayMethod;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayResource;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
+import static ai.asserts.aws.resource.ResourceType.Alarm;
 import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
 import static ai.asserts.aws.resource.ResourceType.ECSCluster;
@@ -331,6 +332,19 @@ public class ResourceMapperTest {
                                 .subType("restapis")
                                 .name("nvaaoiotuc")
                                 .build())
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_Alarm() {
+        String arn = "arn:aws:cloudwatch:us-west-2:342994379019:alarm:TargetTracking-table/GameScores/index/GameTitle-TopScore-index-ProvisionedCapacityLow-fc66d6b6-6a14-4303-9dd5-70a4714d8cd0";
+        assertEquals(Optional.of(Resource.builder()
+                        .type(Alarm).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .name("TargetTracking-table/GameScores/index/GameTitle-TopScore-index-ProvisionedCapacityLow-fc66d6b6-6a14-4303-9dd5-70a4714d8cd0")
                         .build()),
                 testClass.map(arn)
         );
