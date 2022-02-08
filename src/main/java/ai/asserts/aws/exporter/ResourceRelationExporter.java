@@ -20,12 +20,15 @@ import java.util.TreeMap;
 @Slf4j
 public class ResourceRelationExporter extends Collector implements MetricProvider {
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    private final LBToASGRelationBuilder lbToASGRelationBuilder;
     private final MetricSampleBuilder sampleBuilder;
     private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
 
     public ResourceRelationExporter(ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
+                                    LBToASGRelationBuilder lbToASGRelationBuilder,
                                     MetricSampleBuilder sampleBuilder) {
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
+        this.lbToASGRelationBuilder = lbToASGRelationBuilder;
         this.sampleBuilder = sampleBuilder;
     }
 
@@ -39,9 +42,11 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
         try {
             List<MetricFamilySamples> familySamples = new ArrayList<>();
             List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-            Set<ResourceRelation> relations = new HashSet<>(ecsServiceDiscoveryExporter.getRouting());
-            log.info("Found {} resource relations ", relations.size());
-            relations.forEach(relation -> {
+            Set<ResourceRelation> lb2Targets = new HashSet<>(ecsServiceDiscoveryExporter.getRouting());
+            lb2Targets.addAll(lbToASGRelationBuilder.getRoutingConfigs());
+
+            log.info("Found {} resource relations ", lb2Targets.size());
+            lb2Targets.forEach(relation -> {
                 String name = "aws_resource_relation";
                 SortedMap<String, String> labels = new TreeMap<>();
                 relation.getFrom().addLabels(labels, "from");

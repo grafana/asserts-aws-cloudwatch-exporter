@@ -19,10 +19,12 @@ import java.util.SortedMap;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ResourceRelationExporterTest extends EasyMockSupport {
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    private LBToASGRelationBuilder lbToASGRelationBuilder;
     private MetricSampleBuilder sampleBuilder;
     private Resource fromResource;
     private Resource toResource;
@@ -33,12 +35,13 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
+        lbToASGRelationBuilder = mock(LBToASGRelationBuilder.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
         fromResource = mock(Resource.class);
         toResource = mock(Resource.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
-        testClass = new ResourceRelationExporter(ecsServiceDiscoveryExporter, sampleBuilder);
+        testClass = new ResourceRelationExporter(ecsServiceDiscoveryExporter, lbToASGRelationBuilder, sampleBuilder);
     }
 
     @Test
@@ -46,16 +49,27 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
         expect(ecsServiceDiscoveryExporter.getRouting()).andReturn(ImmutableSet.of(ResourceRelation.builder()
                 .from(fromResource)
                 .to(toResource)
-                .name("name")
+                .name("name1")
                 .build()));
 
         fromResource.addLabels(anyObject(SortedMap.class), eq("from"));
+        expectLastCall().times(2);
         toResource.addLabels(anyObject(SortedMap.class), eq("to"));
+        expectLastCall().times(2);
+
+        expect(lbToASGRelationBuilder.getRoutingConfigs()).andReturn(ImmutableSet.of(ResourceRelation.builder()
+                .from(fromResource)
+                .to(toResource)
+                .name("name2")
+                .build()));
 
         expect(sampleBuilder.buildSingleSample(
-                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name"), 1.0D))
+                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name1"), 1.0D))
                 .andReturn(sample);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildSingleSample(
+                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name2"), 1.0D))
+                .andReturn(sample);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
 
         replayAll();
         testClass.update();

@@ -4,6 +4,7 @@ package ai.asserts.aws;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.exporter.LBToASGRelationBuilder;
 import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
@@ -41,6 +42,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final ResourceTagExporter resourceTagExporter;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final ResourceRelationExporter relationExporter;
+    private final LBToASGRelationBuilder lbToASGRelationBuilder;
     private final TaskThreadPool taskThreadPool;
     private final ScrapeConfigProvider scrapeConfigProvider;
 
@@ -76,6 +78,7 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
         taskThreadPool.getExecutorService().submit(resourceExporter::update);
         taskThreadPool.getExecutorService().submit(targetGroupLBMapProvider::update);
+        taskThreadPool.getExecutorService().submit(lbToASGRelationBuilder::updateRouting);
         taskThreadPool.getExecutorService().submit(relationExporter::update);
 
         taskThreadPool.getExecutorService().submit(() ->
