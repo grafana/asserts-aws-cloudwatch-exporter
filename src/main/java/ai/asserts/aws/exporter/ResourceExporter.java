@@ -75,7 +75,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
                 ListDiscoveredResourcesResponse response = rateLimiter.doWithRateLimit("ConfigClient/listDiscoveredResources",
                         ImmutableSortedMap.of(
                                 SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, "listDiscoveredResources"
+                                SCRAPE_OPERATION_LABEL, "ConfigClient/listDiscoveredResources"
                         ),
                         () -> configClient.listDiscoveredResources(ListDiscoveredResourcesRequest.builder()
                                 .includeDeletedResources(false)
