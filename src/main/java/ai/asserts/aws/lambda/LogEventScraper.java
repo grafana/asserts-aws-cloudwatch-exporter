@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.cloudwatchlogs.model.FilterLogEventsRequest;
 import software.amazon.awssdk.services.cloudwatchlogs.model.FilterLogEventsResponse;
@@ -52,17 +53,21 @@ public class LogEventScraper {
                     "CloudWatchLogsClient/filterLogEvents",
                     ImmutableSortedMap.of(
                             SCRAPE_REGION_LABEL, functionConfig.getRegion(),
-                            SCRAPE_OPERATION_LABEL, "filterLogEvents(" + functionConfig.getName() + ")",
+                            SCRAPE_OPERATION_LABEL, "filterLogEvents",
                             SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
                     ), () -> cloudWatchLogsClient.filterLogEvents(logEventsRequest));
 
+            log.info("log scrape config {} matched {} events", logScrapeConfig, getCount(response));
             if (response.hasEvents()) {
-                log.info("log scrape config {} matched {} events", logScrapeConfig, response.events().size());
                 return response.events().stream().findFirst();
             }
         } catch (Exception e) {
             log.error("Failed to scrape logs from log group " + logGroupName, e);
         }
         return Optional.empty();
+    }
+
+    private int getCount(FilterLogEventsResponse response) {
+        return CollectionUtils.isEmpty(response.events()) ? 0 : response.events().size();
     }
 }
