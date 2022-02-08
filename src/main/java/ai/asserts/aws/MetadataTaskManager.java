@@ -9,7 +9,9 @@ import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.ResourceExporter;
+import ai.asserts.aws.exporter.ResourceRelationExporter;
 import ai.asserts.aws.exporter.ResourceTagExporter;
+import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
@@ -37,6 +39,8 @@ public class MetadataTaskManager implements InitializingBean {
     private final BasicMetricCollector metricCollector;
     private final ResourceExporter resourceExporter;
     private final ResourceTagExporter resourceTagExporter;
+    private final TargetGroupLBMapProvider targetGroupLBMapProvider;
+    private final ResourceRelationExporter relationExporter;
     private final TaskThreadPool taskThreadPool;
     private final ScrapeConfigProvider scrapeConfigProvider;
 
@@ -50,6 +54,7 @@ public class MetadataTaskManager implements InitializingBean {
         resourceExporter.register(collectorRegistry);
         resourceTagExporter.register(collectorRegistry);
         metricCollector.register(collectorRegistry);
+        relationExporter.register(collectorRegistry);
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getLambdaConfig().ifPresent(nc -> {
@@ -70,6 +75,8 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(lambdaEventSourceExporter::update);
         taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
         taskThreadPool.getExecutorService().submit(resourceExporter::update);
+        taskThreadPool.getExecutorService().submit(targetGroupLBMapProvider::update);
+        taskThreadPool.getExecutorService().submit(relationExporter::update);
 
         taskThreadPool.getExecutorService().submit(() ->
                 logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));

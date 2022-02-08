@@ -12,10 +12,10 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import ai.asserts.aws.resource.ResourceRelation;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +32,7 @@ import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -48,7 +49,6 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
  * Exports the Service Discovery file with the list of task instances running in ECS across clusters and services
  * within the clusters
  */
-@AllArgsConstructor
 @Slf4j
 @Component
 public class ECSServiceDiscoveryExporter implements Runnable {
@@ -58,55 +58,77 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     private final ECSTaskUtil ecsTaskUtil;
     private final ObjectMapperFactory objectMapperFactory;
     private final RateLimiter rateLimiter;
+    private final LBToECSRoutingBuilder lbToECSRoutingBuilder;
+
+    @Getter
+    private volatile Set<ResourceRelation> routing = new HashSet<>();
+
+    public ECSServiceDiscoveryExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
+                                       ResourceMapper resourceMapper, ECSTaskUtil ecsTaskUtil,
+                                       ObjectMapperFactory objectMapperFactory, RateLimiter rateLimiter,
+                                       LBToECSRoutingBuilder lbToECSRoutingBuilder) {
+        this.scrapeConfigProvider = scrapeConfigProvider;
+        this.awsClientProvider = awsClientProvider;
+        this.resourceMapper = resourceMapper;
+        this.ecsTaskUtil = ecsTaskUtil;
+        this.objectMapperFactory = objectMapperFactory;
+        this.rateLimiter = rateLimiter;
+        this.lbToECSRoutingBuilder = lbToECSRoutingBuilder;
+    }
 
     @Override
     public void run() {
+        Set<ResourceRelation> newRouting = new HashSet<>();
+
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (scrapeConfig.isDiscoverECSTasks()) {
-            List<StaticConfig> latestTargets = new ArrayList<>();
-            Set<String> regions = scrapeConfig.getRegions();
-            ImmutableSortedMap<String, String> TELEMETRY_LABELS = ImmutableSortedMap.of(
-                    SCRAPE_OPERATION_LABEL, "listClusters",
-                    SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace());
-            for (String region : regions) {
-                SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
-                try (EcsClient ecsClient = awsClientProvider.getECSClient(region)) {
-                    // List clusters just returns the cluster ARN. There is no need to paginate
-                    ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(
-                            "EcsClient/listClusters",
-                            ImmutableSortedMap.of(
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_OPERATION_LABEL, "listClusters",
-                                    SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
-                            ),
-                            ecsClient::listClusters);
-                    labels.put(SCRAPE_REGION_LABEL, region);
-                    if (listClustersResponse.hasClusterArns()) {
-                        listClustersResponse.clusterArns()
-                                .stream()
-                                .map(resourceMapper::map)
-                                .filter(Optional::isPresent)
-                                .map(Optional::get)
-                                .forEach(cluster ->
-                                        latestTargets.addAll(buildTargetsInCluster(scrapeConfig, ecsClient, cluster)));
-                    }
-                } catch (Exception e) {
-                    log.error("Failed to get list of ECS Clusters", e);
+        List<StaticConfig> latestTargets = new ArrayList<>();
+        Set<String> regions = scrapeConfig.getRegions();
+        ImmutableSortedMap<String, String> TELEMETRY_LABELS = ImmutableSortedMap.of(
+                SCRAPE_OPERATION_LABEL, "listClusters",
+                SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace());
+        for (String region : regions) {
+            SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
+            try (EcsClient ecsClient = awsClientProvider.getECSClient(region)) {
+                // List clusters just returns the cluster ARN. There is no need to paginate
+                ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(
+                        "EcsClient/listClusters",
+                        ImmutableSortedMap.of(
+                                SCRAPE_REGION_LABEL, region,
+                                SCRAPE_OPERATION_LABEL, "listClusters",
+                                SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
+                        ),
+                        ecsClient::listClusters);
+                labels.put(SCRAPE_REGION_LABEL, region);
+                if (listClustersResponse.hasClusterArns()) {
+                    listClustersResponse.clusterArns()
+                            .stream()
+                            .map(resourceMapper::map)
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
+                            .forEach(cluster -> latestTargets.addAll(
+                                    buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting)));
                 }
+            } catch (Exception e) {
+                log.error("Failed to get list of ECS Clusters", e);
             }
+        }
+        routing = newRouting;
+
+        if (scrapeConfig.isDiscoverECSTasks()) {
             try {
                 File resultFile = new File(scrapeConfig.getEcsTargetSDFile());
                 objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter()
                         .writeValue(resultFile, latestTargets);
                 log.info("Wrote ECS scrape target SD file {}", resultFile.toURI());
             } catch (IOException e) {
-                log.error("Failed to get list of ECS Clusters", e);
+                log.error("Failed to write ECS SD file", e);
             }
         }
     }
 
     @VisibleForTesting
-    List<StaticConfig> buildTargetsInCluster(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster) {
+    List<StaticConfig> buildTargetsInCluster(ScrapeConfig scrapeConfig, EcsClient ecsClient,
+                                             Resource cluster, Set<ResourceRelation> newRouting) {
         List<StaticConfig> targets = new ArrayList<>();
         // List services just returns the service ARN. There is no need to paginate
         ListServicesRequest serviceReq = ListServicesRequest.builder()
@@ -120,13 +142,19 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 ),
                 () -> ecsClient.listServices(serviceReq));
         if (serviceResp.hasServiceArns()) {
+            List<Resource> services = new ArrayList<>();
             serviceResp.serviceArns()
                     .stream()
                     .map(resourceMapper::map)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .forEach(service ->
-                            targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service)));
+                    .forEach(service -> {
+                        if (scrapeConfig.isDiscoverECSTasks()) {
+                            targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service));
+                        }
+                        services.add(service);
+                    });
+            newRouting.addAll(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, services));
         }
         return targets;
     }
