@@ -9,9 +9,12 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static ai.asserts.aws.resource.ResourceType.APIGateway;
+import static ai.asserts.aws.resource.ResourceType.APIGatewayMethod;
+import static ai.asserts.aws.resource.ResourceType.APIGatewayResource;
+import static ai.asserts.aws.resource.ResourceType.APIGatewayRoute;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
+import static ai.asserts.aws.resource.ResourceType.Alarm;
 import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
 import static ai.asserts.aws.resource.ResourceType.ECSCluster;
@@ -20,6 +23,7 @@ import static ai.asserts.aws.resource.ResourceType.ECSTask;
 import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
 import static ai.asserts.aws.resource.ResourceType.EventBus;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
+import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static ai.asserts.aws.resource.ResourceType.S3Bucket;
 import static ai.asserts.aws.resource.ResourceType.SNSTopic;
 import static ai.asserts.aws.resource.ResourceType.SQSQueue;
@@ -30,21 +34,42 @@ public class ResourceMapper {
     public static final Pattern SQS_QUEUE_ARN_PATTERN = Pattern.compile("arn:aws:sqs:(.+?):(.+?):(.+)");
     public static final Pattern SQS_URL = Pattern.compile("https://sqs.(.+?).amazonaws.com/(.+)/(.+)");
     public static final Pattern DYNAMODB_TABLE_ARN_PATTERN = Pattern.compile("arn:aws:dynamodb:(.*?):(.*?):table/(.+?)(/.+)?");
-    public static final Pattern LAMBDA_ARN_PATTERN = Pattern.compile("arn:aws:lambda:(.*?):.*?:function:(.+?)(:.+)?");
-    public static final Pattern S3_ARN_PATTERN = Pattern.compile("arn:aws:s3:(.*?):.*?:(.+?)");
+    public static final Pattern LAMBDA_ARN_PATTERN = Pattern.compile("arn:aws:lambda:(.*?):(.*?):function:(.+?)(:.+)?");
+    public static final Pattern S3_ARN_PATTERN = Pattern.compile("arn:aws:s3:(.*?):(.*?):(.+?)");
     public static final Pattern SNS_ARN_PATTERN = Pattern.compile("arn:aws:sns:(.+?):(.+?):(.+)");
-    public static final Pattern EVENTBUS_ARN_PATTERN = Pattern.compile("arn:aws:events:(.+?):.+?:event-bus/(.+)");
+    public static final Pattern EVENTBUS_ARN_PATTERN = Pattern.compile("arn:aws:events:(.+?):(.+?):event-bus/(.+)");
     public static final Pattern ECS_CLUSTER_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):cluster/(.+)");
     public static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):service/(.+?)/(.+)");
     public static final Pattern ECS_TASK_DEFINITION_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task-definition/(.+)");
     public static final Pattern ECS_TASK_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task/.+?/(.+)");
     public static final Pattern ALB_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/(.+?)/(.+?)/(.+)");
     public static final Pattern ASG_PATTERN = Pattern.compile("arn:aws:autoscaling:(.+?):(.+?):autoScalingGroup:(.+?):autoScalingGroupName/(.+)");
-    public static final Pattern APIGATEWAY_PATTERN = Pattern.compile("arn:aws:apigateway:(.+?):(.*?):/restapis/(.+)");
-    public static final Pattern APIGATEWAY_STAGE_PATTERN = Pattern.compile("arn:aws:apigateway:(.+?):(.*?):/restapis/(.+?)/stages/(.+)");
+    public static final Pattern APIGATEWAY_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+)");
+    public static final Pattern APIGATEWAY_STAGE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/stages/(.+)");
+    public static final Pattern APIGATEWAY_RESOURCE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)");
+    public static final Pattern APIGATEWAY_ROUTE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/routes/(.+)");
+    public static final Pattern APIGATEWAY_METHOD_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)/methods/(.+)");
+    public static final Pattern APIGATEWAY_MODEL_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/models/(.+)");
+    public static final Pattern APIGATEWAY_DEPLOYMENT_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/deployments/(.+)");
     public static final Pattern TARGET_GROUP_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):targetgroup/(.+?)/(.+)");
+    public static final Pattern ALARM_PATTERN = Pattern.compile("arn:aws:cloudwatch:(.+?):(.+?):alarm:(.+)");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
+            .add(arn -> {
+                if (arn.contains(":alarm:")) {
+                    Matcher matcher = ALARM_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(Alarm)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
             .add(arn -> {
                 if (arn.contains(":sqs")) {
                     Matcher matcher = SQS_QUEUE_ARN_PATTERN.matcher(arn);
@@ -83,7 +108,8 @@ public class ResourceMapper {
                                 .type(LambdaFunction)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(2))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
                                 .build());
                     }
                 }
@@ -97,7 +123,8 @@ public class ResourceMapper {
                                 .type(S3Bucket)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(2))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
                                 .build());
                     }
                 }
@@ -126,7 +153,8 @@ public class ResourceMapper {
                                 .type(EventBus)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(2))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
                                 .build());
                     }
                 }
@@ -267,20 +295,21 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("arn:aws:apigateway:") && arn.contains("/stages/")) {
-                    Matcher matcher = APIGATEWAY_STAGE_PATTERN.matcher(arn);
+                if (arn.contains(":apigateway:") && arn.contains("/methods/")) {
+                    Matcher matcher = APIGATEWAY_METHOD_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
-                                .type(APIGatewayStage)
+                                .type(APIGatewayMethod)
                                 .arn(arn)
                                 .region(matcher.group(1))
                                 .account(matcher.group(2))
-                                .name(matcher.group(4))
+                                .name(matcher.group(6))
                                 .childOf(Resource.builder()
                                         .type(APIGateway)
                                         .region(matcher.group(1))
                                         .account(matcher.group(2))
-                                        .name(matcher.group(3))
+                                        .subType(matcher.group(3))
+                                        .name(matcher.group(4))
                                         .build())
                                 .build());
                     }
@@ -288,7 +317,117 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("arn:aws:apigateway:") && !arn.contains("/stages/")) {
+                if (arn.contains(":apigateway:") && arn.contains("/stages/")) {
+                    Matcher matcher = APIGATEWAY_STAGE_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(APIGatewayStage)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(5))
+                                .childOf(Resource.builder()
+                                        .type(APIGateway)
+                                        .region(matcher.group(1))
+                                        .account(matcher.group(2))
+                                        .subType(matcher.group(3))
+                                        .name(matcher.group(4))
+                                        .build())
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains(":apigateway:") && arn.contains("/resources/")) {
+                    Matcher matcher = APIGATEWAY_RESOURCE_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(APIGatewayResource)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(5))
+                                .childOf(Resource.builder()
+                                        .type(APIGateway)
+                                        .region(matcher.group(1))
+                                        .account(matcher.group(2))
+                                        .subType(matcher.group(3))
+                                        .name(matcher.group(4))
+                                        .build())
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains(":apigateway:") && arn.contains("/routes/")) {
+                    Matcher matcher = APIGATEWAY_RESOURCE_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(APIGatewayRoute)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(5))
+                                .childOf(Resource.builder()
+                                        .type(APIGateway)
+                                        .region(matcher.group(1))
+                                        .account(matcher.group(2))
+                                        .subType(matcher.group(3))
+                                        .name(matcher.group(4))
+                                        .build())
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains(":apigateway:") && arn.contains("/models/")) {
+                    Matcher matcher = APIGATEWAY_MODEL_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(APIGatewayMethod)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(5))
+                                .childOf(Resource.builder()
+                                        .type(APIGateway)
+                                        .region(matcher.group(1))
+                                        .account(matcher.group(2))
+                                        .subType(matcher.group(3))
+                                        .name(matcher.group(4))
+                                        .build())
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains(":apigateway:") && arn.contains("/deployments/")) {
+                    Matcher matcher = APIGATEWAY_DEPLOYMENT_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(APIGatewayMethod)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(5))
+                                .childOf(Resource.builder()
+                                        .type(APIGateway)
+                                        .region(matcher.group(1))
+                                        .account(matcher.group(2))
+                                        .subType(matcher.group(3))
+                                        .name(matcher.group(4))
+                                        .build())
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains(":apigateway:")) {
                     Matcher matcher = APIGATEWAY_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
@@ -296,7 +435,8 @@ public class ResourceMapper {
                                 .arn(arn)
                                 .region(matcher.group(1))
                                 .account(matcher.group(2))
-                                .name(matcher.group(3))
+                                .subType(matcher.group(3))
+                                .name(matcher.group(4))
                                 .build());
                     }
                 }
