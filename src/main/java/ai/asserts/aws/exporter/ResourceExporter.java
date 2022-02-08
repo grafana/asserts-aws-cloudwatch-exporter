@@ -98,7 +98,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
                                     labels.put("account_id", resource.getAccount());
                                 }
                                 switch (resource.getType()) {
-                                    case ALB:
+                                    case LoadBalancer:
                                         labels.put("type", resource.getSubType());
                                         break;
                                     case ECSService:

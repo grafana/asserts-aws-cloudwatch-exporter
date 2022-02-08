@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static ai.asserts.aws.resource.ResourceType.ALB;
+import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static ai.asserts.aws.resource.ResourceType.APIGateway;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
 import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
@@ -20,6 +20,7 @@ import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 import static ai.asserts.aws.resource.ResourceType.S3Bucket;
 import static ai.asserts.aws.resource.ResourceType.SNSTopic;
 import static ai.asserts.aws.resource.ResourceType.SQSQueue;
+import static ai.asserts.aws.resource.ResourceType.TargetGroup;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ResourceMapperTest {
@@ -37,6 +38,7 @@ public class ResourceMapperTest {
                 Optional.of(Resource.builder()
                         .type(SQSQueue).arn(arn)
                         .region("us-west-2")
+                        .account("342994379019")
                         .name("lamda-sqs-poc-input-queue")
                         .build()),
                 testClass.map(arn)
@@ -64,6 +66,7 @@ public class ResourceMapperTest {
                 Optional.of(Resource.builder()
                         .type(DynamoDBTable)
                         .arn(arn)
+                        .account("342994379019")
                         .region("us-west-2")
                         .name("auction_app_bids")
                         .build()),
@@ -151,6 +154,7 @@ public class ResourceMapperTest {
                 Optional.of(Resource.builder()
                         .type(ECSCluster).arn(arn)
                         .region("us-west-2")
+                        .account("342994379019")
                         .name("cluster1")
                         .build()),
                 testClass.map(arn)
@@ -164,8 +168,13 @@ public class ResourceMapperTest {
                 Optional.of(Resource.builder()
                         .type(ECSService).arn(arn)
                         .region("us-west-2")
+                        .account("342994379019")
                         .name("service1")
-                        .childOf(Resource.builder().type(ECSCluster).name("ecs-cluster").region("us-west-2").build())
+                        .childOf(Resource.builder()
+                                .account("342994379019")
+                                .type(ECSCluster)
+                                .name("ecs-cluster")
+                                .region("us-west-2").build())
                         .build()),
                 testClass.map(arn)
         );
@@ -178,6 +187,7 @@ public class ResourceMapperTest {
                 Optional.of(Resource.builder()
                         .type(ECSTaskDef).arn(arn)
                         .region("us-west-2")
+                        .account("342994379019")
                         .name("item-service-v2")
                         .version("5")
                         .build()),
@@ -192,6 +202,7 @@ public class ResourceMapperTest {
                 Optional.of(Resource.builder()
                         .type(ECSTask).arn(arn)
                         .region("us-west-2")
+                        .account("342994379019")
                         .name("34c11488dc56429fb67e2996b5ceaa74")
                         .build()),
                 testClass.map(arn)
@@ -203,11 +214,27 @@ public class ResourceMapperTest {
         String arn = "arn:aws:elasticloadbalancing:us-west-2:342994379019:loadbalancer/app/k8s-assertsinternal-dabf78ac56/ffc311c1118b747a";
         assertEquals(
                 Optional.of(Resource.builder()
-                        .type(ALB).arn(arn)
+                        .type(LoadBalancer).arn(arn)
                         .region("us-west-2")
                         .account("342994379019")
                         .subType("app")
-                        .name("k8s-assertsinternal-dabf78ac56/ffc311c1118b747a")
+                        .name("k8s-assertsinternal-dabf78ac56")
+                        .id("ffc311c1118b747a")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_TargetGroup() {
+        String arn = "arn:aws:elasticloadbalancing:us-west-2:342994379019:targetgroup/auction-bid-service-tg/f2f15d26b40e68f2";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(TargetGroup).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .name("auction-bid-service-tg")
+                        .id("f2f15d26b40e68f2")
                         .build()),
                 testClass.map(arn)
         );
