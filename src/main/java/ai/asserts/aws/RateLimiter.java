@@ -49,8 +49,8 @@ public class RateLimiter {
             V value = k.makeCall();
             error = false;
             return value;
-        } catch (InterruptedException e) {
-            log.error("Interrupted Exception", e);
+        } catch (Throwable e) {
+            log.error("Exception", e);
             throw new RuntimeException(e);
         } finally {
             tick = System.currentTimeMillis() - tick;
