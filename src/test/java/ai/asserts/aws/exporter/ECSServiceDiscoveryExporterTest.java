@@ -12,6 +12,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import ai.asserts.aws.resource.ResourceRelation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +34,7 @@ import software.amazon.awssdk.services.ecs.model.Task;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +57,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     private ScrapeConfig scrapeConfig;
     private AWSClientProvider awsClientProvider;
     private EcsClient ecsClient;
+    private LBToECSRoutingBuilder lbToECSRoutingBuilder;
     private ResourceMapper resourceMapper;
     private Resource resource;
     private ECSTaskUtil ecsTaskUtil;
@@ -64,6 +67,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     private ObjectMapper objectMapper;
     private ObjectWriter objectWriter;
     private StaticConfig mockStaticConfig;
+    private ResourceRelation mockRelation;
 
     @BeforeEach
     public void setup() {
@@ -79,6 +83,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         objectMapper = mock(ObjectMapper.class);
         objectWriter = mock(ObjectWriter.class);
         mockStaticConfig = mock(StaticConfig.class);
+        lbToECSRoutingBuilder = mock(LBToECSRoutingBuilder.class);
+        mockRelation = mock(ResourceRelation.class);
 
         rateLimiter = new RateLimiter(metricCollector);
         resetAll();
@@ -117,9 +123,10 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         )));
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
             @Override
-            List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client, Resource _cluster) {
+            List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client,
+                                                     Resource _cluster, Set<ResourceRelation> routing) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(resource, _cluster);
@@ -166,9 +173,10 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
             @Override
-            List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client, Resource _cluster) {
+            List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client, Resource _cluster,
+                                                     Set<ResourceRelation> routing) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(resource, _cluster);
@@ -205,7 +213,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder);
         testClass.run();
 
         verifyAll();
@@ -213,6 +221,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void buildTargetsInCluster() {
+        Set<ResourceRelation> newRouting = new HashSet<>();
+        expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true).anyTimes();
         Resource cluster = Resource.builder()
                 .region("region1")
                 .arn("arn1")
@@ -229,9 +239,12 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
 
+        expect(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, ImmutableList.of(resource, resource)))
+                .andReturn(ImmutableSet.of(mockRelation));
+
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
             @Override
             List<StaticConfig> buildTargetsInService(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                      Resource _service) {
@@ -243,7 +256,9 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         };
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),
-                testClass.buildTargetsInCluster(scrapeConfig, ecsClient, cluster));
+                testClass.buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting));
+
+        assertEquals(ImmutableSet.of(mockRelation), newRouting);
 
         verifyAll();
     }
@@ -297,7 +312,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
             @Override
             List<StaticConfig> buildTaskTargets(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                 Resource _service, Set<String> taskIds) {
@@ -365,7 +380,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder);
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),
                 testClass.buildTaskTargets(scrapeConfig, ecsClient, cluster, service, taskArns));
