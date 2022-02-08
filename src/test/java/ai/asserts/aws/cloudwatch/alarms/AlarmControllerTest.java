@@ -15,52 +15,52 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class AlarmControllerTest extends EasyMockSupport {
 
     private AlarmMetricConverter alarmMetricConverter;
-    private AlarmStateChanged alarmStateChanged;
+    private AlarmStateChange alarmStateChange;
     private AlarmController testClass;
 
     @BeforeEach
     public void setup() {
         alarmMetricConverter = mock(AlarmMetricConverter.class);
-        alarmStateChanged = mock(AlarmStateChanged.class);
+        alarmStateChange = mock(AlarmStateChange.class);
         testClass = new AlarmController(alarmMetricConverter);
     }
 
     @Test
     public void receiveAlarmsPost() {
-        expect(alarmMetricConverter.convertAlarm(alarmStateChanged)).andReturn(true);
+        expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(true);
         replayAll();
 
-        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPost(alarmStateChanged).getStatusCode());
+        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPost(alarmStateChange).getStatusCode());
 
         verifyAll();
     }
 
     @Test
     public void receiveAlarmsPost_fail() {
-        expect(alarmMetricConverter.convertAlarm(alarmStateChanged)).andReturn(false);
+        expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(false);
         replayAll();
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, testClass.receiveAlarmsPost(alarmStateChanged).getStatusCode());
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, testClass.receiveAlarmsPost(alarmStateChange).getStatusCode());
 
         verifyAll();
     }
 
     @Test
     public void receiveAlarmsPut() {
-        expect(alarmMetricConverter.convertAlarm(alarmStateChanged)).andReturn(true);
+        expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(true);
         replayAll();
 
-        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPut(alarmStateChanged).getStatusCode());
+        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPut(alarmStateChange).getStatusCode());
 
         verifyAll();
     }
 
     @Test
     public void receiveAlarmsPut_fail() {
-        expect(alarmMetricConverter.convertAlarm(alarmStateChanged)).andReturn(false);
+        expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(false);
         replayAll();
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, testClass.receiveAlarmsPut(alarmStateChanged).getStatusCode());
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, testClass.receiveAlarmsPut(alarmStateChange).getStatusCode());
 
         verifyAll();
     }

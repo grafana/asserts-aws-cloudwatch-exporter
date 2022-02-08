@@ -21,7 +21,7 @@ import java.util.List;
 @EqualsAndHashCode
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class AlarmStateChanged {
+public class AlarmStateChange {
     private String version;
     private String id;
     private String source;

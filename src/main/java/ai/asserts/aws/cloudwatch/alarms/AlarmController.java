@@ -26,7 +26,7 @@ public class AlarmController {
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPost(
-            @RequestBody AlarmStateChanged alarmStateChange) {
+            @RequestBody AlarmStateChange alarmStateChange) {
         if (this.alarmMetricConverter.convertAlarm(alarmStateChange)) {
             return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
         }
@@ -38,7 +38,7 @@ public class AlarmController {
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPut(
-            @RequestBody AlarmStateChanged alarmStateChange) {
+            @RequestBody AlarmStateChange alarmStateChange) {
         if (this.alarmMetricConverter.convertAlarm(alarmStateChange)) {
             return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
         }
