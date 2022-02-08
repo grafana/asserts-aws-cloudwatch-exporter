@@ -14,12 +14,14 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
 import static ai.asserts.aws.resource.ResourceType.ECSCluster;
 import static ai.asserts.aws.resource.ResourceType.ECSService;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
+import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static ai.asserts.aws.resource.ResourceType.S3Bucket;
 import static ai.asserts.aws.resource.ResourceType.SQSQueue;
 import static org.easymock.EasyMock.expect;
@@ -142,13 +144,26 @@ public class ResourceTest extends EasyMockSupport {
     @Test
     public void addLabels() {
         Resource resource = Resource.builder()
-                .type(S3Bucket)
+                .type(LoadBalancer)
+                .subType("app")
+                .account("123")
+                .region("us-west-2")
+                .id("id1")
                 .name("bucket")
                 .build();
 
         Map<String, String> labels = new TreeMap<>();
         resource.addLabels(labels, "prefix");
-        assertEquals(ImmutableMap.of("prefix_type", "S3Bucket", "prefix_name", "bucket"), labels);
+
+        SortedMap<String, String> expected = new TreeMap<>();
+        expected.put("prefix_type", "LoadBalancer");
+        expected.put("prefix_name", "bucket");
+        expected.put("prefix_region", "us-west-2");
+        expected.put("prefix_account", "123");
+        expected.put("prefix_id", "id1");
+        expected.put("prefix_subtype", "app");
+
+        assertEquals(expected, labels);
     }
 
     @Test
