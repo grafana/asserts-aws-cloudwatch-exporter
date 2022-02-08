@@ -1,6 +1,9 @@
 delay: 60
 scrapeInterval: 300
 discoverECSTasks: true
+ecsTaskScrapeConfigs:
+  - containerDefinitionName: aws-cloudwatch-exporter
+    metricPath: /aws-exporter/actuator/prometheus
 regions:
   - us-west-2
 namespaces:
