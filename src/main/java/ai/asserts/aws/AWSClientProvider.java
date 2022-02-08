@@ -4,16 +4,25 @@ package ai.asserts.aws;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.config.ConfigClient;
 import software.amazon.awssdk.services.ecs.EcsClient;
+import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 
 @Component
 @AllArgsConstructor
 public class AWSClientProvider {
+    public AutoScalingClient getAutoScalingClient(String region) {
+        return AutoScalingClient.builder().region(Region.of(region)).build();
+    }
+
+    public ElasticLoadBalancingV2Client getELBV2Client(String region) {
+        return ElasticLoadBalancingV2Client.builder().region(Region.of(region)).build();
+    }
 
     public CloudWatchClient getCloudWatchClient(String region) {
         return CloudWatchClient.builder().region(Region.of(region)).build();

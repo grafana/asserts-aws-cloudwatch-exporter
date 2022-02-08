@@ -9,12 +9,15 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.exporter.LBToASGRelationBuilder;
 import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.ResourceExporter;
+import ai.asserts.aws.exporter.ResourceRelationExporter;
 import ai.asserts.aws.exporter.ResourceTagExporter;
+import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.CollectorRegistry;
@@ -47,6 +50,9 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private NamespaceConfig namespaceConfig;
     private LogScrapeConfig logScrapeConfig;
     private LambdaLogMetricScrapeTask logMetricScrapeTask;
+    private ResourceRelationExporter relationExporter;
+    private TargetGroupLBMapProvider targetGroupLBMapProvider;
+    private LBToASGRelationBuilder lbToASGRelationBuilder;
     private MetadataTaskManager testClass;
 
     @BeforeEach
@@ -66,9 +72,12 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         logScrapeConfig = mock(LogScrapeConfig.class);
         autowireCapableBeanFactory = mock(AutowireCapableBeanFactory.class);
         logMetricScrapeTask = mock(LambdaLogMetricScrapeTask.class);
+        relationExporter = mock(ResourceRelationExporter.class);
+        targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
+        lbToASGRelationBuilder = mock(LBToASGRelationBuilder.class);
         testClass = new MetadataTaskManager(autowireCapableBeanFactory, collectorRegistry, lambdaCapacityExporter,
                 lambdaEventSourceExporter, lambdaInvokeConfigExporter, metricCollector, resourceExporter,
-                resourceTagExporter,
+                resourceTagExporter, targetGroupLBMapProvider, relationExporter, lbToASGRelationBuilder,
                 taskThreadPool, scrapeConfigProvider) {
 
             @Override
@@ -86,6 +95,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(metricCollector.register(collectorRegistry)).andReturn(null);
         expect(resourceTagExporter.register(collectorRegistry)).andReturn(null);
         expect(resourceExporter.register(collectorRegistry)).andReturn(null);
+        expect(relationExporter.register(collectorRegistry)).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(namespaceConfig.getLogs()).andReturn(ImmutableList.of(logScrapeConfig)).anyTimes();
@@ -106,12 +116,18 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture3 = newCapture();
         Capture<Runnable> capture4 = newCapture();
         Capture<Runnable> capture5 = newCapture();
+        Capture<Runnable> capture6 = newCapture();
+        Capture<Runnable> capture7 = newCapture();
+        Capture<Runnable> capture8 = newCapture();
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
         expect(executorService.submit(capture(capture2))).andReturn(null);
         expect(executorService.submit(capture(capture3))).andReturn(null);
         expect(executorService.submit(capture(capture4))).andReturn(null);
         expect(executorService.submit(capture(capture5))).andReturn(null);
+        expect(executorService.submit(capture(capture6))).andReturn(null);
+        expect(executorService.submit(capture(capture7))).andReturn(null);
+        expect(executorService.submit(capture(capture8))).andReturn(null);
 
         lambdaCapacityExporter.update();
         lambdaEventSourceExporter.update();
@@ -119,6 +135,9 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         resourceExporter.update();
         logMetricScrapeTask.update();
         scrapeConfigProvider.update();
+        targetGroupLBMapProvider.update();
+        lbToASGRelationBuilder.updateRouting();
+        relationExporter.update();
 
         replayAll();
         testClass.updateMetadata();
@@ -128,6 +147,9 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         capture3.getValue().run();
         capture4.getValue().run();
         capture5.getValue().run();
+        capture6.getValue().run();
+        capture7.getValue().run();
+        capture8.getValue().run();
 
         verifyAll();
     }

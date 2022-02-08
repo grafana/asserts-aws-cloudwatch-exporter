@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static ai.asserts.aws.resource.ResourceType.ALB;
+import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static ai.asserts.aws.resource.ResourceType.APIGateway;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
 import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
@@ -23,24 +23,26 @@ import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 import static ai.asserts.aws.resource.ResourceType.S3Bucket;
 import static ai.asserts.aws.resource.ResourceType.SNSTopic;
 import static ai.asserts.aws.resource.ResourceType.SQSQueue;
+import static ai.asserts.aws.resource.ResourceType.TargetGroup;
 
 @Component
 public class ResourceMapper {
-    public static final Pattern SQS_QUEUE_ARN_PATTERN = Pattern.compile("arn:aws:sqs:(.*?):.*?:(.+)");
+    public static final Pattern SQS_QUEUE_ARN_PATTERN = Pattern.compile("arn:aws:sqs:(.+?):(.+?):(.+)");
     public static final Pattern SQS_URL = Pattern.compile("https://sqs.(.+?).amazonaws.com/(.+)/(.+)");
-    public static final Pattern DYNAMODB_TABLE_ARN_PATTERN = Pattern.compile("arn:aws:dynamodb:(.*?):.*?:table/(.+?)(/.+)?");
+    public static final Pattern DYNAMODB_TABLE_ARN_PATTERN = Pattern.compile("arn:aws:dynamodb:(.*?):(.*?):table/(.+?)(/.+)?");
     public static final Pattern LAMBDA_ARN_PATTERN = Pattern.compile("arn:aws:lambda:(.*?):.*?:function:(.+?)(:.+)?");
     public static final Pattern S3_ARN_PATTERN = Pattern.compile("arn:aws:s3:(.*?):.*?:(.+?)");
     public static final Pattern SNS_ARN_PATTERN = Pattern.compile("arn:aws:sns:(.+?):(.+?):(.+)");
     public static final Pattern EVENTBUS_ARN_PATTERN = Pattern.compile("arn:aws:events:(.+?):.+?:event-bus/(.+)");
-    public static final Pattern ECS_CLUSTER_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:cluster/(.+)");
-    public static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:service/(.+?)/(.+)");
-    public static final Pattern ECS_TASK_DEFINITION_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:task-definition/(.+)");
-    public static final Pattern ECS_TASK_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):.+?:task/.+?/(.+)");
-    public static final Pattern ALB_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/(.+?)/(.+)");
+    public static final Pattern ECS_CLUSTER_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):cluster/(.+)");
+    public static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):service/(.+?)/(.+)");
+    public static final Pattern ECS_TASK_DEFINITION_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task-definition/(.+)");
+    public static final Pattern ECS_TASK_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task/.+?/(.+)");
+    public static final Pattern ALB_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/(.+?)/(.+?)/(.+)");
     public static final Pattern ASG_PATTERN = Pattern.compile("arn:aws:autoscaling:(.+?):(.+?):autoScalingGroup:(.+?):autoScalingGroupName/(.+)");
     public static final Pattern APIGATEWAY_PATTERN = Pattern.compile("arn:aws:apigateway:(.+?):(.*?):/restapis/(.+)");
     public static final Pattern APIGATEWAY_STAGE_PATTERN = Pattern.compile("arn:aws:apigateway:(.+?):(.*?):/restapis/(.+?)/stages/(.+)");
+    public static final Pattern TARGET_GROUP_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):targetgroup/(.+?)/(.+)");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
             .add(arn -> {
@@ -51,7 +53,8 @@ public class ResourceMapper {
                                 .type(SQSQueue)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(2))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
                                 .build());
                     }
                 }
@@ -65,7 +68,8 @@ public class ResourceMapper {
                                 .type(DynamoDBTable)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(2))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
                                 .build());
                     }
                 }
@@ -136,7 +140,8 @@ public class ResourceMapper {
                                 .type(ECSCluster)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(2))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
                                 .build());
                     }
                 }
@@ -150,11 +155,13 @@ public class ResourceMapper {
                                 .type(ECSService)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(3))
+                                .account(matcher.group(2))
+                                .name(matcher.group(4))
                                 .childOf(Resource.builder()
                                         .type(ECSCluster)
                                         .region(matcher.group(1))
-                                        .name(matcher.group(2))
+                                        .account(matcher.group(2))
+                                        .name(matcher.group(3))
                                         .build())
                                 .build());
                     }
@@ -166,11 +173,12 @@ public class ResourceMapper {
                     Matcher matcher = ECS_TASK_DEFINITION_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         Resource.ResourceBuilder builder = Resource.builder();
-                        String[] nameAndVersion = matcher.group(2).split(":");
+                        String[] nameAndVersion = matcher.group(3).split(":");
                         return Optional.of(builder
                                 .type(ECSTaskDef)
                                 .arn(arn)
                                 .region(matcher.group(1))
+                                .account(matcher.group(2))
                                 .name(nameAndVersion[0])
                                 .version(nameAndVersion.length == 2 ? nameAndVersion[1] : null)
                                 .build());
@@ -186,7 +194,8 @@ public class ResourceMapper {
                                 .type(ECSTask)
                                 .arn(arn)
                                 .region(matcher.group(1))
-                                .name(matcher.group(2))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
                                 .build());
                     }
                 }
@@ -197,12 +206,29 @@ public class ResourceMapper {
                     Matcher matcher = ALB_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
-                                .type(ALB)
+                                .type(LoadBalancer)
                                 .arn(arn)
                                 .region(matcher.group(1))
                                 .account(matcher.group(2))
                                 .subType(matcher.group(3))
                                 .name(matcher.group(4))
+                                .id(matcher.group(5))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains("arn:aws:elasticloadbalancing") && arn.contains("targetgroup")) {
+                    Matcher matcher = TARGET_GROUP_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(TargetGroup)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
+                                .id(matcher.group(4))
                                 .build());
                     }
                 }
