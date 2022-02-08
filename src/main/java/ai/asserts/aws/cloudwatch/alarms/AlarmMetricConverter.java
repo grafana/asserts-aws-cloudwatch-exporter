@@ -33,27 +33,25 @@ public class AlarmMetricConverter extends Collector implements MetricProvider {
         this.sampleBuilder = sampleBuilder;
     }
 
-    public boolean convertAlarm(AlarmStateChanged alarmStateChanged) {
+    public boolean convertAlarm(AlarmStateChange alarmStateChange) {
         AtomicBoolean status = new AtomicBoolean(false);
         SortedMap<String, String> labels = new TreeMap<>();
-        if (alarmStateChanged.getDetail() != null &&
-                "ALARM".equals(alarmStateChanged.getDetail().getState().getValue())) {
-            labels.put(SCRAPE_REGION_LABEL, alarmStateChanged.getRegion());
-            String alarmName = alarmStateChanged.getDetail().getAlarmName();
+        if (alarmStateChange.getDetail() != null &&
+                "ALARM".equals(alarmStateChange.getDetail().getState().getValue())) {
+            labels.put(SCRAPE_REGION_LABEL, alarmStateChange.getRegion());
+            String alarmName = alarmStateChange.getDetail().getAlarmName();
             labels.put("alertname", alarmName);
             labels.put("alertstate", "firing");
-            labels.put("alertgroup", "aws_exporter");
             labels.put("asserts_alert_category", "error");
             labels.put("asserts_severity", "warning");
-            if (alarmStateChanged.getSource() != null) {
-                labels.put("asserts_source", alarmStateChanged.getSource());
-            }
-            if (isConfigMetricAvailable(alarmStateChanged)) {
-                List<Map<String, String>> fieldsValue = getDimensionFields(alarmStateChanged);
+            labels.put("asserts_source", "cloudwatch");
+            if (isConfigMetricAvailable(alarmStateChange)) {
+                List<Map<String, String>> fieldsValue = getDimensionFields(alarmStateChange);
                 if (!CollectionUtils.isEmpty(fieldsValue)) {
                     fieldsValue.forEach(fields -> {
                         if (fields.containsKey("namespace")) {
                             labels.put("namespace", fields.get("namespace"));
+                            labels.put("alertgroup", fields.get("namespace"));
                         }
                         if (fields.containsKey("service")) {
                             String serviceName = fields.get("service");
@@ -70,10 +68,10 @@ public class AlarmMetricConverter extends Collector implements MetricProvider {
 
                 }
             }
-        } else if (alarmStateChanged.getDetail() != null) {
-            String alarmName = alarmStateChanged.getDetail().getAlarmName();
-            if (isConfigMetricAvailable(alarmStateChanged)) {
-                List<Map<String, String>> fieldsValue = getDimensionFields(alarmStateChanged);
+        } else if (alarmStateChange.getDetail() != null) {
+            String alarmName = alarmStateChange.getDetail().getAlarmName();
+            if (isConfigMetricAvailable(alarmStateChange)) {
+                List<Map<String, String>> fieldsValue = getDimensionFields(alarmStateChange);
                 if (!CollectionUtils.isEmpty(fieldsValue)) {
                     fieldsValue.forEach(fields -> {
                         if (alarmName != null && fields.containsKey("service")) {
@@ -89,22 +87,22 @@ public class AlarmMetricConverter extends Collector implements MetricProvider {
                 }
             }
         }
-        if (!status.get() && !CollectionUtils.isEmpty(alarmStateChanged.getResources())) {
-            log.error("Unable to process Alarms - {}", String.join(",", alarmStateChanged.getResources()));
+        if (!status.get() && !CollectionUtils.isEmpty(alarmStateChange.getResources())) {
+            log.error("Unable to process Alarms - {}", String.join(",", alarmStateChange.getResources()));
         }
         return status.get();
     }
 
-    private List<Map<String, String>> getDimensionFields(AlarmStateChanged alarmStateChanged) {
-        return alarmStateChanged.getDetail().
+    private List<Map<String, String>> getDimensionFields(AlarmStateChange alarmStateChange) {
+        return alarmStateChange.getDetail().
                 getConfiguration().getMetrics().
                 stream().map(this::extractFields)
                 .collect(Collectors.toList());
     }
 
-    private boolean isConfigMetricAvailable(AlarmStateChanged alarmStateChanged) {
-        return alarmStateChanged.getDetail().getConfiguration() != null &&
-                alarmStateChanged.getDetail().getConfiguration().getMetrics() != null;
+    private boolean isConfigMetricAvailable(AlarmStateChange alarmStateChange) {
+        return alarmStateChange.getDetail().getConfiguration() != null &&
+                alarmStateChange.getDetail().getConfiguration().getMetrics() != null;
     }
 
     private Map<String, String> extractFields(AlarmMetrics metric) {
