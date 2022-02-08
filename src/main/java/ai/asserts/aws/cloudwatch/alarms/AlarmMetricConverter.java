@@ -4,68 +4,41 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
-import ai.asserts.aws.exporter.MetricProvider;
-import ai.asserts.aws.exporter.MetricSampleBuilder;
-import io.prometheus.client.Collector;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 @Slf4j
-public class AlarmMetricConverter extends Collector implements MetricProvider {
+public class AlarmMetricConverter {
 
-    private final MetricSampleBuilder sampleBuilder;
-    private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
-    private Map<String, MetricFamilySamples.Sample> samplesMap = new TreeMap<>();
-
-    public AlarmMetricConverter(MetricSampleBuilder sampleBuilder) {
-        this.sampleBuilder = sampleBuilder;
-    }
-
-    public boolean convertAlarm(AlarmStateChange alarmStateChange) {
-        AtomicBoolean status = new AtomicBoolean(false);
-        SortedMap<String, String> labels = new TreeMap<>();
+    public List<Map<String, String>> convertAlarm(AlarmStateChange alarmStateChange) {
+        List<Map<String, String>> labelsList = new ArrayList<>();
         if (alarmStateChange.getDetail() != null &&
                 "ALARM".equals(alarmStateChange.getDetail().getState().getValue())) {
-            labels.put(SCRAPE_REGION_LABEL, alarmStateChange.getRegion());
-            String alarmName = alarmStateChange.getDetail().getAlarmName();
-            labels.put("alertname", alarmName);
-            labels.put("alertstate", "firing");
-            labels.put("asserts_alert_category", "error");
-            labels.put("asserts_severity", "warning");
-            labels.put("asserts_source", "cloudwatch");
             if (isConfigMetricAvailable(alarmStateChange)) {
                 List<Map<String, String>> fieldsValue = getDimensionFields(alarmStateChange);
                 if (!CollectionUtils.isEmpty(fieldsValue)) {
-                    fieldsValue.forEach(fields -> {
-                        if (fields.containsKey("namespace")) {
-                            labels.put("namespace", fields.get("namespace"));
-                            labels.put("alertgroup", fields.get("namespace"));
-                        }
-                        if (fields.containsKey("service")) {
-                            String serviceName = fields.get("service");
-                            labels.put("service", serviceName);
-                            labels.put("job", serviceName);
-                            labels.put("asserts_entity_type", "Service");
-                            samplesMap.put(serviceName + "_" + alarmName,
-                                    sampleBuilder.buildSingleSample("ALERTS", labels, 1.0));
-                            log.info("Adding ALERTS for {}", serviceName + "_" + alarmName);
-                            status.set(true);
-
-                        }
+                    fieldsValue.forEach(values -> {
+                        SortedMap<String, String> labels = new TreeMap<>();
+                        labels.put(SCRAPE_REGION_LABEL, alarmStateChange.getRegion());
+                        String alarmName = alarmStateChange.getDetail().getAlarmName();
+                        labels.put("alertname", alarmName);
+                        labels.put("state", alarmStateChange.getDetail().getState().getValue());
+                        labels.put("timestamp", alarmStateChange.getTime());
+                        labels.putAll(values);
+                        labelsList.add(labels);
                     });
-
                 }
             }
         } else if (alarmStateChange.getDetail() != null) {
@@ -74,29 +47,25 @@ public class AlarmMetricConverter extends Collector implements MetricProvider {
                 List<Map<String, String>> fieldsValue = getDimensionFields(alarmStateChange);
                 if (!CollectionUtils.isEmpty(fieldsValue)) {
                     fieldsValue.forEach(fields -> {
-                        if (alarmName != null && fields.containsKey("service")) {
-                            String serviceAlert = fields.get("service") + "_" + alarmName;
-                            if (samplesMap.containsKey(serviceAlert)) {
-                                samplesMap.remove(serviceAlert);
-                                log.info("Stopping ALERTS for {}", serviceAlert);
-                            }
-                            status.set(true);
-                        }
+                        SortedMap<String, String> labels = new TreeMap<>();
+                        labels.put("alertname", alarmName);
+                        labels.put("state", alarmStateChange.getDetail().getState().getValue());
+                        labels.putAll(fields);
+                        labelsList.add(labels);
                     });
-
                 }
             }
-        }
-        if (!status.get() && !CollectionUtils.isEmpty(alarmStateChange.getResources())) {
+        } else {
             log.error("Unable to process Alarms - {}", String.join(",", alarmStateChange.getResources()));
         }
-        return status.get();
+        return labelsList;
     }
 
     private List<Map<String, String>> getDimensionFields(AlarmStateChange alarmStateChange) {
         return alarmStateChange.getDetail().
                 getConfiguration().getMetrics().
                 stream().map(this::extractFields)
+                .flatMap(Collection::stream)
                 .collect(Collectors.toList());
     }
 
@@ -105,32 +74,31 @@ public class AlarmMetricConverter extends Collector implements MetricProvider {
                 alarmStateChange.getDetail().getConfiguration().getMetrics() != null;
     }
 
-    private Map<String, String> extractFields(AlarmMetrics metric) {
-        Map<String, String> fieldValues = new TreeMap<>();
+    private List<Map<String, String>> extractFields(AlarmMetrics metric) {
+        List<Map<String, String>> fieldValues = new ArrayList<>();
         if (metric.getMetricStat() != null && metric.getMetricStat().getMetric() != null) {
             AlarmMetric alarmMetric = metric.getMetricStat().getMetric();
-            if (alarmMetric.getNamespace() != null) {
-                fieldValues.put("namespace", alarmMetric.getNamespace());
-            }
+
             if (!CollectionUtils.isEmpty(alarmMetric.getDimensions())) {
-                String job = alarmMetric.getDimensions().values().iterator().next();
-                fieldValues.put("service", job);
+                alarmMetric.getDimensions().forEach((key, value) -> {
+                    Map<String, String> fields = new TreeMap<>();
+                    fields.put(key, value);
+                    if (alarmMetric.getNamespace() != null) {
+                        fields.put("namespace", alarmMetric.getNamespace());
+                    }
+                    if (metric.getMetricStat().getStat() != null) {
+                        fields.put("metric_stat", metric.getMetricStat().getStat());
+                    }
+                    if (metric.getMetricStat().getUnit() != null) {
+                        fields.put("metric_unit", metric.getMetricStat().getUnit());
+                    }
+                    if (alarmMetric.getName() != null) {
+                        fields.put("metric_name", alarmMetric.getName());
+                    }
+                    fieldValues.add(fields);
+                });
             }
         }
         return fieldValues;
-    }
-
-    @Override
-    public void update() {
-        List<MetricFamilySamples> latest = new ArrayList<>();
-        if (samplesMap.size() > 0) {
-            latest.add(sampleBuilder.buildFamily(new ArrayList<>(samplesMap.values())));
-        }
-        metrics = latest;
-    }
-
-    @Override
-    public List<MetricFamilySamples> collect() {
-        return metrics;
     }
 }

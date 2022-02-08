@@ -1,6 +1,6 @@
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.alarms.AlarmMetricConverter;
+import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
@@ -37,7 +37,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
-    private AlarmMetricConverter alarmMetricConverter;
+    private AlarmMetricExporter alarmMetricExporter;
 
     @BeforeEach
     public void setup() {
@@ -50,11 +50,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
-        alarmMetricConverter = mock(AlarmMetricConverter.class);
+        alarmMetricExporter = mock(AlarmMetricExporter.class);
 
         replayAll();
         testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, ecsServiceDiscoveryExporter,
-                taskThreadPool, alarmMetricConverter) {
+                taskThreadPool, alarmMetricExporter) {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
@@ -94,7 +94,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         beanFactory.autowireBean(metricScrapeTask);
         expectLastCall().times(4);
         expect(metricScrapeTask.register(collectorRegistry)).andReturn(null).times(4);
-        expect(alarmMetricConverter.register(collectorRegistry)).andReturn(null);
+        expect(alarmMetricExporter.register(collectorRegistry)).andReturn(null);
 
         replayAll();
         testClass.afterPropertiesSet();
@@ -115,7 +115,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         expect(executorService.submit(ecsServiceDiscoveryExporter)).andReturn(null);
         expect(executorService.submit(capture(capture2))).andReturn(null);
-        alarmMetricConverter.update();
+        alarmMetricExporter.update();
 
         replayAll();
         testClass.triggerScrapes();

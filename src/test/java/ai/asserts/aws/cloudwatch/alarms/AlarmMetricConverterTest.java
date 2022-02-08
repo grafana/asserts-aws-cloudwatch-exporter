@@ -4,23 +4,21 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
-import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prometheus.client.Collector;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.easymock.EasyMock.expect;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AlarmMetricConverterTest extends EasyMockSupport {
 
-    private MetricSampleBuilder sampleBuilder;
     private AlarmMetricConverter testClass;
-    private Collector.MetricFamilySamples.Sample sample;
     private AlarmStateChange alarmStateChange;
     private AlarmDetail alarmDetail;
     private AlarmState alarmState;
@@ -31,8 +29,6 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        sampleBuilder = mock(MetricSampleBuilder.class);
-        sample = mock(Collector.MetricFamilySamples.Sample.class);
         alarmStateChange = mock(AlarmStateChange.class);
         alarmDetail = mock(AlarmDetail.class);
         alarmState = mock(AlarmState.class);
@@ -40,84 +36,102 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         metrics = mock(AlarmMetrics.class);
         metricStat = mock(AlarmMetricStat.class);
         metric = mock(AlarmMetric.class);
-        testClass = new AlarmMetricConverter(sampleBuilder);
+        testClass = new AlarmMetricConverter();
     }
 
     @Test
     public void convertAlarm_alarm() {
-        expect(alarmStateChange.getDetail()).andReturn(alarmDetail).times(6);
+        expect(alarmStateChange.getDetail()).andReturn(alarmDetail).anyTimes();
         expect(alarmStateChange.getRegion()).andReturn("region");
-        expect(alarmDetail.getState()).andReturn(alarmState);
-        expect(alarmState.getValue()).andReturn("ALARM");
+        expect(alarmStateChange.getTime()).andReturn("time1");
+        expect(alarmDetail.getState()).andReturn(alarmState).times(2);
+        expect(alarmState.getValue()).andReturn("ALARM").times(2);
         expect(alarmDetail.getAlarmName()).andReturn("alarm1");
         expect(alarmDetail.getConfiguration()).andReturn(configuration).times(3);
         expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
-        expect(metrics.getMetricStat()).andReturn(metricStat).times(3);
+        expect(metrics.getMetricStat()).andReturn(metricStat).anyTimes();
+        expect(metricStat.getStat()).andReturn("stat").times(2);
+        expect(metricStat.getUnit()).andReturn("unit").times(2);
         expect(metricStat.getMetric()).andReturn(metric).times(2);
         expect(metric.getNamespace()).andReturn("namespace").times(2);
+        expect(metric.getName()).andReturn("metric1").times(2);
         expect(metric.getDimensions()).andReturn(ImmutableMap.of("AutoScalingGroupName", "grp1")).times(2);
 
-        expect(sampleBuilder.buildSingleSample("ALERTS",
-                ImmutableMap.<String, String>builder()
-                        .put("alertgroup", "namespace")
-                        .put("alertname", "alarm1")
-                        .put("alertstate", "firing")
-                        .put("asserts_alert_category", "error")
-                        .put("asserts_entity_type", "Service")
-                        .put("asserts_severity", "warning")
-                        .put("asserts_source", "cloudwatch")
-                        .put("job", "grp1")
-                        .put("namespace", "namespace")
-                        .put("region", "region")
-                        .put("service", "grp1")
-                        .build(),
-                1.0D))
-                .andReturn(sample);
 
         replayAll();
 
-        assertTrue(testClass.convertAlarm(alarmStateChange));
+        List<Map<String, String>> ret = testClass.convertAlarm(alarmStateChange);
+        assertEquals(1, ret.size());
+
+        verifyAll();
+    }
+
+    @Test
+    public void convertAlarm_alarm_multiple_dimension() {
+        expect(alarmStateChange.getDetail()).andReturn(alarmDetail).anyTimes();
+        expect(alarmStateChange.getRegion()).andReturn("region").times(2);
+        expect(alarmStateChange.getTime()).andReturn("time1").times(2);
+        expect(alarmDetail.getState()).andReturn(alarmState).times(3);
+        expect(alarmState.getValue()).andReturn("ALARM").times(3);
+        expect(alarmDetail.getAlarmName()).andReturn("alarm1").times(2);
+        expect(alarmDetail.getConfiguration()).andReturn(configuration).times(3);
+        expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
+        expect(metrics.getMetricStat()).andReturn(metricStat).anyTimes();
+        expect(metricStat.getStat()).andReturn("stat").times(4);
+        expect(metricStat.getUnit()).andReturn("unit").times(4);
+        expect(metricStat.getMetric()).andReturn(metric).times(2);
+        expect(metric.getNamespace()).andReturn("namespace").times(4);
+        expect(metric.getName()).andReturn("metric1").times(4);
+        expect(metric.getDimensions()).andReturn(ImmutableMap.of("AutoScalingGroupName", "grp1",
+                "instanceid", "inst1")).times(2);
+
+
+        replayAll();
+
+        List<Map<String, String>> ret = testClass.convertAlarm(alarmStateChange);
+        assertEquals(2, ret.size());
 
         verifyAll();
     }
 
     @Test
     public void convertAlarm_alarm_no_dimesion() {
-        expect(alarmStateChange.getDetail()).andReturn(alarmDetail).times(6);
-        expect(alarmStateChange.getRegion()).andReturn("region");
+        expect(alarmStateChange.getDetail()).andReturn(alarmDetail).times(5);
         expect(alarmDetail.getState()).andReturn(alarmState);
         expect(alarmState.getValue()).andReturn("ALARM");
-        expect(alarmDetail.getAlarmName()).andReturn("alarm1");
         expect(alarmDetail.getConfiguration()).andReturn(configuration).times(3);
         expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
         expect(metrics.getMetricStat()).andReturn(metricStat).times(3);
         expect(metricStat.getMetric()).andReturn(metric).times(2);
-        expect(metric.getNamespace()).andReturn("namespace").times(2);
         expect(metric.getDimensions()).andReturn(ImmutableMap.of());
-        expect(alarmStateChange.getResources()).andReturn(ImmutableList.of("resource1")).times(2);
         replayAll();
 
-        assertFalse(testClass.convertAlarm(alarmStateChange));
+        List<Map<String, String>> ret = testClass.convertAlarm(alarmStateChange);
+        assertEquals(0, ret.size());
 
         verifyAll();
     }
 
     @Test
     public void convertAlarm_alarm_stop() {
-        expect(alarmStateChange.getDetail()).andReturn(alarmDetail).times(7);
-        expect(alarmDetail.getState()).andReturn(alarmState);
-        expect(alarmState.getValue()).andReturn("OK");
+        expect(alarmStateChange.getDetail()).andReturn(alarmDetail).anyTimes();
+        expect(alarmDetail.getState()).andReturn(alarmState).times(2);
+        expect(alarmState.getValue()).andReturn("OK").times(2);
         expect(alarmDetail.getAlarmName()).andReturn("alarm1");
         expect(alarmDetail.getConfiguration()).andReturn(configuration).times(3);
         expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
-        expect(metrics.getMetricStat()).andReturn(metricStat).times(3);
+        expect(metrics.getMetricStat()).andReturn(metricStat).anyTimes();
         expect(metricStat.getMetric()).andReturn(metric).times(2);
+        expect(metricStat.getStat()).andReturn("stat").times(2);
+        expect(metricStat.getUnit()).andReturn("unit").times(2);
         expect(metric.getNamespace()).andReturn("namespace").times(2);
+        expect(metric.getName()).andReturn("metric1").times(2);
         expect(metric.getDimensions()).andReturn(ImmutableMap.of("AutoScalingGroupName", "grp1")).times(2);
 
         replayAll();
 
-        assertTrue(testClass.convertAlarm(alarmStateChange));
+        List<Map<String, String>> ret = testClass.convertAlarm(alarmStateChange);
+        assertEquals(1, ret.size());
 
         verifyAll();
     }
@@ -132,13 +146,13 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
         expect(metrics.getMetricStat()).andReturn(metricStat).times(3);
         expect(metricStat.getMetric()).andReturn(metric).times(2);
-        expect(metric.getNamespace()).andReturn("namespace").times(2);
         expect(metric.getDimensions()).andReturn(ImmutableMap.of());
-        expect(alarmStateChange.getResources()).andReturn(ImmutableList.of("resource1")).times(2);
+
 
         replayAll();
 
-        assertFalse(testClass.convertAlarm(alarmStateChange));
+        List<Map<String, String>> ret = testClass.convertAlarm(alarmStateChange);
+        assertEquals(0, ret.size());
 
         verifyAll();
     }

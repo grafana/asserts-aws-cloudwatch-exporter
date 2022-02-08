@@ -23,4 +23,5 @@ public class AlarmMetricStat {
     private AlarmMetric metric;
     private int period;
     private String stat;
+    private String unit;
 }
