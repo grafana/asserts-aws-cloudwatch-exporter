@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
@@ -20,7 +21,12 @@ import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup;
 import software.amazon.awssdk.services.autoscaling.model.DescribeAutoScalingGroupsResponse;
 
 import java.util.Optional;
+import java.util.SortedMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static org.easymock.EasyMock.anyLong;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -32,6 +38,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
     private Resource lbResource;
     private ResourceMapper resourceMapper;
     private TargetGroupLBMapProvider targetGroupLBMapProvider;
+    private BasicMetricCollector metricCollector;
     private LBToASGRelationBuilder testClass;
 
     @BeforeEach
@@ -45,8 +52,9 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         asgResource = mock(Resource.class);
         lbResource = mock(Resource.class);
         resourceMapper = mock(ResourceMapper.class);
+        metricCollector = mock(BasicMetricCollector.class);
         testClass = new LBToASGRelationBuilder(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                targetGroupLBMapProvider);
+                targetGroupLBMapProvider, new RateLimiter(metricCollector));
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
@@ -61,6 +69,8 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
                         .targetGroupARNs("tg-arn")
                         .build())
                 .build());
+
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
 
         expect(resourceMapper.map("tg-arn")).andReturn(Optional.of(tgResource));
         expect(resourceMapper.map("asg-arn")).andReturn(Optional.of(asgResource));

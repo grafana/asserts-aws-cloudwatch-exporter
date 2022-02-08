@@ -5,9 +5,11 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
+import com.google.common.collect.ImmutableSortedMap;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Component
@@ -29,21 +32,28 @@ public class LBToASGRelationBuilder {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
+    private final RateLimiter rateLimiter;
     @Getter
     private volatile Set<ResourceRelation> routingConfigs = new HashSet<>();
 
     public LBToASGRelationBuilder(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                  ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider) {
+                                  ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider,
+                                  RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
+        this.rateLimiter = rateLimiter;
     }
 
     public void updateRouting() {
+        log.info("Updating LB to ASG Routing relations");
         Set<ResourceRelation> newConfigs = new HashSet<>();
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            AutoScalingClient autoScalingClient = awsClientProvider.getAutoScalingClient(region);
+            String api = "AutoScalingClient/describeAutoScalingGroups";
+            AutoScalingClient autoScalingClient = rateLimiter.doWithRateLimit(api,
+                    ImmutableSortedMap.of(SCRAPE_REGION_LABEL, region),
+                    () -> awsClientProvider.getAutoScalingClient(region));
             DescribeAutoScalingGroupsResponse resp = autoScalingClient.describeAutoScalingGroups();
             List<AutoScalingGroup> groups = resp.autoScalingGroups();
             if (!isEmpty(groups)) {
