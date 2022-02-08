@@ -41,7 +41,6 @@ public class NamespaceConfig {
     private Map<String, Set<String>> tagFilters;
     private List<MetricConfig> metrics;
     private List<LogScrapeConfig> logs;
-    private List<ECSTaskDefScrapeConfig> ecsTaskDefScrapeConfigs;
 
     public void validate(int index) {
         List<String> errors = new ArrayList<>();

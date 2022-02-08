@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
@@ -109,6 +110,12 @@ public class ECSTaskUtil {
 
             Optional<ECSTaskDefScrapeConfig> defOpt = scrapeConfig.getECSScrapeConfig(taskDefinition);
             Optional<String> containerNameOpt = defOpt.map(ECSTaskDefScrapeConfig::getContainerDefinitionName);
+
+            // Metric Path
+            if (defOpt.isPresent() && StringUtils.isNotEmpty(defOpt.get().getMetricPath())) {
+                labelsBuilder = labelsBuilder.metricsPath(defOpt.get().getMetricPath());
+            }
+
             if (taskDefinition.hasContainerDefinitions()) {
                 List<ContainerDefinition> containerDefinitions = taskDefinition.containerDefinitions();
                 if (containerDefinitions.size() == 1 && containerDefinitions.get(0).portMappings().size() == 1) {
@@ -117,20 +124,23 @@ public class ECSTaskUtil {
                     Optional<ContainerDefinition> container = containerDefinitions.stream()
                             .filter(containerDefinition -> containerDefinition.name().equals(containerNameOpt.get()))
                             .findFirst();
-                    if (container.isPresent() && container.get().hasPortMappings()) {
-                        Optional<Integer> portOpt = container.get().portMappings().stream()
-                                .filter(portMapping -> portMapping.containerPort()
-                                        .equals(defOpt.get().getContainerPort()))
-                                .map(PortMapping::hostPort)
-                                .findFirst();
-                        portOpt.ifPresent(port -> targets.add(format("%s:%d", ipAddress, port)));
-                        if (StringUtils.isNotEmpty(defOpt.get().getMetricPath())) {
-                            labelsBuilder = labelsBuilder.metricsPath(defOpt.get().getMetricPath());
+                    if (container.isPresent() && !CollectionUtils.isEmpty(container.get().portMappings())) {
+                        if (container.get().portMappings().size() > 1) {
+                            container.get().portMappings().stream()
+                                    .filter(portMapping -> portMapping.containerPort()
+                                            .equals(defOpt.get().getContainerPort()))
+                                    .map(PortMapping::hostPort)
+                                    .findFirst()
+                                    .ifPresent(port -> targets.add(format("%s:%d", ipAddress, port)));
+                        } else {
+                            PortMapping portMapping = container.get().portMappings().get(0);
+                            targets.add(format("%s:%d", ipAddress, portMapping.hostPort()));
                         }
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (
+                Exception e) {
             log.error("Failed to describe task definition", e);
             return Optional.empty();
         }
@@ -141,9 +151,10 @@ public class ECSTaskUtil {
                     .targets(targets)
                     .build());
         } else {
-            log.error("Failed to build target");
+            log.warn("No targets in service {}", service);
             return Optional.empty();
         }
+
     }
 
     Optional<String> getTargetUsingDockerLabels(String ipAddress, TaskDefinition taskDefinition) {
