@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
-import io.prometheus.client.CollectorRegistry;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,17 +16,21 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @Slf4j
 @RestController
+@AllArgsConstructor
 public class AlarmController {
-    private static final String ALARMS ="/receive-cloudwatch-alarms";
+    private static final String ALARMS = "/receive-cloudwatch-alarms";
+    private final AlarmMetricConverter alarmMetricConverter;
 
     @PostMapping(
             path = ALARMS,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPost(
-            @RequestBody Object alarmStateChange){
-        log.info(alarmStateChange.toString());
-        return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+            @RequestBody AlarmStateChanged alarmStateChange) {
+        if (this.alarmMetricConverter.convertAlarm(alarmStateChange)) {
+            return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+        }
+        return ResponseEntity.unprocessableEntity().build();
     }
 
     @PutMapping(
@@ -34,8 +38,10 @@ public class AlarmController {
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPut(
-            @RequestBody Object alarmStateChange){
-        log.info(alarmStateChange.toString());
-        return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+            @RequestBody AlarmStateChanged alarmStateChange) {
+        if (this.alarmMetricConverter.convertAlarm(alarmStateChange)) {
+            return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+        }
+        return ResponseEntity.unprocessableEntity().build();
     }
 }
