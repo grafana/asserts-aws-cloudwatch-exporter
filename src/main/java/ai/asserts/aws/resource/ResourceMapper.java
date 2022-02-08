@@ -14,6 +14,7 @@ import static ai.asserts.aws.resource.ResourceType.APIGatewayMethod;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayResource;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayRoute;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
+import static ai.asserts.aws.resource.ResourceType.Alarm;
 import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
 import static ai.asserts.aws.resource.ResourceType.ECSCluster;
@@ -51,8 +52,24 @@ public class ResourceMapper {
     public static final Pattern APIGATEWAY_MODEL_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/models/(.+)");
     public static final Pattern APIGATEWAY_DEPLOYMENT_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/deployments/(.+)");
     public static final Pattern TARGET_GROUP_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):targetgroup/(.+?)/(.+)");
+    public static final Pattern ALARM_PATTERN = Pattern.compile("arn:aws:cloudwatch:(.+?):(.+?):alarm:(.+)");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
+            .add(arn -> {
+                if (arn.contains(":alarm:")) {
+                    Matcher matcher = ALARM_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(Alarm)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
             .add(arn -> {
                 if (arn.contains(":sqs")) {
                     Matcher matcher = SQS_QUEUE_ARN_PATTERN.matcher(arn);
