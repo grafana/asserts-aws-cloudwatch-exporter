@@ -60,8 +60,18 @@ public class Resource {
 
 
     public void addLabels(Map<String, String> labels, String prefix) {
+        if (account != null) {
+            labels.put(format("%s_account", prefix), account);
+        }
+        labels.put(format("%s_region", prefix), region);
         labels.put(format("%s_type", prefix), type.name());
+        if (subType != null) {
+            labels.put(format("%s_subtype", prefix), subType);
+        }
         labels.put(format("%s_name", prefix), name);
+        if (id != null) {
+            labels.put(format("%s_id", prefix), id);
+        }
     }
 
     public void addTagLabels(Map<String, String> labels, MetricNameUtil metricNameUtil) {
