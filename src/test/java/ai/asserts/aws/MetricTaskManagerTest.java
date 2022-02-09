@@ -1,6 +1,6 @@
-
 package ai.asserts.aws;
 
+import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
@@ -37,6 +37,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
+    private AlarmMetricExporter alarmMetricExporter;
 
     @BeforeEach
     public void setup() {
@@ -49,10 +50,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
+        alarmMetricExporter = mock(AlarmMetricExporter.class);
 
         replayAll();
         testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, ecsServiceDiscoveryExporter,
-                taskThreadPool) {
+                taskThreadPool, alarmMetricExporter) {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
@@ -92,6 +94,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         beanFactory.autowireBean(metricScrapeTask);
         expectLastCall().times(4);
         expect(metricScrapeTask.register(collectorRegistry)).andReturn(null).times(4);
+        expect(alarmMetricExporter.register(collectorRegistry)).andReturn(null);
 
         replayAll();
         testClass.afterPropertiesSet();
@@ -110,6 +113,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expect(executorService.submit(capture(capture1))).andReturn(null);
 
         expect(executorService.submit(ecsServiceDiscoveryExporter)).andReturn(null);
+
 
         replayAll();
         testClass.triggerScrapes();

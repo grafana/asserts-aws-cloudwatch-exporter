@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.resource;
 
 import com.google.common.collect.Sets;
