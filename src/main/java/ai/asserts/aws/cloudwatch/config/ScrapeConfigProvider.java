@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -100,11 +101,31 @@ public class ScrapeConfigProvider {
                     });
 
             validateConfig(scrapeConfig);
+
+            Map<String, String> getenv = getGetenv();
+            if (getenv.containsKey("REGIONS")) {
+                scrapeConfig.setRegions(Stream.of(getenv.get("REGIONS").split(","))
+                        .collect(Collectors.toSet()));
+            }
+
+            if (getenv.containsKey("ENABLE_ECS_SD")) {
+                scrapeConfig.setDiscoverECSTasks(isEnabled(System.getenv("ENABLE_ECS_SD")));
+            }
+
             log.info("Loaded cloudwatch scrape configuration from url={}", url);
             return scrapeConfig;
         } catch (IOException e) {
             log.error("Failed to load scrape configuration from file " + scrapeConfigFile, e);
             throw new UncheckedIOException(e);
         }
+    }
+
+    @VisibleForTesting
+    Map<String, String> getGetenv() {
+        return System.getenv();
+    }
+
+    public boolean isEnabled(String flag) {
+        return Stream.of("y", "yes", "true").anyMatch(value -> value.equalsIgnoreCase(flag));
     }
 }

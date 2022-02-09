@@ -10,8 +10,12 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ScrapeConfigProviderTest extends EasyMockSupport {
     private ScrapeConfigProvider testClass;
@@ -112,5 +116,22 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml");
         assertNotNull(testClass.getScrapeConfig());
+        assertEquals(ImmutableSet.of("us-west-2"), testClass.getScrapeConfig().getRegions());
+        assertTrue(testClass.getScrapeConfig().isDiscoverECSTasks());
+    }
+
+    @Test
+    void envOverrides() {
+        ScrapeConfigProvider testClass = new ScrapeConfigProvider(
+                new ObjectMapperFactory(),
+                "src/test/resources/cloudwatch_scrape_config.yml") {
+            @Override
+            Map<String, String> getGetenv() {
+                return ImmutableMap.of("REGIONS", "us-east-1,us-east-2", "ENABLE_ECS_SD", "false");
+            }
+        };
+        assertNotNull(testClass.getScrapeConfig());
+        assertFalse(testClass.getScrapeConfig().isDiscoverECSTasks());
+        assertEquals(ImmutableSet.of("us-east-1", "us-east-2"), testClass.getScrapeConfig().getRegions());
     }
 }
