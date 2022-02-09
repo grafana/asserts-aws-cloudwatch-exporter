@@ -13,8 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,7 +53,6 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
     @Test
     public void collect() {
         long timestamp = Instant.parse("2022-02-07T09:56:46Z").getEpochSecond();
-        Instant regionInstant = now.minusSeconds(60);
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
                 ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
                         "region", "us-west-2"), (double) timestamp)).andReturn(sample);
@@ -70,14 +69,13 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
     }
 
     private void addLabels(String state) {
-        Map<String, String> labels = new HashMap<>() {{
-            put("state", state);
-            put("namespace", "n1");
-            put("metric_name", "m1");
-            put("alertname", "a1");
-            put("timestamp", "2022-02-07T09:56:46Z");
-            put("region", "us-west-2");
-        }};
+        Map<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
+                .put("state", state)
+                .put("namespace", "n1")
+                .put("metric_name", "m1")
+                .put("alertname", "a1")
+                .put("timestamp", "2022-02-07T09:56:46Z")
+                .put("region", "us-west-2").build());
         testClass.processMetric(ImmutableList.of(labels));
     }
 }
