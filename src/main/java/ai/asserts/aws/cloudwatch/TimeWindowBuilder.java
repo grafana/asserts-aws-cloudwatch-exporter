@@ -49,14 +49,6 @@ public class TimeWindowBuilder {
         return new Instant[]{start, end};
     }
 
-    public Instant getTimeStampInstant(String timestampString) {
-        return ZonedDateTime.parse(timestampString).toInstant();
-    }
-
-    public Instant getRegionInstant(String region) {
-        return getZonedDateTime(region).toInstant();
-    }
-
     private ZonedDateTime getZonedDateTime(String region) {
         // S3 Storage metrics are available at just before midnight in the region's local time
         String timeZoneId = "America/Los_Angeles";

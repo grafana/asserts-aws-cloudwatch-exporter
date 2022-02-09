@@ -4,8 +4,6 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
-import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
-import ai.asserts.aws.exporter.MetricProvider;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import io.prometheus.client.Collector;
 import lombok.Getter;
@@ -17,22 +15,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
-public class AlarmMetricExporter extends Collector implements MetricProvider {
+public class AlarmMetricExporter extends Collector {
 
     private final MetricSampleBuilder sampleBuilder;
-    private final TimeWindowBuilder timeWindowBuilder;
-    private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
     @Getter
-    private Map<String, Map<String, String>> alarmLabels = new TreeMap<>();
+    private Map<String, Map<String, String>> alarmLabels = new ConcurrentHashMap<>();
 
-    public AlarmMetricExporter(MetricSampleBuilder sampleBuilder,
-                               TimeWindowBuilder timeWindowBuilder) {
+    public AlarmMetricExporter(MetricSampleBuilder sampleBuilder) {
         this.sampleBuilder = sampleBuilder;
-        this.timeWindowBuilder = timeWindowBuilder;
     }
 
     public void processMetric(List<Map<String, String>> labels) {
@@ -64,35 +58,30 @@ public class AlarmMetricExporter extends Collector implements MetricProvider {
 
     private Optional<String> getKey(Map<String, String> labels) {
         if (labels.containsKey("namespace") && labels.containsKey("metric_name") && labels.containsKey("alertname")) {
-            return Optional.of(labels.containsKey("namespace") + "_" + labels.get("metric_name") + "_" + labels.get("alertname"));
+            return Optional.of(labels.get("namespace") + "_" + labels.get("metric_name") + "_" + labels.get("alertname"));
         }
         return Optional.empty();
     }
 
     @Override
-    public void update() {
+    public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> latest = new ArrayList<>();
         if (alarmLabels.size() > 0) {
-            List<MetricFamilySamples.Sample> metrics = new ArrayList<>();
+            List<MetricFamilySamples.Sample> metrics1 = new ArrayList<>();
             alarmLabels.values().forEach(labels -> {
-                Instant metricVal = Instant.now();
+                long metricVal;
                 if (labels.containsKey("timestamp")) {
-                    metricVal = timeWindowBuilder.getTimeStampInstant(labels.get("timestamp"));
+                    metricVal = Instant.parse(labels.get("timestamp")).getEpochSecond();
+                    ;
                     labels.remove("timestamp");
                 } else {
-                    metricVal = timeWindowBuilder.getRegionInstant(labels.get("region"));
+                    metricVal = Instant.now().getEpochSecond();
                 }
-                metrics.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
-                        (double) metricVal.getEpochSecond()));
+                metrics1.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
+                        (double) metricVal));
             });
-            latest.add(sampleBuilder.buildFamily(metrics));
+            latest.add(sampleBuilder.buildFamily(metrics1));
         }
-        metrics = latest;
-    }
-
-    @Override
-    public List<MetricFamilySamples> collect() {
-        update();
-        return metrics;
+        return latest;
     }
 }

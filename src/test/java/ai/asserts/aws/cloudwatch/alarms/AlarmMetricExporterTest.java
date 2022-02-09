@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
-import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class AlarmMetricExporterTest extends EasyMockSupport {
 
     private MetricSampleBuilder sampleBuilder;
-    private TimeWindowBuilder timeWindowBuilder;
     private AlarmMetricExporter testClass;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples samples;
@@ -33,10 +31,9 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
     public void setup() {
         now = Instant.now();
         sampleBuilder = mock(MetricSampleBuilder.class);
-        timeWindowBuilder = mock(TimeWindowBuilder.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         samples = mock(Collector.MetricFamilySamples.class);
-        testClass = new AlarmMetricExporter(sampleBuilder, timeWindowBuilder);
+        testClass = new AlarmMetricExporter(sampleBuilder);
     }
 
     @Test
@@ -54,22 +51,21 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
     }
 
     @Test
-    public void update() {
-        expect(timeWindowBuilder.getTimeStampInstant("2022-02-07T09:56:46Z")).andReturn(now);
+    public void collect() {
+        long timestamp = Instant.parse("2022-02-07T09:56:46Z").getEpochSecond();
         Instant regionInstant = now.minusSeconds(60);
-        expect(timeWindowBuilder.getRegionInstant("us-west-2")).andReturn(regionInstant);
+        expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
+                ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
+                        "region", "us-west-2"), (double) timestamp)).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
                 ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
                         "region", "us-west-2"), (double) now.getEpochSecond())).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
-                ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
-                        "region", "us-west-2"), (double) regionInstant.getEpochSecond())).andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples).times(2);
         replayAll();
         addLabels("ALARM");
         assertEquals(1, testClass.getAlarmLabels().size());
-        testClass.update();
-        testClass.update();
+        testClass.collect();
+        testClass.collect();
         verifyAll();
     }
 

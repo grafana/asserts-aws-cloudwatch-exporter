@@ -63,7 +63,6 @@ public class MetricTaskManager implements InitializingBean {
                 .forEach(task -> executorService.submit(task::update));
 
         executorService.submit(ecsServiceDiscoveryExporter);
-        executorService.submit(alarmMetricExporter::update);
     }
 
     @VisibleForTesting

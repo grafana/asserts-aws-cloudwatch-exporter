@@ -106,7 +106,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         testClass.getMetricScrapeTasks().put(60, ImmutableMap.of("region1", metricScrapeTask));
 
         Capture<Runnable> capture1 = newCapture();
-        Capture<Runnable> capture2 = newCapture();
 
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         metricScrapeTask.update();
@@ -114,14 +113,12 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expect(executorService.submit(capture(capture1))).andReturn(null);
 
         expect(executorService.submit(ecsServiceDiscoveryExporter)).andReturn(null);
-        expect(executorService.submit(capture(capture2))).andReturn(null);
-        alarmMetricExporter.update();
+
 
         replayAll();
         testClass.triggerScrapes();
 
         capture1.getValue().run();
-        capture2.getValue().run();
 
         verifyAll();
     }
