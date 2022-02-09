@@ -38,8 +38,8 @@ public class AlarmController {
                 alarmMetricExporter.processMetric(alarmsLabels);
                 return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
             }
-        }catch (Exception ex) {
-            log.error("Error in processing ",ex);
+        } catch (Exception ex) {
+            log.error("Error in processing {}-{}", ex.toString(), ex.getStackTrace());
         }
         return ResponseEntity.unprocessableEntity().build();
     }
@@ -56,8 +56,8 @@ public class AlarmController {
                 alarmMetricExporter.processMetric(alarmsLabels);
                 return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
             }
-        }catch (Exception ex) {
-            log.error("Error in processing ",ex);
+        } catch (Exception ex) {
+            log.error("Error in processing {}-{}", ex.toString(), ex.getStackTrace());
         }
         return ResponseEntity.unprocessableEntity().build();
     }
