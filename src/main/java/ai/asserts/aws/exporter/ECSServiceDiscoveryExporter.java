@@ -61,6 +61,9 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     private final LBToECSRoutingBuilder lbToECSRoutingBuilder;
 
     @Getter
+    private volatile List<StaticConfig> targets = new ArrayList<>();
+
+    @Getter
     private volatile Set<ResourceRelation> routing = new HashSet<>();
 
     public ECSServiceDiscoveryExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
@@ -113,12 +116,13 @@ public class ECSServiceDiscoveryExporter implements Runnable {
             }
         }
         routing = newRouting;
+        targets = latestTargets;
 
         if (scrapeConfig.isDiscoverECSTasks()) {
             try {
                 File resultFile = new File(scrapeConfig.getEcsTargetSDFile());
                 objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter()
-                        .writeValue(resultFile, latestTargets);
+                        .writeValue(resultFile, targets);
                 log.info("Wrote ECS scrape target SD file {}", resultFile.toURI());
             } catch (IOException e) {
                 log.error("Failed to write ECS SD file", e);
