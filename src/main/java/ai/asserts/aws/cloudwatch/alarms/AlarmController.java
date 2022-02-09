@@ -32,10 +32,14 @@ public class AlarmController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPost(
             @RequestBody AlarmStateChange alarmStateChange) {
-        List<Map<String, String>> alarmsLabels = this.alarmMetricConverter.convertAlarm(alarmStateChange);
-        if (!CollectionUtils.isEmpty(alarmsLabels)) {
-            alarmMetricExporter.processMetric(alarmsLabels);
-            return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+        try {
+            List<Map<String, String>> alarmsLabels = this.alarmMetricConverter.convertAlarm(alarmStateChange);
+            if (!CollectionUtils.isEmpty(alarmsLabels)) {
+                alarmMetricExporter.processMetric(alarmsLabels);
+                return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+            }
+        }catch (Exception ex) {
+            log.error("Error in processing ",ex);
         }
         return ResponseEntity.unprocessableEntity().build();
     }
@@ -46,10 +50,14 @@ public class AlarmController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPut(
             @RequestBody AlarmStateChange alarmStateChange) {
-        List<Map<String, String>> alarmsLabels = this.alarmMetricConverter.convertAlarm(alarmStateChange);
-        if (!CollectionUtils.isEmpty(alarmsLabels)) {
-            alarmMetricExporter.processMetric(alarmsLabels);
-            return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+        try {
+            List<Map<String, String>> alarmsLabels = this.alarmMetricConverter.convertAlarm(alarmStateChange);
+            if (!CollectionUtils.isEmpty(alarmsLabels)) {
+                alarmMetricExporter.processMetric(alarmsLabels);
+                return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+            }
+        }catch (Exception ex) {
+            log.error("Error in processing ",ex);
         }
         return ResponseEntity.unprocessableEntity().build();
     }
