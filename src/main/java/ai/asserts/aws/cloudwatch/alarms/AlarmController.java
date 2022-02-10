@@ -65,13 +65,17 @@ public class AlarmController {
         return ResponseEntity.unprocessableEntity().build();
     }
 
-    private boolean accept(AlarmRecord data) throws JsonProcessingException {
-        String alarmStateChange = new String(Base64.getDecoder().decode(data.getData()));
-        AlarmStateChange alarmStateChange1 = objectMapperFactory.getObjectMapper().readValue(alarmStateChange, AlarmStateChange.class);
-        List<Map<String, String>> alarmsLabels = this.alarmMetricConverter.convertAlarm(alarmStateChange1);
-        if (!CollectionUtils.isEmpty(alarmsLabels)) {
-            alarmMetricExporter.processMetric(alarmsLabels);
-            return true;
+    private boolean accept(AlarmRecord data) {
+        String decodedData = new String(Base64.getDecoder().decode(data.getData()));
+        try {
+            AlarmStateChange alarmStateChange = objectMapperFactory.getObjectMapper().readValue(decodedData, AlarmStateChange.class);
+            List<Map<String, String>> alarmsLabels = this.alarmMetricConverter.convertAlarm(alarmStateChange);
+            if (!CollectionUtils.isEmpty(alarmsLabels)) {
+                alarmMetricExporter.processMetric(alarmsLabels);
+                return true;
+            }
+        } catch (JsonProcessingException jsp) {
+            log.error("Error processing JSON {}-{}", decodedData, jsp.getMessage());
         }
         return false;
     }
