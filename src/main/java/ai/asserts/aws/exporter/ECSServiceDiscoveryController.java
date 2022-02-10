@@ -6,8 +6,6 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -24,20 +22,13 @@ import static org.springframework.web.bind.annotation.RequestMethod.GET;
 @Slf4j
 public class ECSServiceDiscoveryController {
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
-    private final ObjectMapperFactory objectMapperFactory;
 
     @RequestMapping(
             path = "/ecs-sd-config",
             produces = {APPLICATION_JSON_VALUE},
             method = GET)
-    public ResponseEntity<String> getECSSDConfig() {
-        ObjectMapper objectMapper = objectMapperFactory.getObjectMapper();
+    public ResponseEntity<List<StaticConfig>> getECSSDConfig() {
         List<StaticConfig> targets = ecsServiceDiscoveryExporter.getTargets();
-        try {
-            return ResponseEntity.ok(objectMapper.writeValueAsString(targets));
-        } catch (JsonProcessingException e) {
-            log.error("Failed to serialise ECS Targets", e);
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok(targets);
     }
 }
