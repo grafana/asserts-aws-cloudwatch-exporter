@@ -4,12 +4,17 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.ObjectMapperFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+
+import java.util.Base64;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,7 +23,10 @@ public class AlarmControllerTest extends EasyMockSupport {
 
     private AlarmMetricConverter alarmMetricConverter;
     private AlarmMetricExporter alarmMetricExporter;
+    private AlarmRequest alarmRequest;
+    private AlarmRecord alarmRecord;
     private AlarmStateChange alarmStateChange;
+    private ObjectMapper objectMapper;
     private AlarmController testClass;
 
     @BeforeEach
@@ -26,49 +34,68 @@ public class AlarmControllerTest extends EasyMockSupport {
         alarmMetricConverter = mock(AlarmMetricConverter.class);
         alarmMetricExporter = mock(AlarmMetricExporter.class);
         alarmStateChange = mock(AlarmStateChange.class);
-        testClass = new AlarmController(alarmMetricConverter, alarmMetricExporter);
+        ObjectMapperFactory objectMapperFactory = mock(ObjectMapperFactory.class);
+        objectMapper = mock(ObjectMapper.class);
+        alarmRequest = mock(AlarmRequest.class);
+        alarmRecord = mock(AlarmRecord.class);
+        testClass = new AlarmController(alarmMetricConverter, alarmMetricExporter, objectMapperFactory);
+        expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
     }
 
     @Test
-    public void receiveAlarmsPost() {
+    public void receiveAlarmsPost() throws JsonProcessingException {
+        expect(alarmRequest.getRecords()).andReturn(ImmutableList.of(alarmRecord)).times(2);
+        expect(alarmRecord.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(objectMapper.readValue("test", AlarmStateChange.class)).andReturn(alarmStateChange);
         expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(ImmutableList.of(
                 ImmutableMap.of("state", "ALARM")));
         alarmMetricExporter.processMetric(ImmutableList.of(ImmutableMap.of("state", "ALARM")));
         replayAll();
 
-        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPost(alarmStateChange).getStatusCode());
+        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPost(alarmRequest).getStatusCode());
 
         verifyAll();
     }
 
     @Test
-    public void receiveAlarmsPost_fail() {
+    public void receiveAlarmsPost_fail() throws JsonProcessingException {
+        expect(alarmRequest.getRecords()).andReturn(ImmutableList.of(alarmRecord)).times(2);
+        expect(alarmRecord.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(objectMapper.readValue("test", AlarmStateChange.class)).andReturn(alarmStateChange);
         expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(ImmutableList.of());
+        expect(alarmStateChange.getResources()).andReturn(ImmutableList.of("resource1"));
         replayAll();
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, testClass.receiveAlarmsPost(alarmStateChange).getStatusCode());
+        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPost(alarmRequest).getStatusCode());
 
         verifyAll();
     }
 
     @Test
-    public void receiveAlarmsPut() {
+    public void receiveAlarmsPut() throws JsonProcessingException {
+        expect(alarmRequest.getRecords()).andReturn(ImmutableList.of(alarmRecord)).times(2);
+        expect(alarmRecord.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(objectMapper.readValue("test", AlarmStateChange.class)).andReturn(alarmStateChange);
         expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(ImmutableList.of(
                 ImmutableMap.of("state", "ALARM")));
         alarmMetricExporter.processMetric(ImmutableList.of(ImmutableMap.of("state", "ALARM")));
         replayAll();
 
-        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPut(alarmStateChange).getStatusCode());
+        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPut(alarmRequest).getStatusCode());
 
         verifyAll();
     }
 
     @Test
-    public void receiveAlarmsPut_fail() {
+    public void receiveAlarmsPut_fail() throws JsonProcessingException {
+        expect(alarmRequest.getRecords()).andReturn(ImmutableList.of(alarmRecord)).times(2);
+        expect(alarmRecord.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(objectMapper.readValue("test", AlarmStateChange.class)).andReturn(alarmStateChange);
         expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(ImmutableList.of());
+        expect(alarmStateChange.getResources()).andReturn(ImmutableList.of("resource1"));
         replayAll();
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, testClass.receiveAlarmsPut(alarmStateChange).getStatusCode());
+        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPut(alarmRequest).getStatusCode());
 
         verifyAll();
     }
