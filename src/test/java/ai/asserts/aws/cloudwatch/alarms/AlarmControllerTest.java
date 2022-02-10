@@ -63,9 +63,10 @@ public class AlarmControllerTest extends EasyMockSupport {
         expect(alarmRecord.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("test", AlarmStateChange.class)).andReturn(alarmStateChange);
         expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(ImmutableList.of());
+        expect(alarmStateChange.getResources()).andReturn(ImmutableList.of("resource1"));
         replayAll();
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, testClass.receiveAlarmsPost(alarmRequest).getStatusCode());
+        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPost(alarmRequest).getStatusCode());
 
         verifyAll();
     }
@@ -91,9 +92,10 @@ public class AlarmControllerTest extends EasyMockSupport {
         expect(alarmRecord.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("test", AlarmStateChange.class)).andReturn(alarmStateChange);
         expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(ImmutableList.of());
+        expect(alarmStateChange.getResources()).andReturn(ImmutableList.of("resource1"));
         replayAll();
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, testClass.receiveAlarmsPut(alarmRequest).getStatusCode());
+        assertEquals(HttpStatus.OK, testClass.receiveAlarmsPut(alarmRequest).getStatusCode());
 
         verifyAll();
     }

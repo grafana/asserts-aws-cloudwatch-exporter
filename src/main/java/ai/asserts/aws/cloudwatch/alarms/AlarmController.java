@@ -50,33 +50,31 @@ public class AlarmController {
 
     private ResponseEntity<AlarmResponse> processRequest(AlarmRequest alarmRequest) {
         try {
-            boolean status = true;
             if (!CollectionUtils.isEmpty(alarmRequest.getRecords())) {
                 for (AlarmRecord alarmRecord : alarmRequest.getRecords()) {
-                    status = status && accept(alarmRecord);
+                    accept(alarmRecord);
                 }
-                if (status) {
-                    return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
-                }
+            } else {
+                log.info("Unable to process alarm request-{}", alarmRequest.getRequestId());
             }
         } catch (Exception ex) {
             log.error("Error in processing {}-{}", ex.toString(), ex.getStackTrace());
         }
-        return ResponseEntity.unprocessableEntity().build();
+        return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
     }
 
-    private boolean accept(AlarmRecord data) {
+    private void accept(AlarmRecord data) {
         String decodedData = new String(Base64.getDecoder().decode(data.getData()));
         try {
             AlarmStateChange alarmStateChange = objectMapperFactory.getObjectMapper().readValue(decodedData, AlarmStateChange.class);
             List<Map<String, String>> alarmsLabels = this.alarmMetricConverter.convertAlarm(alarmStateChange);
             if (!CollectionUtils.isEmpty(alarmsLabels)) {
                 alarmMetricExporter.processMetric(alarmsLabels);
-                return true;
+            } else {
+                log.info("Unable to process alarm-{}", String.join(",", alarmStateChange.getResources()));
             }
         } catch (JsonProcessingException jsp) {
             log.error("Error processing JSON {}-{}", decodedData, jsp.getMessage());
         }
-        return false;
     }
 }
