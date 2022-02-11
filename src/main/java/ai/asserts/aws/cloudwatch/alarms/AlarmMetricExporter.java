@@ -79,8 +79,8 @@ public class AlarmMetricExporter extends Collector {
                 long timeVal;
                 if (labels.containsKey("timestamp")) {
                     Instant timestamp = Instant.parse(labels.get("timestamp"));
+                    recordHistogram(labels, timestamp);
                     if (now().getEpochSecond() - timestamp.getEpochSecond() > 30) {
-                        recordHistogram(labels, timestamp);
                         timeVal = now().minusSeconds(30).getEpochSecond();
                     } else {
                         timeVal = timestamp.getEpochSecond();
@@ -102,7 +102,7 @@ public class AlarmMetricExporter extends Collector {
         histoLabels.put("namespace", labels.get("namespace"));
         histoLabels.put("region", labels.get("region"));
         histoLabels.put("alertname", labels.get("alertname"));
-        long diff = now().minusSeconds(timestamp.getEpochSecond()).getEpochSecond();
+        long diff = (now().toEpochMilli() - timestamp.toEpochMilli()) / 1000;
         this.basicMetricCollector.recordHistogram("aws_cw_alarm_delay_seconds", histoLabels, diff);
     }
 
