@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
@@ -23,6 +24,7 @@ import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 @Builder
 @SuppressWarnings("FieldMayBeFinal")
 public class ScrapeConfig {
+    @Setter
     private Set<String> regions;
     private List<NamespaceConfig> namespaces;
 
@@ -51,6 +53,7 @@ public class ScrapeConfig {
     private Integer logScrapeDelaySeconds = 15;
 
     @Builder.Default
+    @Setter
     private boolean discoverECSTasks = false;
 
     @Builder.Default
@@ -76,5 +79,13 @@ public class ScrapeConfig {
                         .map(ContainerDefinition::name)
                         .anyMatch(name -> name.equals(config.getContainerDefinitionName())))
                 .findFirst();
+    }
+
+    public Set<String> getRegions() {
+        return regions;
+    }
+
+    public boolean isDiscoverECSTasks() {
+        return discoverECSTasks;
     }
 }
