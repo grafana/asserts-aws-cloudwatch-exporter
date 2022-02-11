@@ -6,6 +6,7 @@ package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
+import com.google.common.annotations.VisibleForTesting;
 import io.prometheus.client.Collector;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -72,22 +73,21 @@ public class AlarmMetricExporter extends Collector {
     @Override
     public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> latest = new ArrayList<>();
-        CustomInstant customInstant = new CustomInstant();
         if (alarmLabels.size() > 0) {
             List<MetricFamilySamples.Sample> metrics1 = new ArrayList<>();
             alarmLabels.values().forEach(labels -> {
                 long timeVal;
                 if (labels.containsKey("timestamp")) {
-                    long timestampSeconds = customInstant.parse(labels.get("timestamp"));
-                    if (customInstant.getSeconds() - timestampSeconds > 30) {
-                        recordHistogram(labels, customInstant.calculateSecond(timestampSeconds));
-                        timeVal = customInstant.calculateSecond(30);
+                    Instant timestamp = Instant.parse(labels.get("timestamp"));
+                    if (now().getEpochSecond() - timestamp.getEpochSecond() > 30) {
+                        recordHistogram(labels, timestamp);
+                        timeVal = now().minusSeconds(30).getEpochSecond();
                     } else {
-                        timeVal = timestampSeconds;
+                        timeVal = timestamp.getEpochSecond();
                     }
                     labels.remove("timestamp");
                 } else {
-                    timeVal = customInstant.getSeconds();
+                    timeVal = now().getEpochSecond();
                 }
                 metrics1.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
                         1.0, timeVal));
@@ -97,27 +97,17 @@ public class AlarmMetricExporter extends Collector {
         return latest;
     }
 
-    private void recordHistogram(Map<String, String> labels, long timestamp) {
+    private void recordHistogram(Map<String, String> labels, Instant timestamp) {
         SortedMap<String, String> histoLabels = new TreeMap<>();
         histoLabels.put("namespace", labels.get("namespace"));
         histoLabels.put("region", labels.get("region"));
         histoLabels.put("alertname", labels.get("alertname"));
-        this.basicMetricCollector.recordHistogram("aws_cw_alarm_delay_seconds", histoLabels, timestamp);
+        long diff = now().minusSeconds(timestamp.getEpochSecond()).getEpochSecond();
+        this.basicMetricCollector.recordHistogram("aws_cw_alarm_delay_seconds", histoLabels, diff);
     }
 
-    public static class CustomInstant {
-        private final Instant currentInstant = Instant.now();
-
-        public long calculateSecond(long seconds) {
-            return currentInstant.minusSeconds(seconds).getEpochSecond();
-        }
-
-        public long getSeconds() {
-            return currentInstant.getEpochSecond();
-        }
-
-        public long parse(String str) {
-            return Instant.parse(str).getEpochSecond();
-        }
+    @VisibleForTesting
+    Instant now() {
+        return Instant.now();
     }
 }
