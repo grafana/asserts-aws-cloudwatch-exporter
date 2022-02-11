@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import io.prometheus.client.Collector;
 import lombok.Getter;
@@ -15,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -22,11 +25,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AlarmMetricExporter extends Collector {
 
     private final MetricSampleBuilder sampleBuilder;
+    private final BasicMetricCollector basicMetricCollector;
     @Getter
     private Map<String, Map<String, String>> alarmLabels = new ConcurrentHashMap<>();
 
-    public AlarmMetricExporter(MetricSampleBuilder sampleBuilder) {
+    public AlarmMetricExporter(MetricSampleBuilder sampleBuilder,
+                               BasicMetricCollector basicMetricCollector) {
         this.sampleBuilder = sampleBuilder;
+        this.basicMetricCollector = basicMetricCollector;
     }
 
     public void processMetric(List<Map<String, String>> labels) {
@@ -69,19 +75,33 @@ public class AlarmMetricExporter extends Collector {
         if (alarmLabels.size() > 0) {
             List<MetricFamilySamples.Sample> metrics1 = new ArrayList<>();
             alarmLabels.values().forEach(labels -> {
-                long metricVal;
+                long timeVal;
                 if (labels.containsKey("timestamp")) {
-                    metricVal = Instant.parse(labels.get("timestamp")).getEpochSecond();
-                    ;
+                    Instant timestamp = Instant.parse(labels.get("timestamp"));
+                    if (timestamp.compareTo(Instant.now().minusSeconds(30)) < 0) {
+                        recordHistogram(labels, timestamp);
+                        timeVal = Instant.now().minusSeconds(30).getEpochSecond();
+                    } else {
+                        timeVal = timestamp.getEpochSecond();
+                    }
                     labels.remove("timestamp");
                 } else {
-                    metricVal = Instant.now().getEpochSecond();
+                    timeVal = Instant.now().getEpochSecond();
                 }
                 metrics1.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
-                        (double) metricVal));
+                        1.0, timeVal));
             });
             latest.add(sampleBuilder.buildFamily(metrics1));
         }
         return latest;
+    }
+
+    private void recordHistogram(Map<String, String> labels, Instant timestamp) {
+        SortedMap<String, String> histoLabels = new TreeMap<>();
+        histoLabels.put("namespace", labels.get("namespace"));
+        histoLabels.put("region", labels.get("region"));
+        histoLabels.put("alertname", labels.get("alertname"));
+        long diff = Instant.now().minusSeconds(timestamp.getEpochSecond()).getEpochSecond();
+        this.basicMetricCollector.recordHistogram("aws_cloudwatch_alarm", histoLabels, diff);
     }
 }

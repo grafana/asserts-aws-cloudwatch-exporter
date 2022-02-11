@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -15,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class AlarmMetricExporterTest extends EasyMockSupport {
 
     private MetricSampleBuilder sampleBuilder;
+    private BasicMetricCollector basicMetricCollector;
     private AlarmMetricExporter testClass;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples samples;
@@ -33,7 +37,8 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         samples = mock(Collector.MetricFamilySamples.class);
-        testClass = new AlarmMetricExporter(sampleBuilder);
+        basicMetricCollector = mock(BasicMetricCollector.class);
+        testClass = new AlarmMetricExporter(sampleBuilder, basicMetricCollector);
     }
 
     @Test
@@ -53,14 +58,19 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
     @Test
     public void collect() {
         long timestamp = Instant.parse("2022-02-07T09:56:46Z").getEpochSecond();
-        Instant regionInstant = now.minusSeconds(60);
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
                 ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
-                        "region", "us-west-2"), (double) timestamp)).andReturn(sample);
+                        "region", "us-west-2"), 1.0, now.minusSeconds(30).getEpochSecond())).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
                 ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
-                        "region", "us-west-2"), (double) now.getEpochSecond())).andReturn(sample);
+                        "region", "us-west-2"), 1.0, now.getEpochSecond())).andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples).times(2);
+        SortedMap<String, String> labels = new TreeMap<>() {{
+            put("alertname", "a1");
+            put("namespace", "n1");
+            put("region", "us-west-2");
+        }};
+        basicMetricCollector.recordHistogram("aws_cloudwatch_alarm", labels, Instant.now().minusSeconds(timestamp).getEpochSecond());
         replayAll();
         addLabels("ALARM");
         assertEquals(1, testClass.getAlarmLabels().size());
