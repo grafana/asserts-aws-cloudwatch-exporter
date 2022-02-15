@@ -1,7 +1,6 @@
 
 package ai.asserts.aws.cloudwatch.config;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -14,6 +13,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
@@ -33,6 +33,7 @@ public class LogScrapeConfig {
     private String lambdaFunctionName;
     @EqualsAndHashCode.Exclude
     private Pattern functionNamePattern;
+    private List<String> functionNames;
     private String logFilterPattern;
     private String regexPattern;
     @ToString.Exclude
@@ -54,10 +55,9 @@ public class LogScrapeConfig {
      * used for log scraping.
      */
     public void initalize() {
-        compile();
-        valid = true;
+        valid = compile() || !CollectionUtils.isEmpty(functionNames);
 
-        if (StringUtils.hasText(sampleLogMessage) && !CollectionUtils.isEmpty(sampleExpectedLabels)) {
+        if (valid && StringUtils.hasText(sampleLogMessage) && !CollectionUtils.isEmpty(sampleExpectedLabels)) {
             Map<String, String> extractedLabels = extractLabels(sampleLogMessage);
             if (!extractedLabels.equals(sampleExpectedLabels)) {
                 log.error("Pattern {} on message \n{}\n resulted in labels \n{}\n but did not match expected labels " +
@@ -68,14 +68,18 @@ public class LogScrapeConfig {
         }
     }
 
-    @VisibleForTesting
-    public void compile() {
-        functionNamePattern = Pattern.compile(lambdaFunctionName);
-        pattern = Pattern.compile(regexPattern);
+    private boolean compile() {
+        if (regexPattern != null) {
+            functionNamePattern = Pattern.compile(lambdaFunctionName);
+            pattern = Pattern.compile(regexPattern);
+            return true;
+        }
+        return false;
     }
 
     public boolean shouldScrapeLogsFor(String functionName) {
-        return functionNamePattern.matcher(functionName).matches();
+        return valid && (functionNamePattern != null && functionNamePattern.matcher(functionName).matches())
+                || (functionNames != null && functionNames.contains(functionName));
     }
 
     /**

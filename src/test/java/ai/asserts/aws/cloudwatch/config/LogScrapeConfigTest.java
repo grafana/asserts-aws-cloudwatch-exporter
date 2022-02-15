@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.config;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ public class LogScrapeConfigTest {
                 .lambdaFunctionName("Function.+")
                 .logFilterPattern("logFilter")
                 .regexPattern("put (.+?) in (.+?) queue")
+                .functionNames(ImmutableList.of("Function-From-List"))
                 .labels(ImmutableMap.of(
                         "message_type", "$1",
                         "queue_name", "$2"
@@ -34,16 +36,29 @@ public class LogScrapeConfigTest {
     }
 
     @Test
-    void initialize() {
+    void initialize_valid() {
         logScrapeConfig.initalize();
         assertTrue(logScrapeConfig.isValid());
     }
 
     @Test
-    void shouldScrapeLogsFor() {
+    void initialize_invalid() {
+        LogScrapeConfig config = LogScrapeConfig.builder().build();
+        config.initalize();
+        assertFalse(config.isValid());
+    }
+
+    @Test
+    void shouldScrapeLogsFor_PatternMatch() {
         logScrapeConfig.initalize();
         assertTrue(logScrapeConfig.shouldScrapeLogsFor("Function-8-to-9"));
         assertFalse(logScrapeConfig.shouldScrapeLogsFor("A-Function-8-to-9"));
+    }
+
+    @Test
+    void shouldScrapeLogsFor_ListMatch() {
+        logScrapeConfig.initalize();
+        assertTrue(logScrapeConfig.shouldScrapeLogsFor("Function-From-List"));
     }
 
     @Test
