@@ -130,6 +130,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         Map<String, String> labels = new TreeMap<>();
         labels.put("region", region);
         labels.put("lambda_function", functionResource.getName());
+        labels.put("account", functionResource.getAccount());
         eventSourceResource.addLabels(labels, "event_source");
         functionResource.addTagLabels(labels, metricNameUtil);
         samples.computeIfAbsent(metricName, k -> new ArrayList<>())

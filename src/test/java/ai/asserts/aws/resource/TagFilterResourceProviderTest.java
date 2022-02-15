@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TagFilterResourceProviderTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private AWSClientProvider awsClientProvider;
     private ResourceGroupsTaggingApiClient apiClient;
     private ResourceMapper resourceMapper;
@@ -47,6 +48,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
         resourceMapper = mock(ResourceMapper.class);
         namespaceConfig = mock(NamespaceConfig.class);
@@ -68,6 +70,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
     void filterResources() {
         expect(namespaceConfig.getName()).andReturn(lambda.name()).anyTimes();
         expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.of(lambda));
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(namespaceConfig.hasTagFilters()).andReturn(true);
         expect(namespaceConfig.getTagFilters()).andReturn(ImmutableMap.of(
                 "tag", ImmutableSortedSet.of("value1", "value2")
@@ -77,10 +80,11 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         Tag tag1 = Tag.builder()
                 .key("tag").value("value1")
                 .build();
-
+        expect(scrapeConfig.shouldExportTag(tag1)).andReturn(true);
         Tag tag2 = Tag.builder()
                 .key("tag").value("value2")
                 .build();
+        expect(scrapeConfig.shouldExportTag(tag2)).andReturn(true);
 
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .resourceTypeFilters(ImmutableList.of("lambda:function"))
@@ -132,16 +136,19 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
     void filterResources_noResourceTypes() {
         expect(namespaceConfig.getName()).andReturn(CWNamespace.kafka.name()).anyTimes();
         expect(scrapeConfigProvider.getStandardNamespace("kafka")).andReturn(Optional.of(kafka));
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(namespaceConfig.hasTagFilters()).andReturn(false);
         expect(awsClientProvider.getResourceTagClient("region")).andReturn(apiClient);
 
         Tag tag1 = Tag.builder()
                 .key("tag").value("value1")
                 .build();
+        expect(scrapeConfig.shouldExportTag(tag1)).andReturn(true);
 
         Tag tag2 = Tag.builder()
                 .key("tag").value("value2")
                 .build();
+        expect(scrapeConfig.shouldExportTag(tag2)).andReturn(true);
 
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .resourceTypeFilters(ImmutableList.of("kafka"))
@@ -185,6 +192,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
     void filterResources_customNamespace() {
         expect(namespaceConfig.getName()).andReturn("lambda");
         expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.empty());
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         replayAll();
         assertEquals(ImmutableSet.of(), testClass.getFilteredResources("region", namespaceConfig));
         verifyAll();

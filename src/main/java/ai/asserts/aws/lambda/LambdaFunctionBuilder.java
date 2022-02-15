@@ -5,6 +5,7 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,18 +21,23 @@ import java.util.Optional;
 @AllArgsConstructor
 @Slf4j
 public class LambdaFunctionBuilder {
+    private final ResourceMapper resourceMapper;
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public LambdaFunction buildFunction(String region, FunctionConfiguration functionConfiguration,
-                                        Optional<Resource> fnResource) {
+                                        Optional<Resource> resourceWithTags) {
 
-        return LambdaFunction.builder()
+        Optional<Resource> resourceFromARN = resourceMapper.map(functionConfiguration.functionArn());
+        LambdaFunction.LambdaFunctionBuilder<?, ?> builder = LambdaFunction.builder()
                 .region(region)
                 .name(functionConfiguration.functionName())
                 .arn(functionConfiguration.functionArn())
-                .resource(fnResource.orElse(null))
+                .resource(resourceWithTags.orElse(null))
                 .memoryMB(functionConfiguration.memorySize())
-                .timeoutSeconds(functionConfiguration.timeout())
-                .build();
+                .timeoutSeconds(functionConfiguration.timeout());
+        if (resourceFromARN.isPresent()) {
+            builder = builder.account(resourceFromARN.get().getAccount());
+        }
+        return builder.build();
     }
 }

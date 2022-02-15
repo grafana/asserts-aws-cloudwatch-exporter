@@ -58,9 +58,11 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(logScrapeConfig.extractLabels("message")).andReturn(labels);
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
         expect(lambdaFunction.getName()).andReturn("fn1").anyTimes();
+        expect(lambdaFunction.getAccount()).andReturn("account");
         expect(labels.size()).andReturn(1);
         expect(labels.put("region", "region1")).andReturn(null);
         expect(labels.put("d_function_name", "fn1")).andReturn(null);
+        expect(labels.put("account", "account")).andReturn(null);
         expect(resource.getArn()).andReturn("arn1");
         expect(lambdaFunction.getArn()).andReturn("arn1");
         resource.addTagLabels(labels, metricNameUtil);
@@ -88,8 +90,10 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(logScrapeConfig.extractLabels("message")).andReturn(labels);
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
         expect(lambdaFunction.getName()).andReturn("fn1").anyTimes();
+        expect(lambdaFunction.getAccount()).andReturn("account").anyTimes();
         expect(labels.size()).andReturn(1);
         expect(labels.put("region", "region1")).andReturn(null);
+        expect(labels.put("account", "account")).andReturn(null);
         expect(labels.put("d_function_name", "fn1")).andReturn(null);
         expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, 1.0D))
                 .andReturn(sample);

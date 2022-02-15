@@ -38,6 +38,7 @@ public class LogEventMetricEmitter {
         Set<Resource> functionResources = tagFilterResourceProvider.getFilteredResources(lambdaFunction.getRegion(),
                 namespaceConfig);
         if (logLabels.size() > 0) {
+            logLabels.put("account", lambdaFunction.getAccount());
             logLabels.put("region", functionLogScrapeConfig.getLambdaFunction().getRegion());
             logLabels.put("d_function_name", lambdaFunction.getName());
             functionResources.stream()

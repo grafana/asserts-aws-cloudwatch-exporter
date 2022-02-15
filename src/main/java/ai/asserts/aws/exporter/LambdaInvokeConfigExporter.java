@@ -97,6 +97,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                         Map<String, String> labels = new TreeMap<>();
                         labels.put("region", region);
                         labels.put("d_function_name", fnConfig.getName());
+                        labels.put("account", fnConfig.getAccount());
                         if (fnConfig.getResource() != null) {
                             fnConfig.getResource().addTagLabels(labels, metricNameUtil);
                         }

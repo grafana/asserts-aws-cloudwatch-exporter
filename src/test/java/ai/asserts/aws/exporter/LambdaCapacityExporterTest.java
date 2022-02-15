@@ -32,6 +32,8 @@ import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyCo
 import software.amazon.awssdk.services.lambda.model.ProvisionedConcurrencyConfigListItem;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 
@@ -53,12 +55,19 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private LambdaFunctionScraper functionScraper;
     private TagFilterResourceProvider tagFilterResourceProvider;
-    private LambdaFunction lambdaFunction;
     private Resource resource;
     private MetricSampleBuilder sampleBuilder;
     private Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private LambdaCapacityExporter testClass;
+
+    private LambdaFunction fn1;
+    private Map<String, String> fn1Labels;
+    private Map<String, String> fn1VersionLabels;
+
+    private LambdaFunction fn2;
+    private Map<String, String> fn2Labels;
+    private Map<String, String> fn2ResourceLabels;
 
     @BeforeEach
     public void setup() {
@@ -71,7 +80,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
         functionScraper = mock(LambdaFunctionScraper.class);
         tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
-        lambdaFunction = mock(LambdaFunction.class);
         resource = mock(Resource.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Sample.class);
@@ -90,13 +98,51 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(metricNameUtil.getLambdaMetric("memory_limit_mb")).andReturn("memory_limit");
         expect(metricNameUtil.getLambdaMetric("account_limit")).andReturn("limit");
         expect(metricNameUtil.getLambdaMetric("reserved_concurrency")).andReturn("reserved");
+
+        fn1 = LambdaFunction.builder()
+                .account("account1")
+                .region("region1")
+                .arn("arn1")
+                .name("fn1")
+                .memoryMB(128)
+                .timeoutSeconds(120)
+                .build();
+        fn1Labels = ImmutableMap.of(
+                "region", "region1", "d_function_name", "fn1", "job", "fn1",
+                "cw_namespace", "AWS/Lambda", "account", "account1"
+        );
+
+        fn1VersionLabels = new HashMap<>(ImmutableMap.of(
+                "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
+                "job", "fn1", "cw_namespace", "AWS/Lambda"
+        ));
+        fn1VersionLabels.put("account", "account1");
+
+        fn2 = LambdaFunction.builder()
+                .account("account2")
+                .region("region2")
+                .arn("arn2")
+                .name("fn2")
+                .memoryMB(128)
+                .timeoutSeconds(60)
+                .build();
+        fn2Labels = ImmutableMap.of(
+                "region", "region2", "d_function_name", "fn2", "job", "fn2",
+                "cw_namespace", "AWS/Lambda", "account", "account2"
+        );
+
+        fn2ResourceLabels = new HashMap<>(ImmutableMap.of(
+                "region", "region2", "d_function_name", "fn2", "d_resource", "green",
+                "job", "fn2", "cw_namespace", "AWS/Lambda"
+        ));
+        fn2ResourceLabels.put("account", "account2");
     }
 
     @Test
     public void run() {
         expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of(
-                "region1", ImmutableMap.of("arn1", lambdaFunction),
-                "region2", ImmutableMap.of("arn2", lambdaFunction)
+                "region1", ImmutableMap.of("arn1", fn1),
+                "region2", ImmutableMap.of("arn2", fn2)
         ));
 
         expectAccountSettings("region1");
@@ -106,10 +152,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(resource.getArn()).andReturn("arn1");
         resource.addTagLabels(ImmutableMap.of(), metricNameUtil);
 
-        expect(lambdaFunction.getName()).andReturn("fn1").times(5);
-        expect(lambdaFunction.getTimeoutSeconds()).andReturn(120);
-        expect(lambdaFunction.getMemoryMB()).andReturn(128);
-        expect(lambdaFunction.getArn()).andReturn("arn1");
         expect(lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
                 .functionName("arn1")
                 .build()))
@@ -129,34 +171,12 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .build())
                         .build());
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
-
-        expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "job", "fn1",
-                "cw_namespace", "AWS/Lambda"
-        ), 120.0D)).andReturn(sample);
-
-        expect(sampleBuilder.buildSingleSample("memory_limit", ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "job", "fn1",
-                "cw_namespace", "AWS/Lambda"
-        ), 128.0D)).andReturn(sample);
-
-        expect(sampleBuilder.buildSingleSample("reserved", ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "job", "fn1",
-                "cw_namespace", "AWS/Lambda"
-        ), 100.0D)).andReturn(sample);
-
-        expect(sampleBuilder.buildSingleSample("available", ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
-                "job", "fn1", "cw_namespace", "AWS/Lambda"
-        ), 100.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("requested", ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
-                "job", "fn1", "cw_namespace", "AWS/Lambda"
-        ), 20.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("allocated", ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
-                "job", "fn1", "cw_namespace", "AWS/Lambda"
-        ), 10.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("timeout", fn1Labels, 120.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("memory_limit", fn1Labels, 128.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("reserved", fn1Labels, 100.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("available", fn1VersionLabels, 100.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("requested", fn1VersionLabels, 20.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("allocated", fn1VersionLabels, 10.0D)).andReturn(sample);
         lambdaClient.close();
 
         expectAccountSettings("region2");
@@ -165,11 +185,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn2");
         resource.addTagLabels(ImmutableMap.of(), metricNameUtil);
-
-        expect(lambdaFunction.getName()).andReturn("fn2").times(3);
-        expect(lambdaFunction.getTimeoutSeconds()).andReturn(60);
-        expect(lambdaFunction.getMemoryMB()).andReturn(128);
-        expect(lambdaFunction.getArn()).andReturn("arn2");
 
         expect(lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
                 .functionName("arn2")
@@ -191,28 +206,11 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                         .build());
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
-        expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
-                "region", "region2", "d_function_name", "fn2", "job", "fn2",
-                "cw_namespace", "AWS/Lambda"
-        ), 60.0D)).andReturn(sample);
-
-        expect(sampleBuilder.buildSingleSample("memory_limit", ImmutableMap.of(
-                "region", "region2", "d_function_name", "fn2", "job", "fn2",
-                "cw_namespace", "AWS/Lambda"
-        ), 128.0D)).andReturn(sample);
-
-        expect(sampleBuilder.buildSingleSample("available", ImmutableMap.of(
-                "region", "region2", "d_function_name", "fn2", "d_resource", "green",
-                "job", "fn2", "cw_namespace", "AWS/Lambda"
-        ), 100.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("requested", ImmutableMap.of(
-                "region", "region2", "d_function_name", "fn2", "d_resource", "green",
-                "job", "fn2", "cw_namespace", "AWS/Lambda"
-        ), 30.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("allocated", ImmutableMap.of(
-                "region", "region2", "d_function_name", "fn2", "d_resource", "green",
-                "job", "fn2", "cw_namespace", "AWS/Lambda"
-        ), 20.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("timeout", fn2Labels, 60.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("memory_limit", fn2Labels, 128.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("available", fn2ResourceLabels, 100.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("requested", fn2ResourceLabels, 30.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("allocated", fn2ResourceLabels, 20.0D)).andReturn(sample);
         lambdaClient.close();
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
@@ -231,7 +229,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     @Test
     public void run_noProvisionedCapacity() {
         expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of(
-                "region1", ImmutableMap.of("arn1", lambdaFunction)
+                "region1", ImmutableMap.of("arn1", fn1)
         ));
         expectAccountSettings("region1");
 
@@ -240,10 +238,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(resource.getArn()).andReturn("arn1");
         resource.addTagLabels(Collections.emptyMap(), metricNameUtil);
 
-        expect(lambdaFunction.getName()).andReturn("fn1").times(3);
-        expect(lambdaFunction.getTimeoutSeconds()).andReturn(60);
-        expect(lambdaFunction.getMemoryMB()).andReturn(128);
-        expect(lambdaFunction.getArn()).andReturn("arn1");
         expect(lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
                 .functionName("arn1")
                 .build()))
@@ -257,15 +251,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                         .provisionedConcurrencyConfigs(Collections.emptyList())
                         .build());
 
-        expect(sampleBuilder.buildSingleSample("timeout", ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "job", "fn1",
-                "cw_namespace", "AWS/Lambda"
-        ), 60.0D)).andReturn(sample);
-
-        expect(sampleBuilder.buildSingleSample("memory_limit", ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "job", "fn1",
-                "cw_namespace", "AWS/Lambda"
-        ), 128.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("timeout", fn1Labels, 120.0)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("memory_limit", fn1Labels, 128.0D)).andReturn(sample);
 
         lambdaClient.close();
 
@@ -283,7 +270,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     @Test
     public void run_Exception() {
         expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of(
-                "region1", ImmutableMap.of("arn1", lambdaFunction)
+                "region1", ImmutableMap.of("arn1", fn1)
         ));
         expectAccountSettings("region1");
         expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
