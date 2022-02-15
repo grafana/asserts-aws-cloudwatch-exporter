@@ -76,21 +76,13 @@ public class AlarmMetricExporter extends Collector {
         if (alarmLabels.size() > 0) {
             List<MetricFamilySamples.Sample> metrics1 = new ArrayList<>();
             alarmLabels.values().forEach(labels -> {
-                long timeVal;
                 if (labels.containsKey("timestamp")) {
                     Instant timestamp = Instant.parse(labels.get("timestamp"));
                     recordHistogram(labels, timestamp);
-                    if (now().getEpochSecond() - timestamp.getEpochSecond() > 30) {
-                        timeVal = now().minusSeconds(30).getEpochSecond();
-                    } else {
-                        timeVal = timestamp.getEpochSecond();
-                    }
                     labels.remove("timestamp");
-                } else {
-                    timeVal = now().getEpochSecond();
                 }
                 metrics1.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
-                        1.0, timeVal));
+                        1.0));
             });
             latest.add(sampleBuilder.buildFamily(metrics1));
         }

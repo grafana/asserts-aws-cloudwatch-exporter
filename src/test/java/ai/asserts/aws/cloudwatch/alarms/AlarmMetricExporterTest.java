@@ -64,10 +64,10 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
         long timestamp = Instant.parse("2022-02-07T09:56:46Z").getEpochSecond();
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
                 ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
-                        "region", "us-west-2"), 1.0, now.minusSeconds(30).getEpochSecond())).andReturn(sample);
+                        "region", "us-west-2"), 1.0)).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
                 ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
-                        "region", "us-west-2"), 1.0, now.getEpochSecond())).andReturn(sample);
+                        "region", "us-west-2"), 1.0)).andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples).times(2);
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("alertname", "a1")
