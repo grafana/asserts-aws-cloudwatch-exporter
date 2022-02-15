@@ -69,11 +69,11 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                 ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
                         "region", "us-west-2"), 1.0, now.getEpochSecond())).andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples).times(2);
-        SortedMap<String, String> labels = new TreeMap<>() {{
-            put("alertname", "a1");
-            put("namespace", "n1");
-            put("region", "us-west-2");
-        }};
+        SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
+                .put("alertname", "a1")
+                .put("namespace", "n1")
+                .put("region", "us-west-2").build());
+
         basicMetricCollector.recordHistogram("aws_cw_alarm_delay_seconds", labels, now.minusSeconds(timestamp).getEpochSecond());
         replayAll();
         addLabels("ALARM");
