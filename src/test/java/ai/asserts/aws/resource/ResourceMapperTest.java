@@ -226,7 +226,7 @@ public class ResourceMapperTest {
                         .region("us-west-2")
                         .account("342994379019")
                         .subType("app")
-                        .name("k8s-assertsinternal-dabf78ac56")
+                        .name("app/k8s-assertsinternal-dabf78ac56")
                         .id("ffc311c1118b747a")
                         .build()),
                 testClass.map(arn)

@@ -70,7 +70,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
     void filterResources() {
         expect(namespaceConfig.getName()).andReturn(lambda.name()).anyTimes();
         expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.of(lambda));
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.hasTagFilters()).andReturn(true);
         expect(namespaceConfig.getTagFilters()).andReturn(ImmutableMap.of(
                 "tag", ImmutableSortedSet.of("value1", "value2")
@@ -136,7 +136,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
     void filterResources_noResourceTypes() {
         expect(namespaceConfig.getName()).andReturn(CWNamespace.kafka.name()).anyTimes();
         expect(scrapeConfigProvider.getStandardNamespace("kafka")).andReturn(Optional.of(kafka));
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.hasTagFilters()).andReturn(false);
         expect(awsClientProvider.getResourceTagClient("region")).andReturn(apiClient);
 

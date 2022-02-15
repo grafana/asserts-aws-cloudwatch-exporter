@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
@@ -54,25 +55,25 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
     @Test
     public void getRoutings() {
         Resource cluster = Resource.builder()
-                .account("account")
+                .account(SCRAPE_ACCOUNT_ID_LABEL)
                 .region("region")
                 .arn("cluster-arn")
                 .build();
 
         Resource service = Resource.builder()
-                .account("account")
+                .account(SCRAPE_ACCOUNT_ID_LABEL)
                 .region("region")
                 .arn("service-arn")
                 .build();
 
         Resource tg = Resource.builder()
-                .account("account")
+                .account(SCRAPE_ACCOUNT_ID_LABEL)
                 .region("region")
                 .arn("tg-arn")
                 .build();
 
         Resource lb = Resource.builder()
-                .account("account")
+                .account(SCRAPE_ACCOUNT_ID_LABEL)
                 .region("region")
                 .arn("lb-arn")
                 .build();

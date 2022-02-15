@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.lambda.model.FunctionConfiguration;
 
 import java.util.Optional;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -31,7 +32,7 @@ public class LambdaFunctionBuilderTest extends EasyMockSupport {
     @Test
     public void buildFunction() {
         expect(resourceMapper.map("fn1:arn")).andReturn(Optional.of(fnResource));
-        expect(fnResource.getAccount()).andReturn("account");
+        expect(fnResource.getAccount()).andReturn(SCRAPE_ACCOUNT_ID_LABEL);
         replayAll();
 
         assertEquals(
@@ -39,7 +40,7 @@ public class LambdaFunctionBuilderTest extends EasyMockSupport {
                         .name("fn1")
                         .arn("fn1:arn")
                         .region("region1")
-                        .account("account")
+                        .account(SCRAPE_ACCOUNT_ID_LABEL)
                         .resource(fnResource)
                         .timeoutSeconds(60)
                         .memoryMB(128)

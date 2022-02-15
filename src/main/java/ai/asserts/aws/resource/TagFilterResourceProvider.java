@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
@@ -97,35 +98,12 @@ public class TagFilterResourceProvider {
                         .collect(Collectors.toSet()));
             }
 
-            String nextToken = null;
-            try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(key.region)) {
-                do {
-                    GetResourcesRequest req = builder
-                            .paginationToken(nextToken)
-                            .build();
-                    GetResourcesResponse response = rateLimiter.doWithRateLimit(
-                            "ResourceGroupsTaggingApiClient/getResources",
-                            ImmutableSortedMap.of(
-                                    SCRAPE_REGION_LABEL, key.region,
-                                    SCRAPE_NAMESPACE_LABEL, key.namespace.getName(),
-                                    SCRAPE_OPERATION_LABEL, "getResources"
-                            ),
-                            () -> client.getResources(req));
-
-                    if (response.hasResourceTagMappingList()) {
-                        response.resourceTagMappingList().forEach(resourceTagMapping ->
-                                resourceMapper.map(resourceTagMapping.resourceARN()).ifPresent(resource -> {
-                                    resource.setTags(resourceTagMapping.tags().stream()
-                                            .filter(scrapeConfig::shouldExportTag)
-                                            .collect(Collectors.toList()));
-                                    resources.add(resource);
-                                }));
-                    }
-                    nextToken = response.paginationToken();
-                } while (!StringUtils.isEmpty(nextToken));
-            } catch (Exception e) {
-                log.error("Failed to get resources using resource tag api", e);
-            }
+            ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
+                    SCRAPE_REGION_LABEL, key.region,
+                    SCRAPE_NAMESPACE_LABEL, key.namespace.getName(),
+                    SCRAPE_OPERATION_LABEL, "getResources"
+            );
+            resources.addAll(getResourcesWithTag(key.region, labels, builder));
             log.info("Found {}", resources.stream()
                     .collect(groupingBy(Resource::getType))
                     .entrySet()
@@ -133,6 +111,36 @@ public class TagFilterResourceProvider {
                     .map(entry -> format("%d %s(s)", entry.getValue().size(), entry.getKey().name()))
                     .collect(joining(", ")));
         });
+        return resources;
+    }
+
+    public Set<Resource> getResourcesWithTag(String region, SortedMap<String, String> labels,
+                                             GetResourcesRequest.Builder builder) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        Set<Resource> resources = new HashSet<>();
+        String nextToken = null;
+        try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region)) {
+            do {
+                GetResourcesRequest req = builder
+                        .paginationToken(nextToken)
+                        .build();
+                GetResourcesResponse response = rateLimiter.doWithRateLimit(
+                        "ResourceGroupsTaggingApiClient/getResources", labels, () -> client.getResources(req));
+
+                if (response.hasResourceTagMappingList()) {
+                    response.resourceTagMappingList().forEach(resourceTagMapping ->
+                            resourceMapper.map(resourceTagMapping.resourceARN()).ifPresent(resource -> {
+                                resource.setTags(resourceTagMapping.tags().stream()
+                                        .filter(scrapeConfig::shouldExportTag)
+                                        .collect(Collectors.toList()));
+                                resources.add(resource);
+                            }));
+                }
+                nextToken = response.paginationToken();
+            } while (!StringUtils.isEmpty(nextToken));
+        } catch (Exception e) {
+            log.error("Failed to get resources using resource tag api", e);
+        }
         return resources;
     }
 

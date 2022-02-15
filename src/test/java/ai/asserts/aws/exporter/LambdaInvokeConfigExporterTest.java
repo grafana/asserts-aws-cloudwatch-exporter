@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
@@ -114,7 +115,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         ));
 
         Map<String, String> baseLabels = ImmutableMap.of(
-                "d_function_name", "fn1", "region", "region1", "account", "account1");
+                "d_function_name", "fn1", "region", "region1", SCRAPE_ACCOUNT_ID_LABEL, "account1");
         Map<String, String> success = new TreeMap<>(baseLabels);
         success.put("on", "success");
 

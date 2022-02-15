@@ -30,7 +30,7 @@ public class Resource {
     private final String id;
 
     /**
-     * Some ARNs have sub type of resource. See {@link ResourceMapper#ALB_PATTERN}
+     * Some ARNs have sub type of resource. See {@link ResourceMapper#LB_PATTERN}
      */
     private final String subType;
     private final String name;

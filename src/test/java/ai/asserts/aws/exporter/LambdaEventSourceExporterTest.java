@@ -25,6 +25,7 @@ import software.amazon.awssdk.services.lambda.model.ListEventSourceMappingsRespo
 
 import java.util.Optional;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static org.easymock.EasyMock.anyInt;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
@@ -82,13 +83,13 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         ImmutableSortedMap<String, String> fn1Labels = ImmutableSortedMap.of(
                 "region", "region1",
                 "lambda_function", "fn1",
-                "account", "account1"
+                SCRAPE_ACCOUNT_ID_LABEL, "account1"
         );
 
         ImmutableSortedMap<String, String> fn2Labels = ImmutableSortedMap.of(
                 "region", "region1",
                 "lambda_function", "fn2",
-                "account", "account2"
+                SCRAPE_ACCOUNT_ID_LABEL, "account2"
         );
 
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()

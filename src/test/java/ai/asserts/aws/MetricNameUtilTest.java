@@ -41,6 +41,7 @@ public class MetricNameUtilTest extends EasyMockSupport {
         assertEquals("method_duration_seconds", util.toSnakeCase("MethodDurationSeconds"));
         assertEquals("cpu_load15", util.toSnakeCase("CPULoad15"));
         assertEquals("cpu_load", util.toSnakeCase("cpu-load"));
+        assertEquals("kubernetes_io_service_name", util.toSnakeCase("kubernetes.io/service_name"));
         assertEquals("tag_lambda_console_blueprint", util.toSnakeCase("tag_lambda_console:blueprint"));
     }
 

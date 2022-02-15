@@ -4,13 +4,19 @@
  */
 package ai.asserts.aws.cloudwatch.config;
 
+import ai.asserts.aws.MetricNameUtil;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
+import static org.easymock.EasyMock.expect;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TagExportConfigTest {
+public class TagExportConfigTest extends EasyMockSupport {
     @Test
     void shouldExportTag_Default() {
         TagExportConfig tagExportConfig = new TagExportConfig();
@@ -67,5 +73,22 @@ public class TagExportConfigTest {
                 .key("name")
                 .value("value")
                 .build()));
+    }
+
+    @Test
+    void tagLabels() {
+        TagExportConfig tagExportConfig = new TagExportConfig();
+        tagExportConfig.setTagsAsDisplayName(ImmutableList.of("kubernetes.io/service_name"));
+        MetricNameUtil metricNameUtil = mock(MetricNameUtil.class);
+        expect(metricNameUtil.toSnakeCase("kubernetes.io/service_name")).andReturn("key");
+        replayAll();
+        assertEquals(ImmutableMap.of(
+                "tag_key", "service",
+                "display_name", "service"
+        ), tagExportConfig.tagLabels(ImmutableList.of(Tag.builder()
+                .key("kubernetes.io/service_name")
+                .value("service")
+                .build()), metricNameUtil));
+        verifyAll();
     }
 }

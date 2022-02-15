@@ -12,11 +12,11 @@ import java.util.regex.Pattern;
 import static ai.asserts.aws.resource.ResourceType.APIGateway;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayMethod;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayResource;
-import static ai.asserts.aws.resource.ResourceType.APIGatewayRoute;
 import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
 import static ai.asserts.aws.resource.ResourceType.Alarm;
 import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
+import static ai.asserts.aws.resource.ResourceType.EC2;
 import static ai.asserts.aws.resource.ResourceType.ECSCluster;
 import static ai.asserts.aws.resource.ResourceType.ECSService;
 import static ai.asserts.aws.resource.ResourceType.ECSTask;
@@ -42,19 +42,34 @@ public class ResourceMapper {
     public static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):service/(.+?)/(.+)");
     public static final Pattern ECS_TASK_DEFINITION_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task-definition/(.+)");
     public static final Pattern ECS_TASK_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task/.+?/(.+)");
-    public static final Pattern ALB_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/(.+?)/(.+?)/(.+)");
+    public static final Pattern LB_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/((.+?)/.+?)/(.+)");
     public static final Pattern ASG_PATTERN = Pattern.compile("arn:aws:autoscaling:(.+?):(.+?):autoScalingGroup:(.+?):autoScalingGroupName/(.+)");
     public static final Pattern APIGATEWAY_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+)");
     public static final Pattern APIGATEWAY_STAGE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/stages/(.+)");
     public static final Pattern APIGATEWAY_RESOURCE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)");
-    public static final Pattern APIGATEWAY_ROUTE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/routes/(.+)");
     public static final Pattern APIGATEWAY_METHOD_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)/methods/(.+)");
     public static final Pattern APIGATEWAY_MODEL_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/models/(.+)");
     public static final Pattern APIGATEWAY_DEPLOYMENT_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/deployments/(.+)");
     public static final Pattern TARGET_GROUP_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):targetgroup/(.+?)/(.+)");
     public static final Pattern ALARM_PATTERN = Pattern.compile("arn:aws:cloudwatch:(.+?):(.+?):alarm:(.+)");
+    public static final Pattern EC2_PATTERN = Pattern.compile("arn:aws:ec2:(.+?):(.+?):instance/(.+)");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
+            .add(arn -> {
+                if (arn.contains(":ec2:") && arn.contains(":instance")) {
+                    Matcher matcher = EC2_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(EC2)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
             .add(arn -> {
                 if (arn.contains(":alarm:")) {
                     Matcher matcher = ALARM_PATTERN.matcher(arn);
@@ -231,15 +246,15 @@ public class ResourceMapper {
             })
             .add(arn -> {
                 if (arn.contains("arn:aws:elasticloadbalancing")) {
-                    Matcher matcher = ALB_PATTERN.matcher(arn);
+                    Matcher matcher = LB_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
                                 .type(LoadBalancer)
                                 .arn(arn)
                                 .region(matcher.group(1))
                                 .account(matcher.group(2))
-                                .subType(matcher.group(3))
-                                .name(matcher.group(4))
+                                .subType(matcher.group(4))
+                                .name(matcher.group(3))
                                 .id(matcher.group(5))
                                 .build());
                     }
@@ -344,72 +359,6 @@ public class ResourceMapper {
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
                                 .type(APIGatewayResource)
-                                .arn(arn)
-                                .region(matcher.group(1))
-                                .account(matcher.group(2))
-                                .name(matcher.group(5))
-                                .childOf(Resource.builder()
-                                        .type(APIGateway)
-                                        .region(matcher.group(1))
-                                        .account(matcher.group(2))
-                                        .subType(matcher.group(3))
-                                        .name(matcher.group(4))
-                                        .build())
-                                .build());
-                    }
-                }
-                return Optional.empty();
-            })
-            .add(arn -> {
-                if (arn.contains(":apigateway:") && arn.contains("/routes/")) {
-                    Matcher matcher = APIGATEWAY_RESOURCE_PATTERN.matcher(arn);
-                    if (matcher.matches()) {
-                        return Optional.of(Resource.builder()
-                                .type(APIGatewayRoute)
-                                .arn(arn)
-                                .region(matcher.group(1))
-                                .account(matcher.group(2))
-                                .name(matcher.group(5))
-                                .childOf(Resource.builder()
-                                        .type(APIGateway)
-                                        .region(matcher.group(1))
-                                        .account(matcher.group(2))
-                                        .subType(matcher.group(3))
-                                        .name(matcher.group(4))
-                                        .build())
-                                .build());
-                    }
-                }
-                return Optional.empty();
-            })
-            .add(arn -> {
-                if (arn.contains(":apigateway:") && arn.contains("/models/")) {
-                    Matcher matcher = APIGATEWAY_MODEL_PATTERN.matcher(arn);
-                    if (matcher.matches()) {
-                        return Optional.of(Resource.builder()
-                                .type(APIGatewayMethod)
-                                .arn(arn)
-                                .region(matcher.group(1))
-                                .account(matcher.group(2))
-                                .name(matcher.group(5))
-                                .childOf(Resource.builder()
-                                        .type(APIGateway)
-                                        .region(matcher.group(1))
-                                        .account(matcher.group(2))
-                                        .subType(matcher.group(3))
-                                        .name(matcher.group(4))
-                                        .build())
-                                .build());
-                    }
-                }
-                return Optional.empty();
-            })
-            .add(arn -> {
-                if (arn.contains(":apigateway:") && arn.contains("/deployments/")) {
-                    Matcher matcher = APIGATEWAY_DEPLOYMENT_PATTERN.matcher(arn);
-                    if (matcher.matches()) {
-                        return Optional.of(Resource.builder()
-                                .type(APIGatewayMethod)
                                 .arn(arn)
                                 .region(matcher.group(1))
                                 .account(matcher.group(2))

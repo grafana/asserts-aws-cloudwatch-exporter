@@ -5,10 +5,13 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.config.TagExportConfig;
 import ai.asserts.aws.resource.ResourceMapper;
+import ai.asserts.aws.resource.TagFilterResourceProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -25,6 +28,7 @@ import software.amazon.awssdk.services.config.model.ResourceIdentifier;
 import java.util.Optional;
 import java.util.SortedMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
@@ -38,6 +42,7 @@ import static software.amazon.awssdk.services.config.model.ResourceType.AWS_S3_B
 public class ResourceExporterTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
+    private TagExportConfig tagExportConfig;
     private AWSClientProvider awsClientProvider;
     private ConfigClient configClient;
     private RateLimiter rateLimiter;
@@ -45,12 +50,16 @@ public class ResourceExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples metricFamilySamples;
     private MetricSampleBuilder metricSampleBuilder;
     private ResourceMapper resourceMapper;
+    private MetricNameUtil metricNameUtil;
+    private TagFilterResourceProvider tagFilterResourceProvider;
+    private AccountIDProvider accountIDProvider;
     private ResourceExporter testClass;
 
     @BeforeEach
     public void setup() {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
+        tagExportConfig = mock(TagExportConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
         configClient = mock(ConfigClient.class);
         rateLimiter = mock(RateLimiter.class);
@@ -58,15 +67,21 @@ public class ResourceExporterTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         metricFamilySamples = mock(Collector.MetricFamilySamples.class);
         resourceMapper = mock(ResourceMapper.class);
+        metricNameUtil = mock(MetricNameUtil.class);
+        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        accountIDProvider = mock(AccountIDProvider.class);
         testClass = new ResourceExporter(scrapeConfigProvider, awsClientProvider, rateLimiter, metricSampleBuilder,
-                resourceMapper);
+                resourceMapper, metricNameUtil, tagFilterResourceProvider, accountIDProvider);
     }
 
     @Test
     public void update() {
+        expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("type1")).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
+        expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
+        expect(tagExportConfig.getTagsAsDisplayName()).andReturn(ImmutableList.of()).anyTimes();
         expect(awsClientProvider.getConfigClient("region")).andReturn(configClient).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<ListDiscoveredResourcesResponse>> callbackCapture = Capture.newInstance();
@@ -98,7 +113,8 @@ public class ResourceExporterTest extends EasyMockSupport {
                         SCRAPE_REGION_LABEL, "region",
                         "aws_resource_type", "AWS::DynamoDB::Table",
                         "name", "TableName",
-                        "job", "TableName"
+                        "job", "TableName",
+                        SCRAPE_ACCOUNT_ID_LABEL, "account"
                 ),
                 1.0D))
                 .andReturn(sample);
@@ -107,7 +123,8 @@ public class ResourceExporterTest extends EasyMockSupport {
                         SCRAPE_REGION_LABEL, "region",
                         "aws_resource_type", "AWS::S3::Bucket",
                         "name", "BucketName",
-                        "job", "BucketName"
+                        "job", "BucketName",
+                        SCRAPE_ACCOUNT_ID_LABEL, "account"
                 ),
                 1.0D))
                 .andReturn(sample);
