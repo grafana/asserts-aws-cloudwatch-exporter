@@ -2,11 +2,12 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch;
+package ai.asserts.aws.cloudwatch.metrics;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.metrics.MetricStreamProcessor;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.LabelBuilder;
 import ai.asserts.aws.exporter.MetricSampleBuilder;

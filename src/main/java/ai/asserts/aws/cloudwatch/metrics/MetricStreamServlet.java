@@ -2,8 +2,9 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch;
+package ai.asserts.aws.cloudwatch.metrics;
 
+import ai.asserts.aws.cloudwatch.metrics.MetricStreamProcessor;
 import com.google.common.annotations.VisibleForTesting;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import lombok.AllArgsConstructor;
