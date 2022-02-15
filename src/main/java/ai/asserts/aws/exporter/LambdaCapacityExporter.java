@@ -125,7 +125,8 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                     if (fCResponse.reservedConcurrentExecutions() != null) {
                         MetricFamilySamples.Sample reserved = sampleBuilder.buildSingleSample(reservedMetric, ImmutableMap.of(
                                 "region", region, "cw_namespace", lambda.getNormalizedNamespace(),
-                                "d_function_name", lambdaFunction.getName(), "job", lambdaFunction.getName()
+                                "d_function_name", lambdaFunction.getName(), "job", lambdaFunction.getName(),
+                                "account", lambdaFunction.getAccount()
                         ), fCResponse.reservedConcurrentExecutions().doubleValue());
                         samples.computeIfAbsent(reservedMetric, k -> new ArrayList<>()).add(reserved);
                     }
@@ -141,6 +142,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                     labels.put("cw_namespace", lambda.getNormalizedNamespace());
                     labels.put("d_function_name", lambdaFunction.getName());
                     labels.put("job", lambdaFunction.getName());
+                    labels.put("account", lambdaFunction.getAccount());
 
                     // Export timeout
                     double timeout = lambdaFunction.getTimeoutSeconds() * 1.0D;

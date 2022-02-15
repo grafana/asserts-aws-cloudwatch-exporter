@@ -108,12 +108,13 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
                         .name("fn1")
                         .arn("fn1:arn")
                         .region("region1")
+                        .account("account1")
                         .resource(resource)
                         .build())
         ));
 
         Map<String, String> baseLabels = ImmutableMap.of(
-                "d_function_name", "fn1", "region", "region1");
+                "d_function_name", "fn1", "region", "region1", "account", "account1");
         Map<String, String> success = new TreeMap<>(baseLabels);
         success.put("on", "success");
 

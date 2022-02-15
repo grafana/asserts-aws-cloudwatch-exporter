@@ -81,12 +81,14 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
     public void exportEventSourceMappings() {
         ImmutableSortedMap<String, String> fn1Labels = ImmutableSortedMap.of(
                 "region", "region1",
-                "lambda_function", "fn1"
+                "lambda_function", "fn1",
+                "account", "account1"
         );
 
         ImmutableSortedMap<String, String> fn2Labels = ImmutableSortedMap.of(
                 "region", "region1",
-                "lambda_function", "fn2"
+                "lambda_function", "fn2",
+                "account", "account2"
         );
 
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
@@ -118,6 +120,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
         expect(fnResource.getName()).andReturn("fn1");
         expect(fnResource.getArn()).andReturn("fn1_arn");
+        expect(fnResource.getAccount()).andReturn("account1");
         fnResource.addTagLabels(fn1Labels, metricNameUtil);
         sourceResource.addLabels(fn1Labels, "event_source");
 
@@ -126,6 +129,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
         expect(fnResource.getName()).andReturn("fn2");
         expect(fnResource.getArn()).andReturn("fn2_arn");
+        expect(fnResource.getAccount()).andReturn("account2");
         expect(resourceMapper.map("fn2_arn")).andReturn(Optional.of(fnResource)).times(2);
         expect(resourceMapper.map("table_arn")).andReturn(Optional.of(sourceResource));
         fnResource.addTagLabels(fn2Labels, metricNameUtil);

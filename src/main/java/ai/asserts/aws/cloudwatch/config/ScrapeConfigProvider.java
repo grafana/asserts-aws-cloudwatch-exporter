@@ -69,6 +69,10 @@ public class ScrapeConfigProvider {
         if (!CollectionUtils.isEmpty(scrapeConfig.getEcsTaskScrapeConfigs())) {
             scrapeConfig.getEcsTaskScrapeConfigs().forEach(ECSTaskDefScrapeConfig::validate);
         }
+
+        if (scrapeConfig.getTagExportConfig() != null) {
+            scrapeConfig.getTagExportConfig().compile();
+        }
     }
 
     public Optional<CWNamespace> getStandardNamespace(String namespace) {
