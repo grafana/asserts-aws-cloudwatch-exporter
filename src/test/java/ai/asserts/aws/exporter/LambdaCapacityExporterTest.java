@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
@@ -109,14 +110,14 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .build();
         fn1Labels = ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "job", "fn1",
-                "cw_namespace", "AWS/Lambda", "account", "account1"
+                "cw_namespace", "AWS/Lambda", SCRAPE_ACCOUNT_ID_LABEL, "account1"
         );
 
         fn1VersionLabels = new HashMap<>(ImmutableMap.of(
                 "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
                 "job", "fn1", "cw_namespace", "AWS/Lambda"
         ));
-        fn1VersionLabels.put("account", "account1");
+        fn1VersionLabels.put(SCRAPE_ACCOUNT_ID_LABEL, "account1");
 
         fn2 = LambdaFunction.builder()
                 .account("account2")
@@ -128,14 +129,14 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .build();
         fn2Labels = ImmutableMap.of(
                 "region", "region2", "d_function_name", "fn2", "job", "fn2",
-                "cw_namespace", "AWS/Lambda", "account", "account2"
+                "cw_namespace", "AWS/Lambda", SCRAPE_ACCOUNT_ID_LABEL, "account2"
         );
 
         fn2ResourceLabels = new HashMap<>(ImmutableMap.of(
                 "region", "region2", "d_function_name", "fn2", "d_resource", "green",
                 "job", "fn2", "cw_namespace", "AWS/Lambda"
         ));
-        fn2ResourceLabels.put("account", "account2");
+        fn2ResourceLabels.put(SCRAPE_ACCOUNT_ID_LABEL, "account2");
     }
 
     @Test

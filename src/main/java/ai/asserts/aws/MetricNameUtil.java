@@ -69,7 +69,7 @@ public class MetricNameUtil {
         int numContiguousUpperCase = 0;
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
-            if (c == '-' || c == ':' || c == '/') {
+            if (c == '-' || c == ':' || c == '/' || c == '.') {
                 builder.append("_");
                 numContiguousUpperCase = 0;
                 continue;

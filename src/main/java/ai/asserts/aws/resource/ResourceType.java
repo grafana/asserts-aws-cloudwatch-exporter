@@ -12,6 +12,7 @@ public enum ResourceType {
     ECSService("ServiceName"),
     ECSTaskDef("TaskDefinitionFamily"),
     ECSTask("Task"),
+    EC2("InstanceId"),
     EventBridge("RuleName"),
     LoadBalancer("LoadBalancer", "AvailabilityZone", "TargetGroup"),
     TargetGroup("TargetGroup", "AvailabilityZone"),

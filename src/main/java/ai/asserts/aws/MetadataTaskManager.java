@@ -11,7 +11,6 @@ import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
-import ai.asserts.aws.exporter.ResourceTagExporter;
 import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
@@ -39,7 +38,6 @@ public class MetadataTaskManager implements InitializingBean {
     private final LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
     private final BasicMetricCollector metricCollector;
     private final ResourceExporter resourceExporter;
-    private final ResourceTagExporter resourceTagExporter;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final ResourceRelationExporter relationExporter;
     private final LBToASGRelationBuilder lbToASGRelationBuilder;
@@ -54,7 +52,6 @@ public class MetadataTaskManager implements InitializingBean {
         lambdaEventSourceExporter.register(collectorRegistry);
         lambdaInvokeConfigExporter.register(collectorRegistry);
         resourceExporter.register(collectorRegistry);
-        resourceTagExporter.register(collectorRegistry);
         metricCollector.register(collectorRegistry);
         relationExporter.register(collectorRegistry);
 

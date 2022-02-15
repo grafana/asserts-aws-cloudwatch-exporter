@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -130,7 +131,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         Map<String, String> labels = new TreeMap<>();
         labels.put("region", region);
         labels.put("lambda_function", functionResource.getName());
-        labels.put("account", functionResource.getAccount());
+        labels.put(SCRAPE_ACCOUNT_ID_LABEL, functionResource.getAccount());
         eventSourceResource.addLabels(labels, "event_source");
         functionResource.addTagLabels(labels, metricNameUtil);
         samples.computeIfAbsent(metricName, k -> new ArrayList<>())

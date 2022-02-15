@@ -21,6 +21,7 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 import java.util.Map;
 import java.util.Optional;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -58,11 +59,11 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(logScrapeConfig.extractLabels("message")).andReturn(labels);
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
         expect(lambdaFunction.getName()).andReturn("fn1").anyTimes();
-        expect(lambdaFunction.getAccount()).andReturn("account");
+        expect(lambdaFunction.getAccount()).andReturn(SCRAPE_ACCOUNT_ID_LABEL);
         expect(labels.size()).andReturn(1);
         expect(labels.put("region", "region1")).andReturn(null);
         expect(labels.put("d_function_name", "fn1")).andReturn(null);
-        expect(labels.put("account", "account")).andReturn(null);
+        expect(labels.put(SCRAPE_ACCOUNT_ID_LABEL, SCRAPE_ACCOUNT_ID_LABEL)).andReturn(null);
         expect(resource.getArn()).andReturn("arn1");
         expect(lambdaFunction.getArn()).andReturn("arn1");
         resource.addTagLabels(labels, metricNameUtil);
@@ -90,10 +91,10 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(logScrapeConfig.extractLabels("message")).andReturn(labels);
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
         expect(lambdaFunction.getName()).andReturn("fn1").anyTimes();
-        expect(lambdaFunction.getAccount()).andReturn("account").anyTimes();
+        expect(lambdaFunction.getAccount()).andReturn(SCRAPE_ACCOUNT_ID_LABEL).anyTimes();
         expect(labels.size()).andReturn(1);
         expect(labels.put("region", "region1")).andReturn(null);
-        expect(labels.put("account", "account")).andReturn(null);
+        expect(labels.put(SCRAPE_ACCOUNT_ID_LABEL, SCRAPE_ACCOUNT_ID_LABEL)).andReturn(null);
         expect(labels.put("d_function_name", "fn1")).andReturn(null);
         expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, 1.0D))
                 .andReturn(sample);

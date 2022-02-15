@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -97,7 +98,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                         Map<String, String> labels = new TreeMap<>();
                         labels.put("region", region);
                         labels.put("d_function_name", fnConfig.getName());
-                        labels.put("account", fnConfig.getAccount());
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, fnConfig.getAccount());
                         if (fnConfig.getResource() != null) {
                             fnConfig.getResource().addTagLabels(labels, metricNameUtil);
                         }

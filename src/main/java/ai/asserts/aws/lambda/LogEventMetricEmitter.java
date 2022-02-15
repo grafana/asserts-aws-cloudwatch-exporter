@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
+
 @Component
 @Slf4j
 @AllArgsConstructor
@@ -38,7 +40,7 @@ public class LogEventMetricEmitter {
         Set<Resource> functionResources = tagFilterResourceProvider.getFilteredResources(lambdaFunction.getRegion(),
                 namespaceConfig);
         if (logLabels.size() > 0) {
-            logLabels.put("account", lambdaFunction.getAccount());
+            logLabels.put(SCRAPE_ACCOUNT_ID_LABEL, lambdaFunction.getAccount());
             logLabels.put("region", functionLogScrapeConfig.getLambdaFunction().getRegion());
             logLabels.put("d_function_name", lambdaFunction.getName());
             functionResources.stream()

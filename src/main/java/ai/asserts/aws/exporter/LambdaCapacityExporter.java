@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -126,7 +127,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                         MetricFamilySamples.Sample reserved = sampleBuilder.buildSingleSample(reservedMetric, ImmutableMap.of(
                                 "region", region, "cw_namespace", lambda.getNormalizedNamespace(),
                                 "d_function_name", lambdaFunction.getName(), "job", lambdaFunction.getName(),
-                                "account", lambdaFunction.getAccount()
+                                SCRAPE_ACCOUNT_ID_LABEL, lambdaFunction.getAccount()
                         ), fCResponse.reservedConcurrentExecutions().doubleValue());
                         samples.computeIfAbsent(reservedMetric, k -> new ArrayList<>()).add(reserved);
                     }
@@ -142,7 +143,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                     labels.put("cw_namespace", lambda.getNormalizedNamespace());
                     labels.put("d_function_name", lambdaFunction.getName());
                     labels.put("job", lambdaFunction.getName());
-                    labels.put("account", lambdaFunction.getAccount());
+                    labels.put(SCRAPE_ACCOUNT_ID_LABEL, lambdaFunction.getAccount());
 
                     // Export timeout
                     double timeout = lambdaFunction.getTimeoutSeconds() * 1.0D;
