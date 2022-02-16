@@ -13,7 +13,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.lambda.LambdaFunction;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.Resource;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,7 +55,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     private MetricNameUtil metricNameUtil;
     private BasicMetricCollector metricCollector;
     private LambdaFunctionScraper functionScraper;
-    private TagFilterResourceProvider tagFilterResourceProvider;
+    private ResourceTagHelper resourceTagHelper;
     private Resource resource;
     private MetricSampleBuilder sampleBuilder;
     private Sample sample;
@@ -80,7 +80,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         metricNameUtil = mock(MetricNameUtil.class);
         metricCollector = mock(BasicMetricCollector.class);
         functionScraper = mock(LambdaFunctionScraper.class);
-        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
         resource = mock(Resource.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Sample.class);
@@ -89,7 +89,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         resetAll();
 
         testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil,
-                sampleBuilder, functionScraper, tagFilterResourceProvider, new RateLimiter(metricCollector));
+                sampleBuilder, functionScraper, resourceTagHelper, new RateLimiter(metricCollector));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(metricNameUtil.getLambdaMetric("available_concurrency")).andReturn("available");
@@ -148,10 +148,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expectAccountSettings("region1");
 
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn1");
-        resource.addTagLabels(ImmutableMap.of(), metricNameUtil);
+        resource.addEnvLabel(ImmutableMap.of(), metricNameUtil);
 
         expect(lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
                 .functionName("arn1")
@@ -182,10 +182,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expectAccountSettings("region2");
 
-        expect(tagFilterResourceProvider.getFilteredResources("region2", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region2", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn2");
-        resource.addTagLabels(ImmutableMap.of(), metricNameUtil);
+        resource.addEnvLabel(ImmutableMap.of(), metricNameUtil);
 
         expect(lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
                 .functionName("arn2")
@@ -234,10 +234,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         ));
         expectAccountSettings("region1");
 
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn1");
-        resource.addTagLabels(Collections.emptyMap(), metricNameUtil);
+        resource.addEnvLabel(Collections.emptyMap(), metricNameUtil);
 
         expect(lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
                 .functionName("arn1")
@@ -274,7 +274,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 "region1", ImmutableMap.of("arn1", fn1)
         ));
         expectAccountSettings("region1");
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andThrow(new RuntimeException());
         lambdaClient.close();
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);

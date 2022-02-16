@@ -12,7 +12,7 @@ import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
@@ -38,7 +38,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     private MetricNameUtil metricNameUtil;
     private AWSClientProvider awsClientProvider;
     private CloudWatchClient cloudWatchClient;
-    private TagFilterResourceProvider tagFilterResourceProvider;
+    private ResourceTagHelper resourceTagHelper;
     private MetricQueryBuilder metricQueryBuilder;
     private Resource resource;
     private Metric metric;
@@ -57,7 +57,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         metricNameUtil = mock(MetricNameUtil.class);
         awsClientProvider = mock(AWSClientProvider.class);
         cloudWatchClient = mock(CloudWatchClient.class);
-        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
         metricQueryBuilder = mock(MetricQueryBuilder.class);
         metricQuery = mock(MetricQuery.class);
         resource = mock(Resource.class);
@@ -74,7 +74,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder().build());
         replayAll();
         testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
-                awsClientProvider, tagFilterResourceProvider, metricQueryBuilder,
+                awsClientProvider, resourceTagHelper, metricQueryBuilder,
                 new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
@@ -94,7 +94,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
 
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.matches(metric)).andReturn(true).anyTimes();
 
@@ -149,7 +149,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
 
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andThrow(new RuntimeException());
 
         cloudWatchClient.close();

@@ -12,43 +12,60 @@ import lombok.Setter;
 import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 @Getter
 @Setter
-@EqualsAndHashCode(of = {"excludePattern", "includePattern"})
 @NoArgsConstructor
 public class TagExportConfig {
-    private String excludePattern;
-    private String includePattern;
-    private Pattern exclude;
-    private Pattern include;
-    private List<String> tagsAsDisplayName;
+    private Set<String> excludePatterns = new HashSet<>();
+    private Set<String> excludeTags = new HashSet<>();
+    private Set<String> includePatterns = new HashSet<>();
+    private Set<String> includeTags = new HashSet<>();
+    private Set<String> envTags = new HashSet<>();
+    @EqualsAndHashCode.Exclude
+    private Set<Pattern> _exclude = new HashSet<>();
+    @EqualsAndHashCode.Exclude
+    private Set<Pattern> _include = new HashSet<>();
 
     public void compile() {
-        if (excludePattern != null) {
-            exclude = Pattern.compile(excludePattern);
-        }
-        if (includePattern != null) {
-            include = Pattern.compile(includePattern);
-        }
+        excludePatterns.forEach(pattern -> _exclude.add(Pattern.compile(pattern)));
+        includePatterns.forEach(pattern -> _include.add(Pattern.compile(pattern)));
     }
 
     public boolean shouldCaptureTag(Tag tag) {
-        boolean _include = true;
-        boolean _exclude = false;
-
-        if (include != null) {
-            _include = include.matcher(tag.key()).matches();
+        Set<String> tagNames = new HashSet<>();
+        String tagName = tag.key();
+        if (CollectionUtils.isEmpty(includeTags) && CollectionUtils.isEmpty(includePatterns)) {
+            tagNames.add(tagName);
+        } else if (!CollectionUtils.isEmpty(includeTags) && includeTags.contains(tagName)) {
+            tagNames.add(tagName);
+        } else if (!CollectionUtils.isEmpty(includePatterns) &&
+                _include.stream().anyMatch(p -> p.matcher(tagName).matches())) {
+            tagNames.add(tagName);
         }
-        if (exclude != null) {
-            _exclude = exclude.matcher(tag.key()).matches();
+
+        if (!CollectionUtils.isEmpty(excludeTags) && excludeTags.contains(tagName)) {
+            tagNames.remove(tagName);
+        } else if (!CollectionUtils.isEmpty(excludePatterns) &&
+                _exclude.stream().anyMatch(p -> p.matcher(tagName).matches())) {
+            tagNames.remove(tagName);
         }
 
-        return _include && !_exclude;
+        return tagNames.size() > 0;
+    }
+
+    public Optional<Tag> getEnvTag(List<Tag> tags) {
+        if (!CollectionUtils.isEmpty(tags) && !CollectionUtils.isEmpty(envTags)) {
+            return tags.stream().filter(tag -> envTags.contains(tag.key())).findFirst();
+        }
+        return Optional.empty();
     }
 
     public Map<String, String> tagLabels(List<Tag> tags, MetricNameUtil metricNameUtil) {
@@ -58,9 +75,6 @@ public class TagExportConfig {
                     .filter(this::shouldCaptureTag).forEach(t -> {
                 String key = t.key();
                 labels.put("tag_" + metricNameUtil.toSnakeCase(key), t.value());
-                if (tagsAsDisplayName != null && tagsAsDisplayName.contains(key)) {
-                    labels.put("display_name", t.value());
-                }
             });
         }
         return labels;

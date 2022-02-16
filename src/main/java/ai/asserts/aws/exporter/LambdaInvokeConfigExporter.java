@@ -100,7 +100,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                         labels.put("d_function_name", fnConfig.getName());
                         labels.put(SCRAPE_ACCOUNT_ID_LABEL, fnConfig.getAccount());
                         if (fnConfig.getResource() != null) {
-                            fnConfig.getResource().addTagLabels(labels, metricNameUtil);
+                            fnConfig.getResource().addEnvLabel(labels, metricNameUtil);
                         }
 
                         DestinationConfig destConfig = config.destinationConfig();

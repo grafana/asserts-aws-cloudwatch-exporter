@@ -44,7 +44,7 @@ public class LabelBuilder {
         }
 
         if (metricQuery.getResource() != null) {
-            metricQuery.getResource().addTagLabels(labels, metricNameUtil);
+            metricQuery.getResource().addEnvLabel(labels, metricNameUtil);
         }
         getJob(metricQuery.getMetric()).ifPresent(jobName -> labels.put("job", jobName));
         getTopic(metricQuery.getMetric()).ifPresent(queueName -> labels.put("topic", queueName));

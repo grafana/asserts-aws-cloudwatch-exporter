@@ -10,9 +10,11 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.config.TagExportConfig;
+import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -27,14 +29,18 @@ import software.amazon.awssdk.services.config.model.ResourceIdentifier;
 
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.resource.ResourceType.ECSService;
+import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static software.amazon.awssdk.services.config.model.ResourceType.AWS_DYNAMO_DB_TABLE;
 import static software.amazon.awssdk.services.config.model.ResourceType.AWS_S3_BUCKET;
@@ -50,8 +56,9 @@ public class ResourceExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples metricFamilySamples;
     private MetricSampleBuilder metricSampleBuilder;
     private ResourceMapper resourceMapper;
+    private Resource resource;
     private MetricNameUtil metricNameUtil;
-    private TagFilterResourceProvider tagFilterResourceProvider;
+    private ResourceTagHelper resourceTagHelper;
     private AccountIDProvider accountIDProvider;
     private ResourceExporter testClass;
 
@@ -68,10 +75,11 @@ public class ResourceExporterTest extends EasyMockSupport {
         metricFamilySamples = mock(Collector.MetricFamilySamples.class);
         resourceMapper = mock(ResourceMapper.class);
         metricNameUtil = mock(MetricNameUtil.class);
-        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
         accountIDProvider = mock(AccountIDProvider.class);
+        resource = mock(Resource.class);
         testClass = new ResourceExporter(scrapeConfigProvider, awsClientProvider, rateLimiter, metricSampleBuilder,
-                resourceMapper, metricNameUtil, tagFilterResourceProvider, accountIDProvider);
+                resourceMapper, metricNameUtil, resourceTagHelper, accountIDProvider);
     }
 
     @Test
@@ -81,7 +89,6 @@ public class ResourceExporterTest extends EasyMockSupport {
         expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("type1")).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
-        expect(tagExportConfig.getTagsAsDisplayName()).andReturn(ImmutableList.of()).anyTimes();
         expect(awsClientProvider.getConfigClient("region")).andReturn(configClient).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<ListDiscoveredResourcesResponse>> callbackCapture = Capture.newInstance();
@@ -102,7 +109,9 @@ public class ResourceExporterTest extends EasyMockSupport {
                 .includeDeletedResources(false)
                 .resourceType("type1")
                 .build())).andReturn(response);
-
+        expect(resourceTagHelper.getResourcesWithTag("region", "type1", ImmutableList.of(
+                "TableName", "BucketName"
+        ))).andReturn(ImmutableMap.of());
         expect(resourceMapper.map(anyString())).andReturn(Optional.empty()).anyTimes();
 
         expect(rateLimiter.doWithRateLimit(eq("ConfigClient/listDiscoveredResources"),
@@ -130,6 +139,7 @@ public class ResourceExporterTest extends EasyMockSupport {
                 .andReturn(sample);
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(metricFamilySamples);
+        configClient.close();
 
         replayAll();
         testClass.update();
@@ -137,6 +147,81 @@ public class ResourceExporterTest extends EasyMockSupport {
         assertEquals(response, callbackCapture.getValue().makeCall());
 
         assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());
+        verifyAll();
+    }
+
+
+    @Test
+    void addBasicLabels_LoadBalancer() {
+        TreeMap<String, String> labels = new TreeMap<>();
+
+        expect(resource.getAccount()).andReturn("account").anyTimes();
+        expect(resource.getName()).andReturn("name").anyTimes();
+        expect(resource.getType()).andReturn(LoadBalancer);
+        expect(resource.getSubType()).andReturn("app");
+
+        replayAll();
+        testClass.addBasicLabels(labels, ResourceIdentifier.builder()
+                .resourceId("id")
+                .resourceName("name")
+                .build(), "idOrName", Optional.of(resource));
+        assertEquals(ImmutableMap.of(
+                "id", "id", "name", "name",
+                "account_id", "account",
+                "job", "name",
+                "type", "app"), labels);
+        verifyAll();
+    }
+
+    @Test
+    void addBasicLabels_ECSService() {
+        TreeMap<String, String> labels = new TreeMap<>();
+
+        expect(resource.getAccount()).andReturn("account").anyTimes();
+        expect(resource.getName()).andReturn("name");
+        expect(resource.getType()).andReturn(ECSService);
+        expect(resource.getChildOf()).andReturn(resource);
+        expect(resource.getName()).andReturn("cluster");
+
+        replayAll();
+        testClass.addBasicLabels(labels, ResourceIdentifier.builder()
+                .resourceId("id")
+                .resourceName("name")
+                .build(), "idOrName", Optional.of(resource));
+        assertEquals(new ImmutableMap.Builder<String, String>()
+                .put("id", "id")
+                .put("name", "name")
+                .put("cluster", "cluster")
+                .put("account_id", "account")
+                .put("job", "name").build(), labels);
+        verifyAll();
+    }
+
+    @Test
+    void addBasicLabels_ResourceAbsent() {
+        TreeMap<String, String> labels = new TreeMap<>();
+
+        replayAll();
+        testClass.addBasicLabels(labels, ResourceIdentifier.builder()
+                .build(), "idOrName", Optional.empty());
+        assertEquals(ImmutableMap.of(
+                "job", "idOrName"), labels);
+        verifyAll();
+    }
+
+    @Test
+    void addTagLabels_ResourceAbsent() {
+        TreeMap<String, String> labels = new TreeMap<>();
+
+        expect(resource.getName()).andReturn("name").anyTimes();
+        resource.addTagLabels(labels, metricNameUtil);
+        expectLastCall().times(2);
+
+        replayAll();
+        testClass.addTagLabels(ImmutableMap.of("name", resource), labels, ResourceIdentifier.builder()
+                .resourceId("id")
+                .resourceName("name")
+                .build(), Optional.of(resource));
         verifyAll();
     }
 }

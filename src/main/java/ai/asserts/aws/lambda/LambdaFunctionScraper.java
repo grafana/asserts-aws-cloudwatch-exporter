@@ -8,7 +8,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.resource.Resource;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.extern.slf4j.Slf4j;
@@ -34,16 +34,16 @@ public class LambdaFunctionScraper {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final LambdaFunctionBuilder fnBuilder;
-    private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final ResourceTagHelper resourceTagHelper;
     private final RateLimiter rateLimiter;
     private final Supplier<Map<String, Map<String, LambdaFunction>>> functionsByRegion;
 
     public LambdaFunctionScraper(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                 TagFilterResourceProvider tagFilterResourceProvider,
+                                 ResourceTagHelper resourceTagHelper,
                                  LambdaFunctionBuilder fnBuilder, RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
-        this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.resourceTagHelper = resourceTagHelper;
         this.fnBuilder = fnBuilder;
         this.rateLimiter = rateLimiter;
         this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions,
@@ -72,7 +72,7 @@ public class LambdaFunctionScraper {
                         ),
                         lambdaClient::listFunctions);
                 if (response.hasFunctions()) {
-                    Set<Resource> resources = tagFilterResourceProvider.getFilteredResources(region, lambdaNS);
+                    Set<Resource> resources = resourceTagHelper.getFilteredResources(region, lambdaNS);
                     response.functions().forEach(fnConfig -> {
                         Optional<Resource> fnResourceOpt = findFnResource(resources, fnConfig);
                         functionsByRegion

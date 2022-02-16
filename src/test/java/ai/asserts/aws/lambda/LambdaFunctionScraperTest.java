@@ -8,7 +8,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,7 +40,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     private LambdaClient lambdaClient;
     private LambdaFunctionBuilder lambdaFunctionBuilder;
     private BasicMetricCollector metricCollector;
-    private TagFilterResourceProvider tagFilterResourceProvider;
+    private ResourceTagHelper resourceTagHelper;
     private NamespaceConfig namespaceConfig;
     private LambdaFunction lambdaFunction;
     private LambdaFunctionScraper lambdaFunctionScraper;
@@ -52,7 +52,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         lambdaClient = mock(LambdaClient.class);
         lambdaFunctionBuilder = mock(LambdaFunctionBuilder.class);
         metricCollector = mock(BasicMetricCollector.class);
-        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
         namespaceConfig = mock(NamespaceConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
         fnResource = mock(Resource.class);
@@ -65,7 +65,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         replayAll();
         lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider,
-                tagFilterResourceProvider, lambdaFunctionBuilder, new RateLimiter(metricCollector));
+                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -101,7 +101,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(fn1Config, fn2Config)).build());
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource));
         expect(fnResource.getArn()).andReturn("arn1").times(2);
         expect(lambdaFunctionBuilder.buildFunction("region1", fn1Config, Optional.of(fnResource)))
@@ -115,7 +115,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(fn3Config, fn4Config)).build());
-        expect(tagFilterResourceProvider.getFilteredResources("region2", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region2", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource));
         expect(fnResource.getArn()).andReturn("arn3").times(2);
         expect(lambdaFunctionBuilder.buildFunction("region2", fn3Config, Optional.of(fnResource)))

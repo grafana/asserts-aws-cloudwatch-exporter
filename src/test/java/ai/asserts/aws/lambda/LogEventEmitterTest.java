@@ -10,7 +10,7 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import org.easymock.EasyMockSupport;
@@ -26,7 +26,7 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class LogEventEmitterTest extends EasyMockSupport {
-    private TagFilterResourceProvider tagFilterResourceProvider;
+    private ResourceTagHelper resourceTagHelper;
     private Resource resource;
     private MetricNameUtil metricNameUtil;
     private MetricSampleBuilder sampleBuilder;
@@ -39,7 +39,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
         resource = mock(Resource.class);
         metricNameUtil = mock(MetricNameUtil.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
@@ -49,12 +49,12 @@ public class LogEventEmitterTest extends EasyMockSupport {
         logScrapeConfig = mock(LogScrapeConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
 
-        testClass = new LogEventMetricEmitter(tagFilterResourceProvider, metricNameUtil, sampleBuilder);
+        testClass = new LogEventMetricEmitter(resourceTagHelper, metricNameUtil, sampleBuilder);
     }
 
     @Test
     public void emitMetric_withResourceTags() {
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(logScrapeConfig.extractLabels("message")).andReturn(labels);
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
@@ -66,7 +66,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(labels.put(SCRAPE_ACCOUNT_ID_LABEL, SCRAPE_ACCOUNT_ID_LABEL)).andReturn(null);
         expect(resource.getArn()).andReturn("arn1");
         expect(lambdaFunction.getArn()).andReturn("arn1");
-        resource.addTagLabels(labels, metricNameUtil);
+        resource.addEnvLabel(labels, metricNameUtil);
 
         expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, 1.0D))
                 .andReturn(sample);
@@ -86,7 +86,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
 
     @Test
     public void emitMetric_withoutResource() {
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of());
         expect(logScrapeConfig.extractLabels("message")).andReturn(labels);
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();

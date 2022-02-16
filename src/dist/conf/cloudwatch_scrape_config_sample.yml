@@ -80,6 +80,8 @@ discoverResourceTypes:
   - AWS::ECS::Service
   - AWS::Kinesis::Stream
 tagExportConfig:
-  excludePattern: (.*cloudformation.*)|(.*docker.*)|(.*_aws_.*)|(.*kubernetes.io.cluster.*)
-  tagsAsDisplayName:
-    - kubernetes.io/service-name
+  includeTags:
+    - "asserts-env-name"
+    - "kubernetes.io/service-name"
+  envTags:
+    - "asserts-env-name"
