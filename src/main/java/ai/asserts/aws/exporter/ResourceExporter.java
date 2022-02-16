@@ -70,20 +70,24 @@ public class ResourceExporter extends Collector implements MetricProvider {
 
     @Override
     public void update() {
-        List<Sample> samples = new ArrayList<>();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Set<String> discoverResourceTypes = scrapeConfig.getDiscoverResourceTypes();
-        if (discoverResourceTypes.size() > 0) {
-            scrapeConfig.getRegions().forEach(region -> {
-                log.info("Discovering resources in region {}", region);
-                try (ConfigClient configClient = awsClientProvider.getConfigClient(region)) {
-                    discoverResourceTypes.forEach(resourceType ->
-                            samples.addAll(getResources(region, configClient, resourceType)));
-                }
-            });
-            List<MetricFamilySamples> latest = new ArrayList<>();
-            latest.add(sampleBuilder.buildFamily(samples));
-            metrics = latest;
+        try {
+            List<Sample> samples = new ArrayList<>();
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            Set<String> discoverResourceTypes = scrapeConfig.getDiscoverResourceTypes();
+            if (discoverResourceTypes.size() > 0) {
+                scrapeConfig.getRegions().forEach(region -> {
+                    log.info("Discovering resources in region {}", region);
+                    try (ConfigClient configClient = awsClientProvider.getConfigClient(region)) {
+                        discoverResourceTypes.forEach(resourceType ->
+                                samples.addAll(getResources(region, configClient, resourceType)));
+                    }
+                });
+                List<MetricFamilySamples> latest = new ArrayList<>();
+                latest.add(sampleBuilder.buildFamily(samples));
+                metrics = latest;
+            }
+        } catch (Exception e) {
+            log.error("Failed to build resource metric samples", e);
         }
     }
 

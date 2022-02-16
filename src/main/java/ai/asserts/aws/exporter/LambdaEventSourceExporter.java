@@ -103,21 +103,21 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                     }
                     nextToken = response.nextMarker();
                 } while (StringUtils.hasText(nextToken));
+
+                Set<Resource> fnResources = resourceTagHelper.getFilteredResources(region, namespaceConfig);
+                byRegion.computeIfAbsent(region, k -> new ArrayList<>()).forEach(mappingConfiguration -> {
+                    Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
+                            .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
+                            .findFirst()
+                            .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
+                    Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
+                    eventResourceOpt.ifPresent(eventResource ->
+                            fnResource.ifPresent(fn -> buildSample(region, fn, eventResource, samples))
+                    );
+                });
             } catch (Exception e) {
                 log.info("Failed to discover event source mappings", e);
             }
-
-            Set<Resource> fnResources = resourceTagHelper.getFilteredResources(region, namespaceConfig);
-            byRegion.computeIfAbsent(region, k -> new ArrayList<>()).forEach(mappingConfiguration -> {
-                Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
-                        .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
-                        .findFirst()
-                        .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
-                Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
-                eventResourceOpt.ifPresent(eventResource ->
-                        fnResource.ifPresent(fn -> buildSample(region, fn, eventResource, samples))
-                );
-            });
         }));
         return samples.values().stream()
                 .map(sampleBuilder::buildFamily)

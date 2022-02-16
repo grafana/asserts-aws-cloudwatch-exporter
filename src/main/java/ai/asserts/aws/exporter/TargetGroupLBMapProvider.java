@@ -45,18 +45,22 @@ public class TargetGroupLBMapProvider {
     private final Map<Resource, Resource> tgToLB = new ConcurrentHashMap<>();
 
     public void update() {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        scrapeConfig.getRegions().forEach(region -> {
-            try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region)) {
-                String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
-                ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(SCRAPE_REGION_LABEL, region);
-                DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(api, labels,
-                        lbClient::describeLoadBalancers);
-                if (resp.hasLoadBalancers()) {
-                    resp.loadBalancers().forEach(lb -> mapLB(lbClient, labels, lb));
+        try {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            scrapeConfig.getRegions().forEach(region -> {
+                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region)) {
+                    String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
+                    ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(SCRAPE_REGION_LABEL, region);
+                    DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(api, labels,
+                            lbClient::describeLoadBalancers);
+                    if (resp.hasLoadBalancers()) {
+                        resp.loadBalancers().forEach(lb -> mapLB(lbClient, labels, lb));
+                    }
                 }
-            }
-        });
+            });
+        } catch (Exception e) {
+            log.error("Failed to build LB Target Group map", e);
+        }
     }
 
     @VisibleForTesting

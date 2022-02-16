@@ -51,7 +51,7 @@ public class LBToASGRelationBuilder {
         Set<ResourceRelation> newConfigs = new HashSet<>();
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
             String api = "AutoScalingClient/describeAutoScalingGroups";
-            try(AutoScalingClient autoScalingClient = rateLimiter.doWithRateLimit(api,
+            try (AutoScalingClient autoScalingClient = rateLimiter.doWithRateLimit(api,
                     ImmutableSortedMap.of(SCRAPE_REGION_LABEL, region),
                     () -> awsClientProvider.getAutoScalingClient(region))) {
                 DescribeAutoScalingGroupsResponse resp = autoScalingClient.describeAutoScalingGroups();
@@ -73,6 +73,8 @@ public class LBToASGRelationBuilder {
                         }
                     }));
                 }
+            } catch (Exception e) {
+                log.error("Failed to build LB to ASG relationship", e);
             }
         });
         routingConfigs = newConfigs;
