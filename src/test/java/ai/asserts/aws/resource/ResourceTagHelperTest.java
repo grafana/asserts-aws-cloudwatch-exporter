@@ -275,6 +275,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
         resource.setTags(ImmutableList.of(lbTagConverted, resourceTag));
 
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.shouldExportTag(lbTagConverted)).andReturn(true);
         replayAll();
 
         ImmutableList<String> resourceName = ImmutableList.of("resourceName");
