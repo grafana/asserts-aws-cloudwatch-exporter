@@ -55,7 +55,7 @@ public class Resource {
     private List<Tag> tags;
 
     @Setter
-    private Optional<Tag> envTag = Optional.empty();
+    private Optional<Tag> envTag;
 
     public boolean matches(Metric metric) {
         List<List<Dimension>> toBeMatched = metricDimensions();
@@ -85,7 +85,9 @@ public class Resource {
     }
 
     public void addEnvLabel(Map<String, String> labels, MetricNameUtil metricNameUtil) {
-        envTag.ifPresent(tag -> labels.put("tag_" + metricNameUtil.toSnakeCase(tag.key()), tag.value()));
+        if (envTag != null) {
+            envTag.ifPresent(tag -> labels.put("tag_" + metricNameUtil.toSnakeCase(tag.key()), tag.value()));
+        }
     }
 
     private List<List<Dimension>> metricDimensions() {
