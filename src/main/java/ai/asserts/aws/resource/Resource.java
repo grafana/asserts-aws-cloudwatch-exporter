@@ -15,6 +15,7 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -53,6 +54,9 @@ public class Resource {
     @Setter
     private List<Tag> tags;
 
+    @Setter
+    private Optional<Tag> envTag = Optional.empty();
+
     public boolean matches(Metric metric) {
         List<List<Dimension>> toBeMatched = metricDimensions();
         return metric.hasDimensions() && toBeMatched.stream().anyMatch(list -> metric.dimensions().containsAll(list));
@@ -78,6 +82,10 @@ public class Resource {
         if (!CollectionUtils.isEmpty(tags)) {
             tags.forEach(tag -> labels.put(format("tag_%s", metricNameUtil.toSnakeCase(tag.key())), tag.value()));
         }
+    }
+
+    public void addEnvLabel(Map<String, String> labels, MetricNameUtil metricNameUtil) {
+        envTag.ifPresent(tag -> labels.put("tag_" + metricNameUtil.toSnakeCase(tag.key()), tag.value()));
     }
 
     private List<List<Dimension>> metricDimensions() {

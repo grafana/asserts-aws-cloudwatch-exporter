@@ -9,29 +9,21 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.config.TagExportConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
-import com.google.common.collect.ImmutableSet;
+import ai.asserts.aws.resource.ResourceTagHelper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.config.ConfigClient;
 import software.amazon.awssdk.services.config.model.ListDiscoveredResourcesRequest;
 import software.amazon.awssdk.services.config.model.ListDiscoveredResourcesResponse;
 import software.amazon.awssdk.services.config.model.ResourceIdentifier;
-import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancingClient;
-import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsRequest;
-import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsResponse;
-import software.amazon.awssdk.services.resourcegroupstaggingapi.model.GetResourcesRequest;
-import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -55,7 +47,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
     private final MetricSampleBuilder sampleBuilder;
     private final ResourceMapper resourceMapper;
     private final MetricNameUtil metricNameUtil;
-    private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final ResourceTagHelper resourceTagHelper;
     private final AccountIDProvider accountIDProvider;
     private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
 
@@ -64,7 +56,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
                             RateLimiter rateLimiter,
                             MetricSampleBuilder sampleBuilder, ResourceMapper resourceMapper,
                             MetricNameUtil metricNameUtil,
-                            TagFilterResourceProvider tagFilterResourceProvider,
+                            ResourceTagHelper resourceTagHelper,
                             AccountIDProvider accountIDProvider) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -72,7 +64,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
         this.sampleBuilder = sampleBuilder;
         this.resourceMapper = resourceMapper;
         this.metricNameUtil = metricNameUtil;
-        this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.resourceTagHelper = resourceTagHelper;
         this.accountIDProvider = accountIDProvider;
     }
 
@@ -84,9 +76,10 @@ public class ResourceExporter extends Collector implements MetricProvider {
         if (discoverResourceTypes.size() > 0) {
             scrapeConfig.getRegions().forEach(region -> {
                 log.info("Discovering resources in region {}", region);
-                ConfigClient configClient = awsClientProvider.getConfigClient(region);
-                discoverResourceTypes.forEach(resourceType ->
-                        samples.addAll(getResources(scrapeConfig, region, configClient, resourceType)));
+                try (ConfigClient configClient = awsClientProvider.getConfigClient(region)) {
+                    discoverResourceTypes.forEach(resourceType ->
+                            samples.addAll(getResources(region, configClient, resourceType)));
+                }
             });
             List<MetricFamilySamples> latest = new ArrayList<>();
             latest.add(sampleBuilder.buildFamily(samples));
@@ -94,8 +87,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
         }
     }
 
-    private List<Sample> getResources(ScrapeConfig scrapeConfig, String region,
-                                      ConfigClient configClient, String resourceType) {
+    private List<Sample> getResources(String region, ConfigClient configClient, String resourceType) {
         List<Sample> samples = new ArrayList<>();
         String[] nextToken = new String[]{null};
         try {
@@ -112,47 +104,24 @@ public class ResourceExporter extends Collector implements MetricProvider {
                                 .resourceType(resourceType)
                                 .build()));
 
-                Set<Resource> resources = new HashSet<>();
-                Set<String> tagServiceNames = getTagServiceName(resourceType);
-                Map<String, List<Tag>> tagsByName = new TreeMap<>();
-                if (!CollectionUtils.isEmpty(tagServiceNames)) {
-                    resources.addAll(tagFilterResourceProvider.getResourcesWithTag(region,
-                            ImmutableSortedMap.of(
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_OPERATION_LABEL, "ConfigClient/listDiscoveredResources"
-                            ), GetResourcesRequest.builder().resourceTypeFilters(tagServiceNames)));
-                } else if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
-                    Set<String> loadBalancerNames = response.resourceIdentifiers().stream()
-                            .map(ResourceIdentifier::resourceName)
-                            .collect(Collectors.toSet());
-                    ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region);
-                    DescribeTagsResponse describeTagsResponse = elbClient.describeTags(DescribeTagsRequest.builder()
-                            .loadBalancerNames(loadBalancerNames)
-                            .build());
-                    describeTagsResponse.tagDescriptions().forEach(tagDescription ->
-                            tagsByName.put(tagDescription.loadBalancerName(), tagDescription.tags().stream()
-                                    .map(t -> Tag.builder()
-                                            .key(t.key())
-                                            .value(t.value())
-                                            .build()).collect(Collectors.toList())));
-                }
-
-                Map<String, Resource> resourceByName = new TreeMap<>();
-
-                resources.forEach(resource -> resourceByName.put(resource.getName(), resource));
 
                 if (response.hasResourceIdentifiers()) {
-                    SortedMap<String, String> labels = new TreeMap<>();
-                    labels.put(SCRAPE_REGION_LABEL, region);
-                    labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId());
+                    List<String> resourceNames = response.resourceIdentifiers().stream()
+                            .map(ResourceIdentifier::resourceName)
+                            .collect(Collectors.toList());
+                    Map<String, Resource> resourceByName = resourceTagHelper.getResourcesWithTag(
+                            region, resourceType, resourceNames);
                     response.resourceIdentifiers().forEach(rI -> {
+                        SortedMap<String, String> labels = new TreeMap<>();
+                        labels.put(SCRAPE_REGION_LABEL, region);
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId());
                         String idOrName = Optional.ofNullable(rI.resourceId()).orElse(rI.resourceName());
                         log.debug("Discovered resource {}-{}", rI.resourceType().toString(), idOrName);
                         labels.put("aws_resource_type", rI.resourceType().toString());
 
                         Optional<Resource> arnResource = resourceMapper.map(idOrName);
                         addBasicLabels(labels, rI, idOrName, arnResource);
-                        addTagLabels(scrapeConfig, tagsByName, resourceByName, labels, rI, arnResource);
+                        addTagLabels(resourceByName, labels, rI, arnResource);
                         Sample sample = sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                         samples.add(sample);
                     });
@@ -165,8 +134,10 @@ public class ResourceExporter extends Collector implements MetricProvider {
         return samples;
     }
 
-    private void addBasicLabels(SortedMap<String, String> labels, ResourceIdentifier rI, String idOrName,
-                                Optional<Resource> arnResource) {
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @VisibleForTesting
+    void addBasicLabels(SortedMap<String, String> labels, ResourceIdentifier rI, String idOrName,
+                        Optional<Resource> arnResource) {
         if (arnResource.isPresent()) {
             arnResource.ifPresent(resource -> {
                 labels.put("job", resource.getName());
@@ -188,27 +159,24 @@ public class ResourceExporter extends Collector implements MetricProvider {
         }
 
         if (rI.resourceId() != null) {
-            labels.put("id", arnResource.isPresent() ? arnResource.get().getName() : rI.resourceId());
+            labels.put("id", rI.resourceId());
         }
         if (rI.resourceName() != null) {
             labels.put("name", rI.resourceName());
         }
     }
 
-    private void addTagLabels(ScrapeConfig scrapeConfig,
-                              Map<String, List<Tag>> tagsByName,
-                              Map<String, Resource> resourceByName,
-                              SortedMap<String, String> labels,
-                              ResourceIdentifier rI, Optional<Resource> arnResource) {
+    @VisibleForTesting
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    void addTagLabels(Map<String, Resource> resourceByName,
+                      SortedMap<String, String> labels,
+                      ResourceIdentifier rI, Optional<Resource> arnResource) {
         Stream.of(rI.resourceName(), rI.resourceId())
                 .filter(Objects::nonNull)
                 .findFirst()
                 .ifPresent(key -> {
                     if (resourceByName.containsKey(key)) {
                         resourceByName.get(key).addTagLabels(labels, metricNameUtil);
-                    } else if (tagsByName.containsKey(key)) {
-                        TagExportConfig tagExportConfig = scrapeConfig.getTagExportConfig();
-                        labels.putAll(tagExportConfig.tagLabels(tagsByName.get(key), metricNameUtil));
                     }
                 });
 
@@ -222,43 +190,5 @@ public class ResourceExporter extends Collector implements MetricProvider {
     @Override
     public List<MetricFamilySamples> collect() {
         return metrics;
-    }
-
-    public Set<String> getTagServiceName(String configResourceType) {
-        if (configResourceType.contains("SQS::Queue")) {
-            return ImmutableSet.of("sqs:queue");
-        } else if (configResourceType.contains("DynamoDB::Table")) {
-            return ImmutableSet.of("dynamodb:table");
-        } else if (configResourceType.contains("Lambda::Function")) {
-            return ImmutableSet.of("lambda:function");
-        } else if (configResourceType.contains("S3::Bucket")) {
-            return ImmutableSet.of("s3:bucket");
-        } else if (configResourceType.contains("SNS::Topic")) {
-            return ImmutableSet.of("sns:topic");
-        } else if (configResourceType.contains("Events::EventBus")) {
-            return ImmutableSet.of("events:event-bus");
-        } else if (configResourceType.contains("ECS::Cluster")) {
-            return ImmutableSet.of("ecs:cluster");
-        } else if (configResourceType.contains("ECS::Service")) {
-            return ImmutableSet.of("ecs:service");
-        } else if (configResourceType.contains("AutoScaling::AutoScalingGroup")) {
-            return ImmutableSet.of("autoscaling:autoScalingGroup");
-        } else if (configResourceType.contains("ElasticLoadBalancingV2::LoadBalancer")) {
-            return ImmutableSet.of("elasticloadbalancing:loadbalancer/app", "elasticloadbalancing:loadbalancer/net");
-        } else if (configResourceType.contains("RDS::DBCluster")) {
-            return ImmutableSet.of("rds:cluster");
-        } else if (configResourceType.contains("RDS::DBInstance")) {
-            return ImmutableSet.of("rds:db");
-        } else if (configResourceType.contains("ApiGateway::RestApi")) {
-            return ImmutableSet.of("apigateway:restapi");
-        } else if (configResourceType.contains("ApiGatewayV2::Api")) {
-            return ImmutableSet.of("apigateway:api");
-        } else if (configResourceType.contains("EC2::Instance")) {
-            return ImmutableSet.of("apigateway:api");
-        } else if (configResourceType.contains("Kinesis::Stream")) {
-            return ImmutableSet.of("kinesis:stream");
-        } else {
-            return ImmutableSet.of();
-        }
     }
 }

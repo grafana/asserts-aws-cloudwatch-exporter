@@ -10,7 +10,7 @@ import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import io.prometheus.client.Collector;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 @Slf4j
 @AllArgsConstructor
 public class LogEventMetricEmitter {
-    private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final ResourceTagHelper resourceTagHelper;
     private final MetricNameUtil metricNameUtil;
     private final MetricSampleBuilder sampleBuilder;
 
@@ -37,7 +37,7 @@ public class LogEventMetricEmitter {
         LambdaFunction lambdaFunction = functionLogScrapeConfig.getLambdaFunction();
         LogScrapeConfig logScrapeConfig = functionLogScrapeConfig.getLogScrapeConfig();
         Map<String, String> logLabels = logScrapeConfig.extractLabels(filteredLogEvent.message());
-        Set<Resource> functionResources = tagFilterResourceProvider.getFilteredResources(lambdaFunction.getRegion(),
+        Set<Resource> functionResources = resourceTagHelper.getFilteredResources(lambdaFunction.getRegion(),
                 namespaceConfig);
         if (logLabels.size() > 0) {
             logLabels.put(SCRAPE_ACCOUNT_ID_LABEL, lambdaFunction.getAccount());
@@ -46,7 +46,7 @@ public class LogEventMetricEmitter {
             functionResources.stream()
                     .filter(resource -> resource.getArn().equals(lambdaFunction.getArn()))
                     .findFirst()
-                    .ifPresent(resource -> resource.addTagLabels(logLabels, metricNameUtil));
+                    .ifPresent(resource -> resource.addEnvLabel(logLabels, metricNameUtil));
             return Optional.of(sampleBuilder.buildSingleSample("aws_lambda_logs", logLabels, 1.0D));
         }
         return Optional.empty();

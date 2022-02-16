@@ -8,7 +8,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -42,7 +42,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
     private final ResourceMapper resourceMapper;
-    private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final ResourceTagHelper resourceTagHelper;
     private final MetricSampleBuilder sampleBuilder;
     private final RateLimiter rateLimiter;
     private volatile List<MetricFamilySamples> metrics;
@@ -50,14 +50,14 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
     public LambdaEventSourceExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                      MetricNameUtil metricNameUtil,
                                      ResourceMapper resourceMapper,
-                                     TagFilterResourceProvider tagFilterResourceProvider,
+                                     ResourceTagHelper resourceTagHelper,
                                      MetricSampleBuilder sampleBuilder,
                                      RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
         this.resourceMapper = resourceMapper;
-        this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.resourceTagHelper = resourceTagHelper;
         this.sampleBuilder = sampleBuilder;
         this.rateLimiter = rateLimiter;
         this.metrics = new ArrayList<>();
@@ -107,7 +107,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                 log.info("Failed to discover event source mappings", e);
             }
 
-            Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, namespaceConfig);
+            Set<Resource> fnResources = resourceTagHelper.getFilteredResources(region, namespaceConfig);
             byRegion.computeIfAbsent(region, k -> new ArrayList<>()).forEach(mappingConfiguration -> {
                 Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
                         .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
@@ -133,7 +133,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         labels.put("lambda_function", functionResource.getName());
         labels.put(SCRAPE_ACCOUNT_ID_LABEL, functionResource.getAccount());
         eventSourceResource.addLabels(labels, "event_source");
-        functionResource.addTagLabels(labels, metricNameUtil);
+        functionResource.addEnvLabel(labels, metricNameUtil);
         samples.computeIfAbsent(metricName, k -> new ArrayList<>())
                 .add(sampleBuilder.buildSingleSample(metricName, labels, 1.0D));
     }

@@ -12,6 +12,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import io.micrometer.core.instrument.util.StringUtils;
 import lombok.Builder;
@@ -20,14 +21,24 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
+import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancingClient;
+import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsRequest;
+import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsResponse;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.GetResourcesRequest;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.GetResourcesResponse;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
@@ -40,20 +51,39 @@ import static java.util.stream.Collectors.joining;
 
 @Component
 @Slf4j
-public class TagFilterResourceProvider {
+public class ResourceTagHelper {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RateLimiter rateLimiter;
+    private final Map<String, Set<String>> configServiceToServiceNames = new TreeMap<>();
 
-    public TagFilterResourceProvider(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                     ResourceMapper resourceMapper,
-                                     RateLimiter rateLimiter) {
+    public ResourceTagHelper(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
+                             ResourceMapper resourceMapper,
+                             RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
+
+        configServiceToServiceNames.put("AWS::SQS::Queue", ImmutableSet.of("sqs:queue"));
+        configServiceToServiceNames.put("AWS::DynamoDB::Table", ImmutableSet.of("dynamodb:table"));
+        configServiceToServiceNames.put("AWS::Lambda::Function", ImmutableSet.of("lambda:function"));
+        configServiceToServiceNames.put("AWS::S3::Bucket", ImmutableSet.of("s3:bucket"));
+        configServiceToServiceNames.put("AWS::SNS::Topic", ImmutableSet.of("sns:topic"));
+        configServiceToServiceNames.put("AWS::ECS::Cluster", ImmutableSet.of("ecs:cluster"));
+        configServiceToServiceNames.put("AWS::ECS::Service", ImmutableSet.of("ecs:service"));
+        configServiceToServiceNames.put("AWS::ElasticLoadBalancingV2::LoadBalancer",
+                ImmutableSet.of("elasticloadbalancing:loadbalancer/app", "elasticloadbalancing:loadbalancer/net"));
+        configServiceToServiceNames.put("AWS::ElasticLoadBalancing::LoadBalancer",
+                ImmutableSet.of("elasticloadbalancing:loadbalancer"));
+        configServiceToServiceNames.put("AWS::RDS::DBCluster", ImmutableSet.of("rds:cluster"));
+        configServiceToServiceNames.put("AWS::RDS::DBInstance", ImmutableSet.of("rds:db"));
+        configServiceToServiceNames.put("AWS::ApiGateway::RestApi", ImmutableSet.of("apigateway:restapi"));
+        configServiceToServiceNames.put("AWS::ApiGatewayV2::Api", ImmutableSet.of("apigateway:api"));
+        configServiceToServiceNames.put("AWS::EC2::Instance", ImmutableSet.of("ec2:instance"));
+        configServiceToServiceNames.put("AWS::Kinesis::Stream", ImmutableSet.of("kinesis:stream"));
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         resourceCache = CacheBuilder.newBuilder()
@@ -64,6 +94,8 @@ public class TagFilterResourceProvider {
                         return getResourcesInternal(key);
                     }
                 });
+
+
     }
 
     public Set<Resource> getFilteredResources(String region, NamespaceConfig namespaceConfig) {
@@ -75,7 +107,6 @@ public class TagFilterResourceProvider {
 
     private Set<Resource> getResourcesInternal(Key key) {
         Set<Resource> resources = new HashSet<>();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfigProvider.getStandardNamespace(key.namespace.getName()).ifPresent(cwNamespace -> {
             GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
             if (cwNamespace.getResourceTypes().size() > 0) {
@@ -133,6 +164,7 @@ public class TagFilterResourceProvider {
                                 resource.setTags(resourceTagMapping.tags().stream()
                                         .filter(scrapeConfig::shouldExportTag)
                                         .collect(Collectors.toList()));
+                                scrapeConfig.setEnvTag(resource);
                                 resources.add(resource);
                             }));
                 }
@@ -142,6 +174,59 @@ public class TagFilterResourceProvider {
             log.error("Failed to get resources using resource tag api", e);
         }
         return resources;
+    }
+
+    public Map<String, Resource> getResourcesWithTag(String region, String resourceType, List<String> resourceNames) {
+        Map<String, Resource> resourceByName = new TreeMap<>();
+        Set<Resource> resources = new HashSet<>();
+        Set<String> tagServiceNames = configServiceToServiceNames.getOrDefault(resourceType, Collections.emptySet());
+        Map<String, List<Tag>> tagsByName = new TreeMap<>();
+        if (!CollectionUtils.isEmpty(tagServiceNames)) {
+            resources.addAll(getResourcesWithTag(region,
+                    ImmutableSortedMap.of(
+                            SCRAPE_REGION_LABEL, region,
+                            SCRAPE_OPERATION_LABEL, "ConfigClient/listDiscoveredResources"
+                    ), GetResourcesRequest.builder().resourceTypeFilters(tagServiceNames)));
+        }
+        if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region)) {
+                DescribeTagsResponse describeTagsResponse = elbClient.describeTags(DescribeTagsRequest.builder()
+                        .loadBalancerNames(resourceNames)
+                        .build());
+                describeTagsResponse.tagDescriptions().forEach(tagDescription ->
+                        tagsByName.put(tagDescription.loadBalancerName(), tagDescription.tags().stream()
+                                .map(t -> Tag.builder()
+                                        .key(t.key())
+                                        .value(t.value())
+                                        .build())
+                                .filter(scrapeConfig::shouldExportTag)
+                                .collect(Collectors.toList())));
+            }
+        }
+
+        resources.forEach(resource -> {
+            List<Tag> allTags = new ArrayList<>();
+            if (tagsByName.containsKey(resource.getName())) {
+                allTags.addAll(tagsByName.get(resource.getName()));
+            }
+            if (!CollectionUtils.isEmpty(resource.getTags())) {
+                allTags.addAll(resource.getTags());
+            }
+            resource.setTags(allTags);
+            resourceByName.put(resource.getName(), resource);
+        });
+
+        tagsByName.forEach((name, tags) -> {
+            if (!resourceByName.containsKey(name)) {
+                resourceByName.put(name, Resource.builder()
+                        .name(name)
+                        .tags(tags)
+                        .build());
+            }
+        });
+
+        return resourceByName;
     }
 
     @EqualsAndHashCode

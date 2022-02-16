@@ -18,6 +18,10 @@ import com.google.common.collect.ImmutableSortedSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancingClient;
+import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsRequest;
+import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsResponse;
+import software.amazon.awssdk.services.elasticloadbalancing.model.TagDescription;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.GetResourcesRequest;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.GetResourcesResponse;
@@ -25,7 +29,10 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.ResourceTa
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.SortedMap;
 
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.kafka;
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
@@ -34,16 +41,17 @@ import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class TagFilterResourceProviderTest extends EasyMockSupport {
+public class ResourceTagHelperTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
     private AWSClientProvider awsClientProvider;
     private ResourceGroupsTaggingApiClient apiClient;
+    private ElasticLoadBalancingClient elbClient;
     private ResourceMapper resourceMapper;
     private Resource resource;
     private NamespaceConfig namespaceConfig;
     private BasicMetricCollector metricCollector;
-    private TagFilterResourceProvider testClass;
+    private ResourceTagHelper testClass;
 
     @BeforeEach
     public void setup() {
@@ -55,12 +63,13 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         apiClient = mock(ResourceGroupsTaggingApiClient.class);
         resource = mock(Resource.class);
         metricCollector = mock(BasicMetricCollector.class);
+        elbClient = mock(ElasticLoadBalancingClient.class);
 
         ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
         replayAll();
-        testClass = new TagFilterResourceProvider(scrapeConfigProvider, awsClientProvider, resourceMapper,
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
                 new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
@@ -104,6 +113,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
 
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
+        scrapeConfig.setEnvTag(resource);
 
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .paginationToken("token1")
@@ -124,6 +134,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
 
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
+        scrapeConfig.setEnvTag(resource);
 
         expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
         apiClient.close();
@@ -164,6 +175,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
+        scrapeConfig.setEnvTag(resource);
 
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .paginationToken("token1")
@@ -180,6 +192,7 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
+        scrapeConfig.setEnvTag(resource);
 
         expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
         apiClient.close();
@@ -195,6 +208,92 @@ public class TagFilterResourceProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         replayAll();
         assertEquals(ImmutableSet.of(), testClass.getFilteredResources("region", namespaceConfig));
+        verifyAll();
+    }
+
+    @Test
+    void getResourcesWithTag() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(10);
+        expect(resource.getName()).andReturn("resourceName").times(2);
+        ImmutableList<Tag> tags = ImmutableList.of(Tag.builder()
+                .key("name").value("value")
+                .build());
+        expect(resource.getTags()).andReturn(tags).anyTimes();
+        resource.setTags(tags);
+        replayAll();
+
+        ImmutableList<String> resourceName = ImmutableList.of("resourceName");
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
+                new RateLimiter(metricCollector)) {
+            @Override
+            public Set<Resource> getResourcesWithTag(String region, SortedMap<String, String> labels,
+                                                     GetResourcesRequest.Builder builder) {
+                assertEquals("region", region);
+                return ImmutableSet.of(resource);
+            }
+        };
+
+        Map<String, Resource> map = testClass.getResourcesWithTag("region", "AWS::S3::Bucket",
+                resourceName);
+        assertEquals(ImmutableMap.of("resourceName", resource), map);
+        verifyAll();
+    }
+
+    @Test
+    void getResourcesWithTag_LoadBalancer() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(10);
+        expect(resource.getName()).andReturn("resourceName").anyTimes();
+
+        Tag resourceTag = Tag.builder()
+                .key("name").value("value")
+                .build();
+        ImmutableList<Tag> tags = ImmutableList.of(resourceTag);
+
+        software.amazon.awssdk.services.elasticloadbalancing.model.Tag lbTag = software.amazon.awssdk.services.elasticloadbalancing.model.Tag.builder()
+                .key("tag2").value("value2")
+                .build();
+
+        Tag lbTagConverted = Tag.builder()
+                .key("tag2").value("value2")
+                .build();
+
+        expect(resource.getTags()).andReturn(tags).anyTimes();
+
+        expect(awsClientProvider.getELBClient("region")).andReturn(elbClient);
+        expect(elbClient.describeTags(DescribeTagsRequest.builder()
+                .loadBalancerNames("resourceName")
+                .build())).andReturn(DescribeTagsResponse.builder()
+                .tagDescriptions(TagDescription.builder()
+                        .loadBalancerName("resourceName")
+                        .tags(lbTag)
+                        .build())
+                .build());
+
+        elbClient.close();
+
+        resource.setTags(ImmutableList.of(lbTagConverted, resourceTag));
+
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.shouldExportTag(lbTagConverted)).andReturn(true);
+        replayAll();
+
+        ImmutableList<String> resourceName = ImmutableList.of("resourceName");
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
+                new RateLimiter(metricCollector)) {
+            @Override
+            public Set<Resource> getResourcesWithTag(String region, SortedMap<String, String> labels,
+                                                     GetResourcesRequest.Builder builder) {
+                assertEquals("region", region);
+                return ImmutableSet.of(resource);
+            }
+        };
+
+        Map<String, Resource> map = testClass.getResourcesWithTag("region",
+                "AWS::ElasticLoadBalancing::LoadBalancer",
+                resourceName);
+        assertEquals(ImmutableMap.of("resourceName", resource), map);
         verifyAll();
     }
 }

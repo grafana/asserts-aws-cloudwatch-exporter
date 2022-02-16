@@ -10,7 +10,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.resource.Resource;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +41,7 @@ public class MetricQueryProvider {
     private final QueryIdGenerator queryIdGenerator;
     private final MetricNameUtil metricNameUtil;
     private final AWSClientProvider awsClientProvider;
-    private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final ResourceTagHelper resourceTagHelper;
     private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<Integer, List<MetricQuery>>>> metricQueryCache;
     private final RateLimiter rateLimiter;
@@ -50,14 +50,14 @@ public class MetricQueryProvider {
                                QueryIdGenerator queryIdGenerator,
                                MetricNameUtil metricNameUtil,
                                AWSClientProvider awsClientProvider,
-                               TagFilterResourceProvider tagFilterResourceProvider,
+                               ResourceTagHelper resourceTagHelper,
                                MetricQueryBuilder metricQueryBuilder,
                                RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
         this.metricNameUtil = metricNameUtil;
         this.awsClientProvider = awsClientProvider;
-        this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.resourceTagHelper = resourceTagHelper;
         this.metricQueryBuilder = metricQueryBuilder;
         this.rateLimiter = rateLimiter;
         metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
@@ -76,7 +76,7 @@ public class MetricQueryProvider {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getRegions().forEach(region -> scrapeConfig.getNamespaces().forEach(ns -> {
             try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
-                Set<Resource> tagFilteredResources = tagFilterResourceProvider.getFilteredResources(region, ns);
+                Set<Resource> tagFilteredResources = resourceTagHelper.getFilteredResources(region, ns);
                 if (!ns.hasTagFilters() || tagFilteredResources.size() > 0) {
 
                     Map<String, MetricConfig> configuredMetrics = new TreeMap<>();

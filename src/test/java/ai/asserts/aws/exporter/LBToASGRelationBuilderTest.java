@@ -75,6 +75,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         expect(resourceMapper.map("tg-arn")).andReturn(Optional.of(tgResource));
         expect(resourceMapper.map("asg-arn")).andReturn(Optional.of(asgResource));
         expect(targetGroupLBMapProvider.getTgToLB()).andReturn(ImmutableMap.of(tgResource, lbResource)).anyTimes();
+        autoScalingClient.close();
 
         replayAll();
         testClass.updateRouting();

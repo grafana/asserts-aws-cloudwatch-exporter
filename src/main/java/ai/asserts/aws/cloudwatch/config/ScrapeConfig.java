@@ -2,6 +2,8 @@
 package ai.asserts.aws.cloudwatch.config;
 
 
+import ai.asserts.aws.resource.Resource;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,6 +25,7 @@ import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 @SuppressWarnings("FieldMayBeFinal")
 public class ScrapeConfig {
     @Setter
@@ -97,5 +100,11 @@ public class ScrapeConfig {
             return tagExportConfig.shouldCaptureTag(tag);
         }
         return true;
+    }
+
+    public void setEnvTag(Resource resource) {
+        if (tagExportConfig != null) {
+            resource.setEnvTag(tagExportConfig.getEnvTag(resource.getTags()));
+        }
     }
 }

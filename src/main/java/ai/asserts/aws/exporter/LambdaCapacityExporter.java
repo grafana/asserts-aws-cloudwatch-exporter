@@ -12,7 +12,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.Resource;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -47,21 +47,21 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private final MetricNameUtil metricNameUtil;
     private final MetricSampleBuilder sampleBuilder;
     private final LambdaFunctionScraper functionScraper;
-    private final TagFilterResourceProvider tagFilterResourceProvider;
+    private final ResourceTagHelper resourceTagHelper;
     private final RateLimiter rateLimiter;
     private volatile List<MetricFamilySamples> cache;
 
     public LambdaCapacityExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                   MetricNameUtil metricNameUtil,
                                   MetricSampleBuilder sampleBuilder, LambdaFunctionScraper functionScraper,
-                                  TagFilterResourceProvider tagFilterResourceProvider,
+                                  ResourceTagHelper resourceTagHelper,
                                   RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
         this.sampleBuilder = sampleBuilder;
         this.functionScraper = functionScraper;
-        this.tagFilterResourceProvider = tagFilterResourceProvider;
+        this.resourceTagHelper = resourceTagHelper;
         this.rateLimiter = rateLimiter;
         this.cache = new ArrayList<>();
     }
@@ -112,7 +112,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                 ), accountSettings.accountLimit().unreservedConcurrentExecutions() * 1.0D);
                 samples.computeIfAbsent(accountLimitMetric, k -> new ArrayList<>()).add(sample);
 
-                Set<Resource> fnResources = tagFilterResourceProvider.getFilteredResources(region, lambdaConfig);
+                Set<Resource> fnResources = resourceTagHelper.getFilteredResources(region, lambdaConfig);
                 functions.forEach((functionArn, lambdaFunction) -> {
                     GetFunctionConcurrencyResponse fCResponse = rateLimiter.doWithRateLimit("LambdaClient/getFunctionConcurrency",
                             ImmutableSortedMap.of(
@@ -137,7 +137,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                             .findFirst();
 
                     Map<String, String> labels = new TreeMap<>();
-                    fnResourceOpt.ifPresent(fnResource -> fnResource.addTagLabels(labels, metricNameUtil));
+                    fnResourceOpt.ifPresent(fnResource -> fnResource.addEnvLabel(labels, metricNameUtil));
 
                     labels.put("region", region);
                     labels.put("cw_namespace", lambda.getNormalizedNamespace());

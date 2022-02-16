@@ -9,7 +9,7 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
-import ai.asserts.aws.resource.TagFilterResourceProvider;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -38,7 +38,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
     private MetricNameUtil metricNameUtil;
     private ResourceMapper resourceMapper;
     private NamespaceConfig namespaceConfig;
-    private TagFilterResourceProvider tagFilterResourceProvider;
+    private ResourceTagHelper resourceTagHelper;
     private BasicMetricCollector metricCollector;
     private LambdaEventSourceExporter testClass;
     private Resource fnResource;
@@ -54,7 +54,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         resourceMapper = mock(ResourceMapper.class);
         fnResource = mock(Resource.class);
         sourceResource = mock(Resource.class);
-        tagFilterResourceProvider = mock(TagFilterResourceProvider.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
@@ -74,7 +74,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient).anyTimes();
 
         testClass = new LambdaEventSourceExporter(scrapeConfigProvider, awsClientProvider,
-                metricNameUtil, resourceMapper, tagFilterResourceProvider, sampleBuilder,
+                metricNameUtil, resourceMapper, resourceTagHelper, sampleBuilder,
                 new RateLimiter(metricCollector));
     }
 
@@ -116,13 +116,13 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
         expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
 
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource, fnResource));
 
         expect(fnResource.getName()).andReturn("fn1");
         expect(fnResource.getArn()).andReturn("fn1_arn");
         expect(fnResource.getAccount()).andReturn("account1");
-        fnResource.addTagLabels(fn1Labels, metricNameUtil);
+        fnResource.addEnvLabel(fn1Labels, metricNameUtil);
         sourceResource.addLabels(fn1Labels, "event_source");
 
         expect(sampleBuilder.buildSingleSample("aws_lambda_event_source", fn1Labels, 1.0D))
@@ -133,7 +133,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         expect(fnResource.getAccount()).andReturn("account2");
         expect(resourceMapper.map("fn2_arn")).andReturn(Optional.of(fnResource)).times(2);
         expect(resourceMapper.map("table_arn")).andReturn(Optional.of(sourceResource));
-        fnResource.addTagLabels(fn2Labels, metricNameUtil);
+        fnResource.addEnvLabel(fn2Labels, metricNameUtil);
         sourceResource.addLabels(fn2Labels, "event_source");
         expect(sampleBuilder.buildSingleSample("aws_lambda_event_source",
                 fn2Labels,
@@ -153,7 +153,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
                 .build();
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
-        expect(tagFilterResourceProvider.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource, fnResource));
         lambdaClient.close();
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());

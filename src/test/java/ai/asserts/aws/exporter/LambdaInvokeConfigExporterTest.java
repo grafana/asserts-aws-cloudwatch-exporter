@@ -122,11 +122,11 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         Map<String, String> failure = new TreeMap<>(baseLabels);
         failure.put("on", "failure");
 
-        resource.addTagLabels(baseLabels, metricNameUtil);
+        resource.addEnvLabel(baseLabels, metricNameUtil);
         expect(resourceMapper.map("dst1:arn")).andReturn(Optional.of(resource));
         resource.addLabels(success, "destination");
 
-        resource.addTagLabels(baseLabels, metricNameUtil);
+        resource.addEnvLabel(baseLabels, metricNameUtil);
         expect(resourceMapper.map("dst2:arn")).andReturn(Optional.of(resource));
         resource.addLabels(failure, "destination");
 

@@ -7,9 +7,12 @@ package ai.asserts.aws.cloudwatch.config;
 import ai.asserts.aws.MetricNameUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
+
+import java.util.Optional;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,7 +32,7 @@ public class TagExportConfigTest extends EasyMockSupport {
     @Test
     void shouldExportTag_Include() {
         TagExportConfig tagExportConfig = new TagExportConfig();
-        tagExportConfig.setIncludePattern("na.+");
+        tagExportConfig.setIncludePatterns(ImmutableSet.of("na.+"));
         tagExportConfig.compile();
         assertTrue(tagExportConfig.shouldCaptureTag(Tag.builder()
                 .key("name")
@@ -45,7 +48,7 @@ public class TagExportConfigTest extends EasyMockSupport {
     @Test
     void shouldExportTag_Exclude() {
         TagExportConfig tagExportConfig = new TagExportConfig();
-        tagExportConfig.setExcludePattern("na.+");
+        tagExportConfig.setExcludePatterns(ImmutableSet.of("na.+"));
         tagExportConfig.compile();
         assertTrue(tagExportConfig.shouldCaptureTag(Tag.builder()
                 .key("kname")
@@ -61,8 +64,8 @@ public class TagExportConfigTest extends EasyMockSupport {
     @Test
     void shouldExportTag_IncludeAndExclude() {
         TagExportConfig tagExportConfig = new TagExportConfig();
-        tagExportConfig.setIncludePattern("na.+");
-        tagExportConfig.setExcludePattern("nam.+");
+        tagExportConfig.setIncludePatterns(ImmutableSet.of("na.+"));
+        tagExportConfig.setExcludePatterns(ImmutableSet.of("nam.+"));
         tagExportConfig.compile();
         assertTrue(tagExportConfig.shouldCaptureTag(Tag.builder()
                 .key("nano")
@@ -78,17 +81,38 @@ public class TagExportConfigTest extends EasyMockSupport {
     @Test
     void tagLabels() {
         TagExportConfig tagExportConfig = new TagExportConfig();
-        tagExportConfig.setTagsAsDisplayName(ImmutableList.of("kubernetes.io/service_name"));
+        tagExportConfig.setIncludeTags(ImmutableSet.of("kubernetes.io/service_name"));
         MetricNameUtil metricNameUtil = mock(MetricNameUtil.class);
         expect(metricNameUtil.toSnakeCase("kubernetes.io/service_name")).andReturn("key");
         replayAll();
-        assertEquals(ImmutableMap.of(
-                "tag_key", "service",
-                "display_name", "service"
-        ), tagExportConfig.tagLabels(ImmutableList.of(Tag.builder()
+
+        Tag service = Tag.builder()
                 .key("kubernetes.io/service_name")
                 .value("service")
-                .build()), metricNameUtil));
+                .build();
+
+        Tag anotherTag = Tag.builder().key("key").value("value").build();
+
+        assertEquals(ImmutableMap.of("tag_key", "service"),
+                tagExportConfig.tagLabels(ImmutableList.of(service, anotherTag), metricNameUtil));
+
+
+        verifyAll();
+    }
+
+    @Test
+    void getEnvTag() {
+        TagExportConfig tagExportConfig = new TagExportConfig();
+        tagExportConfig.setIncludeTags(ImmutableSet.of("asserts-env-name"));
+        tagExportConfig.setEnvTags(ImmutableSet.of("asserts-env-name"));
+
+
+        Tag envTag = Tag.builder()
+                .key("asserts-env-name")
+                .value("value")
+                .build();
+        assertEquals(Optional.of(envTag), tagExportConfig.getEnvTag(ImmutableList.of(envTag)));
+
         verifyAll();
     }
 }
