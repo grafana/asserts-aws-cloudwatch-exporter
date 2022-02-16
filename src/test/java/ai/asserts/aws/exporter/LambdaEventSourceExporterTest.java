@@ -153,8 +153,6 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
                 .build();
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
-                .andReturn(ImmutableSet.of(fnResource, fnResource));
         lambdaClient.close();
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
