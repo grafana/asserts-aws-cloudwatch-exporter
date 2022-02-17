@@ -6,24 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static ai.asserts.aws.resource.ResourceType.APIGateway;
-import static ai.asserts.aws.resource.ResourceType.APIGatewayMethod;
-import static ai.asserts.aws.resource.ResourceType.APIGatewayResource;
-import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
-import static ai.asserts.aws.resource.ResourceType.Alarm;
-import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
-import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
-import static ai.asserts.aws.resource.ResourceType.ECSCluster;
-import static ai.asserts.aws.resource.ResourceType.ECSService;
-import static ai.asserts.aws.resource.ResourceType.ECSTask;
-import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
-import static ai.asserts.aws.resource.ResourceType.EventBus;
-import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
-import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
-import static ai.asserts.aws.resource.ResourceType.S3Bucket;
-import static ai.asserts.aws.resource.ResourceType.SNSTopic;
-import static ai.asserts.aws.resource.ResourceType.SQSQueue;
-import static ai.asserts.aws.resource.ResourceType.TargetGroup;
+import static ai.asserts.aws.resource.ResourceType.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ResourceMapperTest {
@@ -348,5 +331,41 @@ public class ResourceMapperTest {
                         .build()),
                 testClass.map(arn)
         );
+    }
+
+    @Test
+    public void map_Kinesis() {
+        String arn = "arn:aws:kinesis:us-west-2:342994379019:stream/Asserts-CloudWatch-DataStream";
+        assertEquals(Optional.of(Resource.builder()
+                        .type(Kinesis).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .name("Asserts-CloudWatch-DataStream")
+                        .build()),
+                testClass.map(arn));
+    }
+
+    @Test
+    public void map_KinesisAnalytics() {
+        String arn = "arn:aws:kinesisanalytics:us-west-2:342994379019:application/Asserts-CloudWatch-DataStream";
+        assertEquals(Optional.of(Resource.builder()
+                        .type(KinesisAnalytics).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .name("Asserts-CloudWatch-DataStream")
+                        .build()),
+                testClass.map(arn));
+    }
+
+    @Test
+    public void map_KinesisDataFirehose() {
+        String arn = "arn:aws:firehose:us-west-2:342994379019:deliverystream/Asserts-CloudWatch-DataStream";
+        assertEquals(Optional.of(Resource.builder()
+                        .type(KinesisDataFirehose).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .name("Asserts-CloudWatch-DataStream")
+                        .build()),
+                testClass.map(arn));
     }
 }

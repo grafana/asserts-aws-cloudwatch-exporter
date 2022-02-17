@@ -19,6 +19,9 @@ public enum ResourceType {
     SNSTopic("TopicName"),
     EventBus("EventBus"),
     EventRule("RuleName"),
+    KinesisAnalytics("KinesisAnalytics"),
+    KinesisDataFirehose("KinesisAnalytics"),
+    Kinesis("Kinesis"),
     SQSQueue("QueueName"), // SQS Queue
     AutoScalingGroup("AutoScalingGroup"), // SQS Queue
     APIGateway("ApiGateway", "ApiId", "ApiName"),

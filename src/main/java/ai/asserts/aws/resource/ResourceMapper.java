@@ -9,25 +9,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static ai.asserts.aws.resource.ResourceType.APIGateway;
-import static ai.asserts.aws.resource.ResourceType.APIGatewayMethod;
-import static ai.asserts.aws.resource.ResourceType.APIGatewayResource;
-import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
-import static ai.asserts.aws.resource.ResourceType.Alarm;
-import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
-import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
-import static ai.asserts.aws.resource.ResourceType.EC2;
-import static ai.asserts.aws.resource.ResourceType.ECSCluster;
-import static ai.asserts.aws.resource.ResourceType.ECSService;
-import static ai.asserts.aws.resource.ResourceType.ECSTask;
-import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
-import static ai.asserts.aws.resource.ResourceType.EventBus;
-import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
-import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
-import static ai.asserts.aws.resource.ResourceType.S3Bucket;
-import static ai.asserts.aws.resource.ResourceType.SNSTopic;
-import static ai.asserts.aws.resource.ResourceType.SQSQueue;
-import static ai.asserts.aws.resource.ResourceType.TargetGroup;
+import static ai.asserts.aws.resource.ResourceType.*;
 
 @Component
 public class ResourceMapper {
@@ -48,13 +30,59 @@ public class ResourceMapper {
     public static final Pattern APIGATEWAY_STAGE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/stages/(.+)");
     public static final Pattern APIGATEWAY_RESOURCE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)");
     public static final Pattern APIGATEWAY_METHOD_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)/methods/(.+)");
-    public static final Pattern APIGATEWAY_MODEL_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/models/(.+)");
-    public static final Pattern APIGATEWAY_DEPLOYMENT_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/deployments/(.+)");
     public static final Pattern TARGET_GROUP_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):targetgroup/(.+?)/(.+)");
     public static final Pattern ALARM_PATTERN = Pattern.compile("arn:aws:cloudwatch:(.+?):(.+?):alarm:(.+)");
     public static final Pattern EC2_PATTERN = Pattern.compile("arn:aws:ec2:(.+?):(.+?):instance/(.+)");
+    public static final Pattern KINESIS_PATTERN = Pattern.compile("arn:aws:kinesis:(.+?):(.+?):stream/(.+)");
+    public static final Pattern KINESIS_ANALYTICS_PATTERN = Pattern.compile("arn:aws:kinesisanalytics:(.+?):(.+?):application/(.+)");
+    public static final Pattern KINESIS_FIREHOSE_PATTERN = Pattern.compile("arn:aws:firehose:(.+?):(.+?):deliverystream/(.+)");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
+            .add(arn -> {
+                if (arn.contains(":firehose:") && arn.contains(":deliverystream/")) {
+                    Matcher matcher = KINESIS_FIREHOSE_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(KinesisDataFirehose)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains(":kinesisanalytics:") && arn.contains(":application/")) {
+                    Matcher matcher = KINESIS_ANALYTICS_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(KinesisAnalytics)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
+            .add(arn -> {
+                if (arn.contains(":kinesis:") && arn.contains(":stream/")) {
+                    Matcher matcher = KINESIS_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(Kinesis)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
             .add(arn -> {
                 if (arn.contains(":ec2:") && arn.contains(":instance")) {
                     Matcher matcher = EC2_PATTERN.matcher(arn);
