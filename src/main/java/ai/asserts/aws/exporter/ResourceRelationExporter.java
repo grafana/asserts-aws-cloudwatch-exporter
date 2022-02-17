@@ -21,14 +21,17 @@ import java.util.TreeMap;
 public class ResourceRelationExporter extends Collector implements MetricProvider {
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final LBToASGRelationBuilder lbToASGRelationBuilder;
+    private final LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder;
     private final MetricSampleBuilder sampleBuilder;
     private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
 
     public ResourceRelationExporter(ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
                                     LBToASGRelationBuilder lbToASGRelationBuilder,
+                                    LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder,
                                     MetricSampleBuilder sampleBuilder) {
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
         this.lbToASGRelationBuilder = lbToASGRelationBuilder;
+        this.lbToLambdaRoutingBuilder = lbToLambdaRoutingBuilder;
         this.sampleBuilder = sampleBuilder;
     }
 
@@ -44,6 +47,7 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
             List<MetricFamilySamples.Sample> samples = new ArrayList<>();
             Set<ResourceRelation> lb2Targets = new HashSet<>(ecsServiceDiscoveryExporter.getRouting());
             lb2Targets.addAll(lbToASGRelationBuilder.getRoutingConfigs());
+            lb2Targets.addAll(lbToLambdaRoutingBuilder.getRoutings());
 
             log.info("Found {} resource relations ", lb2Targets.size());
             lb2Targets.forEach(relation -> {
