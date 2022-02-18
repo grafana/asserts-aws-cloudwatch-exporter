@@ -4,7 +4,9 @@
  */
 package ai.asserts.aws;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 
 @Configuration
 @SuppressWarnings("unused")
@@ -16,4 +18,8 @@ public class BeanConfiguration {
 //        bean.setLoadOnStartup(1);
 //        return bean;
 //    }
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
 }

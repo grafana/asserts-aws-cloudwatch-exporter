@@ -1,5 +1,6 @@
 package ai.asserts.aws;
 
+import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
@@ -33,6 +34,7 @@ public class MetricTaskManager implements InitializingBean {
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskThreadPool taskThreadPool;
     private final AlarmMetricExporter alarmMetricExporter;
+    private final AlarmFetcher alarmFetcher;
 
     /**
      * Maintains the last scrape time for all the metricso of a given scrape interval. The scrapes are
@@ -50,6 +52,8 @@ public class MetricTaskManager implements InitializingBean {
                 .forEach(interval ->
                         regions.forEach(region -> addScrapeTask(scrapeConfig, interval, region)));
         alarmMetricExporter.register(collectorRegistry);
+        //After AlarmMetricExporter is register call one time alarm fetcher
+        alarmFetcher.sendAlarmsForRegions();
     }
 
     @SuppressWarnings("unused")

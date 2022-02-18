@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.cloudwatch.config;
 
 
@@ -66,6 +65,10 @@ public class ScrapeConfig {
     private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
 
     private TagExportConfig tagExportConfig;
+
+    private String alertForwardUrl;
+
+    private String tenant;
 
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {

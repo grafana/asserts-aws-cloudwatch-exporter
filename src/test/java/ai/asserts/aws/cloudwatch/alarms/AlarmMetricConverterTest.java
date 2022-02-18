@@ -52,11 +52,8 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         expect(alarmDetail.getConfiguration()).andReturn(configuration).times(3);
         expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
         expect(metrics.getMetricStat()).andReturn(metricStat).anyTimes();
-        expect(metricStat.getStat()).andReturn("stat").times(2);
-        expect(metricStat.getUnit()).andReturn("unit").times(2);
         expect(metricStat.getMetric()).andReturn(metric).times(2);
-        expect(metric.getNamespace()).andReturn("namespace").times(2);
-        expect(metric.getName()).andReturn("metric1").times(2);
+        expect(metric.getNamespace()).andReturn("namespace").times(3);
         expect(metric.getDimensions()).andReturn(ImmutableMap.of("AutoScalingGroupName", "grp1")).times(2);
 
 
@@ -80,11 +77,8 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         expect(alarmDetail.getConfiguration()).andReturn(configuration).times(3);
         expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
         expect(metrics.getMetricStat()).andReturn(metricStat).anyTimes();
-        expect(metricStat.getStat()).andReturn("stat").times(4);
-        expect(metricStat.getUnit()).andReturn("unit").times(4);
         expect(metricStat.getMetric()).andReturn(metric).times(2);
-        expect(metric.getNamespace()).andReturn("namespace").times(4);
-        expect(metric.getName()).andReturn("metric1").times(4);
+        expect(metric.getNamespace()).andReturn("namespace").times(6);
         expect(metric.getDimensions()).andReturn(ImmutableMap.of("AutoScalingGroupName", "grp1",
                 "instanceid", "inst1")).times(2);
 

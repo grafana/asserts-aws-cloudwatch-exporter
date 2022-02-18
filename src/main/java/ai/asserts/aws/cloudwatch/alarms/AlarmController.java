@@ -27,8 +27,8 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 public class AlarmController {
     private static final String ALARMS = "/receive-cloudwatch-alarms";
     private final AlarmMetricConverter alarmMetricConverter;
-    private final AlarmMetricExporter alarmMetricExporter;
     private final ObjectMapperFactory objectMapperFactory;
+    private final AlertsProcessor alertsProcessor;
 
     @PostMapping(
             path = ALARMS,
@@ -69,7 +69,7 @@ public class AlarmController {
             AlarmStateChange alarmStateChange = objectMapperFactory.getObjectMapper().readValue(decodedData, AlarmStateChange.class);
             List<Map<String, String>> alarmsLabels = this.alarmMetricConverter.convertAlarm(alarmStateChange);
             if (!CollectionUtils.isEmpty(alarmsLabels)) {
-                alarmMetricExporter.processMetric(alarmsLabels);
+                alertsProcessor.sendAlerts(alarmsLabels);
             } else {
                 log.info("Unable to process alarm-{}", String.join(",", alarmStateChange.getResources()));
             }

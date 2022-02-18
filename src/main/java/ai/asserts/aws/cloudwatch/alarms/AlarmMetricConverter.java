@@ -87,16 +87,17 @@ public class AlarmMetricConverter {
                     fields.put(key, value);
                     if (alarmMetric.getNamespace() != null) {
                         fields.put("namespace", alarmMetric.getNamespace());
+                        if (alarmMetric.getNamespace().equals("AWS/AutoScaling") ||
+                                key.equals("AutoScalingGroupName")) {
+                            fields.put("namespace", "AWS/AutoScaling");
+                            fields.put("AutoScalingGroup", value);
+                            fields.put("asserts_entity_type", "AutoScalingGroup");
+                        } else {
+                            fields.put("job", value);
+                            fields.put("asserts_entity_type", "Service");
+                        }
                     }
-                    if (metric.getMetricStat().getStat() != null) {
-                        fields.put("metric_stat", metric.getMetricStat().getStat());
-                    }
-                    if (metric.getMetricStat().getUnit() != null) {
-                        fields.put("metric_unit", metric.getMetricStat().getUnit());
-                    }
-                    if (alarmMetric.getName() != null) {
-                        fields.put("metric_name", alarmMetric.getName());
-                    }
+
                     fieldValues.add(fields);
                 });
             }
