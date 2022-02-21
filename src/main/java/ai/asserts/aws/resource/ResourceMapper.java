@@ -24,7 +24,11 @@ public class ResourceMapper {
     public static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):service/(.+?)/(.+)");
     public static final Pattern ECS_TASK_DEFINITION_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task-definition/(.+)");
     public static final Pattern ECS_TASK_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task/.+?/(.+)");
-    public static final Pattern LB_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/((.+?)/.+?)/(.+)");
+
+    /**
+     * See https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/load-balancer-authentication-access-control.html
+     */
+    public static final Pattern LB_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/((.+?)/)?(.+?)(/(.+))?");
     public static final Pattern ASG_PATTERN = Pattern.compile("arn:aws:autoscaling:(.+?):(.+?):autoScalingGroup:(.+?):autoScalingGroupName/(.+)");
     public static final Pattern APIGATEWAY_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+)");
     public static final Pattern APIGATEWAY_STAGE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/stages/(.+)");
@@ -282,8 +286,8 @@ public class ResourceMapper {
                                 .region(matcher.group(1))
                                 .account(matcher.group(2))
                                 .subType(matcher.group(4))
-                                .name(matcher.group(3))
-                                .id(matcher.group(5))
+                                .name(matcher.group(5))
+                                .id(matcher.group(7))
                                 .build());
                     }
                 }

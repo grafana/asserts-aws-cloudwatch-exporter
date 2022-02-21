@@ -9,6 +9,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -44,6 +45,7 @@ import java.util.stream.Collectors;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.groupingBy;
@@ -52,6 +54,7 @@ import static java.util.stream.Collectors.joining;
 @Component
 @Slf4j
 public class ResourceTagHelper {
+    private final AccountIDProvider accountIDProvider;
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
@@ -59,13 +62,14 @@ public class ResourceTagHelper {
     private final RateLimiter rateLimiter;
     private final Map<String, Set<String>> configServiceToServiceNames = new TreeMap<>();
 
-    public ResourceTagHelper(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                             ResourceMapper resourceMapper,
+    public ResourceTagHelper(AccountIDProvider accountIDProvider, ScrapeConfigProvider scrapeConfigProvider,
+                             AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
                              RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
+        this.accountIDProvider = accountIDProvider;
 
         configServiceToServiceNames.put("AWS::SQS::Queue", ImmutableSet.of("sqs:queue"));
         configServiceToServiceNames.put("AWS::DynamoDB::Table", ImmutableSet.of("dynamodb:table"));
@@ -180,7 +184,7 @@ public class ResourceTagHelper {
         Map<String, Resource> resourceByName = new TreeMap<>();
         Set<Resource> resources = new HashSet<>();
         Set<String> tagServiceNames = configServiceToServiceNames.getOrDefault(resourceType, Collections.emptySet());
-        Map<String, List<Tag>> tagsByName = new TreeMap<>();
+        Map<String, List<Tag>> classLBTagsByName = new TreeMap<>();
         if (!CollectionUtils.isEmpty(tagServiceNames)) {
             resources.addAll(getResourcesWithTag(region,
                     ImmutableSortedMap.of(
@@ -195,7 +199,7 @@ public class ResourceTagHelper {
                         .loadBalancerNames(resourceNames)
                         .build());
                 describeTagsResponse.tagDescriptions().forEach(tagDescription ->
-                        tagsByName.put(tagDescription.loadBalancerName(), tagDescription.tags().stream()
+                        classLBTagsByName.put(tagDescription.loadBalancerName(), tagDescription.tags().stream()
                                 .map(t -> Tag.builder()
                                         .key(t.key())
                                         .value(t.value())
@@ -207,8 +211,8 @@ public class ResourceTagHelper {
 
         resources.forEach(resource -> {
             List<Tag> allTags = new ArrayList<>();
-            if (tagsByName.containsKey(resource.getName())) {
-                allTags.addAll(tagsByName.get(resource.getName()));
+            if (classLBTagsByName.containsKey(resource.getName())) {
+                allTags.addAll(classLBTagsByName.get(resource.getName()));
             }
             if (!CollectionUtils.isEmpty(resource.getTags())) {
                 allTags.addAll(resource.getTags());
@@ -217,10 +221,13 @@ public class ResourceTagHelper {
             resourceByName.put(resource.getName(), resource);
         });
 
-        tagsByName.forEach((name, tags) -> {
+        classLBTagsByName.forEach((name, tags) -> {
             if (!resourceByName.containsKey(name)) {
                 resourceByName.put(name, Resource.builder()
+                        .type(LoadBalancer)
                         .name(name)
+                        .account(accountIDProvider.getAccountId())
+                        .region(region)
                         .tags(tags)
                         .build());
             }
