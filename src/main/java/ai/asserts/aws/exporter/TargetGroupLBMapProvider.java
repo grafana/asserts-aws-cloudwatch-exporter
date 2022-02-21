@@ -28,8 +28,10 @@ import software.amazon.awssdk.services.elasticloadbalancingv2.model.LoadBalancer
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
@@ -50,7 +52,8 @@ public class TargetGroupLBMapProvider {
             scrapeConfig.getRegions().forEach(region -> {
                 try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region)) {
                     String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
-                    ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(SCRAPE_REGION_LABEL, region);
+                    ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
+                            SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api);
                     DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(api, labels,
                             lbClient::describeLoadBalancers);
                     if (resp.hasLoadBalancers()) {
@@ -68,7 +71,9 @@ public class TargetGroupLBMapProvider {
         String lbArn = lb.loadBalancerArn();
         resourceMapper.map(lbArn).ifPresent(lbResource -> {
             String api = "ElasticLoadBalancingV2Client/describeListeners";
-            rateLimiter.doWithRateLimit(api, labels, () -> {
+            SortedMap<String ,String> telemetryLabels = new TreeMap<>(labels);
+            telemetryLabels.put(SCRAPE_OPERATION_LABEL, api);
+            rateLimiter.doWithRateLimit(api, telemetryLabels, () -> {
                 DescribeListenersRequest listenersRequest = DescribeListenersRequest.builder()
                         .loadBalancerArn(lbArn)
                         .build();
@@ -85,8 +90,10 @@ public class TargetGroupLBMapProvider {
     @VisibleForTesting
     void mapListener(ElasticLoadBalancingV2Client lbClient, SortedMap<String, String> labels, Resource lbResource,
                      Listener listener) {
-        DescribeRulesResponse dLR = rateLimiter.doWithRateLimit("",
-                labels,
+        SortedMap<String ,String> telemetryLabels = new TreeMap<>(labels);
+        telemetryLabels.put(SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClientV2/describeRules");
+        DescribeRulesResponse dLR = rateLimiter.doWithRateLimit("ElasticLoadBalancingClientV2/describeRules",
+                telemetryLabels,
                 () -> lbClient.describeRules(DescribeRulesRequest.builder()
                         .listenerArn(listener.listenerArn())
                         .build()));
