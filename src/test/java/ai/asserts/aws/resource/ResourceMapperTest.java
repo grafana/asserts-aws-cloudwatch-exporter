@@ -209,8 +209,22 @@ public class ResourceMapperTest {
                         .region("us-west-2")
                         .account("342994379019")
                         .subType("app")
-                        .name("app/k8s-assertsinternal-dabf78ac56")
+                        .name("k8s-assertsinternal-dabf78ac56")
                         .id("ffc311c1118b747a")
+                        .build()),
+                testClass.map(arn)
+        );
+    }
+
+    @Test
+    public void map_ClassicLoadBalancer() {
+        String arn = "arn:aws:elasticloadbalancing:us-west-2:342994379019:loadbalancer/k8s-assertsinternal-dabf78ac56";
+        assertEquals(
+                Optional.of(Resource.builder()
+                        .type(LoadBalancer).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .name("k8s-assertsinternal-dabf78ac56")
                         .build()),
                 testClass.map(arn)
         );
