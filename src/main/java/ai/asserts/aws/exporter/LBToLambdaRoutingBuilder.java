@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 import static org.springframework.util.CollectionUtils.isEmpty;
@@ -47,11 +48,13 @@ public class LBToLambdaRoutingBuilder {
             Map<Resource, Resource> tgToLB = targetGroupLBMapProvider.getTgToLB();
             tgToLB.keySet().forEach(tg -> {
                 try {
+                    String api = "ElasticLoadBalancingV2Client/describeTargetHealth";
                     DescribeTargetHealthResponse response = rateLimiter.doWithRateLimit(
-                            "ElasticLoadBalancingV2Client/describeTargetHealth",
+                            api,
                             ImmutableSortedMap.of(
                                     SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId()
+                                    SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId(),
+                                    SCRAPE_OPERATION_LABEL, api
                             )
                             , () -> elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()
                                     .targetGroupArn(tg.getArn())

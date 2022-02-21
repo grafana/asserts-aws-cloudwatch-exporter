@@ -159,8 +159,10 @@ public class ResourceTagHelper {
                 GetResourcesRequest req = builder
                         .paginationToken(nextToken)
                         .build();
+                SortedMap<String, String> telemetryLabels = new TreeMap<>(labels);
+                telemetryLabels.put(SCRAPE_OPERATION_LABEL, "ResourceGroupsTaggingApiClient/getResources");
                 GetResourcesResponse response = rateLimiter.doWithRateLimit(
-                        "ResourceGroupsTaggingApiClient/getResources", labels, () -> client.getResources(req));
+                        "ResourceGroupsTaggingApiClient/getResources", telemetryLabels, () -> client.getResources(req));
 
                 if (response.hasResourceTagMappingList()) {
                     response.resourceTagMappingList().forEach(resourceTagMapping ->
