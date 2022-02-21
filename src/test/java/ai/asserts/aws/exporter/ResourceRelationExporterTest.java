@@ -26,6 +26,7 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private LBToASGRelationBuilder lbToASGRelationBuilder;
     private LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder;
+    private EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter;
     private MetricSampleBuilder sampleBuilder;
     private Resource fromResource;
     private Resource toResource;
@@ -43,8 +44,9 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
         toResource = mock(Resource.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
+        ec2ToEBSVolumeExporter = mock(EC2ToEBSVolumeExporter.class);
         testClass = new ResourceRelationExporter(ecsServiceDiscoveryExporter,
-                lbToASGRelationBuilder, lbToLambdaRoutingBuilder, sampleBuilder);
+                lbToASGRelationBuilder, lbToLambdaRoutingBuilder, ec2ToEBSVolumeExporter, sampleBuilder);
     }
 
     @Test
@@ -56,9 +58,9 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
                 .build()));
 
         fromResource.addLabels(anyObject(SortedMap.class), eq("from"));
-        expectLastCall().times(3);
+        expectLastCall().times(4);
         toResource.addLabels(anyObject(SortedMap.class), eq("to"));
-        expectLastCall().times(3);
+        expectLastCall().times(4);
 
         expect(lbToASGRelationBuilder.getRoutingConfigs()).andReturn(ImmutableSet.of(ResourceRelation.builder()
                 .from(fromResource)
@@ -71,6 +73,10 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
                 .name("name3")
                 .build()));
 
+        expect(ec2ToEBSVolumeExporter.getAttachedVolumes()).andReturn(ImmutableSet.of(
+                ResourceRelation.builder().from(fromResource).to(toResource).name("name4").build()
+        ));
+
         expect(sampleBuilder.buildSingleSample(
                 "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name1"), 1.0D))
                 .andReturn(sample);
@@ -80,7 +86,10 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample(
                 "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name3"), 1.0D))
                 .andReturn(sample);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildSingleSample(
+                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name4"), 1.0D))
+                .andReturn(sample);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(familySamples);
 
         replayAll();
         testClass.update();

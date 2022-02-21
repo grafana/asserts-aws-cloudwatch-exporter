@@ -92,7 +92,7 @@ public class ResourceMapper {
                     Matcher matcher = EC2_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
-                                .type(EC2)
+                                .type(EC2Instance)
                                 .arn(arn)
                                 .region(matcher.group(1))
                                 .account(matcher.group(2))
