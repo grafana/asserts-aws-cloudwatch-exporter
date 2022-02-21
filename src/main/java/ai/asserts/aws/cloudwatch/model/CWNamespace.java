@@ -14,6 +14,7 @@ public enum CWNamespace {
     appsync("AWS/AppSync", "aws_appsync", "appsync"),
     billing("AWS/Billing", "aws_billing", "billing"),
     cf("AWS/CloudFront", "aws_cloudfront", "cf"),
+    cloudwatch("AWS/CloudWatch", "aws_cloudwatch", "cloudwatch"),
     docdb("AWS/DocDB", "aws_docdb", "docdb"),
     dynamodb("AWS/DynamoDB", "aws_dynamodb", "dynamodb", "table", "index"),
     ebs("AWS/EBS", "aws_ebs", "ebs"),

@@ -22,16 +22,19 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final LBToASGRelationBuilder lbToASGRelationBuilder;
     private final LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder;
+    private final EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter;
     private final MetricSampleBuilder sampleBuilder;
     private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
 
     public ResourceRelationExporter(ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
                                     LBToASGRelationBuilder lbToASGRelationBuilder,
                                     LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder,
+                                    EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter,
                                     MetricSampleBuilder sampleBuilder) {
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
         this.lbToASGRelationBuilder = lbToASGRelationBuilder;
         this.lbToLambdaRoutingBuilder = lbToLambdaRoutingBuilder;
+        this.ec2ToEBSVolumeExporter = ec2ToEBSVolumeExporter;
         this.sampleBuilder = sampleBuilder;
     }
 
@@ -45,12 +48,13 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
         try {
             List<MetricFamilySamples> familySamples = new ArrayList<>();
             List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-            Set<ResourceRelation> lb2Targets = new HashSet<>(ecsServiceDiscoveryExporter.getRouting());
-            lb2Targets.addAll(lbToASGRelationBuilder.getRoutingConfigs());
-            lb2Targets.addAll(lbToLambdaRoutingBuilder.getRoutings());
+            Set<ResourceRelation> relations = new HashSet<>(ecsServiceDiscoveryExporter.getRouting());
+            relations.addAll(lbToASGRelationBuilder.getRoutingConfigs());
+            relations.addAll(lbToLambdaRoutingBuilder.getRoutings());
+            relations.addAll(ec2ToEBSVolumeExporter.getAttachedVolumes());
 
-            log.info("Found {} resource relations ", lb2Targets.size());
-            lb2Targets.forEach(relation -> {
+            log.info("Found {} resource relations ", relations.size());
+            relations.forEach(relation -> {
                 String name = "aws_resource_relation";
                 SortedMap<String, String> labels = new TreeMap<>();
                 relation.getFrom().addLabels(labels, "from");
