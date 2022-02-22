@@ -31,6 +31,7 @@ public enum CWNamespace {
     gamelift("AWS/GameLift", "aws_gamelift", "gamelift"),
     glue("Glue", "aws_glue", "glue"),
     kinesis("AWS/Kinesis", "aws_kinesis", "kinesis"),
+    kinesis_analytics("AWS/KinesisAnalytics", "aws_kinesis_analytics", "kinesis"),
     nfw("AWS/NetworkFirewall", "aws_nfw", "nfw"),
     ngw("AWS/NATGateway", "aws_ngw", "ngw"),
     lambda("AWS/Lambda", "aws_lambda", "lambda", "function"),

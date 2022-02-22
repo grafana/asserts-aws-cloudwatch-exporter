@@ -21,9 +21,9 @@ public enum ResourceType {
     SNSTopic("TopicName", CWNamespace.sns),
     EventBus("EventBus", CWNamespace.sns),
     EventRule("RuleName", CWNamespace.elb),
-    KinesisAnalytics("KinesisAnalytics", CWNamespace.kinesis),
-    KinesisDataFirehose("KinesisAnalytics", CWNamespace.kinesis),
-    Kinesis("Kinesis", CWNamespace.kinesis),
+    KinesisAnalytics("KinesisAnalytics", CWNamespace.kinesis_analytics),
+    KinesisDataFirehose("DeliveryStreamName", CWNamespace.firehose),
+    Kinesis("StreamName", CWNamespace.kinesis),
     SQSQueue("QueueName", CWNamespace.sqs), // SQS Queue
     AutoScalingGroup("AutoScalingGroup", CWNamespace.asg), // SQS Queue
     APIGateway("ApiGateway", CWNamespace.apigateway, "ApiId", "ApiName"),
