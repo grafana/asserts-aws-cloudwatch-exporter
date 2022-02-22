@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.cloudwatch.model.StateValue;
 
 import java.time.Instant;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
@@ -81,7 +82,15 @@ public class AlarmFetcherTest extends EasyMockSupport {
 
         expect(rateLimiter.doWithRateLimit(eq("CloudWatchClient/describeAlarms"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
-        alertsProcessor.sendAlerts(ImmutableList.of(ImmutableMap.of()));
+        SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
+                .put("alertname", "alarm1")
+                .put("namespace", "AWS/RDS")
+                .put("region", "region")
+                .put("state", "ALARM")
+                .put("threshold", "10.0")
+                .put("timestamp", now.toString())
+                .build());
+        alertsProcessor.sendAlerts(ImmutableList.of(labels));
         replayAll();
         testClass.sendAlarmsForRegions();
         assertEquals(response, callbackCapture.getValue().makeCall());

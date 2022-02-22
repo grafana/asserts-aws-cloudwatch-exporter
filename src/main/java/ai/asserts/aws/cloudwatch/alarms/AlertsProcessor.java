@@ -27,11 +27,12 @@ import java.util.stream.Collectors;
 public class AlertsProcessor {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RestTemplate restTemplate;
+    private final  AlarmMetricExporter alarmMetricExporter;
 
     public void sendAlerts(List<Map<String, String>> labelsList) {
         String forwardUrl = scrapeConfigProvider.getScrapeConfig().getAlertForwardUrl();
         String tenant = scrapeConfigProvider.getScrapeConfig().getTenant();
-        if (forwardUrl != null && tenant != null) {
+        if (forwardUrl != null && forwardUrl.length() > 0 && tenant != null && tenant.length() > 0) {
             List<PrometheusAlert> alertList = labelsList.stream().map(this::createAlert).collect(Collectors.toList());
             PrometheusAlerts alerts = new PrometheusAlerts().withAlerts(alertList);
             if (!CollectionUtils.isEmpty(alerts.getAlerts())) {
@@ -44,6 +45,8 @@ public class AlertsProcessor {
                     log.error("Error sending alerts - {}" , Arrays.toString(e.getStackTrace()));
                 }
             }
+        } else if(!CollectionUtils.isEmpty(labelsList)) {
+            alarmMetricExporter.processMetric(labelsList);
         }
     }
 

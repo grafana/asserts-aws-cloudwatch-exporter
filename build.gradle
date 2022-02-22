@@ -40,6 +40,7 @@ dependencies {
             "software.amazon.awssdk:dynamodb:$awsSdkVersion",
             "software.amazon.awssdk:s3:$awsSdkVersion",
             "software.amazon.awssdk:ecs:$awsSdkVersion",
+            "software.amazon.awssdk:ec2:$awsSdkVersion",
             "software.amazon.awssdk:resourcegroupstaggingapi:$awsSdkVersion",
             "software.amazon.awssdk:config:$awsSdkVersion",
             "software.amazon.awssdk:elasticloadbalancingv2:$awsSdkVersion",

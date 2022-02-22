@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
@@ -43,10 +44,12 @@ public class LBToECSRoutingBuilder {
         Set<ResourceRelation> routing = new HashSet<>();
         log.info("Updating Resource Relation for ECS Cluster {}", cluster);
         try {
-            DescribeServicesResponse response = rateLimiter.doWithRateLimit("EcsClient/describeServices",
+            String api = "EcsClient/describeServices";
+            DescribeServicesResponse response = rateLimiter.doWithRateLimit(api,
                     ImmutableSortedMap.of(
                             SCRAPE_REGION_LABEL, cluster.getRegion(),
-                            SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount()
+                            SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
+                            SCRAPE_OPERATION_LABEL, api
                     )
                     , () -> ecsClient.describeServices(DescribeServicesRequest.builder()
                             .cluster(cluster.getArn())

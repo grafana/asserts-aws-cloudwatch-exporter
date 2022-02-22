@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -69,6 +70,9 @@ public class ScrapeConfig {
     private String alertForwardUrl;
 
     private String tenant;
+
+    @Builder.Default
+    private Set<DimensionToLabel> dimensionToLabels = new HashSet<>();
 
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {

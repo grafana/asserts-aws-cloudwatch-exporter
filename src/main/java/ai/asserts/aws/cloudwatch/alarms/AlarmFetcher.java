@@ -81,24 +81,18 @@ public class AlarmFetcher {
 
     private Map<String, String> processMetricAlarm(MetricAlarm alarm, String region) {
         Map<String, String> labels = new TreeMap<>();
+        labels.put("alertname", alarm.alarmName());
+        labels.put(SCRAPE_REGION_LABEL, region);
+        labels.put("state", alarm.stateValueAsString());
+        labels.put("timestamp", alarm.stateUpdatedTimestamp().toString());
+        labels.put("threshold", Double.toString(alarm.threshold()));
+        labels.put("namespace", alarm.namespace());
+        if(alarm.metricName() != null ) {
+            labels.put("metric_name", alarm.metricName());
+        }
         if (alarm.hasDimensions()) {
             alarm.dimensions().forEach(dimension -> {
-                labels.put("alertname", alarm.alarmName());
-                labels.put(SCRAPE_REGION_LABEL, region);
-                labels.put("state", alarm.stateValueAsString());
-                labels.put("timestamp", alarm.stateUpdatedTimestamp().toString());
-                labels.put("threshold", Double.toString(alarm.threshold()));
-                labels.put("namespace", alarm.namespace());
-                //TODO: Needs mapping yaml to handle this
-                if (alarm.namespace().equals("AWS/AutoScaling") ||
-                        dimension.name().equals("AutoScalingGroupName")) {
-                    labels.put("namespace", "AWS/AutoScaling");
-                    labels.put("AutoScalingGroup", dimension.value());
-                    labels.put("asserts_entity_type", "AutoScalingGroup");
-                } else {
-                    labels.put("job", dimension.value());
-                    labels.put("asserts_entity_type", "Service");
-                }
+                labels.put(dimension.name(), dimension.value());
             });
         }
         return labels;

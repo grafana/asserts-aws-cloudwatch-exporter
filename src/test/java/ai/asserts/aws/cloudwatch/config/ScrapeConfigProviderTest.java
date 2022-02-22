@@ -118,6 +118,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         assertNotNull(testClass.getScrapeConfig());
         assertEquals(ImmutableSet.of("us-west-2"), testClass.getScrapeConfig().getRegions());
         assertTrue(testClass.getScrapeConfig().isDiscoverECSTasks());
+        assertFalse(testClass.getScrapeConfig().getDimensionToLabels().isEmpty());
     }
 
     @Test

@@ -30,6 +30,7 @@ public class AlertsProcessorTest extends EasyMockSupport {
     private ScrapeConfig scrapeConfig;
     private RestTemplate restTemplate;
     private AlertsProcessor testClass;
+    private AlarmMetricExporter alarmMetricExporter;
     private Instant now;
 
     @BeforeEach
@@ -38,7 +39,8 @@ public class AlertsProcessorTest extends EasyMockSupport {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         restTemplate = mock(RestTemplate.class);
-        testClass = new AlertsProcessor(scrapeConfigProvider, restTemplate);
+        alarmMetricExporter = mock(AlarmMetricExporter.class);
+        testClass = new AlertsProcessor(scrapeConfigProvider, restTemplate, alarmMetricExporter);
     }
 
     @Test
@@ -65,6 +67,27 @@ public class AlertsProcessorTest extends EasyMockSupport {
         assertEquals(1, callbackCapture.getValue().getBody().getAlerts().size());
         assertEquals(PrometheusAlertStatus.firing, callbackCapture.getValue().getBody().getAlerts().get(0).getStatus());
         assertEquals(labels1, callbackCapture.getValue().getBody().getAlerts().get(0).getLabels());
+        verifyAll();
+    }
+
+    @Test
+    public void sendAlerts_metrics() {
+        SortedMap<String, String> labels1 = new TreeMap<>(new ImmutableMap.Builder<String, String>()
+                .put("alertgroup", "cloudwatch")
+                .put("asserts_alert_category", "error")
+                .put("asserts_severity", "critical")
+                .put("asserts_source", "cloudwatch.alarms")
+                .build());
+        SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
+                .put("state", "ALARM")
+                .put("timestamp", now.toString())
+                .build());
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).times(2);
+        expect(scrapeConfig.getAlertForwardUrl()).andReturn("");
+        expect(scrapeConfig.getTenant()).andReturn("tenant");
+        alarmMetricExporter.processMetric(ImmutableList.of(labels));
+        replayAll();
+        testClass.sendAlerts(ImmutableList.of(labels));
         verifyAll();
     }
 }

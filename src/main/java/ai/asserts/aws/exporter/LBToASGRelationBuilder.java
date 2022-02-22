@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
@@ -52,7 +53,9 @@ public class LBToASGRelationBuilder {
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
             String api = "AutoScalingClient/describeAutoScalingGroups";
             try (AutoScalingClient autoScalingClient = rateLimiter.doWithRateLimit(api,
-                    ImmutableSortedMap.of(SCRAPE_REGION_LABEL, region),
+                    ImmutableSortedMap.of(
+                            SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api
+                    ),
                     () -> awsClientProvider.getAutoScalingClient(region))) {
                 DescribeAutoScalingGroupsResponse resp = autoScalingClient.describeAutoScalingGroups();
                 List<AutoScalingGroup> groups = resp.autoScalingGroups();

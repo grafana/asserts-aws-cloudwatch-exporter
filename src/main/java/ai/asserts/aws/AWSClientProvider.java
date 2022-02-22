@@ -8,6 +8,7 @@ import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.config.ConfigClient;
+import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancingClient;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
@@ -56,5 +57,9 @@ public class AWSClientProvider {
 
     public StsClient getStsClient(String region) {
         return StsClient.builder().region(Region.of(region)).build();
+    }
+
+    public Ec2Client getEc2Client(String region) {
+        return Ec2Client.builder().region(Region.of(region)).build();
     }
 }
