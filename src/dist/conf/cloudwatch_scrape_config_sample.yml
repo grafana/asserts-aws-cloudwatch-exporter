@@ -85,3 +85,32 @@ tagExportConfig:
     - "kubernetes.io/service-name"
   envTags:
     - "asserts-env-name"
+dimensionToLabels:
+  - namespace: AWS/EC2
+    dimensionName: InstanceId
+  - namespace: AWS/AutoScaling
+    dimensionName: AutoScalingGroupName
+    mapToLabel: label_ec2_amazonaws_com_aws_autoscaling_group_name
+  - namespace: AWS/RDS
+    dimensionName: DBInstanceIdentifier
+  - namespace: AWS/S3
+    dimensionName: BucketName
+  - namespace: AWS/DynamoDB
+    dimensionName: TableName
+  - namespace: AWS/SQS
+    dimensionName: QueueName
+    mapToLabel: topic
+  - namespace: AWS/SNS
+    dimensionName: TopicName
+  - namespace: AWS/Lambda
+    dimensionName: FunctionName
+  - namespace: AWS/ELB
+    dimensionName: LoadBalancerName
+  - namespace: AWS/ApplicationELB
+    dimensionName: LoadBalancerName
+  - namespace: AWS/NetworkELB
+    dimensionName: LoadBalancerName
+  - namespace: AWS/ECS
+    dimensionName: ServiceName
+  - namespace: AWS/ApiGateway
+    dimensionName: ApiGateway
