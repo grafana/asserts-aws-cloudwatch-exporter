@@ -84,9 +84,9 @@ dimensionToLabels:
   - namespace: AWS/ELB
     dimensionName: LoadBalancerName
   - namespace: AWS/ApplicationELB
-    dimensionName: LoadBalancerName
+    dimensionName: LoadBalancer
   - namespace: AWS/NetworkELB
-    dimensionName: LoadBalancerName
+    dimensionName: LoadBalancer
   - namespace: AWS/ECS
     dimensionName: ServiceName
   - namespace: AWS/ApiGateway
