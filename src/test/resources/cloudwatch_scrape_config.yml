@@ -91,3 +91,9 @@ dimensionToLabels:
     dimensionName: ServiceName
   - namespace: AWS/ApiGateway
     dimensionName: ApiGateway
+  - namespace: AWS/Firehose
+    dimensionName: DeliveryStreamName
+  - namespace: AWS/Kinesis
+    dimensionName: StreamName
+  - namespace: AWS/KinesisAnalytics
+    dimensionName: Application
