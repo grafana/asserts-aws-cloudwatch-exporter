@@ -80,26 +80,17 @@ public class AlarmMetricConverter {
         List<Map<String, String>> fieldValues = new ArrayList<>();
         if (metric.getMetricStat() != null && metric.getMetricStat().getMetric() != null) {
             AlarmMetric alarmMetric = metric.getMetricStat().getMetric();
-
-            if (!CollectionUtils.isEmpty(alarmMetric.getDimensions())) {
-                alarmMetric.getDimensions().forEach((key, value) -> {
-                    Map<String, String> fields = new TreeMap<>();
-                    fields.put(key, value);
-                    if (alarmMetric.getNamespace() != null) {
-                        fields.put("namespace", alarmMetric.getNamespace());
-                    }
-                    if (metric.getMetricStat().getStat() != null) {
-                        fields.put("metric_stat", metric.getMetricStat().getStat());
-                    }
-                    if (metric.getMetricStat().getUnit() != null) {
-                        fields.put("metric_unit", metric.getMetricStat().getUnit());
-                    }
-                    if (alarmMetric.getName() != null) {
-                        fields.put("metric_name", alarmMetric.getName());
-                    }
-                    fieldValues.add(fields);
-                });
+            Map<String, String> fields = new TreeMap<>();
+            if (alarmMetric.getName() != null) {
+                fields.put("metric_name", alarmMetric.getName());
             }
+            if (alarmMetric.getNamespace() != null) {
+                fields.put("namespace", alarmMetric.getNamespace());
+            }
+            if (!CollectionUtils.isEmpty(alarmMetric.getDimensions())) {
+                fields.putAll(alarmMetric.getDimensions());
+            }
+            fieldValues.add(fields);
         }
         return fieldValues;
     }

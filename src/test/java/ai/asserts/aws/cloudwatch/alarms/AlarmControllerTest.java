@@ -22,23 +22,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class AlarmControllerTest extends EasyMockSupport {
 
     private AlarmMetricConverter alarmMetricConverter;
-    private AlarmMetricExporter alarmMetricExporter;
     private AlarmRequest alarmRequest;
     private AlarmRecord alarmRecord;
     private AlarmStateChange alarmStateChange;
     private ObjectMapper objectMapper;
+    private AlertsProcessor alertsProcessor;
     private AlarmController testClass;
 
     @BeforeEach
     public void setup() {
         alarmMetricConverter = mock(AlarmMetricConverter.class);
-        alarmMetricExporter = mock(AlarmMetricExporter.class);
         alarmStateChange = mock(AlarmStateChange.class);
         ObjectMapperFactory objectMapperFactory = mock(ObjectMapperFactory.class);
         objectMapper = mock(ObjectMapper.class);
         alarmRequest = mock(AlarmRequest.class);
         alarmRecord = mock(AlarmRecord.class);
-        testClass = new AlarmController(alarmMetricConverter, alarmMetricExporter, objectMapperFactory);
+        alertsProcessor = mock(AlertsProcessor.class);
+        testClass = new AlarmController(alarmMetricConverter, objectMapperFactory, alertsProcessor);
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
     }
 
@@ -49,7 +49,7 @@ public class AlarmControllerTest extends EasyMockSupport {
         expect(objectMapper.readValue("test", AlarmStateChange.class)).andReturn(alarmStateChange);
         expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(ImmutableList.of(
                 ImmutableMap.of("state", "ALARM")));
-        alarmMetricExporter.processMetric(ImmutableList.of(ImmutableMap.of("state", "ALARM")));
+        alertsProcessor.sendAlerts(ImmutableList.of(ImmutableMap.of("state", "ALARM")));
         replayAll();
 
         assertEquals(HttpStatus.OK, testClass.receiveAlarmsPost(alarmRequest).getStatusCode());
@@ -78,7 +78,7 @@ public class AlarmControllerTest extends EasyMockSupport {
         expect(objectMapper.readValue("test", AlarmStateChange.class)).andReturn(alarmStateChange);
         expect(alarmMetricConverter.convertAlarm(alarmStateChange)).andReturn(ImmutableList.of(
                 ImmutableMap.of("state", "ALARM")));
-        alarmMetricExporter.processMetric(ImmutableList.of(ImmutableMap.of("state", "ALARM")));
+        alertsProcessor.sendAlerts(ImmutableList.of(ImmutableMap.of("state", "ALARM")));
         replayAll();
 
         assertEquals(HttpStatus.OK, testClass.receiveAlarmsPut(alarmRequest).getStatusCode());

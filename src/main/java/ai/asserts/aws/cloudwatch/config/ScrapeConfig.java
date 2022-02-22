@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.cloudwatch.config;
 
 
@@ -67,6 +66,10 @@ public class ScrapeConfig {
     private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
 
     private TagExportConfig tagExportConfig;
+
+    private String alertForwardUrl;
+
+    private String tenant;
 
     @Builder.Default
     private Set<DimensionToLabel> dimensionToLabels = new HashSet<>();

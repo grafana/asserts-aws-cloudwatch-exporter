@@ -1,5 +1,6 @@
 package ai.asserts.aws;
 
+import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
@@ -38,6 +39,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
     private AlarmMetricExporter alarmMetricExporter;
+    private AlarmFetcher alarmFetcher;
 
     @BeforeEach
     public void setup() {
@@ -51,10 +53,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
         alarmMetricExporter = mock(AlarmMetricExporter.class);
+        alarmFetcher = mock(AlarmFetcher.class);
 
         replayAll();
         testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, ecsServiceDiscoveryExporter,
-                taskThreadPool, alarmMetricExporter) {
+                taskThreadPool, alarmMetricExporter, alarmFetcher) {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
@@ -95,7 +98,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expectLastCall().times(4);
         expect(metricScrapeTask.register(collectorRegistry)).andReturn(null).times(4);
         expect(alarmMetricExporter.register(collectorRegistry)).andReturn(null);
-
+        alarmFetcher.sendAlarmsForRegions();
         replayAll();
         testClass.afterPropertiesSet();
         verifyAll();
