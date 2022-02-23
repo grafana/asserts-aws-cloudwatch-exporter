@@ -8,6 +8,7 @@ import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.ApiGatewayToLambdaBuilder;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;
 import ai.asserts.aws.exporter.LBToASGRelationBuilder;
@@ -53,6 +54,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private TargetGroupLBMapProvider targetGroupLBMapProvider;
     private LBToASGRelationBuilder lbToASGRelationBuilder;
     private EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter;
+    private ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder;
     private MetadataTaskManager testClass;
 
     @BeforeEach
@@ -75,9 +77,11 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
         lbToASGRelationBuilder = mock(LBToASGRelationBuilder.class);
         ec2ToEBSVolumeExporter = mock(EC2ToEBSVolumeExporter.class);
+        apiGatewayToLambdaBuilder = mock(ApiGatewayToLambdaBuilder.class);
         testClass = new MetadataTaskManager(autowireCapableBeanFactory, collectorRegistry, lambdaCapacityExporter,
                 lambdaEventSourceExporter, lambdaInvokeConfigExporter, metricCollector, resourceExporter,
                 targetGroupLBMapProvider, relationExporter, lbToASGRelationBuilder, ec2ToEBSVolumeExporter,
+                apiGatewayToLambdaBuilder,
                 taskThreadPool, scrapeConfigProvider) {
 
             @Override
@@ -119,6 +123,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture7 = newCapture();
         Capture<Runnable> capture8 = newCapture();
         Capture<Runnable> capture9 = newCapture();
+        Capture<Runnable> capture10 = newCapture();
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
         expect(executorService.submit(capture(capture2))).andReturn(null);
@@ -129,6 +134,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(executorService.submit(capture(capture7))).andReturn(null);
         expect(executorService.submit(capture(capture8))).andReturn(null);
         expect(executorService.submit(capture(capture9))).andReturn(null);
+        expect(executorService.submit(capture(capture10))).andReturn(null);
 
         lambdaCapacityExporter.update();
         lambdaEventSourceExporter.update();
@@ -140,6 +146,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         lbToASGRelationBuilder.updateRouting();
         relationExporter.update();
         ec2ToEBSVolumeExporter.update();
+        apiGatewayToLambdaBuilder.update();
 
         replayAll();
         testClass.updateMetadata();
@@ -153,6 +160,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         capture7.getValue().run();
         capture8.getValue().run();
         capture9.getValue().run();
+        capture10.getValue().run();
 
         verifyAll();
     }
