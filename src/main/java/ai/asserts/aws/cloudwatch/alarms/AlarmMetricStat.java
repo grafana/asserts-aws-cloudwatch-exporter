@@ -21,7 +21,7 @@ import lombok.ToString;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AlarmMetricStat {
     private AlarmMetric metric;
-    private int period;
+    private Integer period;
     private String stat;
     private String unit;
 }

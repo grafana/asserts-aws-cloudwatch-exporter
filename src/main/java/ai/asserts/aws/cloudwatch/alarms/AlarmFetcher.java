@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
@@ -31,11 +33,12 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 @Slf4j
 @AllArgsConstructor
 public class AlarmFetcher {
-
+    private final AccountIDProvider accountIDProvider;
     private final RateLimiter rateLimiter;
     private final AWSClientProvider awsClientProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AlertsProcessor alertsProcessor;
+    private final AlarmMetricConverter alarmMetricConverter;
 
     public void sendAlarmsForRegions() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
@@ -87,12 +90,14 @@ public class AlarmFetcher {
         labels.put("timestamp", alarm.stateUpdatedTimestamp().toString());
         labels.put("threshold", Double.toString(alarm.threshold()));
         labels.put("namespace", alarm.namespace());
-        if(alarm.metricName() != null ) {
+        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId());
+        if (alarm.metricName() != null) {
             labels.put("metric_name", alarm.metricName());
         }
+        labels.putAll(alarmMetricConverter.extractMetricAndEntityLabels(alarm));
         if (alarm.hasDimensions()) {
             alarm.dimensions().forEach(dimension -> {
-                labels.put(dimension.name(), dimension.value());
+                labels.put("d_" + dimension.name(), dimension.value());
             });
         }
         return labels;

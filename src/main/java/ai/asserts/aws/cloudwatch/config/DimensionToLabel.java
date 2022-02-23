@@ -27,4 +27,6 @@ public class DimensionToLabel {
      * By default most resource names are mapped to the `job` label
      */
     private String mapToLabel = "job";
+
+    private String entityType = "Service";
 }

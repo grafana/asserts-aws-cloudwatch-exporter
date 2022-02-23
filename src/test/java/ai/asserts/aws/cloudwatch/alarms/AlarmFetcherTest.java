@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,6 +40,8 @@ public class AlarmFetcherTest extends EasyMockSupport {
     private AlertsProcessor alertsProcessor;
     private ScrapeConfig scrapeConfig;
     private CloudWatchClient cloudWatchClient;
+    private AccountIDProvider accountIDProvider;
+    private AlarmMetricConverter alarmMetricConverter;
     private AlarmFetcher testClass;
     private Instant now;
 
@@ -51,27 +54,33 @@ public class AlarmFetcherTest extends EasyMockSupport {
         awsClientProvider = mock(AWSClientProvider.class);
         rateLimiter = mock(RateLimiter.class);
         cloudWatchClient = mock(CloudWatchClient.class);
-        testClass = new AlarmFetcher(rateLimiter, awsClientProvider, scrapeConfigProvider, alertsProcessor);
+        accountIDProvider = mock(AccountIDProvider.class);
+        alarmMetricConverter = mock(AlarmMetricConverter.class);
+        testClass = new AlarmFetcher(accountIDProvider, rateLimiter, awsClientProvider, scrapeConfigProvider, alertsProcessor, alarmMetricConverter);
     }
 
     @Test
     public void sendAlarmsForRegions() {
+        expect(accountIDProvider.getAccountId()).andReturn("123456789").anyTimes();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(awsClientProvider.getCloudWatchClient("region")).andReturn(cloudWatchClient).anyTimes();
 
+
         Capture<RateLimiter.AWSAPICall<DescribeAlarmsResponse>> callbackCapture = Capture.newInstance();
 
-        DescribeAlarmsResponse response = DescribeAlarmsResponse.builder()
-                .metricAlarms(ImmutableList.of(
-                        MetricAlarm.builder()
-                                .alarmName("alarm1")
-                                .stateValue("ALARM")
-                                .stateUpdatedTimestamp(now)
-                                .threshold(10.0)
-                                .namespace("AWS/RDS")
-                                .build()))
+        MetricAlarm alarm = MetricAlarm.builder()
+                .alarmName("alarm1")
+                .stateValue("ALARM")
+                .stateUpdatedTimestamp(now)
+                .threshold(10.0)
+                .namespace("AWS/RDS")
                 .build();
+        DescribeAlarmsResponse response = DescribeAlarmsResponse.builder()
+                .metricAlarms(ImmutableList.of(alarm))
+                .build();
+
+        expect(alarmMetricConverter.extractMetricAndEntityLabels(alarm)).andReturn(ImmutableMap.of("label1", "value1"));
 
         DescribeAlarmsRequest request = DescribeAlarmsRequest.builder()
                 .stateValue(StateValue.ALARM)
@@ -83,6 +92,8 @@ public class AlarmFetcherTest extends EasyMockSupport {
         expect(rateLimiter.doWithRateLimit(eq("CloudWatchClient/describeAlarms"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
+                .put("account_id", "123456789")
+                .put("label1", "value1")
                 .put("alertname", "alarm1")
                 .put("namespace", "AWS/RDS")
                 .put("region", "region")
