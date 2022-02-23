@@ -13,13 +13,19 @@ import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
+import static org.springframework.util.StringUtils.hasLength;
 
 @Getter
 @NoArgsConstructor
@@ -72,7 +78,7 @@ public class ScrapeConfig {
     private String tenant;
 
     @Builder.Default
-    private Set<DimensionToLabel> dimensionToLabels = new HashSet<>();
+    private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
 
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {
@@ -106,12 +112,56 @@ public class ScrapeConfig {
         if (tagExportConfig != null) {
             return tagExportConfig.shouldCaptureTag(tag);
         }
-        return true;
+        return false;
     }
 
     public void setEnvTag(Resource resource) {
         if (tagExportConfig != null) {
             resource.setEnvTag(tagExportConfig.getEnvTag(resource.getTags()));
         }
+    }
+
+    public Map<String, String> getEntityLabels(String namespace, Map<String, String> alarmDimensions) {
+        boolean unknownNamespace = !dimensionToLabels.stream()
+                .map(DimensionToLabel::getNamespace)
+                .collect(Collectors.toSet())
+                .contains(namespace);
+
+        boolean knownDimension = dimensionToLabels.stream()
+                .map(DimensionToLabel::getDimensionName)
+                .collect(Collectors.toSet())
+                .stream().anyMatch(alarmDimensions::containsKey);
+
+        SortedMap<String, String> labels = new TreeMap<>();
+        dimensionToLabels.stream()
+                .filter(dimensionToLabel -> captureDimension(namespace, alarmDimensions, dimensionToLabel))
+                .forEach(dimensionToLabel -> mapTypeAndName(alarmDimensions, labels, dimensionToLabel));
+
+
+        if (unknownNamespace && knownDimension) {
+            dimensionToLabels.stream()
+                    .filter(d -> alarmDimensions.containsKey(d.getDimensionName()))
+                    .findFirst().ifPresent(dimensionToLabel -> {
+                mapTypeAndName(alarmDimensions, labels, dimensionToLabel);
+                labels.put("namespace", dimensionToLabel.getNamespace());
+            });
+        }
+
+        return labels;
+    }
+
+    private void mapTypeAndName(Map<String, String> alarmDimensions, SortedMap<String, String> labels, DimensionToLabel dimensionToLabel) {
+        String toLabel = dimensionToLabel.getMapToLabel();
+        String dimensionName = dimensionToLabel.getDimensionName();
+        labels.put(toLabel, alarmDimensions.get(dimensionName));
+        if (hasLength(dimensionToLabel.getEntityType())) {
+            labels.put("asserts_entity_type", dimensionToLabel.getEntityType());
+        }
+    }
+
+    private boolean captureDimension(String namespace, Map<String, String> alarmDimensions,
+                                     DimensionToLabel dimensionToLabel) {
+        return (dimensionToLabel.getNamespace().equals(namespace)) &&
+                alarmDimensions.containsKey(dimensionToLabel.getDimensionName());
     }
 }

@@ -93,6 +93,7 @@ dimensionToLabels:
   - namespace: AWS/AutoScaling
     dimensionName: AutoScalingGroupName
     mapToLabel: label_ec2_amazonaws_com_aws_autoscaling_group_name
+    entityType: AutoScalingGroup
   - namespace: AWS/RDS
     dimensionName: DBInstanceIdentifier
   - namespace: AWS/S3
@@ -102,6 +103,7 @@ dimensionToLabels:
   - namespace: AWS/SQS
     dimensionName: QueueName
     mapToLabel: topic
+    entityType: Topic
   - namespace: AWS/SNS
     dimensionName: TopicName
   - namespace: AWS/Lambda
