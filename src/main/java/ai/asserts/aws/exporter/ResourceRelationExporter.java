@@ -23,6 +23,7 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
     private final LBToASGRelationBuilder lbToASGRelationBuilder;
     private final LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder;
     private final EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter;
+    private final ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder;
     private final MetricSampleBuilder sampleBuilder;
     private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
 
@@ -30,11 +31,13 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
                                     LBToASGRelationBuilder lbToASGRelationBuilder,
                                     LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder,
                                     EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter,
+                                    ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder,
                                     MetricSampleBuilder sampleBuilder) {
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
         this.lbToASGRelationBuilder = lbToASGRelationBuilder;
         this.lbToLambdaRoutingBuilder = lbToLambdaRoutingBuilder;
         this.ec2ToEBSVolumeExporter = ec2ToEBSVolumeExporter;
+        this.apiGatewayToLambdaBuilder = apiGatewayToLambdaBuilder;
         this.sampleBuilder = sampleBuilder;
     }
 
@@ -52,6 +55,7 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
             relations.addAll(lbToASGRelationBuilder.getRoutingConfigs());
             relations.addAll(lbToLambdaRoutingBuilder.getRoutings());
             relations.addAll(ec2ToEBSVolumeExporter.getAttachedVolumes());
+            relations.addAll(apiGatewayToLambdaBuilder.getLambdaIntegrations());
 
             log.info("Found {} resource relations ", relations.size());
             relations.forEach(relation -> {

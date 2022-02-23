@@ -46,6 +46,7 @@ dependencies {
             "software.amazon.awssdk:elasticloadbalancingv2:$awsSdkVersion",
             "software.amazon.awssdk:elasticloadbalancing:$awsSdkVersion",
             "software.amazon.awssdk:autoscaling:$awsSdkVersion",
+            "software.amazon.awssdk:apigateway:$awsSdkVersion",
             "software.amazon.awssdk:sts:$awsSdkVersion",
             "io.opentelemetry:opentelemetry-proto:$opentelemetryProtoBufVersion",
             "com.google.protobuf:protobuf-java:$protobufVersion",

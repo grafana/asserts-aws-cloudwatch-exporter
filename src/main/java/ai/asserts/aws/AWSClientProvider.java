@@ -4,6 +4,7 @@ package ai.asserts.aws;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.apigateway.ApiGatewayClient;
 import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
@@ -21,6 +22,10 @@ import software.amazon.awssdk.services.sts.StsClient;
 public class AWSClientProvider {
     public AutoScalingClient getAutoScalingClient(String region) {
         return AutoScalingClient.builder().region(Region.of(region)).build();
+    }
+
+    public ApiGatewayClient getApiGatewayClient(String region) {
+        return ApiGatewayClient.builder().region(Region.of(region)).build();
     }
 
     public ElasticLoadBalancingV2Client getELBV2Client(String region) {
