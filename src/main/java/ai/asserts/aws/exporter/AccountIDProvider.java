@@ -28,8 +28,10 @@ public class AccountIDProvider implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        String anyRegion = scrapeConfigProvider.getScrapeConfig().getRegions().iterator().next();
-        StsClient stsClient = awsClientProvider.getStsClient(anyRegion);
-        accountId = stsClient.getCallerIdentity().account();
+        if (!scrapeConfigProvider.getScrapeConfig().getRegions().isEmpty()) {
+            String anyRegion = scrapeConfigProvider.getScrapeConfig().getRegions().iterator().next();
+            StsClient stsClient = awsClientProvider.getStsClient(anyRegion);
+            accountId = stsClient.getCallerIdentity().account();
+        }
     }
 }

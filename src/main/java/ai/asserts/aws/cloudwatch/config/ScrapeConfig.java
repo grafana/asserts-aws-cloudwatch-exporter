@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,8 +40,11 @@ import static org.springframework.util.StringUtils.hasLength;
 @ToString
 public class ScrapeConfig {
     @Setter
-    private Set<String> regions;
-    private List<NamespaceConfig> namespaces;
+    @Builder.Default
+    private Set<String> regions = new HashSet<>();
+
+    @Builder.Default
+    private List<NamespaceConfig> namespaces = new ArrayList<>();
 
     @Builder.Default
     private Integer scrapeInterval = 60;
@@ -73,7 +77,8 @@ public class ScrapeConfig {
     @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
 
-    private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs;
+    @Builder.Default
+    private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs = new ArrayList<>();
 
     private TagExportConfig tagExportConfig;
 

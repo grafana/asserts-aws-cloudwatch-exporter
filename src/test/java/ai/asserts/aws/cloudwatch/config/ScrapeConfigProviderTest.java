@@ -45,8 +45,8 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         expect(awsClientProvider.getS3Client()).andReturn(s3Client).anyTimes();
         replayAll();
         testClass = new ScrapeConfigProvider(new ObjectMapperFactory(),
-                awsClientProvider, new RateLimiter(metricCollector),
-                "cloudwatch_scrape_config.yml");
+                awsClientProvider, metricCollector, new RateLimiter(metricCollector),
+                "src/test/resources/cloudwatch_scrape_config.yml");
         verifyAll();
     }
 
@@ -138,7 +138,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     void integrationTest() {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                awsClientProvider, new RateLimiter(metricCollector),
+                awsClientProvider, metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml");
         assertNotNull(testClass.getScrapeConfig());
         assertEquals(ImmutableSet.of("us-west-2"), testClass.getScrapeConfig().getRegions());
@@ -150,7 +150,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     void envOverrides() {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                awsClientProvider, new RateLimiter(metricCollector),
+                awsClientProvider, metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml") {
             @Override
             Map<String, String> getGetenv() {
@@ -180,7 +180,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         replayAll();
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                awsClientProvider, new RateLimiter(metricCollector),
+                awsClientProvider, metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml") {
             @Override
             Map<String, String> getGetenv() {
