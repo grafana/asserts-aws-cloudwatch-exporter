@@ -18,7 +18,6 @@ import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
@@ -108,33 +107,33 @@ public class ECSTaskUtil {
                 labelsBuilder = labelsBuilder.metricsPath(metricPathUsingDockerLabel.get());
             }
 
-            Optional<ECSTaskDefScrapeConfig> defOpt = scrapeConfig.getECSScrapeConfig(taskDefinition);
-            Optional<String> containerNameOpt = defOpt.map(ECSTaskDefScrapeConfig::getContainerDefinitionName);
+            Optional<ECSTaskDefScrapeConfig> defConfig = scrapeConfig.getECSScrapeConfig(taskDefinition);
+            Optional<String> containerNameOpt = defConfig.map(ECSTaskDefScrapeConfig::getContainerDefinitionName);
 
-            // Metric Path
-            if (defOpt.isPresent() && StringUtils.isNotEmpty(defOpt.get().getMetricPath())) {
-                labelsBuilder = labelsBuilder.metricsPath(defOpt.get().getMetricPath());
-            }
+            if (defConfig.isPresent()) {
+                // If metric path specified use it
+                if (StringUtils.isNotEmpty(defConfig.get().getMetricPath())) {
+                    labelsBuilder = labelsBuilder.metricsPath(defConfig.get().getMetricPath());
+                }
 
-            if (taskDefinition.hasContainerDefinitions()) {
-                List<ContainerDefinition> containerDefinitions = taskDefinition.containerDefinitions();
-                if (defOpt.isPresent() && containerNameOpt.isPresent()) {
-                    Optional<ContainerDefinition> matchingContainer = containerDefinitions.stream()
-                            .filter(containerDefinition -> containerDefinition.name().equals(containerNameOpt.get()))
-                            .findFirst();
-                    if (matchingContainer.isPresent() && !CollectionUtils.isEmpty(matchingContainer.get().portMappings())) {
-                        if (matchingContainer.get().portMappings().size() > 1) {
-                            matchingContainer.get().portMappings().stream()
+                if (taskDefinition.hasContainerDefinitions()) {
+                    // When container name is specified, scrape the port if there is only one part. Else
+                    // scrape the specified port
+                    containerNameOpt.flatMap(s -> taskDefinition.containerDefinitions().stream()
+                            .filter(containerDefinition -> containerDefinition.name().equals(s))
+                            .findFirst()).ifPresent(container -> {
+                        if (container.portMappings().size() > 1 && defConfig.get().getContainerPort() != null) {
+                            container.portMappings().stream()
                                     .filter(portMapping -> portMapping.containerPort()
-                                            .equals(defOpt.get().getContainerPort()))
+                                            .equals(defConfig.get().getContainerPort()))
                                     .map(PortMapping::hostPort)
                                     .findFirst()
                                     .ifPresent(port -> targets.add(format("%s:%d", ipAddress, port)));
                         } else {
-                            PortMapping portMapping = matchingContainer.get().portMappings().get(0);
+                            PortMapping portMapping = container.portMappings().get(0);
                             targets.add(format("%s:%d", ipAddress, portMapping.hostPort()));
                         }
-                    }
+                    });
                 }
             }
         } catch (
