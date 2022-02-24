@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.cloudwatch.config;
 
-import ai.asserts.aws.resource.Resource;
 import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,8 +11,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.With;
-
-import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
 
 @EqualsAndHashCode
 @Getter
