@@ -36,10 +36,10 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 @Component
 @Slf4j
 public class ScrapeConfigProvider {
+    private final AWSClientProvider awsClientProvider;
     private final ObjectMapperFactory objectMapperFactory;
     private final BasicMetricCollector metricCollector;
     private final RateLimiter rateLimiter;
-    private final S3Client s3Client;
     private final String scrapeConfigFile;
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private volatile ScrapeConfig configCache;
@@ -57,7 +57,7 @@ public class ScrapeConfigProvider {
         this.scrapeConfigFile = scrapeConfigFile;
         this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
-        this.s3Client = awsClientProvider.getS3Client();
+        this.awsClientProvider = awsClientProvider;
         loadAndBuildLookups();
     }
 
@@ -106,15 +106,17 @@ public class ScrapeConfigProvider {
                     String bucket = envVariables.get("CONFIG_S3_BUCKET");
                     String key = envVariables.get("CONFIG_S3_KEY");
                     log.info("Will load configuration from S3 Bucket [{}] and Key [{}]", bucket, key);
-                    ResponseBytes<GetObjectResponse> objectAsBytes = rateLimiter.doWithRateLimit(
-                            "S3Client/getObjectAsBytes",
-                            labels,
-                            () -> s3Client.getObjectAsBytes(GetObjectRequest.builder()
-                                    .bucket(bucket)
-                                    .key(key)
-                                    .build()));
-                    scrapeConfig = objectMapperFactory.getObjectMapper().readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
-                    });
+                    try (S3Client s3Client = awsClientProvider.getS3Client()) {
+                        ResponseBytes<GetObjectResponse> objectAsBytes = rateLimiter.doWithRateLimit(
+                                "S3Client/getObjectAsBytes",
+                                labels,
+                                () -> s3Client.getObjectAsBytes(GetObjectRequest.builder()
+                                        .bucket(bucket)
+                                        .key(key)
+                                        .build()));
+                        scrapeConfig = objectMapperFactory.getObjectMapper().readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
+                        });
+                    }
                 } catch (Exception e) {
                     log.error("Failed to load configuration from S3", e);
                     metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, labels, 1);

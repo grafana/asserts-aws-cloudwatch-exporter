@@ -44,36 +44,37 @@ public class LBToLambdaRoutingBuilder {
         log.info("LB To Lambda routing relation builder about to build relations");
         Set<ResourceRelation> routing = new HashSet<>();
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region);
-            Map<Resource, Resource> tgToLB = targetGroupLBMapProvider.getTgToLB();
-            tgToLB.keySet().forEach(tg -> {
-                try {
-                    String api = "ElasticLoadBalancingV2Client/describeTargetHealth";
-                    DescribeTargetHealthResponse response = rateLimiter.doWithRateLimit(
-                            api,
-                            ImmutableSortedMap.of(
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId(),
-                                    SCRAPE_OPERATION_LABEL, api
-                            )
-                            , () -> elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()
-                                    .targetGroupArn(tg.getArn())
-                                    .build()));
-                    if (!isEmpty(response.targetHealthDescriptions())) {
-                        response.targetHealthDescriptions().stream()
-                                .map(tH -> resourceMapper.map(tH.target().id()))
-                                .filter(opt -> opt.isPresent() && opt.get().getType().equals(LambdaFunction))
-                                .map(Optional::get)
-                                .forEach(lambda -> routing.add(ResourceRelation.builder()
-                                        .from(tgToLB.get(tg))
-                                        .to(lambda)
-                                        .name("ROUTES_TO")
+            try (ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region)) {
+                Map<Resource, Resource> tgToLB = targetGroupLBMapProvider.getTgToLB();
+                tgToLB.keySet().forEach(tg -> {
+                    try {
+                        String api = "ElasticLoadBalancingV2Client/describeTargetHealth";
+                        DescribeTargetHealthResponse response = rateLimiter.doWithRateLimit(
+                                api,
+                                ImmutableSortedMap.of(
+                                        SCRAPE_REGION_LABEL, region,
+                                        SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId(),
+                                        SCRAPE_OPERATION_LABEL, api
+                                )
+                                , () -> elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()
+                                        .targetGroupArn(tg.getArn())
                                         .build()));
+                        if (!isEmpty(response.targetHealthDescriptions())) {
+                            response.targetHealthDescriptions().stream()
+                                    .map(tH -> resourceMapper.map(tH.target().id()))
+                                    .filter(opt -> opt.isPresent() && opt.get().getType().equals(LambdaFunction))
+                                    .map(Optional::get)
+                                    .forEach(lambda -> routing.add(ResourceRelation.builder()
+                                            .from(tgToLB.get(tg))
+                                            .to(lambda)
+                                            .name("ROUTES_TO")
+                                            .build()));
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to build resource relations", e);
                     }
-                } catch (Exception e) {
-                    log.error("Failed to build resource relations", e);
-                }
-            });
+                });
+            }
         });
         return routing;
     }

@@ -35,19 +35,12 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private S3Client s3Client;
     private BasicMetricCollector metricCollector;
-    private ScrapeConfigProvider testClass;
 
     @BeforeEach
     public void setup() {
         awsClientProvider = mock(AWSClientProvider.class);
         s3Client = mock(S3Client.class);
         metricCollector = mock(BasicMetricCollector.class);
-        expect(awsClientProvider.getS3Client()).andReturn(s3Client).anyTimes();
-        replayAll();
-        testClass = new ScrapeConfigProvider(new ObjectMapperFactory(),
-                awsClientProvider, metricCollector, new RateLimiter(metricCollector),
-                "src/test/resources/cloudwatch_scrape_config.yml");
-        verifyAll();
     }
 
     @Test
@@ -164,7 +157,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
 
     @Test
     void loadConfigFromS3() throws IOException {
-        resetAll();
         FileInputStream fis = new FileInputStream("src/test/resources/cloudwatch_scrape_config.yml");
         ScrapeConfig scrapeConfig = new ObjectMapperFactory().getObjectMapper().readValue(fis, new TypeReference<ScrapeConfig>() {
         });
@@ -177,6 +169,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .key("key")
                 .build())).andReturn(ResponseBytes.fromInputStream(GetObjectResponse.builder().build(), fis));
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
+        s3Client.close();
         replayAll();
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
@@ -189,6 +182,5 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         };
         assertEquals(scrapeConfig.toString(), testClass.getScrapeConfig().toString());
         verifyAll();
-        resetAll();
     }
 }
