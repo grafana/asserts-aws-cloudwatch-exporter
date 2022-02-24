@@ -88,6 +88,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .build())
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        apiGatewayClient.close();
         replayAll();
         testClass.update();
         assertEquals(ImmutableSet.of(
