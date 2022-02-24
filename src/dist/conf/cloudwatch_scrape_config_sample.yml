@@ -13,20 +13,20 @@ namespaces:
     dimensionFilters:
       FunctionName: .+
     metrics:
-      - name: Invocations
-        stats:
-          - Sum
-      - name: Errors
-        stats:
-          - Sum
+#      - name: Invocations
+#        stats:
+#          - Sum
+#      - name: Errors
+#        stats:
+#          - Sum
+#      - name: Duration
+#        stats:
+#          - p99
+#          - Average
+#          - Maximum
       - name: Throttles
         stats:
           - Sum
-      - name: Duration
-        stats:
-          - p99
-          - Average
-          - Maximum
       - name: ConcurrentExecutions
         stats:
           - Average
