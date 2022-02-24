@@ -15,11 +15,16 @@ import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancing
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.sts.StsClient;
 
 @Component
 @AllArgsConstructor
 public class AWSClientProvider {
+    public S3Client getS3Client() {
+        return S3Client.builder().build();
+    }
+
     public AutoScalingClient getAutoScalingClient(String region) {
         return AutoScalingClient.builder().region(Region.of(region)).build();
     }

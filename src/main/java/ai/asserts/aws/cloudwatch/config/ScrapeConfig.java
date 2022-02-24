@@ -3,18 +3,20 @@ package ai.asserts.aws.cloudwatch.config;
 
 import ai.asserts.aws.resource.Resource;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,6 +35,8 @@ import static org.springframework.util.StringUtils.hasLength;
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
 @SuppressWarnings("FieldMayBeFinal")
+@EqualsAndHashCode
+@ToString
 public class ScrapeConfig {
     @Setter
     private Set<String> regions;
@@ -163,5 +167,24 @@ public class ScrapeConfig {
                                      DimensionToLabel dimensionToLabel) {
         return (dimensionToLabel.getNamespace().equals(namespace)) &&
                 alarmDimensions.containsKey(dimensionToLabel.getDimensionName());
+    }
+
+    @VisibleForTesting
+    public void validateConfig() {
+        if (!CollectionUtils.isEmpty(getNamespaces())) {
+            for (int i = 0; i < getNamespaces().size(); i++) {
+                NamespaceConfig namespaceConfig = getNamespaces().get(i);
+                namespaceConfig.setScrapeConfig(this);
+                namespaceConfig.validate(i);
+            }
+        }
+
+        if (!CollectionUtils.isEmpty(getEcsTaskScrapeConfigs())) {
+            getEcsTaskScrapeConfigs().forEach(ECSTaskDefScrapeConfig::validate);
+        }
+
+        if (getTagExportConfig() != null) {
+            getTagExportConfig().compile();
+        }
     }
 }

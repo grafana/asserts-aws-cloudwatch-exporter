@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 @Getter
 @Setter
 @NoArgsConstructor
+@EqualsAndHashCode
 public class TagExportConfig {
     private Set<String> excludePatterns = new HashSet<>();
     private Set<String> excludeTags = new HashSet<>();

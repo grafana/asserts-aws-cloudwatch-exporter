@@ -1,21 +1,26 @@
 
 package ai.asserts.aws.cloudwatch.config;
 
+import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.ObjectMapperFactory;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSortedMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URL;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -24,21 +29,29 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+
 @Component
 @Slf4j
 public class ScrapeConfigProvider {
     private final ObjectMapperFactory objectMapperFactory;
-    private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
+    private final RateLimiter rateLimiter;
+    private final S3Client s3Client;
     private final String scrapeConfigFile;
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private volatile ScrapeConfig configCache;
     private final Map<String, CWNamespace> byNamespace = new TreeMap<>();
     private final Map<String, CWNamespace> byServiceName = new TreeMap<>();
+    private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
 
     public ScrapeConfigProvider(ObjectMapperFactory objectMapperFactory,
+                                AWSClientProvider awsClientProvider,
+                                RateLimiter rateLimiter,
                                 @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile) {
         this.objectMapperFactory = objectMapperFactory;
         this.scrapeConfigFile = scrapeConfigFile;
+        this.rateLimiter = rateLimiter;
+        this.s3Client = awsClientProvider.getS3Client();
         loadAndBuildLookups();
     }
 
@@ -54,25 +67,6 @@ public class ScrapeConfigProvider {
 
     public void update() {
         loadAndBuildLookups();
-    }
-
-    @VisibleForTesting
-    public void validateConfig(ScrapeConfig scrapeConfig) {
-        if (!CollectionUtils.isEmpty(scrapeConfig.getNamespaces())) {
-            for (int i = 0; i < scrapeConfig.getNamespaces().size(); i++) {
-                NamespaceConfig namespaceConfig = scrapeConfig.getNamespaces().get(i);
-                namespaceConfig.setScrapeConfig(scrapeConfig);
-                namespaceConfig.validate(i);
-            }
-        }
-
-        if (!CollectionUtils.isEmpty(scrapeConfig.getEcsTaskScrapeConfigs())) {
-            scrapeConfig.getEcsTaskScrapeConfigs().forEach(ECSTaskDefScrapeConfig::validate);
-        }
-
-        if (scrapeConfig.getTagExportConfig() != null) {
-            scrapeConfig.getTagExportConfig().compile();
-        }
     }
 
     public Optional<CWNamespace> getStandardNamespace(String namespace) {
@@ -96,27 +90,40 @@ public class ScrapeConfigProvider {
     }
 
     private ScrapeConfig load() {
-        URL url;
+        ScrapeConfig scrapeConfig;
         try {
-            Resource resource = resourceLoader.getResource(scrapeConfigFile);
-            url = resource.getURL();
-            ScrapeConfig scrapeConfig = objectMapperFactory.getObjectMapper()
-                    .readValue(url, new TypeReference<ScrapeConfig>() {
-                    });
+            Map<String, String> envVariables = getGetenv();
+            if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
+                String bucket = envVariables.get("CONFIG_S3_BUCKET");
+                String key = envVariables.get("CONFIG_S3_KEY");
+                log.info("Will load configuration from S3 Bucket [{}] and Key [{}]", bucket, key);
+                ResponseBytes<GetObjectResponse> objectAsBytes = rateLimiter.doWithRateLimit(
+                        "S3Client/getObjectAsBytes",
+                        ImmutableSortedMap.of(SCRAPE_OPERATION_LABEL, "loadConfigFromS3"),
+                        () -> s3Client.getObjectAsBytes(GetObjectRequest.builder()
+                                .bucket(bucket)
+                                .key(key)
+                                .build()));
+                scrapeConfig = objectMapperFactory.getObjectMapper().readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
+                });
+            } else {
+                log.info("Will load configuration from {}", scrapeConfigFile);
+                Resource resource = resourceLoader.getResource(scrapeConfigFile);
+                scrapeConfig = objectMapperFactory.getObjectMapper()
+                        .readValue(resource.getURL(), new TypeReference<ScrapeConfig>() {
+                        });
+            }
+            scrapeConfig.validateConfig();
+            log.info("Loaded configuration");
 
-            validateConfig(scrapeConfig);
-
-            Map<String, String> getenv = getGetenv();
-            if (getenv.containsKey("REGIONS")) {
-                scrapeConfig.setRegions(Stream.of(getenv.get("REGIONS").split(","))
+            if (envVariables.containsKey("REGIONS")) {
+                scrapeConfig.setRegions(Stream.of(envVariables.get("REGIONS").split(","))
                         .collect(Collectors.toSet()));
             }
 
-            if (getenv.containsKey("ENABLE_ECS_SD")) {
+            if (envVariables.containsKey("ENABLE_ECS_SD")) {
                 scrapeConfig.setDiscoverECSTasks(isEnabled(System.getenv("ENABLE_ECS_SD")));
             }
-
-            log.info("Loaded cloudwatch scrape configuration from url={}", url);
             return scrapeConfig;
         } catch (IOException e) {
             log.error("Failed to load scrape configuration from file " + scrapeConfigFile, e);

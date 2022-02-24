@@ -4,10 +4,11 @@
  */
 package ai.asserts.aws.cloudwatch.metrics;
 
+import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.metrics.MetricStreamProcessor;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.LabelBuilder;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
@@ -21,13 +22,19 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.SortedMap;
 
+import static org.easymock.EasyMock.anyLong;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,8 +84,19 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
 
     @Test
     public void integrationTest() {
+        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+        S3Client s3Client = mock(S3Client.class);
+
+        expect(awsClientProvider.getS3Client()).andReturn(s3Client).anyTimes();
+        metricCollector.recordHistogram(
+                eq("aws_metric_delivery_latency_milliseconds"), anyObject(SortedMap.class), anyLong());
+        expectLastCall().anyTimes();
+        replayAll();
+
         ScrapeConfigProvider scrapeConfigProvider = new ScrapeConfigProvider(
-                new ObjectMapperFactory(), "cloudwatch_scrape_config.yml"
+                new ObjectMapperFactory(),
+                awsClientProvider, new RateLimiter(metricCollector),
+                "cloudwatch_scrape_config.yml"
         );
         MetricNameUtil metricNameUtil = new MetricNameUtil(scrapeConfigProvider);
         LambdaLabelConverter lambdaLabelConverter = new LambdaLabelConverter(metricNameUtil);
@@ -88,6 +106,8 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
                 new OpenTelemetryMetricConverter(metricNameUtil, sampleBuilder, scrapeConfigProvider, metricCollector));
         metricStreamProcessor.process(request);
         List<Collector.MetricFamilySamples> metricFamilySamples = metricStreamProcessor.collect();
+
+        verifyAll();
         assertTrue(metricFamilySamples.size() > 0);
     }
 }

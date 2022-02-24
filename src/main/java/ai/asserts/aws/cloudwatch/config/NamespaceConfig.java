@@ -27,6 +27,7 @@ import static java.lang.String.format;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class NamespaceConfig {
     @JsonIgnore
     @ToString.Exclude
