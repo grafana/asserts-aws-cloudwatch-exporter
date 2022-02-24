@@ -5,9 +5,10 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResourceLoader;
@@ -20,21 +21,23 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 
 @Component
 @Slf4j
 public class ScrapeConfigProvider {
     private final ObjectMapperFactory objectMapperFactory;
+    private final BasicMetricCollector metricCollector;
     private final RateLimiter rateLimiter;
     private final S3Client s3Client;
     private final String scrapeConfigFile;
@@ -43,13 +46,16 @@ public class ScrapeConfigProvider {
     private final Map<String, CWNamespace> byNamespace = new TreeMap<>();
     private final Map<String, CWNamespace> byServiceName = new TreeMap<>();
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
+    private final ScrapeConfig NOOP_CONFIG = new ScrapeConfig();
 
     public ScrapeConfigProvider(ObjectMapperFactory objectMapperFactory,
                                 AWSClientProvider awsClientProvider,
+                                BasicMetricCollector metricCollector,
                                 RateLimiter rateLimiter,
                                 @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile) {
         this.objectMapperFactory = objectMapperFactory;
         this.scrapeConfigFile = scrapeConfigFile;
+        this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
         this.s3Client = awsClientProvider.getS3Client();
         loadAndBuildLookups();
@@ -90,22 +96,29 @@ public class ScrapeConfigProvider {
     }
 
     private ScrapeConfig load() {
-        ScrapeConfig scrapeConfig;
+        ScrapeConfig scrapeConfig = NOOP_CONFIG;
+        SortedMap<String, String> labels = new TreeMap<>(ImmutableMap.of(SCRAPE_OPERATION_LABEL, "loadConfig"));
         try {
             Map<String, String> envVariables = getGetenv();
             if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
-                String bucket = envVariables.get("CONFIG_S3_BUCKET");
-                String key = envVariables.get("CONFIG_S3_KEY");
-                log.info("Will load configuration from S3 Bucket [{}] and Key [{}]", bucket, key);
-                ResponseBytes<GetObjectResponse> objectAsBytes = rateLimiter.doWithRateLimit(
-                        "S3Client/getObjectAsBytes",
-                        ImmutableSortedMap.of(SCRAPE_OPERATION_LABEL, "loadConfigFromS3"),
-                        () -> s3Client.getObjectAsBytes(GetObjectRequest.builder()
-                                .bucket(bucket)
-                                .key(key)
-                                .build()));
-                scrapeConfig = objectMapperFactory.getObjectMapper().readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
-                });
+                labels.put(SCRAPE_OPERATION_LABEL, "loadConfigFromS3");
+                try {
+                    String bucket = envVariables.get("CONFIG_S3_BUCKET");
+                    String key = envVariables.get("CONFIG_S3_KEY");
+                    log.info("Will load configuration from S3 Bucket [{}] and Key [{}]", bucket, key);
+                    ResponseBytes<GetObjectResponse> objectAsBytes = rateLimiter.doWithRateLimit(
+                            "S3Client/getObjectAsBytes",
+                            labels,
+                            () -> s3Client.getObjectAsBytes(GetObjectRequest.builder()
+                                    .bucket(bucket)
+                                    .key(key)
+                                    .build()));
+                    scrapeConfig = objectMapperFactory.getObjectMapper().readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
+                    });
+                } catch (Exception e) {
+                    log.error("Failed to load configuration from S3", e);
+                    metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, labels, 1);
+                }
             } else {
                 log.info("Will load configuration from {}", scrapeConfigFile);
                 Resource resource = resourceLoader.getResource(scrapeConfigFile);
@@ -127,7 +140,8 @@ public class ScrapeConfigProvider {
             return scrapeConfig;
         } catch (IOException e) {
             log.error("Failed to load scrape configuration from file " + scrapeConfigFile, e);
-            throw new UncheckedIOException(e);
+            metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, labels, 1);
+            return NOOP_CONFIG;
         }
     }
 
