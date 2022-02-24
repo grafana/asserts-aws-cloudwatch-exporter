@@ -268,16 +268,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                         .build())
                                 .build())
                         .build());
-        assertTrue(staticConfigOpt.isPresent());
-        StaticConfig staticConfig = staticConfigOpt.get();
-        assertAll(
-                () -> assertEquals("cluster", staticConfig.getLabels().getCluster()),
-                () -> assertEquals("service", staticConfig.getLabels().getJob()),
-                () -> assertEquals("task-id", staticConfig.getLabels().getTaskId()),
-                () -> assertEquals("5", staticConfig.getLabels().getTaskDefVersion()),
-                () -> assertEquals("/metrics", staticConfig.getLabels().getMetricsPath()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:53234"), staticConfig.getTargets())
-        );
+        assertFalse(staticConfigOpt.isPresent());
         verifyAll();
     }
 

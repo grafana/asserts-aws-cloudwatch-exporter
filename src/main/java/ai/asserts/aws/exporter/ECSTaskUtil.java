@@ -118,22 +118,20 @@ public class ECSTaskUtil {
 
             if (taskDefinition.hasContainerDefinitions()) {
                 List<ContainerDefinition> containerDefinitions = taskDefinition.containerDefinitions();
-                if (containerDefinitions.size() == 1 && containerDefinitions.get(0).portMappings().size() == 1) {
-                    targets.add(format("%s:%d", ipAddress, containerDefinitions.get(0).portMappings().get(0).hostPort()));
-                } else if (defOpt.isPresent() && containerNameOpt.isPresent()) {
-                    Optional<ContainerDefinition> container = containerDefinitions.stream()
+                if (defOpt.isPresent() && containerNameOpt.isPresent()) {
+                    Optional<ContainerDefinition> matchingContainer = containerDefinitions.stream()
                             .filter(containerDefinition -> containerDefinition.name().equals(containerNameOpt.get()))
                             .findFirst();
-                    if (container.isPresent() && !CollectionUtils.isEmpty(container.get().portMappings())) {
-                        if (container.get().portMappings().size() > 1) {
-                            container.get().portMappings().stream()
+                    if (matchingContainer.isPresent() && !CollectionUtils.isEmpty(matchingContainer.get().portMappings())) {
+                        if (matchingContainer.get().portMappings().size() > 1) {
+                            matchingContainer.get().portMappings().stream()
                                     .filter(portMapping -> portMapping.containerPort()
                                             .equals(defOpt.get().getContainerPort()))
                                     .map(PortMapping::hostPort)
                                     .findFirst()
                                     .ifPresent(port -> targets.add(format("%s:%d", ipAddress, port)));
                         } else {
-                            PortMapping portMapping = container.get().portMappings().get(0);
+                            PortMapping portMapping = matchingContainer.get().portMappings().get(0);
                             targets.add(format("%s:%d", ipAddress, portMapping.hostPort()));
                         }
                     }
