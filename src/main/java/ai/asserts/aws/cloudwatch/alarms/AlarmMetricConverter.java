@@ -48,6 +48,7 @@ public class AlarmMetricConverter {
                             labels.put(SCRAPE_ACCOUNT_ID_LABEL, alarmStateChange.getAccount());
                         }
                         if (alarmStateChange.getDetail().getAlarmName() != null) {
+                            labels.put("alarm_name", alarmStateChange.getDetail().getAlarmName());
                             labels.put("alertname", alarmStateChange.getDetail().getAlarmName());
                         }
                         if (alarmStateChange.getDetail().getState() != null
@@ -76,6 +77,7 @@ public class AlarmMetricConverter {
     Map<String, String> extractMetricAndEntityLabels(MetricAlarm metric) {
         Map<String, String> labels = new TreeMap<>();
 
+        labels.put("alarm_name", metric.alarmName());
         labels.put("namespace", metric.namespace());
         labels.put("metric_name", metric.metricName());
         labels.put("metric_stat", metric.statisticAsString());
