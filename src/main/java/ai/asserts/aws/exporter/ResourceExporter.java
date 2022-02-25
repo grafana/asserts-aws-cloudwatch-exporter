@@ -119,12 +119,12 @@ public class ResourceExporter extends Collector implements MetricProvider {
                         SortedMap<String, String> labels = new TreeMap<>();
                         labels.put(SCRAPE_REGION_LABEL, region);
                         labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId());
-                        String idOrName = Optional.ofNullable(rI.resourceId()).orElse(rI.resourceName());
-                        log.debug("Discovered resource {}-{}", rI.resourceType().toString(), idOrName);
+                        String nameOrId = Optional.ofNullable(rI.resourceName()).orElse(rI.resourceId());
+                        log.debug("Discovered resource {}-{}", rI.resourceType().toString(), nameOrId);
                         labels.put("aws_resource_type", rI.resourceType().toString());
 
-                        Optional<Resource> arnResource = resourceMapper.map(idOrName);
-                        addBasicLabels(labels, rI, idOrName, arnResource);
+                        Optional<Resource> arnResource = resourceMapper.map(nameOrId);
+                        addBasicLabels(labels, rI, nameOrId, arnResource);
                         addTagLabels(resourceByName, labels, rI, arnResource);
                         Sample sample = sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                         samples.add(sample);
