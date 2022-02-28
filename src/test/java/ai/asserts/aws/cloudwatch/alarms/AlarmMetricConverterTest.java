@@ -56,10 +56,10 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         expect(alarmStateChange.getRegion()).andReturn("region").times(2);
         expect(alarmStateChange.getAccount()).andReturn("123456789").anyTimes();
         expect(alarmStateChange.getTime()).andReturn(alertTime).anyTimes();
+        expect(alarmDetail.getAlarmName()).andReturn("alarm1").anyTimes();
         expect(alarmDetail.getState()).andReturn(alarmState).times(5);
         expect(alarmState.getValue()).andReturn("ALARM").times(2);
         expect(alarmState.getReasonData()).andReturn(resonData).times(2);
-        expect(alarmDetail.getAlarmName()).andReturn("alarm1").times(2);
         expect(alarmDetail.getConfiguration()).andReturn(configuration).times(3);
         expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
         expect(metrics.getMetricStat()).andReturn(metricStat).anyTimes();

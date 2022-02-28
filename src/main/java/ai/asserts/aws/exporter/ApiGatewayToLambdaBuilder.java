@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
-import static ai.asserts.aws.resource.ResourceType.APIGateway;
+import static ai.asserts.aws.resource.ResourceType.ApiGateway;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 
 @Component
@@ -107,7 +107,7 @@ public class ApiGatewayToLambdaBuilder {
                 if (matcher.matches()) {
                     ResourceRelation resourceRelation = ResourceRelation.builder()
                             .from(Resource.builder()
-                                    .type(APIGateway)
+                                    .type(ApiGateway)
                                     .name(restApi.name())
                                     .id(restApi.id())
                                     .region(region)
