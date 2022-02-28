@@ -28,7 +28,7 @@ import software.amazon.awssdk.services.apigateway.model.RestApi;
 import java.util.SortedMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
-import static ai.asserts.aws.resource.ResourceType.APIGateway;
+import static ai.asserts.aws.resource.ResourceType.ApiGateway;
 import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
@@ -96,7 +96,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .from(ai.asserts.aws.resource.Resource.builder()
                                 .account("account")
                                 .region("region")
-                                .type(APIGateway)
+                                .type(ApiGateway)
                                 .name("rest-api-name")
                                 .id("rest-api-id")
                                 .build())

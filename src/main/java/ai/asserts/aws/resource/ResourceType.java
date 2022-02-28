@@ -26,7 +26,7 @@ public enum ResourceType {
     Kinesis("StreamName", CWNamespace.kinesis),
     SQSQueue("QueueName", CWNamespace.sqs), // SQS Queue
     AutoScalingGroup("AutoScalingGroup", CWNamespace.asg), // SQS Queue
-    APIGateway("ApiGateway", CWNamespace.apigateway, "ApiId", "ApiName"),
+    ApiGateway("ApiGateway", CWNamespace.apigateway, "ApiId", "ApiName"),
     APIGatewayStage("Stage", CWNamespace.apigateway),
     APIGatewayRoute("Route", CWNamespace.apigateway),
     APIGatewayResource("Resource", CWNamespace.apigateway),
