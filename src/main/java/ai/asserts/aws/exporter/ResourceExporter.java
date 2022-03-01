@@ -144,7 +144,11 @@ public class ResourceExporter extends Collector implements MetricProvider {
                         Optional<Resource> arnResource) {
         if (arnResource.isPresent()) {
             arnResource.ifPresent(resource -> {
-                labels.putIfAbsent("job", resource.getName());
+                labels.put("name", resource.getName());
+                if (resource.getId() != null) {
+                    labels.put("id", resource.getId());
+                }
+
                 if (resource.getAccount() != null) {
                     labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
                 }
