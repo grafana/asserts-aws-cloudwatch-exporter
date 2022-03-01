@@ -142,36 +142,48 @@ public class ResourceExporter extends Collector implements MetricProvider {
     @VisibleForTesting
     void addBasicLabels(SortedMap<String, String> labels, ResourceIdentifier rI, String nameOrId,
                         Optional<Resource> arnResource) {
-        if (arnResource.isPresent()) {
-            arnResource.ifPresent(resource -> {
-                labels.putIfAbsent("job", resource.getName());
-                labels.put("name", resource.getName());
-                if (resource.getId() != null) {
-                    labels.put("id", resource.getId());
-                }
-
-                if (resource.getAccount() != null) {
-                    labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
-                }
-                switch (resource.getType()) {
-                    case LoadBalancer:
-                        labels.put("type", resource.getSubType());
-                        break;
-                    case ECSService:
-                        labels.put("cluster", resource.getChildOf().getName());
-                        break;
-                    default:
-                }
-            });
-        } else {
-            labels.put("job", nameOrId);
-            if (rI.resourceId() != null) {
-                labels.put("id", rI.resourceId());
-            }
-            if (rI.resourceName() != null) {
-                labels.put("name", rI.resourceName());
-            }
+        boolean hasId = rI.resourceId() != null;
+        boolean hasName = rI.resourceName() != null;
+        if (hasId) {
+            labels.put("id", rI.resourceId());
         }
+        if (hasName) {
+            labels.put("name", rI.resourceName());
+            labels.put("job", rI.resourceName());
+        }
+        arnResource.ifPresent(resource -> {
+            // If name and job are not set
+            String nameFromResource = resource.getName();
+            labels.putIfAbsent("job", nameFromResource);
+            labels.putIfAbsent("name", nameFromResource);
+
+            // If the arn has an id, we prefer it as the id
+            if (resource.getId() != null) {
+                labels.put("id", resource.getId());
+            } else if (hasName && !rI.resourceName().equals(nameFromResource)) {
+                labels.put("id", nameFromResource);
+            }
+
+            if (labels.containsKey("id") && longId(labels)) {
+                labels.remove("id");
+            }
+
+            if (resource.getAccount() != null) {
+                labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
+            }
+            switch (resource.getType()) {
+                case LoadBalancer:
+                    labels.put("type", resource.getSubType());
+                    break;
+                case ECSService:
+                    labels.put("cluster", resource.getChildOf().getName());
+                    break;
+                default:
+            }
+        });
+
+        // If there is no resource, we set name or id as job
+        labels.putIfAbsent("job", nameOrId);
     }
 
     @VisibleForTesting
@@ -198,5 +210,9 @@ public class ResourceExporter extends Collector implements MetricProvider {
     @Override
     public List<MetricFamilySamples> collect() {
         return metrics;
+    }
+
+    private boolean longId(SortedMap<String, String> labels) {
+        return labels.get("id").contains("arn:aws") || labels.get("id").contains("https://");
     }
 }
