@@ -90,6 +90,7 @@ public class AlarmFetcher {
         labels.put("timestamp", alarm.stateUpdatedTimestamp().toString());
         labels.put("threshold", Double.toString(alarm.threshold()));
         labels.put("namespace", alarm.namespace());
+        labels.put("metric_namespace", alarm.namespace());
         labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId());
         if (alarm.metricName() != null) {
             labels.put("metric_name", alarm.metricName());
