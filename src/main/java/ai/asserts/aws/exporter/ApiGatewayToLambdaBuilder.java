@@ -9,6 +9,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
+import io.micrometer.core.instrument.util.StringUtils;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -103,6 +104,9 @@ public class ApiGatewayToLambdaBuilder {
                         .build();
                 GetMethodResponse resp = rateLimiter.doWithRateLimit(api, labels, () -> client.getMethod(req));
                 String uri = resp.methodIntegration().uri();
+                if (StringUtils.isEmpty(uri)) {
+                    return;
+                }
                 Matcher matcher = LAMBDA_URI_PATTERN.matcher(uri);
                 if (matcher.matches()) {
                     ResourceRelation resourceRelation = ResourceRelation.builder()

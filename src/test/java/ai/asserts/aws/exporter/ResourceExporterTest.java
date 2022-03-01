@@ -165,8 +165,9 @@ public class ResourceExporterTest extends EasyMockSupport {
         testClass.addBasicLabels(labels, ResourceIdentifier.builder()
                 .resourceId("id")
                 .resourceName("name")
-                .build(), "idOrName", Optional.of(resource));
+                .build(), "name", Optional.of(resource));
         assertEquals(ImmutableMap.of(
+                "id", "id",
                 "name", "name",
                 "account_id", "account",
                 "job", "name",
@@ -181,7 +182,6 @@ public class ResourceExporterTest extends EasyMockSupport {
         expect(resource.getId()).andReturn(null).anyTimes();
         expect(resource.getAccount()).andReturn("account").anyTimes();
         expect(resource.getName()).andReturn("name");
-        expect(resource.getName()).andReturn("name");
         expect(resource.getType()).andReturn(ECSService);
         expect(resource.getChildOf()).andReturn(resource);
         expect(resource.getName()).andReturn("cluster");
@@ -189,7 +189,7 @@ public class ResourceExporterTest extends EasyMockSupport {
         replayAll();
         testClass.addBasicLabels(labels, ResourceIdentifier.builder()
                 .resourceName("name")
-                .build(), "idOrName", Optional.of(resource));
+                .build(), "name", Optional.of(resource));
         assertEquals(new ImmutableMap.Builder<String, String>()
                 .put("name", "name")
                 .put("cluster", "cluster")
