@@ -123,7 +123,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
                         log.debug("Discovered resource {}-{}", rI.resourceType().toString(), nameOrId);
                         labels.put("aws_resource_type", rI.resourceType().toString());
 
-                        Optional<Resource> arnResource = resourceMapper.map(nameOrId);
+                        Optional<Resource> arnResource = resourceMapper.map(rI.resourceId());
                         addBasicLabels(labels, rI, nameOrId, arnResource);
                         addTagLabels(resourceByName, labels, rI, arnResource);
                         Sample sample = sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
