@@ -277,7 +277,7 @@ public class ResourceMapper {
                 return Optional.empty();
             })
             .add(arn -> {
-                if (arn.contains("arn:aws:elasticloadbalancing")) {
+                if (arn.contains("arn:aws:elasticloadbalancing") && arn.contains("loadbalancer")) {
                     Matcher matcher = LB_PATTERN.matcher(arn);
                     if (matcher.matches()) {
                         return Optional.of(Resource.builder()
