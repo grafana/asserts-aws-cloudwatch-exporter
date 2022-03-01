@@ -155,6 +155,7 @@ public class ResourceExporterTest extends EasyMockSupport {
     void addBasicLabels_LoadBalancer() {
         TreeMap<String, String> labels = new TreeMap<>();
 
+        expect(resource.getId()).andReturn(null).anyTimes();
         expect(resource.getAccount()).andReturn("account").anyTimes();
         expect(resource.getName()).andReturn("name").anyTimes();
         expect(resource.getType()).andReturn(LoadBalancer);
@@ -166,7 +167,7 @@ public class ResourceExporterTest extends EasyMockSupport {
                 .resourceName("name")
                 .build(), "idOrName", Optional.of(resource));
         assertEquals(ImmutableMap.of(
-                "id", "id", "name", "name",
+                "name", "name",
                 "account_id", "account",
                 "job", "name",
                 "type", "app"), labels);
@@ -177,7 +178,9 @@ public class ResourceExporterTest extends EasyMockSupport {
     void addBasicLabels_ECSService() {
         TreeMap<String, String> labels = new TreeMap<>();
 
+        expect(resource.getId()).andReturn(null).anyTimes();
         expect(resource.getAccount()).andReturn("account").anyTimes();
+        expect(resource.getName()).andReturn("name");
         expect(resource.getName()).andReturn("name");
         expect(resource.getType()).andReturn(ECSService);
         expect(resource.getChildOf()).andReturn(resource);
@@ -185,11 +188,9 @@ public class ResourceExporterTest extends EasyMockSupport {
 
         replayAll();
         testClass.addBasicLabels(labels, ResourceIdentifier.builder()
-                .resourceId("id")
                 .resourceName("name")
                 .build(), "idOrName", Optional.of(resource));
         assertEquals(new ImmutableMap.Builder<String, String>()
-                .put("id", "id")
                 .put("name", "name")
                 .put("cluster", "cluster")
                 .put("account_id", "account")

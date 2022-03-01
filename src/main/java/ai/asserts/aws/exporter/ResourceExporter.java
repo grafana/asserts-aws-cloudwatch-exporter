@@ -140,10 +140,11 @@ public class ResourceExporter extends Collector implements MetricProvider {
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @VisibleForTesting
-    void addBasicLabels(SortedMap<String, String> labels, ResourceIdentifier rI, String idOrName,
+    void addBasicLabels(SortedMap<String, String> labels, ResourceIdentifier rI, String nameOrId,
                         Optional<Resource> arnResource) {
         if (arnResource.isPresent()) {
             arnResource.ifPresent(resource -> {
+                labels.putIfAbsent("job", resource.getName());
                 labels.put("name", resource.getName());
                 if (resource.getId() != null) {
                     labels.put("id", resource.getId());
@@ -163,14 +164,13 @@ public class ResourceExporter extends Collector implements MetricProvider {
                 }
             });
         } else {
-            labels.put("job", idOrName);
-        }
-
-        if (rI.resourceId() != null) {
-            labels.put("id", rI.resourceId());
-        }
-        if (rI.resourceName() != null) {
-            labels.put("name", rI.resourceName());
+            labels.put("job", nameOrId);
+            if (rI.resourceId() != null) {
+                labels.put("id", rI.resourceId());
+            }
+            if (rI.resourceName() != null) {
+                labels.put("name", rI.resourceName());
+            }
         }
     }
 
