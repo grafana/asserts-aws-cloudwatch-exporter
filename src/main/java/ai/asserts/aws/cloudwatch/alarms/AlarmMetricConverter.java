@@ -79,6 +79,7 @@ public class AlarmMetricConverter {
 
         labels.put("alarm_name", metric.alarmName());
         labels.put("namespace", metric.namespace());
+        labels.put("metric_namespace", metric.namespace());
         labels.put("metric_name", metric.metricName());
         labels.put("metric_stat", metric.statisticAsString());
         labels.put("metric_period", Integer.toString(metric.period()));

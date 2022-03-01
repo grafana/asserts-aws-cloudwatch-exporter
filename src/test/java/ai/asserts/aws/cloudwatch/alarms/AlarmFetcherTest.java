@@ -96,6 +96,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .put("label1", "value1")
                 .put("alertname", "alarm1")
                 .put("namespace", "AWS/RDS")
+                .put("metric_namespace", "AWS/RDS")
                 .put("region", "region")
                 .put("state", "ALARM")
                 .put("threshold", "10.0")
