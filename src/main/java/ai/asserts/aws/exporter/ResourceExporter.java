@@ -37,6 +37,7 @@ import java.util.stream.Stream;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 
 @Component
 @Slf4j
@@ -202,7 +203,11 @@ public class ResourceExporter extends Collector implements MetricProvider {
 
         arnResource.ifPresent(res -> {
             if (resourceByName.containsKey(res.getName())) {
-                resourceByName.get(res.getName()).addTagLabels(labels, metricNameUtil);
+                Resource resWithTags = resourceByName.get(res.getName());
+                resWithTags.addTagLabels(labels, metricNameUtil);
+                if (AutoScalingGroup.equals(res.getType()) && resWithTags.getSubType() != null) {
+                    labels.put("subtype", resWithTags.getSubType());
+                }
             }
         });
     }
