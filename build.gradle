@@ -48,6 +48,8 @@ dependencies {
             "software.amazon.awssdk:autoscaling:$awsSdkVersion",
             "software.amazon.awssdk:apigateway:$awsSdkVersion",
             "software.amazon.awssdk:sts:$awsSdkVersion",
+            "software.amazon.awssdk:kinesisanalyticsv2:$awsSdkVersion",
+            "software.amazon.awssdk:firehose:$awsSdkVersion",
             "io.opentelemetry:opentelemetry-proto:$opentelemetryProtoBufVersion",
             "com.google.protobuf:protobuf-java:$protobufVersion",
             "com.google.protobuf:protobuf-java-util:$protobufVersion"
