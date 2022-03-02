@@ -33,6 +33,7 @@ import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 import static ai.asserts.aws.resource.ResourceType.ECSService;
 import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static org.easymock.EasyMock.anyObject;
@@ -215,6 +216,8 @@ public class ResourceExporterTest extends EasyMockSupport {
         TreeMap<String, String> labels = new TreeMap<>();
 
         expect(resource.getName()).andReturn("name").anyTimes();
+        expect(resource.getType()).andReturn(AutoScalingGroup).anyTimes();
+        expect(resource.getSubType()).andReturn("k8s").anyTimes();
         resource.addTagLabels(labels, metricNameUtil);
         expectLastCall().times(2);
 
@@ -223,6 +226,7 @@ public class ResourceExporterTest extends EasyMockSupport {
                 .resourceId("id")
                 .resourceName("name")
                 .build(), Optional.of(resource));
+        assertEquals(ImmutableMap.of("subtype", "k8s"), labels);
         verifyAll();
     }
 }

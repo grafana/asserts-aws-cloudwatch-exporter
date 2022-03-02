@@ -23,6 +23,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancingClient;
 import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsRequest;
 import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsResponse;
@@ -45,6 +46,7 @@ import java.util.stream.Collectors;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -208,6 +210,23 @@ public class ResourceTagHelper {
                                         .build())
                                 .filter(scrapeConfig::shouldExportTag)
                                 .collect(Collectors.toList())));
+            }
+        } else if (resourceType.equals("AWS::AutoScaling::AutoScalingGroup")) {
+            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region)) {
+                software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse describeTagsResponse = asgClient.describeTags(software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder()
+                        .build());
+                describeTagsResponse.tags()
+                        .forEach(tagDescription -> {
+                            if (tagDescription.key().contains("k8s") || tagDescription.key().contains("kubernetes")) {
+                                resourceByName.computeIfAbsent(tagDescription.resourceId(), k -> Resource.builder()
+                                        .name(tagDescription.resourceId())
+                                        .type(AutoScalingGroup)
+                                        .subType("k8s")
+                                        .region(region)
+                                        .account(accountIDProvider.getAccountId())
+                                        .build());
+                            }
+                        });
             }
         }
 
