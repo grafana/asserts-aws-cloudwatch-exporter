@@ -11,7 +11,6 @@ import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
-import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2Client;
@@ -69,7 +68,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                 ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
                                 SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, "api"
+                                SCRAPE_OPERATION_LABEL, api
                         ), client::listApplications);
                 if (resp.hasApplicationSummaries()) {
                     samples.addAll(resp.applicationSummaries().stream()
