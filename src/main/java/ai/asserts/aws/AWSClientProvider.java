@@ -13,6 +13,8 @@ import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancingClient;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
+import software.amazon.awssdk.services.firehose.FirehoseClient;
+import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2Client;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -71,5 +73,13 @@ public class AWSClientProvider {
 
     public Ec2Client getEc2Client(String region) {
         return Ec2Client.builder().region(Region.of(region)).build();
+    }
+
+    public KinesisAnalyticsV2Client getKAClient(String region) {
+        return KinesisAnalyticsV2Client.builder().region(Region.of(region)).build();
+    }
+
+    public FirehoseClient getFirehoseClient(String region) {
+        return FirehoseClient.builder().region(Region.of(region)).build();
     }
 }

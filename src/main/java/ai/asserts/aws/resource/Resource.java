@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import software.amazon.awssdk.services.cloudwatch.model.Dimension;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
@@ -64,17 +65,19 @@ public class Resource {
 
 
     public void addLabels(Map<String, String> labels, String prefix) {
+        prefix = StringUtils.hasLength(prefix) ? prefix + "_" : "";
+
         if (account != null) {
-            labels.put(format("%s_account", prefix), account);
+            labels.put(format("%saccount", prefix), account);
         }
-        labels.put(format("%s_region", prefix), region);
-        labels.put(format("%s_type", prefix), type.name());
+        labels.put(format("%sregion", prefix), region);
+        labels.put(format("%stype", prefix), type.name());
         if (subType != null) {
-            labels.put(format("%s_subtype", prefix), subType);
+            labels.put(format("%ssubtype", prefix), subType);
         }
-        labels.put(format("%s_name", prefix), name);
+        labels.put(format("%sname", prefix), name);
         if (id != null) {
-            labels.put(format("%s_id", prefix), id);
+            labels.put(format("%sid", prefix), id);
         }
     }
 
