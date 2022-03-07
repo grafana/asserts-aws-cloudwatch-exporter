@@ -114,6 +114,7 @@ public class AlarmMetricConverter {
 
             if (alarmMetric.getNamespace() != null) {
                 labels.put("namespace", alarmMetric.getNamespace());
+                labels.put("metric_namespace", alarmMetric.getNamespace());
             }
 
             if (alarmMetric.getName() != null) {
