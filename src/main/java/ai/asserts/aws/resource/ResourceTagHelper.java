@@ -186,9 +186,10 @@ public class ResourceTagHelper {
 
     public Map<String, Resource> getResourcesWithTag(String region, String resourceType, List<String> resourceNames) {
         Map<String, Resource> resourceByName = new TreeMap<>();
-        if (CollectionUtils.isEmpty(resourceNames)) {
+        if (CollectionUtils.isEmpty(resourceNames) || resourceNames.stream().noneMatch(StringUtils::isNotEmpty)) {
             return resourceByName;
         }
+        resourceNames = resourceNames.stream().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
         Set<Resource> resources = new HashSet<>();
         Set<String> tagServiceNames = configServiceToServiceNames.getOrDefault(resourceType, Collections.emptySet());
         Map<String, List<Tag>> classLBTagsByName = new TreeMap<>();
