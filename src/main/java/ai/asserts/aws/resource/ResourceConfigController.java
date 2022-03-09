@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,7 +24,17 @@ public class ResourceConfigController {
             path = CONFIG_EVENTS,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Object> receiveConfigEvents(
+    public ResponseEntity<Object> receiveConfigEventsPost(
+            @RequestBody Object configEvents){
+        log.info(configEvents.toString());
+        return ResponseEntity.ok("Completed");
+    }
+
+    @PutMapping(
+            path = CONFIG_EVENTS,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> receiveConfigEventsPut(
             @RequestBody Object configEvents){
         log.info(configEvents.toString());
         return ResponseEntity.ok("Completed");
