@@ -14,6 +14,7 @@ import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
+import io.micrometer.core.instrument.util.StringUtils;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.extern.slf4j.Slf4j;
@@ -113,6 +114,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
                 if (response.hasResourceIdentifiers()) {
                     List<String> resourceNames = response.resourceIdentifiers().stream()
                             .map(ResourceIdentifier::resourceName)
+                            .filter(StringUtils::isNotEmpty)
                             .collect(Collectors.toList());
                     Map<String, Resource> resourceByName = resourceTagHelper.getResourcesWithTag(
                             region, resourceType, resourceNames);
