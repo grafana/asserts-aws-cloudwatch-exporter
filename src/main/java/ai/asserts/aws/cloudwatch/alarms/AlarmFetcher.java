@@ -126,7 +126,7 @@ public class AlarmFetcher {
                 strOperator = ">=";
                 break;
             case LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD:
-                strOperator = "<>";
+                strOperator = "> or <";
                 break;
         }
         return strOperator;
