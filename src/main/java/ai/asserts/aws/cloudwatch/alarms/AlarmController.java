@@ -26,6 +26,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @AllArgsConstructor
 public class AlarmController {
     private static final String ALARMS = "/receive-cloudwatch-alarms";
+    private static final String ALARMS_SNS = "/receive-cloudwatch-alarms/sns";
     private final AlarmMetricConverter alarmMetricConverter;
     private final ObjectMapperFactory objectMapperFactory;
     private final AlertsProcessor alertsProcessor;
@@ -46,6 +47,26 @@ public class AlarmController {
     public ResponseEntity<AlarmResponse> receiveAlarmsPut(
             @RequestBody AlarmRequest alarmRequest) {
         return processRequest(alarmRequest);
+    }
+
+    @PostMapping(
+            path = ALARMS_SNS,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<AlarmResponse> receiveAlarmSNSPost(
+            @RequestBody Object alarmRequest) {
+        log.info("AlarmSNS - {}",alarmRequest.toString());
+        return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+    }
+
+    @PutMapping(
+            path = ALARMS_SNS,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<AlarmResponse> receiveAlarmSNSPut(
+            @RequestBody Object alarmRequest) {
+        log.info("AlarmSNS  - {}",alarmRequest.toString());
+        return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
     }
 
     private ResponseEntity<AlarmResponse> processRequest(AlarmRequest alarmRequest) {
