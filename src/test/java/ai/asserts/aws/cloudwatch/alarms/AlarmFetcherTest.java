@@ -17,6 +17,7 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
+import software.amazon.awssdk.services.cloudwatch.model.ComparisonOperator;
 import software.amazon.awssdk.services.cloudwatch.model.DescribeAlarmsRequest;
 import software.amazon.awssdk.services.cloudwatch.model.DescribeAlarmsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.MetricAlarm;
@@ -74,7 +75,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .stateValue("ALARM")
                 .stateUpdatedTimestamp(now)
                 .threshold(10.0)
-                .comparisonOperator("GreaterThan")
+                .comparisonOperator(ComparisonOperator.GREATER_THAN_THRESHOLD)
                 .namespace("AWS/RDS")
                 .build();
         DescribeAlarmsResponse response = DescribeAlarmsResponse.builder()
@@ -98,7 +99,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .put("alertname", "alarm1")
                 .put("namespace", "AWS/RDS")
                 .put("metric_namespace", "AWS/RDS")
-                .put("metric_operator", "GreaterThan")
+                .put("metric_operator", ">")
                 .put("region", "region")
                 .put("state", "ALARM")
                 .put("threshold", "10.0")
