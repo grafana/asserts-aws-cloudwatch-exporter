@@ -18,25 +18,46 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @AllArgsConstructor
 @RestController
 public class ResourceConfigController {
-    private static final String CONFIG_EVENTS ="/receive-config-events";
+    private static final String CONFIG_CHANGE_RESOURCE ="/receive-config-change/resource";
+    private static final String CONFIG_CHANGE_SNS ="/receive-config-change/sns";
 
     @PostMapping(
-            path = CONFIG_EVENTS,
+            path = CONFIG_CHANGE_RESOURCE,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Object> receiveConfigEventsPost(
-            @RequestBody Object configEvents){
-        log.info(configEvents.toString());
+    public ResponseEntity<Object> resourceConfigChangePost(
+            @RequestBody Object resourceConfig){
+        log.info("resourceConfigChange - {}",resourceConfig.toString());
         return ResponseEntity.ok("Completed");
     }
 
     @PutMapping(
-            path = CONFIG_EVENTS,
+            path = CONFIG_CHANGE_RESOURCE,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Object> receiveConfigEventsPut(
-            @RequestBody Object configEvents){
-        log.info(configEvents.toString());
+    public ResponseEntity<Object> resourceConfigChangePut(
+            @RequestBody Object resourceConfig){
+        log.info("resourceConfigChange - {}",resourceConfig.toString());
+        return ResponseEntity.ok("Completed");
+    }
+
+    @PostMapping(
+            path = CONFIG_CHANGE_SNS,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> snsConfigChangePost(
+            @RequestBody Object snsConfig){
+        log.info("snsConfigChange - {}",snsConfig.toString());
+        return ResponseEntity.ok("Completed");
+    }
+
+    @PutMapping(
+            path = CONFIG_CHANGE_SNS,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> snsConfigChangePut(
+            @RequestBody Object snsConfig){
+        log.info("snsConfigChange - {}",snsConfig.toString());
         return ResponseEntity.ok("Completed");
     }
 }
