@@ -74,6 +74,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .stateValue("ALARM")
                 .stateUpdatedTimestamp(now)
                 .threshold(10.0)
+                .comparisonOperator("GreaterThan")
                 .namespace("AWS/RDS")
                 .build();
         DescribeAlarmsResponse response = DescribeAlarmsResponse.builder()
@@ -97,6 +98,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .put("alertname", "alarm1")
                 .put("namespace", "AWS/RDS")
                 .put("metric_namespace", "AWS/RDS")
+                .put("metric_operator", "GreaterThan")
                 .put("region", "region")
                 .put("state", "ALARM")
                 .put("threshold", "10.0")

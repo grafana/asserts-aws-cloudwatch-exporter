@@ -95,6 +95,9 @@ public class AlarmFetcher {
         if (alarm.metricName() != null) {
             labels.put("metric_name", alarm.metricName());
         }
+        if (alarm.comparisonOperatorAsString() != null) {
+            labels.put("metric_operator", alarm.comparisonOperatorAsString());
+        }
         labels.putAll(alarmMetricConverter.extractMetricAndEntityLabels(alarm));
         if (alarm.hasDimensions()) {
             alarm.dimensions().forEach(dimension -> {
