@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
+import software.amazon.awssdk.services.cloudwatch.model.ComparisonOperator;
 import software.amazon.awssdk.services.cloudwatch.model.DescribeAlarmsRequest;
 import software.amazon.awssdk.services.cloudwatch.model.DescribeAlarmsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.MetricAlarm;
@@ -95,6 +96,9 @@ public class AlarmFetcher {
         if (alarm.metricName() != null) {
             labels.put("metric_name", alarm.metricName());
         }
+        if (alarm.comparisonOperatorAsString() != null) {
+            labels.put("metric_operator", mapComparisonOperator(alarm.comparisonOperator()));
+        }
         labels.putAll(alarmMetricConverter.extractMetricAndEntityLabels(alarm));
         if (alarm.hasDimensions()) {
             alarm.dimensions().forEach(dimension -> {
@@ -102,5 +106,29 @@ public class AlarmFetcher {
             });
         }
         return labels;
+    }
+
+    private String mapComparisonOperator(ComparisonOperator operator) {
+        String strOperator = "";
+        switch (operator) {
+            case LESS_THAN_THRESHOLD:
+            case LESS_THAN_LOWER_THRESHOLD:
+                strOperator = "<";
+                break;
+            case GREATER_THAN_THRESHOLD:
+            case GREATER_THAN_UPPER_THRESHOLD:
+                strOperator = ">";
+                break;
+            case LESS_THAN_OR_EQUAL_TO_THRESHOLD:
+                strOperator = "<=";
+                break;
+            case GREATER_THAN_OR_EQUAL_TO_THRESHOLD:
+                strOperator = ">=";
+                break;
+            case LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD:
+                strOperator = "> or <";
+                break;
+        }
+        return strOperator;
     }
 }
