@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -67,7 +66,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         familySamples = mock(Collector.MetricFamilySamples.class);
         timeWindowBuilder = mock(TimeWindowBuilder.class);
 
-        testClass = new MetricScrapeTask(region, interval, delay);
+        testClass = new MetricScrapeTask(region, interval, delay, null);
         testClass.setMetricQueryProvider(metricQueryProvider);
         testClass.setQueryBatcher(queryBatcher);
         testClass.setAwsClientProvider(awsClientProvider);
@@ -104,7 +103,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         expect(metricQueryProvider.getMetricQueries())
                 .andReturn(ImmutableMap.of(region, ImmutableMap.of(interval, queries)));
 
-        expect(awsClientProvider.getCloudWatchClient(region)).andReturn(cloudWatchClient);
+        expect(awsClientProvider.getCloudWatchClient(region, null)).andReturn(cloudWatchClient);
 
         expect(timeWindowBuilder.getTimePeriod(region, interval)).andReturn(new Instant[]{now.minusSeconds(60), now});
 

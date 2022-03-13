@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -97,7 +96,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 .functionName("fn4")
                 .build();
 
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region1", null)).andReturn(lambdaClient);
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(fn1Config, fn2Config)).build());
@@ -111,7 +110,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         lambdaClient.close();
 
-        expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region2", null)).andReturn(lambdaClient);
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(fn3Config, fn4Config)).build());
@@ -127,8 +126,8 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         replayAll();
 
         assertEquals(ImmutableMap.of(
-                "region1", ImmutableMap.of("arn1", lambdaFunction, "arn2", lambdaFunction),
-                "region2", ImmutableMap.of("arn3", lambdaFunction, "arn4", lambdaFunction)
+                        "region1", ImmutableMap.of("arn1", lambdaFunction, "arn2", lambdaFunction),
+                        "region2", ImmutableMap.of("arn3", lambdaFunction, "arn4", lambdaFunction)
                 ),
                 lambdaFunctionScraper.getFunctions());
 
@@ -137,11 +136,11 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
     @Test
     public void getFunctions_Exception() {
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region1", null)).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
         lambdaClient.close();
 
-        expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region2", null)).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(SortedMap.class), eq(1));
         expectLastCall().times(2);

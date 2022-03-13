@@ -53,7 +53,8 @@ public class EC2ToEBSVolumeExporter {
         Set<ResourceRelation> newAttachedVolumes = new HashSet<>();
         try {
             scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-                Ec2Client ec2Client = awsClientProvider.getEc2Client(region);
+                Ec2Client ec2Client = awsClientProvider.getEc2Client(region,
+                        scrapeConfigProvider.getScrapeConfig().getAssumeRole());
                 SortedMap<String, String> telemetryLabels = new TreeMap<>();
                 String api = "Ec2Client/describeVolumes";
                 telemetryLabels.put(SCRAPE_OPERATION_LABEL, api);

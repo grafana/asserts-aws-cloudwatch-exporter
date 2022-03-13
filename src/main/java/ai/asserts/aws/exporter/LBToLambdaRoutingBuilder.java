@@ -44,7 +44,8 @@ public class LBToLambdaRoutingBuilder {
         log.info("LB To Lambda routing relation builder about to build relations");
         Set<ResourceRelation> routing = new HashSet<>();
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            try (ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region)) {
+            try (ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region,
+                    scrapeConfigProvider.getScrapeConfig().getAssumeRole())) {
                 Map<Resource, Resource> tgToLB = targetGroupLBMapProvider.getTgToLB();
                 tgToLB.keySet().forEach(tg -> {
                     try {

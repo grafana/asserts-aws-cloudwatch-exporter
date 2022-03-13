@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -81,7 +80,8 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
         scrapeConfig.getLambdaConfig().ifPresent(nc -> {
             log.info("BEGIN lambda log scrape for region {}", region);
             if (!CollectionUtils.isEmpty(nc.getLogs()) && lambdaFunctionScraper.getFunctions().containsKey(region)) {
-                try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region)) {
+                try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region,
+                        scrapeConfig.getAssumeRole())) {
                     lambdaFunctionScraper.getFunctions().get(region).forEach((arn, functionConfig) -> nc.getLogs()
                             .stream()
                             .filter(logScrapeConfig -> logScrapeConfig.shouldScrapeLogsFor(functionConfig.getName()))
@@ -104,19 +104,19 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
         return map;
     }
 
-    @Builder
-    @EqualsAndHashCode
-    @Getter
-    public static class FunctionLogScrapeConfig {
-        private final LambdaFunction lambdaFunction;
-        private final LogScrapeConfig logScrapeConfig;
-    }
-
     private void sleep(long time) {
         try {
             Thread.sleep(time);
         } catch (InterruptedException e) {
             log.error("Interrupted", e);
         }
+    }
+
+    @Builder
+    @EqualsAndHashCode
+    @Getter
+    public static class FunctionLogScrapeConfig {
+        private final LambdaFunction lambdaFunction;
+        private final LogScrapeConfig logScrapeConfig;
     }
 }

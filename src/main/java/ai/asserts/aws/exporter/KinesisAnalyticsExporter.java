@@ -29,9 +29,9 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 public class KinesisAnalyticsExporter extends Collector implements InitializingBean {
+    public final CollectorRegistry collectorRegistry;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
-    public final CollectorRegistry collectorRegistry;
     private final RateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
@@ -63,7 +63,8 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            try (KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region)) {
+            try (KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region,
+                    scrapeConfigProvider.getScrapeConfig().getAssumeRole())) {
                 String api = "KinesisAnalyticsV2Client/listApplications";
                 ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(

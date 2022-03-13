@@ -79,7 +79,8 @@ public class ResourceExporter extends Collector implements MetricProvider {
             if (discoverResourceTypes.size() > 0) {
                 scrapeConfig.getRegions().forEach(region -> {
                     log.info("Discovering resources in region {}", region);
-                    try (ConfigClient configClient = awsClientProvider.getConfigClient(region)) {
+                    try (ConfigClient configClient = awsClientProvider.getConfigClient(region,
+                            scrapeConfig.getAssumeRole())) {
                         discoverResourceTypes.forEach(resourceType ->
                                 samples.addAll(getResources(region, configClient, resourceType)));
                     }

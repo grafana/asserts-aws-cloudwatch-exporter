@@ -87,7 +87,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         expect(namespaceConfig.getTagFilters()).andReturn(ImmutableMap.of(
                 "tag", ImmutableSortedSet.of("value1", "value2")
         ));
-        expect(awsClientProvider.getResourceTagClient("region")).andReturn(apiClient);
+        expect(awsClientProvider.getResourceTagClient("region", null)).andReturn(apiClient);
+        expect(scrapeConfig.getAssumeRole()).andReturn(null);
 
         Tag tag1 = Tag.builder()
                 .key("tag").value("value1")
@@ -152,7 +153,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getStandardNamespace("kafka")).andReturn(Optional.of(kafka));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.hasTagFilters()).andReturn(false);
-        expect(awsClientProvider.getResourceTagClient("region")).andReturn(apiClient);
+        expect(awsClientProvider.getResourceTagClient("region", null)).andReturn(apiClient);
+        expect(scrapeConfig.getAssumeRole()).andReturn(null);
 
         Tag tag1 = Tag.builder()
                 .key("tag").value("value1")
@@ -264,7 +266,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
         expect(resource.getTags()).andReturn(tags).anyTimes();
 
-        expect(awsClientProvider.getELBClient("region")).andReturn(elbClient);
+        expect(awsClientProvider.getELBClient("region", null)).andReturn(elbClient);
         expect(elbClient.describeTags(DescribeTagsRequest.builder()
                 .loadBalancerNames("resourceName")
                 .build())).andReturn(DescribeTagsResponse.builder()
@@ -279,6 +281,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         resource.setTags(ImmutableList.of(lbTagConverted, resourceTag));
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getAssumeRole()).andReturn(null);
         expect(scrapeConfig.shouldExportTag(lbTagConverted)).andReturn(true);
         replayAll();
 

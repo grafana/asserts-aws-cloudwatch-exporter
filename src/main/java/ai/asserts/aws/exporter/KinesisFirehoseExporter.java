@@ -30,9 +30,9 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 public class KinesisFirehoseExporter extends Collector implements InitializingBean {
+    public final CollectorRegistry collectorRegistry;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
-    public final CollectorRegistry collectorRegistry;
     private final RateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
@@ -64,7 +64,8 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            try (FirehoseClient client = awsClientProvider.getFirehoseClient(region)) {
+            try (FirehoseClient client = awsClientProvider.getFirehoseClient(region,
+                    scrapeConfigProvider.getScrapeConfig().getAssumeRole())) {
                 String api = "FirehoseClient/listDeliveryStreams";
                 ListDeliveryStreamsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(

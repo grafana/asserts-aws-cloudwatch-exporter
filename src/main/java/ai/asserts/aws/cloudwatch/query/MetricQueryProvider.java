@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.cloudwatch.query;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -75,7 +74,8 @@ public class MetricQueryProvider {
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getRegions().forEach(region -> scrapeConfig.getNamespaces().forEach(ns -> {
-            try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
+            try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region,
+                    scrapeConfig.getAssumeRole())) {
                 Set<Resource> tagFilteredResources = resourceTagHelper.getFilteredResources(region, ns);
                 if (!ns.hasTagFilters() || tagFilteredResources.size() > 0) {
 

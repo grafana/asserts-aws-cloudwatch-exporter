@@ -86,6 +86,8 @@ public class ScrapeConfig {
 
     private String tenant;
 
+    private String assumeRole;
+
     @Builder.Default
     private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
 

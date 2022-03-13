@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.cloudwatch.query;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -33,6 +32,8 @@ import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 
 public class MetricQueryProviderTest extends EasyMockSupport {
+    private final CWNamespace _CW_namespace = lambda;
+    private final String metricName = "Invocations";
     private ScrapeConfigProvider scrapeConfigProvider;
     private QueryIdGenerator queryIdGenerator;
     private MetricNameUtil metricNameUtil;
@@ -47,8 +48,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     private MetricQuery metricQuery;
     private BasicMetricCollector metricCollector;
     private MetricQueryProvider testClass;
-    private final CWNamespace _CW_namespace = lambda;
-    private final String metricName = "Invocations";
 
     @BeforeEach
     public void setup() {
@@ -90,7 +89,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfigProvider.getStandardNamespace(_CW_namespace.name()))
                 .andReturn(Optional.of(lambda)).anyTimes();
-        expect(awsClientProvider.getCloudWatchClient("region1")).andReturn(cloudWatchClient);
+        expect(awsClientProvider.getCloudWatchClient("region1", null)).andReturn(cloudWatchClient);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
 
@@ -145,7 +144,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .build();
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(awsClientProvider.getCloudWatchClient("region1")).andReturn(cloudWatchClient);
+        expect(awsClientProvider.getCloudWatchClient("region1", null)).andReturn(cloudWatchClient);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
 

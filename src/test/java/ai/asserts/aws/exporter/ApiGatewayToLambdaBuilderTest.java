@@ -54,7 +54,8 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                 new RateLimiter(metricCollector), accountIDProvider);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
-        expect(awsClientProvider.getApiGatewayClient("region")).andReturn(apiGatewayClient).anyTimes();
+        expect(scrapeConfig.getAssumeRole()).andReturn(null);
+        expect(awsClientProvider.getApiGatewayClient("region", null)).andReturn(apiGatewayClient).anyTimes();
         expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
     }
 

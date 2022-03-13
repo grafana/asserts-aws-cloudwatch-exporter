@@ -50,7 +50,8 @@ public class TargetGroupLBMapProvider {
         try {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             scrapeConfig.getRegions().forEach(region -> {
-                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region)) {
+                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region,
+                        scrapeConfig.getAssumeRole())) {
                     String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
                     ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
                             SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api);
@@ -71,7 +72,7 @@ public class TargetGroupLBMapProvider {
         String lbArn = lb.loadBalancerArn();
         resourceMapper.map(lbArn).ifPresent(lbResource -> {
             String api = "ElasticLoadBalancingV2Client/describeListeners";
-            SortedMap<String ,String> telemetryLabels = new TreeMap<>(labels);
+            SortedMap<String, String> telemetryLabels = new TreeMap<>(labels);
             telemetryLabels.put(SCRAPE_OPERATION_LABEL, api);
             rateLimiter.doWithRateLimit(api, telemetryLabels, () -> {
                 DescribeListenersRequest listenersRequest = DescribeListenersRequest.builder()
@@ -90,7 +91,7 @@ public class TargetGroupLBMapProvider {
     @VisibleForTesting
     void mapListener(ElasticLoadBalancingV2Client lbClient, SortedMap<String, String> labels, Resource lbResource,
                      Listener listener) {
-        SortedMap<String ,String> telemetryLabels = new TreeMap<>(labels);
+        SortedMap<String, String> telemetryLabels = new TreeMap<>(labels);
         telemetryLabels.put(SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClientV2/describeRules");
         DescribeRulesResponse dLR = rateLimiter.doWithRateLimit("ElasticLoadBalancingClientV2/describeRules",
                 telemetryLabels,

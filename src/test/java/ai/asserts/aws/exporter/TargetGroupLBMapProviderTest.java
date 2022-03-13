@@ -65,6 +65,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
+        expect(scrapeConfig.getAssumeRole()).andReturn(null).anyTimes();
     }
 
     @Test
@@ -73,7 +74,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 .loadBalancerArn("lb-arn")
                 .build();
 
-        expect(awsClientProvider.getELBV2Client("region")).andReturn(lbClient);
+        expect(awsClientProvider.getELBV2Client("region", null)).andReturn(lbClient);
 
         expect(lbClient.describeLoadBalancers()).andReturn(DescribeLoadBalancersResponse.builder()
                 .loadBalancers(loadBalancer)

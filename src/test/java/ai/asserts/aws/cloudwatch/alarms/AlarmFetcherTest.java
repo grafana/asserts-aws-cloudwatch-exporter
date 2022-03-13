@@ -63,9 +63,10 @@ public class AlarmFetcherTest extends EasyMockSupport {
     @Test
     public void sendAlarmsForRegions() {
         expect(accountIDProvider.getAccountId()).andReturn("123456789").anyTimes();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).times(2);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
-        expect(awsClientProvider.getCloudWatchClient("region")).andReturn(cloudWatchClient).anyTimes();
+        expect(scrapeConfig.getAssumeRole()).andReturn(null);
+        expect(awsClientProvider.getCloudWatchClient("region", null)).andReturn(cloudWatchClient).anyTimes();
 
 
         Capture<RateLimiter.AWSAPICall<DescribeAlarmsResponse>> callbackCapture = Capture.newInstance();

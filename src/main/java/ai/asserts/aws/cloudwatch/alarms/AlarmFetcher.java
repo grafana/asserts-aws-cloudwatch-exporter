@@ -52,7 +52,8 @@ public class AlarmFetcher {
     private List<Map<String, String>> getAlarms(String region) {
         List<Map<String, String>> labelsList = new ArrayList<>();
         String[] nextToken = new String[]{null};
-        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
+        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region,
+                scrapeConfigProvider.getScrapeConfig().getAssumeRole())) {
             do {
                 DescribeAlarmsResponse response = rateLimiter.doWithRateLimit(
                         "CloudWatchClient/describeAlarms",

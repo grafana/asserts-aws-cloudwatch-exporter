@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -47,6 +46,13 @@ import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLE
 @Getter
 @EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
 public class MetricScrapeTask extends Collector implements MetricProvider {
+    @EqualsAndHashCode.Include
+    private final String region;
+    @EqualsAndHashCode.Include
+    private final int intervalSeconds;
+    @EqualsAndHashCode.Include
+    private final int delaySeconds;
+    private final String assumeRole;
     @Autowired
     private AWSClientProvider awsClientProvider;
     @Autowired
@@ -61,18 +67,13 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private TimeWindowBuilder timeWindowBuilder;
     @Autowired
     private RateLimiter rateLimiter;
-    @EqualsAndHashCode.Include
-    private final String region;
-    @EqualsAndHashCode.Include
-    private final int intervalSeconds;
-    @EqualsAndHashCode.Include
-    private final int delaySeconds;
     private long lastRunTime = -1;
     private volatile List<MetricFamilySamples> cache;
 
-    public MetricScrapeTask(String region, int intervalSeconds, int delay) {
+    public MetricScrapeTask(String region, int intervalSeconds, int delay, String assumeRole) {
         this.region = region;
         this.intervalSeconds = intervalSeconds;
+        this.assumeRole = assumeRole;
         this.delaySeconds = delay;
         this.cache = new ArrayList<>();
     }
@@ -117,7 +118,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         Map<String, List<MetricFamilySamples.Sample>> samplesByMetric = new TreeMap<>();
 
-        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
+        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, assumeRole)) {
             batches.forEach(batch -> {
                 String nextToken = null;
                 // For now, S3 is the only one which has a different period of 1 day. All other metrics are 1m

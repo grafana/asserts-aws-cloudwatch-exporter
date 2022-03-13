@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -61,7 +60,7 @@ public class LambdaFunctionScraper {
                 .filter(ns -> CWNamespace.lambda.getNamespace().equals(ns.getName()))
                 .findFirst();
         lambdaNSOpt.ifPresent(lambdaNS -> scrapeConfig.getRegions().forEach(region -> {
-            try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region)) {
+            try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, scrapeConfig.getAssumeRole())) {
                 // Get all the functions
                 ListFunctionsResponse response = rateLimiter.doWithRateLimit(
                         "LambdaClient/listFunctions",

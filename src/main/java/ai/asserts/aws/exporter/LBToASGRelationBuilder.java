@@ -56,7 +56,8 @@ public class LBToASGRelationBuilder {
                     ImmutableSortedMap.of(
                             SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api
                     ),
-                    () -> awsClientProvider.getAutoScalingClient(region))) {
+                    () -> awsClientProvider.getAutoScalingClient(region,
+                            scrapeConfigProvider.getScrapeConfig().getAssumeRole()))) {
                 DescribeAutoScalingGroupsResponse resp = autoScalingClient.describeAutoScalingGroups();
                 List<AutoScalingGroup> groups = resp.autoScalingGroups();
                 if (!isEmpty(groups)) {

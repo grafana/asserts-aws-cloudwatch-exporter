@@ -59,7 +59,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, ecsServiceDiscoveryExporter,
                 taskThreadPool, alarmMetricExporter, alarmFetcher) {
             @Override
-            MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
+            MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay, String assumeRole) {
                 return metricScrapeTask;
             }
         };
@@ -74,6 +74,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getDelay()).andReturn(delay).anyTimes();
+        expect(scrapeConfig.getAssumeRole()).andReturn(null).anyTimes();
 
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2")).anyTimes();
         ImmutableList<LogScrapeConfig> logScrapeConfigs = ImmutableList.of(LogScrapeConfig.builder()

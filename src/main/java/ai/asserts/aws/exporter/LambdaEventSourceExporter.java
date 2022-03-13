@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -78,7 +77,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         Map<String, List<EventSourceMappingConfiguration>> byRegion = new TreeMap<>();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getLambdaConfig().ifPresent(namespaceConfig -> scrapeConfig.getRegions().forEach(region -> {
-            try (LambdaClient client = awsClientProvider.getLambdaClient(region)) {
+            try (LambdaClient client = awsClientProvider.getLambdaClient(region, scrapeConfig.getAssumeRole())) {
                 // Get all event source mappings
                 log.info("Discovering Lambda event source mappings for region={}", region);
                 String nextToken = null;

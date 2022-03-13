@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -72,6 +71,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     void scrape_whenLambdaEnabled() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig)).anyTimes();
+        expect(scrapeConfig.getAssumeRole()).andReturn(null).anyTimes();
         expect(scrapeConfig.getLogScrapeDelaySeconds()).andReturn(1);
         expect(namespaceConfig.getLogs()).andReturn(ImmutableList.of(logScrapeConfig)).anyTimes();
         expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of(
@@ -79,7 +79,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         ).anyTimes();
         expect(lambdaFunction.getName()).andReturn("fn1").anyTimes();
         expect(logScrapeConfig.shouldScrapeLogsFor("fn1")).andReturn(true);
-        expect(awsClientProvider.getCloudWatchLogsClient(region)).andReturn(cloudWatchLogsClient);
+        expect(awsClientProvider.getCloudWatchLogsClient(region, null)).andReturn(cloudWatchLogsClient);
         FilteredLogEvent filteredLogEvent = FilteredLogEvent.builder()
                 .message("message")
                 .build();
