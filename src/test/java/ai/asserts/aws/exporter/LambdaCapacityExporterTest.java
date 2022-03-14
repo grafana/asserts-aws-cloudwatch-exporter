@@ -222,7 +222,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         testClass.update();
         testClass.collect();
         assertEquals(ImmutableList.of(familySamples, familySamples, familySamples, familySamples, familySamples,
-                        familySamples, familySamples),
+                familySamples, familySamples),
                 testClass.collect());
         verifyAll();
     }
