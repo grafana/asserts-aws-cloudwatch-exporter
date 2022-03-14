@@ -13,22 +13,25 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 public class AWSSessionProvider {
     private final TimeWindowBuilder timeWindowBuilder;
-    private AWSSessionConfig currentSession;
+    private final AtomicReference<AWSSessionConfig> currentSession;
 
     public AWSSessionProvider(TimeWindowBuilder timeWindowBuilder) {
         this.timeWindowBuilder = timeWindowBuilder;
-        currentSession = null;
+        currentSession = new AtomicReference<>();
+        currentSession.set(null);
     }
 
     public Optional<AWSSessionConfig> getSessionCredential(String region, String assumeRole) {
         if (assumeRole != null) {
-            if (currentSession != null &&
-                    timeWindowBuilder.getZonedDateTime(region).toInstant().compareTo(currentSession.getExpiring()) < 0) {
-                return Optional.of(currentSession);
+            if (currentSession.get() != null &&
+                    timeWindowBuilder.getZonedDateTime(region).toInstant().
+                            compareTo(currentSession.get().getExpiring()) < 0) {
+                return Optional.of(currentSession.get());
             }
             StsClient stsClient = StsClient.builder().region(Region.of(region))
                     .build();
@@ -37,13 +40,15 @@ public class AWSSessionProvider {
                     .roleArn(assumeRole)
                     .build());
             if (response.credentials() != null) {
-                currentSession = AWSSessionConfig.builder()
+                AWSSessionConfig preValue = currentSession.get();
+                AWSSessionConfig newValue = AWSSessionConfig.builder()
                         .accessKeyId(response.credentials().accessKeyId())
                         .secretAccessKey(response.credentials().secretAccessKey())
                         .sessionToken(response.credentials().sessionToken())
                         .expiring(response.credentials().expiration())
                         .build();
-                return Optional.of(currentSession);
+                currentSession.compareAndSet(preValue, newValue);
+                return Optional.of(currentSession.get());
             }
         }
         return Optional.empty();
