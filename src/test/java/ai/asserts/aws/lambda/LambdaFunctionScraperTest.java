@@ -1,3 +1,4 @@
+
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -126,8 +127,8 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         replayAll();
 
         assertEquals(ImmutableMap.of(
-                        "region1", ImmutableMap.of("arn1", lambdaFunction, "arn2", lambdaFunction),
-                        "region2", ImmutableMap.of("arn3", lambdaFunction, "arn4", lambdaFunction)
+                "region1", ImmutableMap.of("arn1", lambdaFunction, "arn2", lambdaFunction),
+                "region2", ImmutableMap.of("arn3", lambdaFunction, "arn4", lambdaFunction)
                 ),
                 lambdaFunctionScraper.getFunctions());
 

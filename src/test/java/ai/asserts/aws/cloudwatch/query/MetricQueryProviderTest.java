@@ -32,8 +32,6 @@ import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 
 public class MetricQueryProviderTest extends EasyMockSupport {
-    private final CWNamespace _CW_namespace = lambda;
-    private final String metricName = "Invocations";
     private ScrapeConfigProvider scrapeConfigProvider;
     private QueryIdGenerator queryIdGenerator;
     private MetricNameUtil metricNameUtil;
@@ -48,6 +46,8 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     private MetricQuery metricQuery;
     private BasicMetricCollector metricCollector;
     private MetricQueryProvider testClass;
+    private final CWNamespace _CW_namespace = lambda;
+    private final String metricName = "Invocations";
 
     @BeforeEach
     public void setup() {
