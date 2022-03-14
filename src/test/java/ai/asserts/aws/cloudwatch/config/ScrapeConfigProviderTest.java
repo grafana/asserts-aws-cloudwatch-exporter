@@ -1,4 +1,3 @@
-
 package ai.asserts.aws.cloudwatch.config;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -32,13 +31,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ScrapeConfigProviderTest extends EasyMockSupport {
-    private AWSClientProvider awsClientProvider;
     private S3Client s3Client;
     private BasicMetricCollector metricCollector;
 
     @BeforeEach
     public void setup() {
-        awsClientProvider = mock(AWSClientProvider.class);
         s3Client = mock(S3Client.class);
         metricCollector = mock(BasicMetricCollector.class);
     }
@@ -131,7 +128,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     void integrationTest() {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                awsClientProvider, metricCollector, new RateLimiter(metricCollector),
+                metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml");
         assertNotNull(testClass.getScrapeConfig());
         assertEquals(ImmutableSet.of("us-west-2"), testClass.getScrapeConfig().getRegions());
@@ -143,7 +140,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     void envOverrides() {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                awsClientProvider, metricCollector, new RateLimiter(metricCollector),
+                metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml") {
             @Override
             Map<String, String> getGetenv() {
@@ -163,7 +160,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         scrapeConfig.validateConfig();
 
         fis = new FileInputStream("src/test/resources/cloudwatch_scrape_config.yml");
-        expect(awsClientProvider.getS3Client()).andReturn(s3Client);
         expect(s3Client.getObjectAsBytes(GetObjectRequest.builder()
                 .bucket("bucket")
                 .key("key")
@@ -173,11 +169,16 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         replayAll();
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                awsClientProvider, metricCollector, new RateLimiter(metricCollector),
+                metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml") {
             @Override
             Map<String, String> getGetenv() {
                 return ImmutableMap.of("CONFIG_S3_BUCKET", "bucket", "CONFIG_S3_KEY", "key");
+            }
+
+            @Override
+            S3Client getS3Client() {
+                return s3Client;
             }
         };
         assertEquals(scrapeConfig.toString(), testClass.getScrapeConfig().toString());

@@ -1,7 +1,5 @@
-
 package ai.asserts.aws.cloudwatch.config;
 
-import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
@@ -36,20 +34,18 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 @Component
 @Slf4j
 public class ScrapeConfigProvider {
-    private final AWSClientProvider awsClientProvider;
     private final ObjectMapperFactory objectMapperFactory;
     private final BasicMetricCollector metricCollector;
     private final RateLimiter rateLimiter;
     private final String scrapeConfigFile;
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-    private volatile ScrapeConfig configCache;
     private final Map<String, CWNamespace> byNamespace = new TreeMap<>();
     private final Map<String, CWNamespace> byServiceName = new TreeMap<>();
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
     private final ScrapeConfig NOOP_CONFIG = new ScrapeConfig();
+    private volatile ScrapeConfig configCache;
 
     public ScrapeConfigProvider(ObjectMapperFactory objectMapperFactory,
-                                AWSClientProvider awsClientProvider,
                                 BasicMetricCollector metricCollector,
                                 RateLimiter rateLimiter,
                                 @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile) {
@@ -57,7 +53,6 @@ public class ScrapeConfigProvider {
         this.scrapeConfigFile = scrapeConfigFile;
         this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
-        this.awsClientProvider = awsClientProvider;
         loadAndBuildLookups();
     }
 
@@ -106,7 +101,7 @@ public class ScrapeConfigProvider {
                     String bucket = envVariables.get("CONFIG_S3_BUCKET");
                     String key = envVariables.get("CONFIG_S3_KEY");
                     log.info("Will load configuration from S3 Bucket [{}] and Key [{}]", bucket, key);
-                    try (S3Client s3Client = awsClientProvider.getS3Client()) {
+                    try (S3Client s3Client = getS3Client()) {
                         ResponseBytes<GetObjectResponse> objectAsBytes = rateLimiter.doWithRateLimit(
                                 "S3Client/getObjectAsBytes",
                                 labels,
@@ -150,6 +145,11 @@ public class ScrapeConfigProvider {
     @VisibleForTesting
     Map<String, String> getGetenv() {
         return System.getenv();
+    }
+
+    @VisibleForTesting
+    S3Client getS3Client() {
+        return S3Client.builder().build();
     }
 
     public boolean isEnabled(String flag) {

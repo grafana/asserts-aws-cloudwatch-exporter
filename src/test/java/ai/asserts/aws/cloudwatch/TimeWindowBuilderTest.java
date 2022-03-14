@@ -28,7 +28,6 @@ public class TimeWindowBuilderTest {
         Instant[] timePeriod = testClass.getDailyMetricTimeWindow("us-west-2");
         ZonedDateTime startTime = ZonedDateTime.ofInstant(timePeriod[0], ZoneId.of("America/Los_Angeles"));
         ZonedDateTime endTime = ZonedDateTime.ofInstant(timePeriod[1], ZoneId.of("America/Los_Angeles"));
-
         assertEquals(0, startTime.getSecond());
         assertEquals(0, startTime.getMinute());
         assertEquals(0, startTime.getHour());
@@ -45,7 +44,7 @@ public class TimeWindowBuilderTest {
         final ZoneId tzOfLA = ZoneId.of("America/Los_Angeles");
         TimeWindowBuilder testClass = new TimeWindowBuilder() {
             @Override
-            ZonedDateTime getZonedDateTime(String region) {
+            public ZonedDateTime getZonedDateTime(String region) {
                 return ZonedDateTime.of(2022, 3, 13, 22, 22, 22, 22, tzOfLA);
             }
         };
@@ -69,7 +68,7 @@ public class TimeWindowBuilderTest {
         final ZoneId tzOfLA = ZoneId.of("America/Los_Angeles");
         TimeWindowBuilder testClass = new TimeWindowBuilder() {
             @Override
-            ZonedDateTime getZonedDateTime(String region) {
+            public ZonedDateTime getZonedDateTime(String region) {
                 return ZonedDateTime.of(2022, 11, 6, 22, 22, 22, 22, tzOfLA);
             }
         };

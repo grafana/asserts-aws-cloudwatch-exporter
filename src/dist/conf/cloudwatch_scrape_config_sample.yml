@@ -6,6 +6,7 @@ tenant:
 ecsTaskScrapeConfigs:
   - containerDefinitionName: aws-cloudwatch-exporter
     metricPath: /aws-exporter/actuator/prometheus
+#assumeRole: arn:aws:iam::342994379019:role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig
 regions:
   - us-west-2
 namespaces:

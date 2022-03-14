@@ -40,8 +40,9 @@ public class TimeWindowBuilder {
         return new Instant[]{start.toInstant(), end.toInstant()};
     }
 
-    @VisibleForTesting
-    ZonedDateTime getZonedDateTime(String region) {
+
+
+    public ZonedDateTime getZonedDateTime(String region) {
         // S3 Storage metrics are available at just before midnight in the region's local time
         String timeZoneId = "America/Los_Angeles";
         switch (region) {
