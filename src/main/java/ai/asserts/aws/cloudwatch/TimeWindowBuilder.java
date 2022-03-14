@@ -34,8 +34,9 @@ public class TimeWindowBuilder {
         // S3 Storage metrics are available at just before midnight in the region's local time
         // End is 23:59 PM of yesterday
         ZonedDateTime now = getZonedDateTime(region);
-        end = ZonedDateTime.of(now.getYear(), now.getMonthValue(), now.getDayOfMonth(), 23, 59, 0, 0, now.getZone());
-        start = ZonedDateTime.of(now.getYear(), now.getMonthValue(), now.getDayOfMonth(), 0, 0, 0, 0, now.getZone());
+        int dayOfMonth = now.getDayOfMonth() - 1;
+        end = ZonedDateTime.of(now.getYear(), now.getMonthValue(), dayOfMonth, 23, 59, 0, 0, now.getZone());
+        start = ZonedDateTime.of(now.getYear(), now.getMonthValue(), dayOfMonth, 0, 0, 0, 0, now.getZone());
         return new Instant[]{start.toInstant(), end.toInstant()};
     }
 
