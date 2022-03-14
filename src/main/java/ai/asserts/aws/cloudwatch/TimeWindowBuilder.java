@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,37 +20,28 @@ import java.time.ZonedDateTime;
 @Slf4j
 public class TimeWindowBuilder {
     public Instant[] getTimePeriod(String region, int scrapeIntervalSeconds) {
-
-        Instant start, end;
-
+        ZonedDateTime start, end;
         ZonedDateTime now = getZonedDateTime(region);
-        end = now.minusSeconds(now.getSecond())
-                .toInstant();
+        end = now.minusSeconds(now.getSecond());
         start = end.minusSeconds(scrapeIntervalSeconds);
-        return new Instant[]{start, end};
+        return new Instant[]{start.toInstant(), end.toInstant()};
     }
 
     public Instant[] getDailyMetricTimeWindow(String region) {
 
-        Instant start, end;
+        ZonedDateTime start, end;
 
         // S3 Storage metrics are available at just before midnight in the region's local time
         // End is 23:59 PM of yesterday
         ZonedDateTime now = getZonedDateTime(region);
-        end = now.minusSeconds(now.getSecond())
-                .minusMinutes(now.getMinute())
-                .minusHours(now.getHour())
-                .minusMinutes(1)
-                .toInstant();
-        start = now.minusSeconds(now.getSecond())
-                .minusMinutes(now.getMinute())
-                .minusHours(now.getHour())
-                .minusDays(1)
-                .toInstant();
-        return new Instant[]{start, end};
+        int dayOfMonth = now.getDayOfMonth() - 1;
+        end = ZonedDateTime.of(now.getYear(), now.getMonthValue(), dayOfMonth, 23, 59, 0, 0, now.getZone());
+        start = ZonedDateTime.of(now.getYear(), now.getMonthValue(), dayOfMonth, 0, 0, 0, 0, now.getZone());
+        return new Instant[]{start.toInstant(), end.toInstant()};
     }
 
-    private ZonedDateTime getZonedDateTime(String region) {
+    @VisibleForTesting
+    ZonedDateTime getZonedDateTime(String region) {
         // S3 Storage metrics are available at just before midnight in the region's local time
         String timeZoneId = "America/Los_Angeles";
         switch (region) {
