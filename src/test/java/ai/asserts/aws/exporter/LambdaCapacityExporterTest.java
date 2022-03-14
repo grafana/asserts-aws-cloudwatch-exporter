@@ -61,7 +61,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     private Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private LambdaCapacityExporter testClass;
-    private ScrapeConfig scrapeConfig;
 
     private LambdaFunction fn1;
     private Map<String, String> fn1Labels;
@@ -74,7 +73,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        scrapeConfig = mock(ScrapeConfig.class);
+        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
         lambdaClient = mock(LambdaClient.class);

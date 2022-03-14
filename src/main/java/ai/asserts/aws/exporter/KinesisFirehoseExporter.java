@@ -30,9 +30,9 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 public class KinesisFirehoseExporter extends Collector implements InitializingBean {
-    public final CollectorRegistry collectorRegistry;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
+    public final CollectorRegistry collectorRegistry;
     private final RateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;

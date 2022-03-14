@@ -1,3 +1,4 @@
+
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -46,12 +47,6 @@ import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLE
 @Getter
 @EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
 public class MetricScrapeTask extends Collector implements MetricProvider {
-    @EqualsAndHashCode.Include
-    private final String region;
-    @EqualsAndHashCode.Include
-    private final int intervalSeconds;
-    @EqualsAndHashCode.Include
-    private final int delaySeconds;
     @Autowired
     private AWSClientProvider awsClientProvider;
     @Autowired
@@ -66,6 +61,12 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private TimeWindowBuilder timeWindowBuilder;
     @Autowired
     private RateLimiter rateLimiter;
+    @EqualsAndHashCode.Include
+    private final String region;
+    @EqualsAndHashCode.Include
+    private final int intervalSeconds;
+    @EqualsAndHashCode.Include
+    private final int delaySeconds;
     private long lastRunTime = -1;
     private volatile List<MetricFamilySamples> cache;
 

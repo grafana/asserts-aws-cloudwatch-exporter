@@ -1,3 +1,4 @@
+
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
@@ -103,19 +104,19 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
         return map;
     }
 
-    private void sleep(long time) {
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException e) {
-            log.error("Interrupted", e);
-        }
-    }
-
     @Builder
     @EqualsAndHashCode
     @Getter
     public static class FunctionLogScrapeConfig {
         private final LambdaFunction lambdaFunction;
         private final LogScrapeConfig logScrapeConfig;
+    }
+
+    private void sleep(long time) {
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            log.error("Interrupted", e);
+        }
     }
 }

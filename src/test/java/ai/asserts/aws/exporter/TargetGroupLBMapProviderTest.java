@@ -65,7 +65,6 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
-        expect(scrapeConfig.getAssumeRole()).andReturn(null).anyTimes();
     }
 
     @Test
