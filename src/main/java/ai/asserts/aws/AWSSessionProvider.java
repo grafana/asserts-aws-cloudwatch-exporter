@@ -17,18 +17,17 @@ import java.util.Optional;
 @Component
 public class AWSSessionProvider {
     private final TimeWindowBuilder timeWindowBuilder;
-    private Instant expiring;
     private AWSSessionConfig currentSession;
 
     public AWSSessionProvider(TimeWindowBuilder timeWindowBuilder) {
         this.timeWindowBuilder = timeWindowBuilder;
-        this.expiring = Instant.now();
         currentSession = null;
     }
 
     public Optional<AWSSessionConfig> getSessionCredential(String region, String assumeRole) {
         if (assumeRole != null) {
-            if (timeWindowBuilder.getZonedDateTime(region).toInstant().compareTo(expiring) < 0) {
+            if (currentSession != null &&
+                    timeWindowBuilder.getZonedDateTime(region).toInstant().compareTo(currentSession.getExpiring()) < 0) {
                 return Optional.of(currentSession);
             }
             StsClient stsClient = StsClient.builder().region(Region.of(region))
@@ -38,7 +37,6 @@ public class AWSSessionProvider {
                     .roleArn(assumeRole)
                     .build());
             if (response.credentials() != null) {
-                this.expiring = response.credentials().expiration();
                 currentSession = AWSSessionConfig.builder()
                         .accessKeyId(response.credentials().accessKeyId())
                         .secretAccessKey(response.credentials().secretAccessKey())
