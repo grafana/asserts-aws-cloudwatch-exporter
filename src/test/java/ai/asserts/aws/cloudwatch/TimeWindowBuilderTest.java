@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.cloudwatch;
 
-import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -33,14 +32,56 @@ public class TimeWindowBuilderTest {
     void getDailyTimePeriod_us_west_2() {
         TimeWindowBuilder testClass = new TimeWindowBuilder();
         Instant[] timePeriod = testClass.getDailyMetricTimeWindow("us-west-2");
-        ZonedDateTime currentTime = testClass.getZonedDateTime("us-west-2");
-        ZoneRules zoneRules = currentTime.getZone().getRules();
-        if( zoneRules.isDaylightSavings( currentTime.toInstant() )){
-            timePeriod[0] = timePeriod[0].plus(1, ChronoUnit.HOURS);
-            timePeriod[1] = timePeriod[1].plus(1, ChronoUnit.HOURS);
-        }
         ZonedDateTime startTime = ZonedDateTime.ofInstant(timePeriod[0], ZoneId.of("America/Los_Angeles"));
         ZonedDateTime endTime = ZonedDateTime.ofInstant(timePeriod[1], ZoneId.of("America/Los_Angeles"));
+        assertEquals(0, startTime.getSecond());
+        assertEquals(0, startTime.getMinute());
+        assertEquals(0, startTime.getHour());
+
+        assertEquals(0, endTime.getSecond());
+        assertEquals(59, endTime.getMinute());
+        assertEquals(23, endTime.getHour());
+        assertEquals(startTime.getYear(), endTime.getYear());
+        assertEquals(startTime.getDayOfYear(), endTime.getDayOfYear());
+    }
+
+    @Test
+    void getDailyTimePeriod_us_west_2_DST_Change_March() {
+        final ZoneId tzOfLA = ZoneId.of("America/Los_Angeles");
+        TimeWindowBuilder testClass = new TimeWindowBuilder() {
+            @Override
+            public ZonedDateTime getZonedDateTime(String region) {
+                return ZonedDateTime.of(2022, 3, 13, 22, 22, 22, 22, tzOfLA);
+            }
+        };
+        Instant[] timePeriod = testClass.getDailyMetricTimeWindow("us-west-2");
+        ZonedDateTime startTime = ZonedDateTime.ofInstant(timePeriod[0], tzOfLA);
+        ZonedDateTime endTime = ZonedDateTime.ofInstant(timePeriod[1], tzOfLA);
+
+        assertEquals(0, startTime.getSecond());
+        assertEquals(0, startTime.getMinute());
+        assertEquals(0, startTime.getHour());
+
+        assertEquals(0, endTime.getSecond());
+        assertEquals(59, endTime.getMinute());
+        assertEquals(23, endTime.getHour());
+        assertEquals(startTime.getYear(), endTime.getYear());
+        assertEquals(startTime.getDayOfYear(), endTime.getDayOfYear());
+    }
+
+    @Test
+    void getDailyTimePeriod_us_west_2_DST_Change_November() {
+        final ZoneId tzOfLA = ZoneId.of("America/Los_Angeles");
+        TimeWindowBuilder testClass = new TimeWindowBuilder() {
+            @Override
+            public ZonedDateTime getZonedDateTime(String region) {
+                return ZonedDateTime.of(2022, 11, 6, 22, 22, 22, 22, tzOfLA);
+            }
+        };
+        Instant[] timePeriod = testClass.getDailyMetricTimeWindow("us-west-2");
+        ZonedDateTime startTime = ZonedDateTime.ofInstant(timePeriod[0], tzOfLA);
+        ZonedDateTime endTime = ZonedDateTime.ofInstant(timePeriod[1], tzOfLA);
+
         assertEquals(0, startTime.getSecond());
         assertEquals(0, startTime.getMinute());
         assertEquals(0, startTime.getHour());

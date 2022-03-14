@@ -63,8 +63,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            try (KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region,
-                    scrapeConfigProvider.getScrapeConfig().getAssumeRole())) {
+            try (KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region)) {
                 String api = "KinesisAnalyticsV2Client/listApplications";
                 ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(

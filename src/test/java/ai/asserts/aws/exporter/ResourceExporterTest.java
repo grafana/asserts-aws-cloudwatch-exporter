@@ -90,7 +90,7 @@ public class ResourceExporterTest extends EasyMockSupport {
         expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("type1")).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
-        expect(awsClientProvider.getConfigClient("region", null)).andReturn(configClient).anyTimes();
+        expect(awsClientProvider.getConfigClient("region")).andReturn(configClient).anyTimes();
         expect(scrapeConfig.getAssumeRole()).andReturn(null).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<ListDiscoveredResourcesResponse>> callbackCapture = Capture.newInstance();

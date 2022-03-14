@@ -80,8 +80,7 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
         scrapeConfig.getLambdaConfig().ifPresent(nc -> {
             log.info("BEGIN lambda log scrape for region {}", region);
             if (!CollectionUtils.isEmpty(nc.getLogs()) && lambdaFunctionScraper.getFunctions().containsKey(region)) {
-                try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region,
-                        scrapeConfig.getAssumeRole())) {
+                try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region)) {
                     lambdaFunctionScraper.getFunctions().get(region).forEach((arn, functionConfig) -> nc.getLogs()
                             .stream()
                             .filter(logScrapeConfig -> logScrapeConfig.shouldScrapeLogsFor(functionConfig.getName()))

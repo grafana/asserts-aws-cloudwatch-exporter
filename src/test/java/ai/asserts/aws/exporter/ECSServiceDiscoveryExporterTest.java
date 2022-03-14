@@ -93,12 +93,11 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     @Test
     public void run() throws Exception {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getAssumeRole()).andReturn(null).times(2);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
-        expect(awsClientProvider.getECSClient("region1", null)).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn1", "arn2")
                 .build());
@@ -106,7 +105,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
 
-        expect(awsClientProvider.getECSClient("region2", null)).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn3", "arn4")
                 .build());
@@ -142,12 +141,11 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     @Test
     public void run_JacksonWriteException() throws Exception {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getAssumeRole()).andReturn(null).times(2);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
-        expect(awsClientProvider.getECSClient("region1", null)).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn1", "arn2")
                 .build());
@@ -155,7 +153,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
 
-        expect(awsClientProvider.getECSClient("region2", null)).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn3", "arn4")
                 .build());
@@ -193,17 +191,16 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     @Test
     public void run_AWSException() throws Exception {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getAssumeRole()).andReturn(null).times(2);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
-        expect(awsClientProvider.getECSClient("region1", null)).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(), eq(1));
 
-        expect(awsClientProvider.getECSClient("region2", null)).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(), eq(1));

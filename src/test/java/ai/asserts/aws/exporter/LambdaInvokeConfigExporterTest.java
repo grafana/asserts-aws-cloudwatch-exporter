@@ -71,14 +71,13 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
                 scrapeConfigProvider, resourceMapper, metricSampleBuilder, new RateLimiter(metricCollector));
 
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
-        expect(scrapeConfig.getAssumeRole()).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(metricNameUtil.getMetricPrefix(CWNamespace.lambda.getNamespace())).andReturn("prefix");
     }
 
     @Test
     void collect() {
-        expect(awsClientProvider.getLambdaClient("region1", null)).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
 
         ListFunctionEventInvokeConfigsRequest request = ListFunctionEventInvokeConfigsRequest.builder()
                 .functionName("fn1")

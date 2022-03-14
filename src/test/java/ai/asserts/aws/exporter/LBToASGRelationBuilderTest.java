@@ -58,12 +58,11 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
-        expect(scrapeConfig.getAssumeRole()).andReturn(null);
     }
 
     @Test
     void updateRouting() {
-        expect(awsClientProvider.getAutoScalingClient("region", null)).andReturn(autoScalingClient);
+        expect(awsClientProvider.getAutoScalingClient("region")).andReturn(autoScalingClient);
         expect(autoScalingClient.describeAutoScalingGroups()).andReturn(DescribeAutoScalingGroupsResponse.builder()
                 .autoScalingGroups(AutoScalingGroup.builder()
                         .autoScalingGroupARN("asg-arn")

@@ -74,7 +74,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 .loadBalancerArn("lb-arn")
                 .build();
 
-        expect(awsClientProvider.getELBV2Client("region", null)).andReturn(lbClient);
+        expect(awsClientProvider.getELBV2Client("region")).andReturn(lbClient);
 
         expect(lbClient.describeLoadBalancers()).andReturn(DescribeLoadBalancersResponse.builder()
                 .loadBalancers(loadBalancer)

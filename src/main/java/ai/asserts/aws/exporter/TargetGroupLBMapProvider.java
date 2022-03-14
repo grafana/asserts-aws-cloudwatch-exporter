@@ -50,8 +50,7 @@ public class TargetGroupLBMapProvider {
         try {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             scrapeConfig.getRegions().forEach(region -> {
-                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region,
-                        scrapeConfig.getAssumeRole())) {
+                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region)) {
                     String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
                     ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
                             SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api);

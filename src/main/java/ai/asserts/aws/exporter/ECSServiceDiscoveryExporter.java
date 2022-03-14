@@ -91,7 +91,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace());
         for (String region : regions) {
             SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
-            try (EcsClient ecsClient = awsClientProvider.getECSClient(region, scrapeConfig.getAssumeRole())) {
+            try (EcsClient ecsClient = awsClientProvider.getECSClient(region)) {
                 // List clusters just returns the cluster ARN. There is no need to paginate
                 ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(
                         "EcsClient/listClusters",

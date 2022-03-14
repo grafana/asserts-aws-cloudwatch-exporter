@@ -47,10 +47,9 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         testClass = new EC2ToEBSVolumeExporter(
                 accountIDProvider, scrapeConfigProvider, awsClientProvider, new RateLimiter(metricCollector)
         );
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).times(2);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
-        expect(scrapeConfig.getAssumeRole()).andReturn(null);
-        expect(awsClientProvider.getEc2Client("region", null)).andReturn(ec2Client);
+        expect(awsClientProvider.getEc2Client("region")).andReturn(ec2Client);
         expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
     }
 

@@ -59,7 +59,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, ecsServiceDiscoveryExporter,
                 taskThreadPool, alarmMetricExporter, alarmFetcher) {
             @Override
-            MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay, String assumeRole) {
+            MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
             }
         };

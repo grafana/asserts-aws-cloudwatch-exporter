@@ -218,7 +218,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples).times(5);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(familySamples);
-        expect(scrapeConfig.getAssumeRole()).andReturn(null).times(2);
 
         replayAll();
         testClass.update();
@@ -261,7 +260,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples).times(2);
-        expect(scrapeConfig.getAssumeRole()).andReturn(null);
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         expectLastCall().times(2);
         replayAll();
@@ -281,7 +279,6 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .andThrow(new RuntimeException());
         lambdaClient.close();
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
-        expect(scrapeConfig.getAssumeRole()).andReturn(null);
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
@@ -289,7 +286,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
     }
 
     private void expectAccountSettings(String region) {
-        expect(awsClientProvider.getLambdaClient(region, null)).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient(region)).andReturn(lambdaClient);
         expect(lambdaClient.getAccountSettings()).andReturn(GetAccountSettingsResponse.builder()
                 .accountLimit(AccountLimit.builder()
                         .concurrentExecutions(10)

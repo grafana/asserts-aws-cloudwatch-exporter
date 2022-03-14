@@ -70,21 +70,20 @@ public class MetricTaskManager implements InitializingBean {
     }
 
     @VisibleForTesting
-    MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay, String assumeRole) {
-        return new MetricScrapeTask(region, interval, delay, assumeRole);
+    MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
+        return new MetricScrapeTask(region, interval, delay);
     }
 
     private void addScrapeTask(ScrapeConfig scrapeConfig, Integer interval, String region) {
         Map<String, MetricScrapeTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
                 k -> new TreeMap<>());
         if (!byRegion.containsKey(region)) {
-            byRegion.put(region, metricScrapeTask(region, interval, scrapeConfig.getDelay(),
-                    scrapeConfig.getAssumeRole()));
+            byRegion.put(region, metricScrapeTask(region, interval, scrapeConfig.getDelay()));
         }
     }
 
-    private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay, String assumeRole) {
-        MetricScrapeTask metricScrapeTask = newScrapeTask(region, interval, delay, assumeRole);
+    private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay) {
+        MetricScrapeTask metricScrapeTask = newScrapeTask(region, interval, delay);
         beanFactory.autowireBean(metricScrapeTask);
         metricScrapeTask.register(collectorRegistry);
         log.info("Setup metric scrape task for region {} and interval {}", region, interval);

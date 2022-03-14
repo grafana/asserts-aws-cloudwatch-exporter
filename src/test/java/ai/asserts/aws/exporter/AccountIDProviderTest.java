@@ -38,7 +38,7 @@ public class AccountIDProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(scrapeConfig.getAssumeRole()).andReturn(null).anyTimes();
-        expect(awsClientProvider.getStsClient("region", null)).andReturn(stsClient);
+        expect(awsClientProvider.getStsClient("region")).andReturn(stsClient);
         expect(stsClient.getCallerIdentity()).andReturn(GetCallerIdentityResponse.builder()
                 .account("TestAccount")
                 .build());

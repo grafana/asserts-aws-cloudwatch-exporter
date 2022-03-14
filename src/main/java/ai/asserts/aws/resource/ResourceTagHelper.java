@@ -156,8 +156,7 @@ public class ResourceTagHelper {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<Resource> resources = new HashSet<>();
         String nextToken = null;
-        try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region,
-                scrapeConfig.getAssumeRole())) {
+        try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region)) {
             do {
                 GetResourcesRequest req = builder
                         .paginationToken(nextToken)
@@ -203,8 +202,7 @@ public class ResourceTagHelper {
         }
         if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region,
-                    scrapeConfig.getAssumeRole())) {
+            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region)) {
                 DescribeTagsResponse describeTagsResponse = elbClient.describeTags(DescribeTagsRequest.builder()
                         .loadBalancerNames(resourceNames)
                         .build());
@@ -218,8 +216,7 @@ public class ResourceTagHelper {
                                 .collect(Collectors.toList())));
             }
         } else if (resourceType.equals("AWS::AutoScaling::AutoScalingGroup")) {
-            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region,
-                    scrapeConfigProvider.getScrapeConfig().getAssumeRole())) {
+            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region)) {
                 software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse describeTagsResponse = asgClient.describeTags(software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder()
                         .build());
                 describeTagsResponse.tags()

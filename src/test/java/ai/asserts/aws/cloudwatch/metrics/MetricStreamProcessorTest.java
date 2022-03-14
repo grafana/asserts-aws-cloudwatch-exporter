@@ -95,7 +95,6 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
 
         ScrapeConfigProvider scrapeConfigProvider = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                awsClientProvider,
                 metricCollector,
                 new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml"

@@ -70,7 +70,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         ).anyTimes();
 
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
-        expect(awsClientProvider.getLambdaClient("region1", null)).andReturn(lambdaClient).anyTimes();
+        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient).anyTimes();
 
         testClass = new LambdaEventSourceExporter(scrapeConfigProvider, awsClientProvider,
                 metricNameUtil, resourceMapper, resourceTagHelper, sampleBuilder,

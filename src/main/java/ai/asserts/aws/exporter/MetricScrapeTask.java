@@ -52,7 +52,6 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private final int intervalSeconds;
     @EqualsAndHashCode.Include
     private final int delaySeconds;
-    private final String assumeRole;
     @Autowired
     private AWSClientProvider awsClientProvider;
     @Autowired
@@ -70,10 +69,9 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private long lastRunTime = -1;
     private volatile List<MetricFamilySamples> cache;
 
-    public MetricScrapeTask(String region, int intervalSeconds, int delay, String assumeRole) {
+    public MetricScrapeTask(String region, int intervalSeconds, int delay) {
         this.region = region;
         this.intervalSeconds = intervalSeconds;
-        this.assumeRole = assumeRole;
         this.delaySeconds = delay;
         this.cache = new ArrayList<>();
     }
@@ -118,7 +116,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         Map<String, List<MetricFamilySamples.Sample>> samplesByMetric = new TreeMap<>();
 
-        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, assumeRole)) {
+        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
             batches.forEach(batch -> {
                 String nextToken = null;
                 // For now, S3 is the only one which has a different period of 1 day. All other metrics are 1m

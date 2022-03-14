@@ -79,7 +79,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         ).anyTimes();
         expect(lambdaFunction.getName()).andReturn("fn1").anyTimes();
         expect(logScrapeConfig.shouldScrapeLogsFor("fn1")).andReturn(true);
-        expect(awsClientProvider.getCloudWatchLogsClient(region, null)).andReturn(cloudWatchLogsClient);
+        expect(awsClientProvider.getCloudWatchLogsClient(region)).andReturn(cloudWatchLogsClient);
         FilteredLogEvent filteredLogEvent = FilteredLogEvent.builder()
                 .message("message")
                 .build();

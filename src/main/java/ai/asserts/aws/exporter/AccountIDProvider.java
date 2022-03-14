@@ -30,8 +30,7 @@ public class AccountIDProvider implements InitializingBean {
     public void afterPropertiesSet() {
         if (!scrapeConfigProvider.getScrapeConfig().getRegions().isEmpty()) {
             String anyRegion = scrapeConfigProvider.getScrapeConfig().getRegions().iterator().next();
-            StsClient stsClient = awsClientProvider.getStsClient(anyRegion,
-                    scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+            StsClient stsClient = awsClientProvider.getStsClient(anyRegion);
             accountId = stsClient.getCallerIdentity().account();
         }
     }

@@ -80,7 +80,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Optional<NamespaceConfig> opt = scrapeConfig.getLambdaConfig();
         opt.ifPresent(ns -> fnScraper.getFunctions().forEach((region, byARN) -> byARN.forEach((arn, fnConfig) -> {
-            try (LambdaClient client = awsClientProvider.getLambdaClient(region, scrapeConfig.getAssumeRole())) {
+            try (LambdaClient client = awsClientProvider.getLambdaClient(region)) {
                 ListFunctionEventInvokeConfigsRequest request = ListFunctionEventInvokeConfigsRequest.builder()
                         .functionName(fnConfig.getName())
                         .build();
