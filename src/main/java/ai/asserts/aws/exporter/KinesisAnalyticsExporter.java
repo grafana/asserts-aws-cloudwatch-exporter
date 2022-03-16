@@ -81,6 +81,9 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                                 resource.addLabels(labels, "");
                                 labels.put("aws_resource_type", labels.get("type"));
                                 labels.remove("type");
+                                if (labels.containsKey("name")) {
+                                    labels.put("job", labels.get("name"));
+                                }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
                             .collect(Collectors.toList()));
