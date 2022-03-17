@@ -6,7 +6,28 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static ai.asserts.aws.resource.ResourceType.*;
+import static ai.asserts.aws.resource.ResourceType.APIGatewayMethod;
+import static ai.asserts.aws.resource.ResourceType.APIGatewayResource;
+import static ai.asserts.aws.resource.ResourceType.APIGatewayStage;
+import static ai.asserts.aws.resource.ResourceType.Alarm;
+import static ai.asserts.aws.resource.ResourceType.ApiGateway;
+import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
+import static ai.asserts.aws.resource.ResourceType.DynamoDBTable;
+import static ai.asserts.aws.resource.ResourceType.ECSCluster;
+import static ai.asserts.aws.resource.ResourceType.ECSService;
+import static ai.asserts.aws.resource.ResourceType.ECSTask;
+import static ai.asserts.aws.resource.ResourceType.ECSTaskDef;
+import static ai.asserts.aws.resource.ResourceType.EventBus;
+import static ai.asserts.aws.resource.ResourceType.Kinesis;
+import static ai.asserts.aws.resource.ResourceType.KinesisAnalytics;
+import static ai.asserts.aws.resource.ResourceType.KinesisDataFirehose;
+import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
+import static ai.asserts.aws.resource.ResourceType.LoadBalancer;
+import static ai.asserts.aws.resource.ResourceType.Redshift;
+import static ai.asserts.aws.resource.ResourceType.S3Bucket;
+import static ai.asserts.aws.resource.ResourceType.SNSTopic;
+import static ai.asserts.aws.resource.ResourceType.SQSQueue;
+import static ai.asserts.aws.resource.ResourceType.TargetGroup;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ResourceMapperTest {
@@ -379,6 +400,18 @@ public class ResourceMapperTest {
                         .region("us-west-2")
                         .account("342994379019")
                         .name("Asserts-CloudWatch-DataStream")
+                        .build()),
+                testClass.map(arn));
+    }
+
+    @Test
+    public void map_Redshift() {
+        String arn = "arn:aws:redshift:us-west-2:342994379019:cluster/Asserts-redshift-cluster1";
+        assertEquals(Optional.of(Resource.builder()
+                        .type(Redshift).arn(arn)
+                        .region("us-west-2")
+                        .account("342994379019")
+                        .name("Asserts-redshift-cluster1")
                         .build()),
                 testClass.map(arn));
     }
