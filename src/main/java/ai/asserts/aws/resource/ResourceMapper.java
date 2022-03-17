@@ -40,8 +40,24 @@ public class ResourceMapper {
     public static final Pattern KINESIS_PATTERN = Pattern.compile("arn:aws:kinesis:(.+?):(.+?):stream/(.+)");
     public static final Pattern KINESIS_ANALYTICS_PATTERN = Pattern.compile("arn:aws:kinesisanalytics:(.+?):(.+?):application/(.+)");
     public static final Pattern KINESIS_FIREHOSE_PATTERN = Pattern.compile("arn:aws:firehose:(.+?):(.+?):deliverystream/(.+)");
+    public static final Pattern REDSHIFT_PATTERN = Pattern.compile("arn:aws:redshift:(.+?):(.+?):cluster/(.+)");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
+            .add(arn -> {
+                if (arn.contains(":redshift:") && arn.contains(":cluster/")) {
+                    Matcher matcher = REDSHIFT_PATTERN.matcher(arn);
+                    if (matcher.matches()) {
+                        return Optional.of(Resource.builder()
+                                .type(Redshift)
+                                .arn(arn)
+                                .region(matcher.group(1))
+                                .account(matcher.group(2))
+                                .name(matcher.group(3))
+                                .build());
+                    }
+                }
+                return Optional.empty();
+            })
             .add(arn -> {
                 if (arn.contains(":firehose:") && arn.contains(":deliverystream/")) {
                     Matcher matcher = KINESIS_FIREHOSE_PATTERN.matcher(arn);

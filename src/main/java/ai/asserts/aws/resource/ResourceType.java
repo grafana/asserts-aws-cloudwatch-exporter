@@ -35,7 +35,8 @@ public enum ResourceType {
     APIGatewayDeployment("Deployment", CWNamespace.apigateway),
     DynamoDBTable("TableName", CWNamespace.dynamodb, "OperationType", "Operation"), // Dynamo DB Table
     LambdaFunction("FunctionName", CWNamespace.lambda), // Lambda function
-    S3Bucket("BucketName", CWNamespace.s3, "StorageType");  // S3 Bucket
+    S3Bucket("BucketName", CWNamespace.s3, "StorageType"),
+    Redshift("ClusterIdentifier", CWNamespace.redshift);  // Redshift
 
     @Getter
     private String nameDimension;
