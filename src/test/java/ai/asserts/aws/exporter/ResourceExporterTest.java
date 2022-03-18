@@ -151,6 +151,39 @@ public class ResourceExporterTest extends EasyMockSupport {
         verifyAll();
     }
 
+    @Test
+    public void update_empty_resource() {
+        expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("type1")).anyTimes();
+        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
+        expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
+        expect(awsClientProvider.getConfigClient("region")).andReturn(configClient).anyTimes();
+
+        Capture<RateLimiter.AWSAPICall<ListDiscoveredResourcesResponse>> callbackCapture = Capture.newInstance();
+
+        ListDiscoveredResourcesResponse response = ListDiscoveredResourcesResponse.builder().build();
+
+        expect(configClient.listDiscoveredResources(ListDiscoveredResourcesRequest.builder()
+                .includeDeletedResources(false)
+                .resourceType("type1")
+                .build())).andReturn(response);
+        expect(resourceMapper.map(anyString())).andReturn(Optional.empty()).anyTimes();
+
+        expect(rateLimiter.doWithRateLimit(eq("ConfigClient/listDiscoveredResources"),
+                anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
+
+        configClient.close();
+
+        replayAll();
+        testClass.update();
+
+        assertEquals(response, callbackCapture.getValue().makeCall());
+
+        assertEquals(ImmutableList.of(), testClass.collect());
+        verifyAll();
+    }
+
 
     @Test
     void addBasicLabels_LoadBalancer() {

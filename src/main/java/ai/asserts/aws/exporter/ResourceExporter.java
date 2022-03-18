@@ -19,6 +19,7 @@ import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.config.ConfigClient;
 import software.amazon.awssdk.services.config.model.ListDiscoveredResourcesRequest;
 import software.amazon.awssdk.services.config.model.ListDiscoveredResourcesResponse;
@@ -85,7 +86,9 @@ public class ResourceExporter extends Collector implements MetricProvider {
                     }
                 });
                 List<MetricFamilySamples> latest = new ArrayList<>();
-                latest.add(sampleBuilder.buildFamily(samples));
+                if (!CollectionUtils.isEmpty(samples)) {
+                    latest.add(sampleBuilder.buildFamily(samples));
+                }
                 metrics = latest;
             }
         } catch (Exception e) {
