@@ -52,9 +52,9 @@ public class ScrapeConfigProvider {
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
     private final ScrapeConfig NOOP_CONFIG = new ScrapeConfig();
     private final RestTemplate restTemplate;
-    private final String ASSERT_HOST = "ASSERT_HOST";
-    private final String ASSERT_USER = "ASSERT_USER";
-    private final String ASSERT_SECRET_KEY = "ASSERT_SECRET_KEY";
+    private final String ASSERTS_HOST = "ASSERTS_HOST";
+    private final String ASSERTS_USER = "ASSERTS_USER";
+    private final String ASSERTS_PASSWORD = "ASSERTS_PASSWORD";
     private volatile ScrapeConfig configCache;
 
 
@@ -106,11 +106,11 @@ public class ScrapeConfigProvider {
     }
 
     private ScrapeConfig getConfig(Map<String, String> envVariables) {
-        String host = envVariables.get(ASSERT_HOST);
-        String user = envVariables.get(ASSERT_USER);
-        String key = envVariables.get(ASSERT_SECRET_KEY);
+        String host = envVariables.get(ASSERTS_HOST);
+        String user = envVariables.get(ASSERTS_USER);
+        String key = envVariables.get(ASSERTS_PASSWORD);
         String url = host + "/api-server/v1/config/aws-exporter";
-        log.info("Will load configuration from server [{}] and user [{}]", host, user);
+        log.info("Will load configuration from server [{}] with credentials of user [{}]", host, user);
         ResponseEntity<ScrapeConfig> response = restTemplate.exchange(url,
                 HttpMethod.GET,
                 createAuthHeader(user, key),
@@ -139,8 +139,8 @@ public class ScrapeConfigProvider {
         SortedMap<String, String> labels = new TreeMap<>(ImmutableMap.of(SCRAPE_OPERATION_LABEL, "loadConfig"));
         try {
             Map<String, String> envVariables = getGetenv();
-            if (envVariables.containsKey(ASSERT_HOST) && envVariables.containsKey(ASSERT_USER)
-                    && envVariables.containsKey(ASSERT_SECRET_KEY)) {
+            if (envVariables.containsKey(ASSERTS_HOST) && envVariables.containsKey(ASSERTS_USER)
+                    && envVariables.containsKey(ASSERTS_PASSWORD)) {
                 scrapeConfig = getConfig(envVariables);
             } else if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
                 labels.put(SCRAPE_OPERATION_LABEL, "loadConfigFromS3");

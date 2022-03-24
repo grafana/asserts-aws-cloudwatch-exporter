@@ -224,8 +224,8 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 restTemplate) {
             @Override
             Map<String, String> getGetenv() {
-                return ImmutableMap.of("ASSERT_HOST", "host", "ASSERT_USER", "user",
-                        "ASSERT_SECRET_KEY", "key");
+                return ImmutableMap.of("ASSERTS_HOST", "host", "ASSERTS_USER", "user",
+                        "ASSERTS_PASSWORD", "key");
             }
 
         };
