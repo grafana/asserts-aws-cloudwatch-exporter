@@ -22,6 +22,7 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.File;
@@ -45,6 +46,7 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
     private static ExportMetricsServiceRequest request;
     private BasicMetricCollector metricCollector;
     private Collector.MetricFamilySamples metricFamilySamples;
+    private RestTemplate restTemplate;
 
     @BeforeAll
     public static void setupRequest() throws IOException {
@@ -61,6 +63,7 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
         metricStreamProcessor = new MetricStreamProcessor(collectorRegistry, metricConverter);
         metricStreamProcessor.setCollectorRegistry(collectorRegistry);
+        restTemplate = mock(RestTemplate.class);
     }
 
     @Test
@@ -97,7 +100,8 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
                 new ObjectMapperFactory(),
                 metricCollector,
                 new RateLimiter(metricCollector),
-                "src/test/resources/cloudwatch_scrape_config.yml"
+                "src/test/resources/cloudwatch_scrape_config.yml",
+                restTemplate
         );
         MetricNameUtil metricNameUtil = new MetricNameUtil(scrapeConfigProvider);
         LambdaLabelConverter lambdaLabelConverter = new LambdaLabelConverter(metricNameUtil);

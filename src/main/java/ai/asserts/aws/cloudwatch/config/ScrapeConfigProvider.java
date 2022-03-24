@@ -9,10 +9,18 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.FileSystemResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -43,16 +51,23 @@ public class ScrapeConfigProvider {
     private final Map<String, CWNamespace> byServiceName = new TreeMap<>();
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
     private final ScrapeConfig NOOP_CONFIG = new ScrapeConfig();
+    private final RestTemplate restTemplate;
+    private final String ASSERT_HOST = "ASSERT_HOST";
+    private final String ASSERT_USER = "ASSERT_USER";
+    private final String ASSERT_SECRET_KEY = "ASSERT_SECRET_KEY";
     private volatile ScrapeConfig configCache;
+
 
     public ScrapeConfigProvider(ObjectMapperFactory objectMapperFactory,
                                 BasicMetricCollector metricCollector,
                                 RateLimiter rateLimiter,
-                                @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile) {
+                                @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile,
+                                RestTemplate restTemplate) {
         this.objectMapperFactory = objectMapperFactory;
         this.scrapeConfigFile = scrapeConfigFile;
         this.metricCollector = metricCollector;
         this.rateLimiter = rateLimiter;
+        this.restTemplate = restTemplate;
         loadAndBuildLookups();
     }
 
@@ -90,12 +105,44 @@ public class ScrapeConfigProvider {
         }
     }
 
+    private ScrapeConfig getConfig(Map<String, String> envVariables) {
+        String host = envVariables.get(ASSERT_HOST);
+        String user = envVariables.get(ASSERT_USER);
+        String key = envVariables.get(ASSERT_SECRET_KEY);
+        String url = host + "/api-server/v1/config/aws-exporter";
+        log.info("Will load configuration from server [{}] and user [{}]", host, user);
+        ResponseEntity<ScrapeConfig> response = restTemplate.exchange(url,
+                HttpMethod.GET,
+                createAuthHeader(user, key),
+                new ParameterizedTypeReference<ScrapeConfig>() {
+                });
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody();
+        }
+        return NOOP_CONFIG;
+    }
+
+    @VisibleForTesting
+    HttpEntity<?> createAuthHeader(String username, String password) {
+        if (StringUtils.hasText(username) && StringUtils.hasText(password)) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBasicAuth(username, password);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            return new HttpEntity<>(headers);
+        } else {
+            return null;
+        }
+    }
+
     private ScrapeConfig load() {
         ScrapeConfig scrapeConfig = NOOP_CONFIG;
         SortedMap<String, String> labels = new TreeMap<>(ImmutableMap.of(SCRAPE_OPERATION_LABEL, "loadConfig"));
         try {
             Map<String, String> envVariables = getGetenv();
-            if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
+            if (envVariables.containsKey(ASSERT_HOST) && envVariables.containsKey(ASSERT_USER)
+                    && envVariables.containsKey(ASSERT_SECRET_KEY)) {
+                scrapeConfig = getConfig(envVariables);
+            } else if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
                 labels.put(SCRAPE_OPERATION_LABEL, "loadConfigFromS3");
                 try {
                     String bucket = envVariables.get("CONFIG_S3_BUCKET");
@@ -137,6 +184,10 @@ public class ScrapeConfigProvider {
             return scrapeConfig;
         } catch (IOException e) {
             log.error("Failed to load scrape configuration from file " + scrapeConfigFile, e);
+            metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, labels, 1);
+            return NOOP_CONFIG;
+        } catch (Exception e) {
+            log.error("Failed to load aws exporter configuration", e);
             metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, labels, 1);
             return NOOP_CONFIG;
         }
