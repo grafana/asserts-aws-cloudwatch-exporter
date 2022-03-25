@@ -21,8 +21,8 @@ import java.util.List;
 @EqualsAndHashCode
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class AlarmRequest {
+public class FirehoseEventRequest {
     private String requestId;
     private String timestamp;
-    private List<AlarmRecord> records;
+    private List<RecordData> records;
 }
