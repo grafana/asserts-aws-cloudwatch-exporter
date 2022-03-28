@@ -5,6 +5,7 @@ import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.cloudwatch.metrics.CloudWatchMetricExporter;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
@@ -34,6 +35,7 @@ public class MetricTaskManager implements InitializingBean {
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskThreadPool taskThreadPool;
     private final AlarmMetricExporter alarmMetricExporter;
+    private final CloudWatchMetricExporter metricExporter;
     private final AlarmFetcher alarmFetcher;
 
     /**
@@ -52,6 +54,7 @@ public class MetricTaskManager implements InitializingBean {
                 .forEach(interval ->
                         regions.forEach(region -> addScrapeTask(scrapeConfig, interval, region)));
         alarmMetricExporter.register(collectorRegistry);
+        metricExporter.register(collectorRegistry);
         //After AlarmMetricExporter is register call one time alarm fetcher
         alarmFetcher.sendAlarmsForRegions();
     }
