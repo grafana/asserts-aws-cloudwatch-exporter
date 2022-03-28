@@ -36,8 +36,8 @@ public class AlarmController {
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPost(
-            @RequestBody AlarmRequest alarmRequest) {
-        return processRequest(alarmRequest);
+            @RequestBody FirehoseEventRequest firehoseEventRequest) {
+        return processRequest(firehoseEventRequest);
     }
 
     @PutMapping(
@@ -45,8 +45,8 @@ public class AlarmController {
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPut(
-            @RequestBody AlarmRequest alarmRequest) {
-        return processRequest(alarmRequest);
+            @RequestBody FirehoseEventRequest firehoseEventRequest) {
+        return processRequest(firehoseEventRequest);
     }
 
     @PostMapping(
@@ -69,14 +69,14 @@ public class AlarmController {
         return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
     }
 
-    private ResponseEntity<AlarmResponse> processRequest(AlarmRequest alarmRequest) {
+    private ResponseEntity<AlarmResponse> processRequest(FirehoseEventRequest firehoseEventRequest) {
         try {
-            if (!CollectionUtils.isEmpty(alarmRequest.getRecords())) {
-                for (AlarmRecord alarmRecord : alarmRequest.getRecords()) {
-                    accept(alarmRecord);
+            if (!CollectionUtils.isEmpty(firehoseEventRequest.getRecords())) {
+                for (RecordData recordData : firehoseEventRequest.getRecords()) {
+                    accept(recordData);
                 }
             } else {
-                log.info("Unable to process alarm request-{}", alarmRequest.getRequestId());
+                log.info("Unable to process alarm request-{}", firehoseEventRequest.getRequestId());
             }
         } catch (Exception ex) {
             log.error("Error in processing {}-{}", ex.toString(), ex.getStackTrace());
@@ -84,7 +84,7 @@ public class AlarmController {
         return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
     }
 
-    private void accept(AlarmRecord data) {
+    private void accept(RecordData data) {
         String decodedData = new String(Base64.getDecoder().decode(data.getData()));
         try {
             AlarmStateChange alarmStateChange = objectMapperFactory.getObjectMapper().readValue(decodedData, AlarmStateChange.class);

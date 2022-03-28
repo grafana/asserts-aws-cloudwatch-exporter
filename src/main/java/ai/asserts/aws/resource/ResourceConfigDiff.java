@@ -1,8 +1,8 @@
 /*
- *  Copyright © 2021.
+ *  Copyright © 2022.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws.cloudwatch.alarms;
+package ai.asserts.aws.resource;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
@@ -19,6 +19,6 @@ import lombok.ToString;
 @EqualsAndHashCode
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class AlarmRecord {
-    private String data;
+public class ResourceConfigDiff {
+    private String changeType;
 }
