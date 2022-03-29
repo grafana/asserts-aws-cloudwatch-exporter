@@ -67,7 +67,6 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(metric.getValue()).andReturn(ImmutableMap.of("sum", 4.0f, "count", 2.0f));
         expect(metricNameUtil.toSnakeCase("aws_firehose_m1_sum")).andReturn("aws_firehose_m1_sum");
         expect(metricNameUtil.toSnakeCase("aws_firehose_m1_count")).andReturn("aws_firehose_m1_count");
-        expect(metricNameUtil.toSnakeCase("aws_firehose_m1_delay_seconds")).andReturn("aws_firehose_m1_delay_seconds");
 
         SortedMap<String, String> metricLabels = new TreeMap<>();
         metricLabels.put("DeliveryStreamName", "PUT-HTP-SliCQ");
@@ -82,7 +81,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
 
         metricCollector.recordGaugeValue("aws_firehose_m1_sum", metricLabels, 4.0);
         metricCollector.recordGaugeValue("aws_firehose_m1_count", metricLabels, 2.0);
-        metricCollector.recordHistogram("aws_firehose_m1_delay_seconds", metricHistoLabels, -5);
+        metricCollector.recordHistogram("aws_exporter_delay_seconds", metricHistoLabels, -5);
         labels = new HashMap<>();
         labels.put("unit", "Percent");
         labels.put("account_id", "123");
