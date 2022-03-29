@@ -4,17 +4,13 @@ package ai.asserts.aws;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
-import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
-import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 
 import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
 
 @Component
 @AllArgsConstructor

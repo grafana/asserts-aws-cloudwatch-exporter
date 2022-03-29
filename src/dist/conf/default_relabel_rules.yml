@@ -1,0 +1,49 @@
+# AWS Dynamo metrics
+- source_labels: [ __name__ ]
+  regex: aws_dynamodb_.+
+  target_label: namespace
+  replacement: AWS/DynamoDB
+
+- source_labels: [ __name__, d_table_name ]
+  regex: aws_dynamodb_.+;(.+)
+  target_label: job
+  replacement: $1
+
+- source_labels: [ __name__, d_operation ]
+  regex: aws_dynamodb_.+;(.+)
+  target_label: asserts_request_context
+  replacement: $1
+
+# When operation is BatchExecuteStatement or ExecuteTransaction, the operation type distinguishes between read
+# and write operations
+- source_labels: [ __name__, d_operation, d_operation_type ]
+  regex: aws_dynamodb_.+;(.+);(.+)
+  target_label: asserts_request_context
+  replacement: $1-$2
+
+# Include GSI name in the context for GSI capacity metrics
+- source_labels: [ __name__, d_operation, d_global_secondary_index_name ]
+  regex: aws_dynamodb_.+;(.+);(.+)
+  target_label: asserts_request_context
+  replacement: $1-$2
+
+
+# AWS Exporter internal metrics
+- source_labels: [ __name__, operation ]
+  regex: aws_exporter.+;(.+)
+  target_label: asserts_request_context
+  replacement: $1/$2
+
+  # Some operations use CloudWatch namespace as a parameter
+- source_labels: [ __name__, cw_namespace, operation ]
+  regex: aws_exporter.+;(.+);(.+)
+  target_label: asserts_request_context
+  replacement: $1/$2/$3
+
+
+# AWS Lambda metrics 
+- source_labels: [ __name__, cw_namespace ]
+  regex: aws_.+;(.+)
+  target_label: namespace
+  replacement: $1
+  

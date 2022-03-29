@@ -4,10 +4,14 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
+import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import org.easymock.EasyMockSupport;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -15,16 +19,31 @@ import java.util.SortedMap;
 
 import static io.prometheus.client.Collector.Type.COUNTER;
 import static io.prometheus.client.Collector.Type.GAUGE;
+import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class BasicMetricCollectorTest {
+public class BasicMetricCollectorTest extends EasyMockSupport {
+    private ScrapeConfig scrapeConfig;
+    private BasicMetricCollector metricCollector;
+
+    @BeforeEach
+    public void setup() {
+        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
+        metricCollector = new BasicMetricCollector(scrapeConfigProvider);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+    }
+
     @Test
     void collect_gauge() {
-        BasicMetricCollector metricCollector = new BasicMetricCollector();
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
+
+        expect(scrapeConfig.applyRelabels("metric", labels1)).andReturn(labels1).times(2);
+        expect(scrapeConfig.applyRelabels("metric", labels2)).andReturn(labels2);
+        replayAll();
         metricCollector.recordGaugeValue("metric", labels1, 1.0D);
 
         Sample sample1 = new Sample(
@@ -77,9 +96,13 @@ public class BasicMetricCollectorTest {
 
     @Test
     void collect_counter() {
-        BasicMetricCollector metricCollector = new BasicMetricCollector();
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
+
+        expect(scrapeConfig.applyRelabels("metric", labels1)).andReturn(labels1).times(2);
+        expect(scrapeConfig.applyRelabels("metric", labels2)).andReturn(labels2);
+        replayAll();
+
         metricCollector.recordCounterValue("metric", labels1, 1);
 
         Sample sample1 = new Sample(
@@ -132,9 +155,13 @@ public class BasicMetricCollectorTest {
 
     @Test
     void collect_latency() {
-        BasicMetricCollector metricCollector = new BasicMetricCollector();
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
+
+        expect(scrapeConfig.applyRelabels("metric", labels1)).andReturn(labels1).times(2);
+        expect(scrapeConfig.applyRelabels("metric", labels2)).andReturn(labels2);
+        replayAll();
+
         metricCollector.recordLatency("metric", labels1, 10);
 
         Sample sample1_count = new Sample(

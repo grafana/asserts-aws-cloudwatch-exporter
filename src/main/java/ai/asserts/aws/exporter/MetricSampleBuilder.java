@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
+import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import io.prometheus.client.Collector.MetricFamilySamples;
 import lombok.AllArgsConstructor;
@@ -24,13 +25,15 @@ import static io.prometheus.client.Collector.Type.GAUGE;
 public class MetricSampleBuilder {
     private final MetricNameUtil metricNameUtil;
     private final LabelBuilder labelBuilder;
+    private final ScrapeConfigProvider scrapeConfigProvider;
 
     public List<MetricFamilySamples.Sample> buildSamples(String region, MetricQuery metricQuery,
                                                          MetricDataResult metricDataResult) {
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         String metricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
         if (metricDataResult.timestamps().size() > 0) {
-            Map<String, String> labels = labelBuilder.buildLabels(region, metricQuery);
+            Map<String, String> labels = scrapeConfigProvider.getScrapeConfig()
+                    .applyRelabels(metricName, labelBuilder.buildLabels(region, metricQuery));
             for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
                 MetricFamilySamples.Sample sample = new MetricFamilySamples.Sample(
                         metricName,
@@ -43,8 +46,9 @@ public class MetricSampleBuilder {
         return samples;
     }
 
-    public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> labels,
+    public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> inputLabels,
                                                         Double metric) {
+        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().applyRelabels(metricName, inputLabels);
         return new MetricFamilySamples.Sample(
                 metricName,
                 new ArrayList<>(labels.keySet()),
@@ -52,8 +56,9 @@ public class MetricSampleBuilder {
                 metric);
     }
 
-    public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> labels,
+    public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> inputLabels,
                                                         Double metric, Long time) {
+        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().applyRelabels(metricName, inputLabels);
         return new MetricFamilySamples.Sample(
                 metricName,
                 new ArrayList<>(labels.keySet()),

@@ -5,6 +5,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,9 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -139,6 +142,7 @@ public class ScrapeConfigProvider {
         SortedMap<String, String> labels = new TreeMap<>(ImmutableMap.of(SCRAPE_OPERATION_LABEL, "loadConfig"));
         try {
             Map<String, String> envVariables = getGetenv();
+            ObjectMapper objectMapper = objectMapperFactory.getObjectMapper();
             if (envVariables.containsKey(ASSERTS_HOST) && envVariables.containsKey(ASSERTS_USER)
                     && envVariables.containsKey(ASSERTS_PASSWORD)) {
                 scrapeConfig = getConfig(envVariables);
@@ -156,7 +160,7 @@ public class ScrapeConfigProvider {
                                         .bucket(bucket)
                                         .key(key)
                                         .build()));
-                        scrapeConfig = objectMapperFactory.getObjectMapper().readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
+                        scrapeConfig = objectMapper.readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
                         });
                     }
                 } catch (Exception e) {
@@ -166,7 +170,7 @@ public class ScrapeConfigProvider {
             } else {
                 log.info("Will load configuration from {}", scrapeConfigFile);
                 Resource resource = resourceLoader.getResource(scrapeConfigFile);
-                scrapeConfig = objectMapperFactory.getObjectMapper()
+                scrapeConfig = objectMapper
                         .readValue(resource.getURL(), new TypeReference<ScrapeConfig>() {
                         });
             }
@@ -181,6 +185,21 @@ public class ScrapeConfigProvider {
             if (envVariables.containsKey("ENABLE_ECS_SD")) {
                 scrapeConfig.setDiscoverECSTasks(isEnabled(System.getenv("ENABLE_ECS_SD")));
             }
+
+            ScrapeConfig finalScrapeConfig = scrapeConfig;
+            Stream.of("default_relabel_rules.yml", "src/dist/conf/default_relabel_rules.yml")
+                    .map(File::new)
+                    .filter(File::exists)
+                    .findFirst().ifPresent(relabel_rules -> {
+                try {
+                    List<RelabelConfig> rules = objectMapper.readValue(relabel_rules, new TypeReference<List<RelabelConfig>>() {
+                    });
+                    finalScrapeConfig.getRelabelConfigs().addAll(rules);
+                } catch (IOException e) {
+                    log.error("Failed to load relabel rules", e);
+                }
+            });
+
             return scrapeConfig;
         } catch (IOException e) {
             log.error("Failed to load scrape configuration from file " + scrapeConfigFile, e);

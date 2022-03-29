@@ -5,10 +5,12 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
@@ -24,8 +26,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import static org.easymock.EasyMock.anyLong;
@@ -41,6 +45,19 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     private S3Client s3Client;
     private BasicMetricCollector metricCollector;
     private RestTemplate restTemplate;
+    private static List<RelabelConfig> relabelConfigs;
+
+    @BeforeAll
+    public static void onlyOnce() {
+        try {
+            File file = new File("src/dist/conf/default_relabel_rules.yml");
+            ObjectMapper objectMapper = new ObjectMapperFactory().getObjectMapper();
+            relabelConfigs = objectMapper.readValue(file, new TypeReference<List<RelabelConfig>>() {
+            });
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @BeforeEach
     public void setup() {
@@ -168,6 +185,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         FileInputStream fis = new FileInputStream("src/test/resources/cloudwatch_scrape_config.yml");
         ScrapeConfig scrapeConfig = new ObjectMapperFactory().getObjectMapper().readValue(fis, new TypeReference<ScrapeConfig>() {
         });
+        scrapeConfig.getRelabelConfigs().addAll(relabelConfigs);
         scrapeConfig.validateConfig();
 
         fis = new FileInputStream("src/test/resources/cloudwatch_scrape_config.yml");
@@ -193,7 +211,9 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 return s3Client;
             }
         };
-        assertEquals(scrapeConfig.toString(), testClass.getScrapeConfig().toString());
+        ScrapeConfig actualConfig = testClass.getScrapeConfig();
+        actualConfig.validateConfig();
+        assertEquals(scrapeConfig.toString(), actualConfig.toString());
         verifyAll();
     }
 
@@ -204,7 +224,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         });
         scrapeConfig.validateConfig();
 
-        fis = new FileInputStream("src/test/resources/cloudwatch_scrape_config.yml");
         HttpHeaders headers = new HttpHeaders();
         headers.setBasicAuth("user", "key");
         headers.setContentType(MediaType.APPLICATION_JSON);

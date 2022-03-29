@@ -89,6 +89,9 @@ public class ScrapeConfig {
     private String assumeRole;
 
     @Builder.Default
+    private List<RelabelConfig> relabelConfigs = new ArrayList<>();
+
+    @Builder.Default
     private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
 
     public Optional<NamespaceConfig> getLambdaConfig() {
@@ -193,5 +196,17 @@ public class ScrapeConfig {
         if (getTagExportConfig() != null) {
             getTagExportConfig().compile();
         }
+
+        relabelConfigs.forEach(RelabelConfig::compile);
+    }
+
+    public Map<String, String> applyRelabels(String metricName, Map<String, String> inputLabels) {
+        Map<String, String> labels = inputLabels;
+        for (RelabelConfig config : relabelConfigs) {
+            labels = config.buildReplacements(metricName, labels);
+        }
+        return labels;
     }
 }
+
+
