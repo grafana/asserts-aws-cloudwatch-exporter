@@ -1,5 +1,5 @@
 /*
- *  Copyright © 2020.
+ *  Copyright © 2022.
  *  Asserts, Inc. - All Rights Reserved
  */
 package ai.asserts.aws.cloudwatch.metrics;
@@ -12,6 +12,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
+import java.util.List;
+
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -19,6 +21,6 @@ import lombok.ToString;
 @EqualsAndHashCode
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class MetricResponse {
-    private String status;
+public class CloudWatchMetrics {
+    private List<CloudWatchMetric> metrics;
 }
