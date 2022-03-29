@@ -30,6 +30,7 @@ EXPOSE 8010
 # EXPOSE 8095
 WORKDIR /opt/demo_app
 COPY --from=builder /home/gradle/app/src/dist/conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml
+COPY --from=builder /home/gradle/app/src/dist/conf/default_relabel_rules.yml ./default_relabel_rules.yml
 COPY --from=builder /home/gradle/app/build/libs/* ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.xml ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.properties ./
