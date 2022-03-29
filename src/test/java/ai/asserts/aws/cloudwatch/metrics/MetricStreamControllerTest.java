@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +38,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private MetricNameUtil metricNameUtil;
     private Map<String, String> labels;
+    private Instant now;
 
     @BeforeEach
     public void setup() {
@@ -47,25 +49,40 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         recordData = mock(RecordData.class);
         objectMapper = mock(ObjectMapper.class);
         ObjectMapperFactory objectMapperFactory = mock(ObjectMapperFactory.class);
-        testClass = new MetricStreamController(objectMapperFactory, metricCollector, metricNameUtil);
+        now = Instant.now();
+        testClass = new MetricStreamController(objectMapperFactory, metricCollector, metricNameUtil) {
+            @Override
+            Instant now() {
+                return now;
+            }
+        };
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
         metric = mock(CloudWatchMetric.class);
         expect(metric.getMetric_name()).andReturn("m1").times(2);
         expect(metric.getNamespace()).andReturn("AWS/Firehose").times(2);
         expect(metric.getRegion()).andReturn("r1");
         expect(metric.getAccount_id()).andReturn("123");
+        expect(metric.getTimestamp()).andReturn(now.plusSeconds(5).toEpochMilli());
         expect(metric.getDimensions()).andReturn(ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")).times(2);
         expect(metric.getValue()).andReturn(ImmutableMap.of("sum", 4.0f, "count", 2.0f));
         expect(metricNameUtil.toSnakeCase("aws_firehose_m1_sum")).andReturn("aws_firehose_m1_sum");
         expect(metricNameUtil.toSnakeCase("aws_firehose_m1_count")).andReturn("aws_firehose_m1_count");
-        //expect(metricNameUtil.toSnakeCase("aws_firehose_m1_sum")).andReturn("aws_firehose_m1_sum");
+        expect(metricNameUtil.toSnakeCase("aws_firehose_m1_delay_seconds")).andReturn("aws_firehose_m1_delay_seconds");
+
         SortedMap<String, String> metricLabels = new TreeMap<>();
         metricLabels.put("DeliveryStreamName", "PUT-HTP-SliCQ");
         metricLabels.put("account_id", "123");
         metricLabels.put("namespace", "AWS/Firehose");
         metricLabels.put("region", "r1");
+
+        SortedMap<String, String> metricHistoLabels = new TreeMap<>();
+        metricHistoLabels.put("namespace", "AWS/Firehose");
+        metricHistoLabels.put("region", "r1");
+        metricHistoLabels.put("metric_name", "aws_firehose_m1");
+
         metricCollector.recordGaugeValue("aws_firehose_m1_sum", metricLabels, 4.0);
         metricCollector.recordGaugeValue("aws_firehose_m1_count", metricLabels, 2.0);
+        metricCollector.recordHistogram("aws_firehose_m1_delay_seconds", metricHistoLabels, -5);
         labels = new HashMap<>();
         labels.put("unit", "Percent");
         labels.put("account_id", "123");

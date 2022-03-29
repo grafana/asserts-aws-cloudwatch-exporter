@@ -11,6 +11,7 @@ import ai.asserts.aws.cloudwatch.alarms.RecordData;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -21,8 +22,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -107,10 +110,26 @@ public class MetricStreamController {
         if (namespace.isPresent()) {
             String prefix = namespace.get().getMetricPrefix();
             String metricName = prefix + "_" + metric.getMetric_name();
+            recordHistogram(metricMap, metric.getTimestamp(), metricName);
             metric.getValue().forEach((key, value) -> {
                 String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + key);
                 metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
             });
         }
+    }
+
+    private void recordHistogram(Map<String, String> labels, Long timestamp, String metric_name) {
+        SortedMap<String, String> histoLabels = new TreeMap<>();
+        histoLabels.put("namespace", labels.get("namespace"));
+        histoLabels.put("region", labels.get("region"));
+        histoLabels.put("metric_name", metric_name);
+        long diff = (now().toEpochMilli() - timestamp) / 1000;
+        String histoMetricName = metricNameUtil.toSnakeCase(String.format("%s_delay_seconds", metric_name));
+        this.metricCollector.recordHistogram(histoMetricName, histoLabels, diff);
+    }
+
+    @VisibleForTesting
+    Instant now() {
+        return Instant.now();
     }
 }
