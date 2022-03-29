@@ -43,6 +43,11 @@ public class RelabelConfig {
     public Map<String, String> addReplacements(String metricName, Map<String, String> labelValues) {
         Map<String, String> input = new TreeMap<>(labelValues);
         input.put("__name__", metricName);
+
+        if (!labels.stream().allMatch(input::containsKey)) {
+            return labelValues;
+        }
+
         String source = labels.stream().map(label -> input.getOrDefault(label, ""))
                 .collect(Collectors.joining(";"));
         Matcher matcher = compiledExp.matcher(source);

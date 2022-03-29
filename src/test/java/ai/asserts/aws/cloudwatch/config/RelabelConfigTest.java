@@ -34,5 +34,27 @@ public class RelabelConfigTest {
         Map<String, String> expected = new TreeMap<>(labels);
         expected.put("asserts_request_context", "read-get");
         assertEquals(expected, config.addReplacements("aws_dynamodb_successful_request_latency", labels));
+
+        config.setLabels(ImmutableList.of("__name__", "some_label"));
+        expected.remove("asserts_request_context");
+        assertEquals(expected, config.addReplacements("aws_dynamodb_successful_request_latency", labels));
+    }
+
+    @Test
+    public void buildReplacements_noMatch() {
+        RelabelConfig config = new RelabelConfig();
+
+        config.setLabels(ImmutableList.of("__name__", "some_label"));
+        config.setRegex("aws_dynamodb_.+;(.+);(.+)");
+        config.setTarget("asserts_request_context");
+        config.setReplacement("$2-$1");
+        config.compile();
+
+        Map<String, String> labels = new TreeMap<>();
+        labels.put("d_operation", "get");
+        labels.put("d_operation_type", "read");
+
+        Map<String, String> expected = new TreeMap<>(labels);
+        assertEquals(expected, config.addReplacements("aws_dynamodb_successful_request_latency", labels));
     }
 }
