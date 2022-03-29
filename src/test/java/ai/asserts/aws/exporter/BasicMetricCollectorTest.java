@@ -41,8 +41,8 @@ public class BasicMetricCollectorTest extends EasyMockSupport {
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
 
-        expect(scrapeConfig.applyRelabels("metric", labels1)).andReturn(labels1).times(2);
-        expect(scrapeConfig.applyRelabels("metric", labels2)).andReturn(labels2);
+        expect(scrapeConfig.additionalLabels("metric", labels1)).andReturn(labels1).times(2);
+        expect(scrapeConfig.additionalLabels("metric", labels2)).andReturn(labels2);
         replayAll();
         metricCollector.recordGaugeValue("metric", labels1, 1.0D);
 
@@ -99,8 +99,8 @@ public class BasicMetricCollectorTest extends EasyMockSupport {
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
 
-        expect(scrapeConfig.applyRelabels("metric", labels1)).andReturn(labels1).times(2);
-        expect(scrapeConfig.applyRelabels("metric", labels2)).andReturn(labels2);
+        expect(scrapeConfig.additionalLabels("metric", labels1)).andReturn(labels1).times(2);
+        expect(scrapeConfig.additionalLabels("metric", labels2)).andReturn(labels2);
         replayAll();
 
         metricCollector.recordCounterValue("metric", labels1, 1);
@@ -158,8 +158,8 @@ public class BasicMetricCollectorTest extends EasyMockSupport {
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
 
-        expect(scrapeConfig.applyRelabels("metric", labels1)).andReturn(labels1).times(2);
-        expect(scrapeConfig.applyRelabels("metric", labels2)).andReturn(labels2);
+        expect(scrapeConfig.additionalLabels("metric", labels1)).andReturn(labels1).times(2);
+        expect(scrapeConfig.additionalLabels("metric", labels2)).andReturn(labels2);
         replayAll();
 
         metricCollector.recordLatency("metric", labels1, 10);

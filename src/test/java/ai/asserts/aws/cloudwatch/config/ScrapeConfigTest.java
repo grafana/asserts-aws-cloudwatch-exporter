@@ -15,6 +15,7 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -153,6 +154,32 @@ public class ScrapeConfigTest extends EasyMockSupport {
         Map<String, String> labels = scrapeConfig.getEntityLabels("AWS/S3", ImmutableMap.of(
                 "namespace", "AWS/S3", "BucketName", "TestBucket"));
         assertEquals(ImmutableMap.of("asserts_entity_type", "Service", "job", "TestBucket"), labels);
+        verifyAll();
+    }
+
+    @Test
+    void additionalLabels() {
+        RelabelConfig relabelConfig = mock(RelabelConfig.class);
+
+        Map<String, String> labels = new TreeMap<>(ImmutableMap.of(
+                "label", "value"));
+
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .relabelConfigs(ImmutableList.of(relabelConfig))
+                .targetLabels(ImmutableMap.of("asserts_env", "env", "asserts_site", "dev"))
+                .build();
+
+
+        expect(relabelConfig.buildReplacements("metric", labels)).andReturn(labels);
+
+        replayAll();
+
+        Map<String, String> finalLabels = scrapeConfig.additionalLabels("metric", labels);
+        assertEquals(ImmutableMap.of(
+                "label", "value",
+                "asserts_env", "env",
+                "asserts_site", "dev"
+        ), finalLabels);
         verifyAll();
     }
 }

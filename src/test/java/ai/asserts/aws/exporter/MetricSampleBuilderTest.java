@@ -57,7 +57,7 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         expect(metricNameUtil.exportedMetricName(metric, MetricStat.Average)).andReturn("metric");
         ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         expect(labelBuilder.buildLabels("region", metricQuery)).andReturn(labels);
-        expect(scrapeConfig.applyRelabels("metric", labels)).andReturn(labels);
+        expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
         replayAll();
 
         List<Sample> samples = testClass.buildSamples("region",
@@ -80,7 +80,7 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         List<String> labelNames = Arrays.asList("label1", "label2");
         List<String> labelValues = Arrays.asList("value1", "value2");
         ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
-        expect(scrapeConfig.applyRelabels("metric", labels)).andReturn(labels);
+        expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
         replayAll();
         assertEquals(new Sample("metric", labelNames, labelValues, 1.0D),
                 testClass.buildSingleSample("metric",

@@ -72,7 +72,7 @@ public class BasicMetricCollector extends Collector {
     }
 
     public void recordGaugeValue(String metricName, SortedMap<String, String> inputLabels, Double value) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().applyRelabels(metricName, inputLabels);
+        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
         gaugeValues.put(Key.builder()
                 .metricName(metricName)
                 .labelNames(new ArrayList<>(labels.keySet()))
@@ -81,7 +81,7 @@ public class BasicMetricCollector extends Collector {
     }
 
     public void recordCounterValue(String metricName, SortedMap<String, String> inputLabels, int value) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().applyRelabels(metricName, inputLabels);
+        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
         Key key = Key.builder()
                 .metricName(metricName)
                 .labelNames(new ArrayList<>(labels.keySet()))
@@ -94,7 +94,7 @@ public class BasicMetricCollector extends Collector {
     }
 
     public void recordLatency(String metricName, SortedMap<String, String> inputLabels, long value) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().applyRelabels(metricName, inputLabels);
+        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
         Key key = Key.builder()
                 .metricName(metricName)
                 .labelNames(new ArrayList<>(labels.keySet()))
@@ -108,7 +108,7 @@ public class BasicMetricCollector extends Collector {
     }
 
     public void recordHistogram(String metricName, SortedMap<String, String> inputLabels, long value) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().applyRelabels(metricName, inputLabels);
+        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
         Key key = Key.builder()
                 .metricName(metricName)
                 .labelNames(new ArrayList<>(labels.keySet()))

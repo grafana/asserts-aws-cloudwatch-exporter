@@ -33,7 +33,7 @@ public class MetricSampleBuilder {
         String metricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
         if (metricDataResult.timestamps().size() > 0) {
             Map<String, String> labels = scrapeConfigProvider.getScrapeConfig()
-                    .applyRelabels(metricName, labelBuilder.buildLabels(region, metricQuery));
+                    .additionalLabels(metricName, labelBuilder.buildLabels(region, metricQuery));
             for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
                 MetricFamilySamples.Sample sample = new MetricFamilySamples.Sample(
                         metricName,
@@ -48,7 +48,7 @@ public class MetricSampleBuilder {
 
     public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> inputLabels,
                                                         Double metric) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().applyRelabels(metricName, inputLabels);
+        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
         return new MetricFamilySamples.Sample(
                 metricName,
                 new ArrayList<>(labels.keySet()),
@@ -58,7 +58,7 @@ public class MetricSampleBuilder {
 
     public MetricFamilySamples.Sample buildSingleSample(String metricName, Map<String, String> inputLabels,
                                                         Double metric, Long time) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().applyRelabels(metricName, inputLabels);
+        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
         return new MetricFamilySamples.Sample(
                 metricName,
                 new ArrayList<>(labels.keySet()),

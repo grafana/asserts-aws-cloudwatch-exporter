@@ -72,7 +72,7 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.applyRelabels(anyString(),anyObject())).andReturn(ImmutableMap.of()).anyTimes();
+        expect(scrapeConfig.additionalLabels(anyString(),anyObject())).andReturn(ImmutableMap.of()).anyTimes();
     }
 
     @Test
