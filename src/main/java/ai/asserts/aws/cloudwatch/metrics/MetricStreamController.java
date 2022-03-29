@@ -4,9 +4,12 @@
  */
 package ai.asserts.aws.cloudwatch.metrics;
 
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
+import ai.asserts.aws.cloudwatch.model.CWNamespace;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,9 +21,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Arrays;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
@@ -31,7 +36,8 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 public class MetricStreamController {
     public static final String METRICS = "/receive-cloudwatch-metrics";
     private final ObjectMapperFactory objectMapperFactory;
-    private final CloudWatchMetricExporter exporter;
+    private final BasicMetricCollector metricCollector;
+    private final MetricNameUtil metricNameUtil;
 
     @PostMapping(
             path = METRICS,
@@ -78,7 +84,7 @@ public class MetricStreamController {
         try {
             CloudWatchMetrics metrics = objectMapperFactory.getObjectMapper().readValue(decodedData, CloudWatchMetrics.class);
             metrics.getMetrics().forEach(m -> {
-                exporter.addMetric(convertMetric(m));
+                publishMetric(m);
                 log.info("Metric Name{} - Namespace {}", m.getMetric_name(), m.getNamespace());
             });
         } catch (JsonProcessingException jsp) {
@@ -86,20 +92,25 @@ public class MetricStreamController {
         }
     }
 
-    private Map<String, String> convertMetric(CloudWatchMetric metric) {
-        Map<String, String> metricMap = new HashMap<>();
-        metricMap.put("metric_name", metric.getMetric_name());
-        metricMap.put("namespace", metric.getNamespace());
+    private void publishMetric(CloudWatchMetric metric) {
+        SortedMap<String, String> metricMap = new TreeMap<>();
+        String metricNamespace = metric.getNamespace();
+        metricMap.put("namespace", metricNamespace);
         metricMap.put("region", metric.getRegion());
         metricMap.put("account_id", metric.getAccount_id());
-        metricMap.put("unit", metric.getUnit());
         if (!CollectionUtils.isEmpty(metric.getDimensions())) {
             metricMap.putAll(metric.getDimensions());
         }
-        if (metric.getValue().containsKey("sum") && metric.getValue().containsKey("count")) {
-            float val = metric.getValue().get("sum") / metric.getValue().get("count");
-            metricMap.put("value", Float.toString(val));
+        Optional<CWNamespace> namespace =
+                Arrays.stream(CWNamespace.values()).filter(f -> f.getNamespace().equals(metricNamespace))
+                        .findFirst();
+        if (namespace.isPresent()) {
+            String prefix = namespace.get().getMetricPrefix();
+            String metricName = prefix + "_" + metric.getMetric_name();
+            metric.getValue().forEach((key, value) -> {
+                String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + key);
+                metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
+            });
         }
-        return metricMap;
     }
 }

@@ -7,7 +7,6 @@ import ai.asserts.aws.cloudwatch.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.metrics.CloudWatchMetricExporter;
 import ai.asserts.aws.cloudwatch.model.CWNamespace;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
@@ -40,7 +39,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
     private AlarmMetricExporter alarmMetricExporter;
-    private CloudWatchMetricExporter metricExporter;
     private AlarmFetcher alarmFetcher;
 
     @BeforeEach
@@ -55,12 +53,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
         alarmMetricExporter = mock(AlarmMetricExporter.class);
-        metricExporter = mock(CloudWatchMetricExporter.class);
         alarmFetcher = mock(AlarmFetcher.class);
 
         replayAll();
         testClass = new MetricTaskManager(collectorRegistry, beanFactory, scrapeConfigProvider, ecsServiceDiscoveryExporter,
-                taskThreadPool, alarmMetricExporter, metricExporter, alarmFetcher) {
+                taskThreadPool, alarmMetricExporter, alarmFetcher) {
             @Override
             MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
                 return metricScrapeTask;
@@ -101,7 +98,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expectLastCall().times(4);
         expect(metricScrapeTask.register(collectorRegistry)).andReturn(null).times(4);
         expect(alarmMetricExporter.register(collectorRegistry)).andReturn(null);
-        expect(metricExporter.register(collectorRegistry)).andReturn(null);
         alarmFetcher.sendAlarmsForRegions();
         replayAll();
         testClass.afterPropertiesSet();
