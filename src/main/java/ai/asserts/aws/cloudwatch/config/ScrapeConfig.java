@@ -92,9 +92,6 @@ public class ScrapeConfig {
     private List<RelabelConfig> relabelConfigs = new ArrayList<>();
 
     @Builder.Default
-    private Map<String, String> targetLabels = new TreeMap<>();
-
-    @Builder.Default
     private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
 
     public Optional<NamespaceConfig> getLambdaConfig() {
@@ -206,9 +203,8 @@ public class ScrapeConfig {
     public Map<String, String> additionalLabels(String metricName, Map<String, String> inputLabels) {
         Map<String, String> labels = new TreeMap<>(inputLabels);
         for (RelabelConfig config : relabelConfigs) {
-            labels = config.buildReplacements(metricName, labels);
+            labels = config.addReplacements(metricName, labels);
         }
-        labels.putAll(targetLabels);
         return labels;
     }
 }

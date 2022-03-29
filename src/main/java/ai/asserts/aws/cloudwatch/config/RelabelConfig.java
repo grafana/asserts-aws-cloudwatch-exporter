@@ -40,7 +40,7 @@ public class RelabelConfig {
         }
     }
 
-    public Map<String, String> buildReplacements(String metricName, Map<String, String> labelValues) {
+    public Map<String, String> addReplacements(String metricName, Map<String, String> labelValues) {
         Map<String, String> input = new TreeMap<>(labelValues);
         input.put("__name__", metricName);
         String source = labels.stream().map(label -> input.getOrDefault(label, ""))

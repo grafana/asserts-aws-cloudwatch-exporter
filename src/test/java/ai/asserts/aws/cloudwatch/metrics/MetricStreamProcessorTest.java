@@ -7,7 +7,6 @@ package ai.asserts.aws.cloudwatch.metrics;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
-import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.BasicMetricCollector;
@@ -50,8 +49,6 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private Collector.MetricFamilySamples metricFamilySamples;
     private RestTemplate restTemplate;
-    private ScrapeConfigProvider scrapeConfigProvider;
-    private ScrapeConfig scrapeConfig;
 
     @BeforeAll
     public static void setupRequest() throws IOException {
@@ -69,10 +66,10 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
         metricStreamProcessor = new MetricStreamProcessor(collectorRegistry, metricConverter);
         metricStreamProcessor.setCollectorRegistry(collectorRegistry);
         restTemplate = mock(RestTemplate.class);
-        scrapeConfig = mock(ScrapeConfig.class);
-        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
+        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.additionalLabels(anyString(),anyObject())).andReturn(ImmutableMap.of()).anyTimes();
+        expect(scrapeConfig.additionalLabels(anyString(), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
     }
 
     @Test
@@ -107,8 +104,6 @@ public class MetricStreamProcessorTest extends EasyMockSupport {
 
         ScrapeConfigProvider scrapeConfigProvider = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                metricCollector,
-                new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate
         );

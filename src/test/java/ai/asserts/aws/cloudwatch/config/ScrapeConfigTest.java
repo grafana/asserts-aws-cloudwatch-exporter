@@ -166,19 +166,18 @@ public class ScrapeConfigTest extends EasyMockSupport {
 
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .relabelConfigs(ImmutableList.of(relabelConfig))
-                .targetLabels(ImmutableMap.of("asserts_env", "env", "asserts_site", "dev"))
                 .build();
 
 
-        expect(relabelConfig.buildReplacements("metric", labels)).andReturn(labels);
+        expect(relabelConfig.addReplacements("metric", labels))
+                .andReturn(ImmutableMap.of("label", "value", "label2", "value2"));
 
         replayAll();
 
         Map<String, String> finalLabels = scrapeConfig.additionalLabels("metric", labels);
         assertEquals(ImmutableMap.of(
                 "label", "value",
-                "asserts_env", "env",
-                "asserts_site", "dev"
+                "label2", "value2"
         ), finalLabels);
         verifyAll();
     }

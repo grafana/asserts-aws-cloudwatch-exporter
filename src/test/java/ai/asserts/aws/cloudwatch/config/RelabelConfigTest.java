@@ -33,6 +33,6 @@ public class RelabelConfigTest {
 
         Map<String, String> expected = new TreeMap<>(labels);
         expected.put("asserts_request_context", "read-get");
-        assertEquals(expected, config.buildReplacements("aws_dynamodb_successful_request_latency", labels));
+        assertEquals(expected, config.addReplacements("aws_dynamodb_successful_request_latency", labels));
     }
 }

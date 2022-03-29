@@ -1,9 +1,7 @@
 package ai.asserts.aws.cloudwatch.config;
 
 import ai.asserts.aws.ObjectMapperFactory;
-import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.model.MetricStat;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -32,9 +30,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static org.easymock.EasyMock.anyLong;
-import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,7 +38,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ScrapeConfigProviderTest extends EasyMockSupport {
     private S3Client s3Client;
-    private BasicMetricCollector metricCollector;
     private RestTemplate restTemplate;
     private static List<RelabelConfig> relabelConfigs;
 
@@ -63,7 +57,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     public void setup() {
         s3Client = mock(S3Client.class);
         restTemplate = mock(RestTemplate.class);
-        metricCollector = mock(BasicMetricCollector.class);
     }
 
     @Test
@@ -154,7 +147,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     void integrationTest() {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate);
         assertNotNull(testClass.getScrapeConfig());
@@ -167,7 +159,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     void envOverrides() {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate) {
             @Override
@@ -193,12 +184,10 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .bucket("bucket")
                 .key("key")
                 .build())).andReturn(ResponseBytes.fromInputStream(GetObjectResponse.builder().build(), fis));
-        metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         s3Client.close();
         replayAll();
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate) {
             @Override
@@ -238,7 +227,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         replayAll();
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
-                metricCollector, new RateLimiter(metricCollector),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate) {
             @Override
