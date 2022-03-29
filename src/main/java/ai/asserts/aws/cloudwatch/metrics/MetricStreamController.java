@@ -102,7 +102,10 @@ public class MetricStreamController {
         metricMap.put("region", metric.getRegion());
         metricMap.put("account_id", metric.getAccount_id());
         if (!CollectionUtils.isEmpty(metric.getDimensions())) {
-            metricMap.putAll(metric.getDimensions());
+            metric.getDimensions().forEach((k, v) ->{
+                metricMap.put(metricNameUtil.toSnakeCase(k), v);
+            });
+
         }
         Optional<CWNamespace> namespace =
                 Arrays.stream(CWNamespace.values()).filter(f -> f.getNamespace().equals(metricNamespace))

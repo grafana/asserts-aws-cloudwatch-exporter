@@ -67,9 +67,10 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(metric.getValue()).andReturn(ImmutableMap.of("sum", 4.0f, "count", 2.0f));
         expect(metricNameUtil.toSnakeCase("aws_firehose_m1_sum")).andReturn("aws_firehose_m1_sum");
         expect(metricNameUtil.toSnakeCase("aws_firehose_m1_count")).andReturn("aws_firehose_m1_count");
+        expect(metricNameUtil.toSnakeCase("DeliveryStreamName")).andReturn("delivery_stream_name");
 
         SortedMap<String, String> metricLabels = new TreeMap<>();
-        metricLabels.put("DeliveryStreamName", "PUT-HTP-SliCQ");
+        metricLabels.put("delivery_stream_name", "PUT-HTP-SliCQ");
         metricLabels.put("account_id", "123");
         metricLabels.put("namespace", "AWS/Firehose");
         metricLabels.put("region", "r1");
