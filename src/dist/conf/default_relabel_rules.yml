@@ -1,3 +1,9 @@
+# Namespace
+- source_labels: [__name__, cw_namespace]
+  regex: aws_.+;(.+)
+  target_label: namespace
+  replacement: $1
+
 # AWS Dynamo metrics
 - source_labels: [ __name__ ]
   regex: aws_dynamodb_.+
