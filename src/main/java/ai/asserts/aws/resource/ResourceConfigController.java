@@ -17,6 +17,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -119,7 +120,8 @@ public class ResourceConfigController {
                 SortedMap<String, String> labels = new TreeMap<>();
                 labels.put("region", configChange.getRegion());
                 labels.put("account_id", configChange.getAccount());
-                labels.put("alertname", String.format("Config-%s", configChange.getDetail().getConfigurationItemDiff().getChangeType()));
+                String change = toCamelCase(configChange.getDetail().getConfigurationItemDiff().getChangeType());
+                labels.put("alertname", String.format("Config-%s", change));
                 labels.put("asserts_entity_type", "Service");
                 Optional<Resource> resource = resourceMapper.map(r);
                 if (resource.isPresent()) {
@@ -131,6 +133,11 @@ public class ResourceConfigController {
             });
 
         }
+    }
+
+    private String toCamelCase(String str) {
+       return str.substring(0, 1).toUpperCase()
+                + str.substring(1).toLowerCase();
     }
 
     private void recordDelayHistogram(Map<String, String> labels, String timestamp) {
