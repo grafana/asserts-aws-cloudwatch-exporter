@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.metrics;
 
+import ai.asserts.aws.ApiAuthenticator;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
@@ -22,6 +23,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -38,6 +40,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private MetricNameUtil metricNameUtil;
     private Map<String, String> labels;
+    private ApiAuthenticator apiAuthenticator;
     private Instant now;
 
     @BeforeEach
@@ -48,9 +51,10 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         metrics = mock(CloudWatchMetrics.class);
         recordData = mock(RecordData.class);
         objectMapper = mock(ObjectMapper.class);
+        apiAuthenticator = mock(ApiAuthenticator.class);
         ObjectMapperFactory objectMapperFactory = mock(ObjectMapperFactory.class);
         now = Instant.now();
-        testClass = new MetricStreamController(objectMapperFactory, metricCollector, metricNameUtil) {
+        testClass = new MetricStreamController(objectMapperFactory, metricCollector, metricNameUtil, apiAuthenticator) {
             @Override
             Instant now() {
                 return now;
@@ -66,7 +70,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(metric.getDimensions()).andReturn(ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")).times(2);
         expect(metric.getValue()).andReturn(ImmutableMap.of("sum", 4.0f, "count", 2.0f));
         expect(metricNameUtil.toSnakeCase("aws_firehose_m1_sum")).andReturn("aws_firehose_m1_sum");
-        expect(metricNameUtil.toSnakeCase("aws_firehose_m1_count")).andReturn("aws_firehose_m1_count");
+        expect(metricNameUtil.toSnakeCase("aws_firehose_m1_samples")).andReturn("aws_firehose_m1_samples");
         expect(metricNameUtil.toSnakeCase("DeliveryStreamName")).andReturn("delivery_stream_name");
 
         SortedMap<String, String> metricLabels = new TreeMap<>();
@@ -81,7 +85,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         metricHistoLabels.put("metric_name", "aws_firehose_m1");
 
         metricCollector.recordGaugeValue("aws_firehose_m1_sum", metricLabels, 4.0);
-        metricCollector.recordGaugeValue("aws_firehose_m1_count", metricLabels, 2.0);
+        metricCollector.recordGaugeValue("aws_firehose_m1_samples", metricLabels, 2.0);
         metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, metricHistoLabels, -5);
         labels = new HashMap<>();
         labels.put("unit", "Percent");
@@ -96,27 +100,59 @@ public class MetricStreamControllerTest extends EasyMockSupport {
 
     @Test
     public void receiveMetricsPost() throws JsonProcessingException {
-//        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
-//        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
-//        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-//        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
-//        replayAll();
-//
-//        assertEquals(HttpStatus.OK, testClass.receiveMetricsPost(firehoseEventRequest).getStatusCode());
-//
-//        verifyAll();
+        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
+        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
+        apiAuthenticator.authenticate(Optional.empty());
+        replayAll();
+
+        assertEquals(HttpStatus.OK, testClass.receiveMetricsPost(firehoseEventRequest).getStatusCode());
+
+        verifyAll();
     }
 
     @Test
     public void receiveMetricsPut() throws JsonProcessingException {
-//        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
-//        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
-//        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-//        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
-//        replayAll();
-//
-//        assertEquals(HttpStatus.OK, testClass.receiveMetricsPut(firehoseEventRequest).getStatusCode());
-//
-//        verifyAll();
+        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
+        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
+        apiAuthenticator.authenticate(Optional.empty());
+        replayAll();
+
+        assertEquals(HttpStatus.OK, testClass.receiveMetricsPut(firehoseEventRequest).getStatusCode());
+
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPostSecure() throws JsonProcessingException {
+        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
+        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
+        apiAuthenticator.authenticate(Optional.of("token"));
+        replayAll();
+
+        assertEquals(HttpStatus.OK, testClass.receiveMetricsPostSecure("token",
+                firehoseEventRequest).getStatusCode());
+
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPutSecure() throws JsonProcessingException {
+        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
+        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
+        apiAuthenticator.authenticate(Optional.of("token"));
+        replayAll();
+
+        assertEquals(HttpStatus.OK, testClass.receiveMetricsPutSecure("token",
+                firehoseEventRequest).getStatusCode());
+
+        verifyAll();
     }
 }

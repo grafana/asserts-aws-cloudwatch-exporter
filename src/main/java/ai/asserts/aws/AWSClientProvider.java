@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2Clie
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.sts.StsClient;
 
 import java.util.Optional;
@@ -33,16 +34,28 @@ public class AWSClientProvider {
         return S3Client.builder().build();
     }
 
+    public SecretsManagerClient getSecretsManagerClient(String region) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
+                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+        return sessionConfig.map(config ->
+                SecretsManagerClient.builder()
+                        .credentialsProvider(() -> AwsSessionCredentials.create(
+                                config.getAccessKeyId(), config.getSecretAccessKey(),
+                                config.getSessionToken()))
+                        .region(Region.of(region)).build())
+                .orElse(SecretsManagerClient.builder().region(Region.of(region)).build());
+    }
+
     public AutoScalingClient getAutoScalingClient(String region) {
         Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                AutoScalingClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        AutoScalingClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(AutoScalingClient.builder().region(Region.of(region)).build());
     }
 
@@ -51,11 +64,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                ApiGatewayClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        ApiGatewayClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(ApiGatewayClient.builder().region(Region.of(region)).build());
     }
 
@@ -64,11 +77,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                ElasticLoadBalancingV2Client.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        ElasticLoadBalancingV2Client.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(ElasticLoadBalancingV2Client.builder().region(Region.of(region)).build());
     }
 
@@ -77,10 +90,10 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config -> ElasticLoadBalancingClient.builder()
-                                .credentialsProvider(() -> AwsSessionCredentials.create(
-                                        config.getAccessKeyId(), config.getSecretAccessKey(),
-                                        config.getSessionToken()))
-                                .region(Region.of(region)).build())
+                        .credentialsProvider(() -> AwsSessionCredentials.create(
+                                config.getAccessKeyId(), config.getSecretAccessKey(),
+                                config.getSessionToken()))
+                        .region(Region.of(region)).build())
                         .orElse(ElasticLoadBalancingClient.builder().region(Region.of(region)).build());
     }
 
@@ -89,11 +102,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                CloudWatchClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        CloudWatchClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(CloudWatchClient.builder().region(Region.of(region)).build());
     }
 
@@ -102,11 +115,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                CloudWatchLogsClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        CloudWatchLogsClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(CloudWatchLogsClient.builder().region(Region.of(region)).build());
     }
 
@@ -115,11 +128,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                LambdaClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        LambdaClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(LambdaClient.builder().region(Region.of(region)).build());
     }
 
@@ -128,11 +141,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                ResourceGroupsTaggingApiClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        ResourceGroupsTaggingApiClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(ResourceGroupsTaggingApiClient.builder().region(Region.of(region)).build());
     }
 
@@ -141,11 +154,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                EcsClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        EcsClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(EcsClient.builder().region(Region.of(region)).build());
     }
 
@@ -153,10 +166,10 @@ public class AWSClientProvider {
         Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return sessionConfig.map(config -> ConfigClient.builder()
-                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                config.getSessionToken()))
-                        .region(Region.of(region)).build())
+                .credentialsProvider(() -> AwsSessionCredentials.create(
+                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                        config.getSessionToken()))
+                .region(Region.of(region)).build())
                 .orElse(ConfigClient.builder().region(Region.of(region)).build());
     }
 
@@ -165,11 +178,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                StsClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        StsClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(StsClient.builder().region(Region.of(region)).build());
     }
 
@@ -178,11 +191,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                Ec2Client.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        Ec2Client.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(Ec2Client.builder().region(Region.of(region)).build());
     }
 
@@ -191,11 +204,11 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                KinesisAnalyticsV2Client.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build())
+                        KinesisAnalyticsV2Client.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build())
                         .orElse(KinesisAnalyticsV2Client.builder().region(Region.of(region)).build());
     }
 
@@ -204,12 +217,12 @@ public class AWSClientProvider {
                 scrapeConfigProvider.getScrapeConfig().getAssumeRole());
         return
                 sessionConfig.map(config ->
-                                FirehoseClient.builder()
-                                        .credentialsProvider(() -> AwsSessionCredentials.create(
-                                                config.getAccessKeyId(), config.getSecretAccessKey(),
-                                                config.getSessionToken()))
-                                        .region(Region.of(region)).build()
-                        )
+                        FirehoseClient.builder()
+                                .credentialsProvider(() -> AwsSessionCredentials.create(
+                                        config.getAccessKeyId(), config.getSecretAccessKey(),
+                                        config.getSessionToken()))
+                                .region(Region.of(region)).build()
+                )
                         .orElse(FirehoseClient.builder().region(Region.of(region)).build());
     }
 }

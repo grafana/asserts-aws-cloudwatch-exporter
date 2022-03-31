@@ -11,6 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import lombok.experimental.SuperBuilder;
 import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
@@ -33,7 +34,7 @@ import static org.springframework.util.StringUtils.hasLength;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 @JsonIgnoreProperties(ignoreUnknown = true)
 @SuppressWarnings("FieldMayBeFinal")
 @EqualsAndHashCode
@@ -63,6 +64,9 @@ public class ScrapeConfig {
 
     @Builder.Default
     private Integer numTaskThreads = 5;
+
+    @Builder.Default
+    private AuthConfig authConfig = new AuthConfig();
 
     @Builder.Default
     private String ecsTargetSDFile = "ecs-task-scrape-targets.yml";
@@ -196,8 +200,8 @@ public class ScrapeConfig {
         if (getTagExportConfig() != null) {
             getTagExportConfig().compile();
         }
-
-        relabelConfigs.forEach(RelabelConfig::compile);
+        relabelConfigs.forEach(RelabelConfig::validate);
+        authConfig.validate();
     }
 
     public Map<String, String> additionalLabels(String metricName, Map<String, String> inputLabels) {

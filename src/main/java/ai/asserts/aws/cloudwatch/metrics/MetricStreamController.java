@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.metrics;
 
+import ai.asserts.aws.ApiAuthenticator;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
@@ -17,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,11 +38,14 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @RestController
 @Slf4j
 @Component
+@SuppressWarnings("unused")
 public class MetricStreamController {
     public static final String METRICS = "/receive-cloudwatch-metrics";
+    public static final String METRICS_TOKEN = "/receive-cloudwatch-metrics/{token}";
     private final ObjectMapperFactory objectMapperFactory;
     private final BasicMetricCollector metricCollector;
     private final MetricNameUtil metricNameUtil;
+    private final ApiAuthenticator apiAuthenticator;
 
     @PostMapping(
             path = METRICS,
@@ -48,6 +53,7 @@ public class MetricStreamController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<MetricResponse> receiveMetricsPost(
             @RequestBody FirehoseEventRequest metricRequest) {
+        apiAuthenticator.authenticate(Optional.empty());
         processRequest(metricRequest);
         return ResponseEntity.ok(MetricResponse.builder()
                 .status("Success")
@@ -60,6 +66,35 @@ public class MetricStreamController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<MetricResponse> receiveMetricsPut(
             @RequestBody FirehoseEventRequest metricRequest) {
+        apiAuthenticator.authenticate(Optional.empty());
+        processRequest(metricRequest);
+        return ResponseEntity.ok(MetricResponse.builder()
+                .status("Success")
+                .build());
+    }
+
+    @PostMapping(
+            path = METRICS_TOKEN,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<MetricResponse> receiveMetricsPostSecure(
+            @PathVariable("token") String apiToken,
+            @RequestBody FirehoseEventRequest metricRequest) {
+        apiAuthenticator.authenticate(Optional.of(apiToken));
+        processRequest(metricRequest);
+        return ResponseEntity.ok(MetricResponse.builder()
+                .status("Success")
+                .build());
+    }
+
+    @PutMapping(
+            path = METRICS_TOKEN,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<MetricResponse> receiveMetricsPutSecure(
+            @PathVariable("token") String apiToken,
+            @RequestBody FirehoseEventRequest metricRequest) {
+        apiAuthenticator.authenticate(Optional.of(apiToken));
         processRequest(metricRequest);
         return ResponseEntity.ok(MetricResponse.builder()
                 .status("Success")
@@ -70,13 +105,13 @@ public class MetricStreamController {
         try {
             if (!CollectionUtils.isEmpty(firehoseEventRequest.getRecords())) {
                 for (RecordData recordData : firehoseEventRequest.getRecords()) {
-//                    accept(recordData);
+                    accept(recordData);
                 }
             } else {
                 log.info("Unable to process Cloudwatch metric request-{}", firehoseEventRequest.getRequestId());
             }
         } catch (Exception ex) {
-            log.error("Error in processing {}-{}", ex.toString(), ex.getStackTrace());
+            log.error("Error in processing {}-{}", ex, ex.getStackTrace());
         }
     }
 
@@ -102,9 +137,7 @@ public class MetricStreamController {
         metricMap.put("region", metric.getRegion());
         metricMap.put("account_id", metric.getAccount_id());
         if (!CollectionUtils.isEmpty(metric.getDimensions())) {
-            metric.getDimensions().forEach((k, v) -> {
-                metricMap.put(metricNameUtil.toSnakeCase(k), v);
-            });
+            metric.getDimensions().forEach((k, v) -> metricMap.put(metricNameUtil.toSnakeCase(k), v));
 
         }
         Optional<CWNamespace> namespace =
@@ -115,23 +148,30 @@ public class MetricStreamController {
             String metricName = prefix + "_" + metric.getMetric_name();
             recordHistogram(metricMap, metric.getTimestamp(), metricName);
             metric.getValue().forEach((key, value) -> {
-                String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + key);
+                String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + mapStat(key));
                 metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
             });
         }
     }
 
     private void recordHistogram(Map<String, String> labels, Long timestamp, String metric_name) {
-        SortedMap<String, String> histoLabels = new TreeMap<>();
-        histoLabels.put("namespace", labels.get("namespace"));
-        histoLabels.put("region", labels.get("region"));
-        histoLabels.put("metric_name", metric_name);
+        SortedMap<String, String> histogramLabels = new TreeMap<>();
+        histogramLabels.put("namespace", labels.get("namespace"));
+        histogramLabels.put("region", labels.get("region"));
+        histogramLabels.put("metric_name", metric_name);
         long diff = (now().toEpochMilli() - timestamp) / 1000;
-        this.metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histoLabels, diff);
+        this.metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histogramLabels, diff);
     }
 
     @VisibleForTesting
     Instant now() {
         return Instant.now();
+    }
+
+    String mapStat(String stat) {
+        if ("count".equals(stat)) {
+            return "samples";
+        }
+        return stat;
     }
 }
