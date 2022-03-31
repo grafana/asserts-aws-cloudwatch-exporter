@@ -124,7 +124,7 @@ public class ResourceConfigController {
                 if (resource.isPresent()) {
                     labels.put("job", resource.get().getName());
                     labels.put("namespace", resource.get().getType().getCwNamespace().getNamespace());
-                    recordHistogram(labels, configChange.getTime());
+                    recordDelayHistogram(labels, configChange.getTime());
                     metricCollector.recordGaugeValue("aws_resource_config", labels, 1.0D);
                 }
             });
@@ -132,7 +132,7 @@ public class ResourceConfigController {
         }
     }
 
-    private void recordHistogram(Map<String, String> labels, String timestamp) {
+    private void recordDelayHistogram(Map<String, String> labels, String timestamp) {
         Instant observedTime = Instant.parse(timestamp);
         SortedMap<String, String> histoLabels = new TreeMap<>();
         histoLabels.put("namespace", labels.get("namespace"));
