@@ -25,7 +25,7 @@ public class RelabelConfigTest {
         config.setRegex("aws_dynamodb_.+;(.+);(.+)");
         config.setTarget("asserts_request_context");
         config.setReplacement("$2-$1");
-        config.compile();
+        config.validate();
 
         Map<String, String> labels = new TreeMap<>();
         labels.put("d_operation", "get");
@@ -48,7 +48,7 @@ public class RelabelConfigTest {
         config.setRegex("aws_dynamodb_.+;(.+);(.+)");
         config.setTarget("asserts_request_context");
         config.setReplacement("$2-$1");
-        config.compile();
+        config.validate();
 
         Map<String, String> labels = new TreeMap<>();
         labels.put("d_operation", "get");

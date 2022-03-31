@@ -4,12 +4,14 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.ApiAuthenticator;
 import ai.asserts.aws.ObjectMapperFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,18 +20,24 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @Slf4j
 @RestController
 @AllArgsConstructor
+@SuppressWarnings("unused")
 public class AlarmController {
     private static final String ALARMS = "/receive-cloudwatch-alarms";
+    private static final String ALARMS_TOKEN = "/receive-cloudwatch-alarms/{token}";
     private static final String ALARMS_SNS = "/receive-cloudwatch-alarms/sns";
+    private static final String ALARMS_SNS_TOKEN = "/receive-cloudwatch-alarms/sns/{token}";
+
     private final AlarmMetricConverter alarmMetricConverter;
     private final ObjectMapperFactory objectMapperFactory;
     private final AlertsProcessor alertsProcessor;
+    private final ApiAuthenticator apiAuthenticator;
 
     @PostMapping(
             path = ALARMS,
@@ -37,6 +45,7 @@ public class AlarmController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPost(
             @RequestBody FirehoseEventRequest firehoseEventRequest) {
+        apiAuthenticator.authenticate(Optional.empty());
         return processRequest(firehoseEventRequest);
     }
 
@@ -46,6 +55,7 @@ public class AlarmController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmsPut(
             @RequestBody FirehoseEventRequest firehoseEventRequest) {
+        apiAuthenticator.authenticate(Optional.empty());
         return processRequest(firehoseEventRequest);
     }
 
@@ -55,7 +65,8 @@ public class AlarmController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmSNSPost(
             @RequestBody Object alarmRequest) {
-        log.info("AlarmSNS - {}",alarmRequest.toString());
+        apiAuthenticator.authenticate(Optional.empty());
+        log.info("AlarmSNS - {}", alarmRequest.toString());
         return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
     }
 
@@ -65,7 +76,54 @@ public class AlarmController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<AlarmResponse> receiveAlarmSNSPut(
             @RequestBody Object alarmRequest) {
-        log.info("AlarmSNS  - {}",alarmRequest.toString());
+        apiAuthenticator.authenticate(Optional.empty());
+        log.info("AlarmSNS  - {}", alarmRequest.toString());
+        return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+    }
+
+    @PostMapping(
+            path = ALARMS_TOKEN,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<AlarmResponse> receiveAlarmsPostSecure(
+            @PathVariable(value = "token") String apiToken,
+            @RequestBody FirehoseEventRequest firehoseEventRequest) {
+        apiAuthenticator.authenticate(Optional.of(apiToken));
+        return processRequest(firehoseEventRequest);
+    }
+
+    @PutMapping(
+            path = ALARMS_TOKEN,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<AlarmResponse> receiveAlarmsPutSecure(
+            @PathVariable("token") String apiToken,
+            @RequestBody FirehoseEventRequest firehoseEventRequest) {
+        apiAuthenticator.authenticate(Optional.of(apiToken));
+        return processRequest(firehoseEventRequest);
+    }
+
+    @PostMapping(
+            path = ALARMS_SNS_TOKEN,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<AlarmResponse> receiveAlarmSNSPostSecure(
+            @PathVariable("token") String apiToken,
+            @RequestBody Object alarmRequest) {
+        apiAuthenticator.authenticate(Optional.of(apiToken));
+        log.info("AlarmSNS - {}", alarmRequest.toString());
+        return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
+    }
+
+    @PutMapping(
+            path = ALARMS_SNS_TOKEN,
+            produces = APPLICATION_JSON_VALUE,
+            consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<AlarmResponse> receiveAlarmSNSPutSecure(
+            @PathVariable("token") String apiToken,
+            @RequestBody Object alarmRequest) {
+        apiAuthenticator.authenticate(Optional.of(apiToken));
+        log.info("AlarmSNS  - {}", alarmRequest.toString());
         return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
     }
 
@@ -79,7 +137,7 @@ public class AlarmController {
                 log.info("Unable to process alarm request-{}", firehoseEventRequest.getRequestId());
             }
         } catch (Exception ex) {
-            log.error("Error in processing {}-{}", ex.toString(), ex.getStackTrace());
+            log.error("Error in processing {}-{}", ex, ex.getStackTrace());
         }
         return ResponseEntity.ok(AlarmResponse.builder().status("Success").build());
     }
