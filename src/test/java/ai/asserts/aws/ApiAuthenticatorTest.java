@@ -62,6 +62,7 @@ public class ApiAuthenticatorTest extends EasyMockSupport {
         replayAll();
         testClass.authenticate(Optional.of("token"));
         assertThrows(RuntimeException.class, () -> testClass.authenticate(Optional.of("token1")));
+        assertThrows(RuntimeException.class, () -> testClass.authenticate(Optional.empty()));
         verifyAll();
     }
 
@@ -84,6 +85,7 @@ public class ApiAuthenticatorTest extends EasyMockSupport {
 
         testClass.authenticate(Optional.of("token"));
         assertThrows(RuntimeException.class, () -> testClass.authenticate(Optional.of("token1")));
+        assertThrows(RuntimeException.class, () -> testClass.authenticate(Optional.empty()));
 
         verifyAll();
     }
