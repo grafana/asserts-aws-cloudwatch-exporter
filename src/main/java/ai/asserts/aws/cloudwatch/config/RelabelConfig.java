@@ -6,10 +6,12 @@ package ai.asserts.aws.cloudwatch.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.micrometer.core.instrument.util.StringUtils;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -34,10 +36,17 @@ public class RelabelConfig {
     private String target;
     private String replacement;
 
-    public void compile() {
-        if (regex != null) {
-            compiledExp = Pattern.compile(regex);
+    public void validate() {
+        if (StringUtils.isEmpty(regex)) {
+            throw new RuntimeException("regex not specified in " + this);
+        } else if (StringUtils.isEmpty(target)) {
+            throw new RuntimeException("target_label not specified in " + this);
+        } else if (StringUtils.isEmpty(replacement)) {
+            throw new RuntimeException("replacement not specified in " + this);
+        } else if (CollectionUtils.isEmpty(labels) || labels.stream().anyMatch(StringUtils::isEmpty)) {
+            throw new RuntimeException("labels not specified or has empty value " + this);
         }
+        compiledExp = Pattern.compile(regex);
     }
 
     public Map<String, String> addReplacements(String metricName, Map<String, String> labelValues) {
