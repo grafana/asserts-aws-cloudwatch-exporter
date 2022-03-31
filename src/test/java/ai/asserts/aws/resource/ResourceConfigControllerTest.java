@@ -8,6 +8,7 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
+import ai.asserts.aws.cloudwatch.config.DimensionToLabel;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.BasicMetricCollector;
@@ -44,6 +45,7 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
     private ResourceConfigChangeDetail changeDetail;
     private ResourceConfigDiff configDiff;
     private ResourceConfigItem configItem;
+    private DimensionToLabel dimensionToLabel;
     private Instant now;
 
     @BeforeEach
@@ -60,6 +62,8 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         changeDetail = mock(ResourceConfigChangeDetail.class);
         configDiff = mock(ResourceConfigDiff.class);
         configItem = mock(ResourceConfigItem.class);
+        dimensionToLabel = mock(DimensionToLabel.class);
+
         now = Instant.now();
         testClass = new ResourceConfigController(objectMapperFactory, metricCollector, resourceMapper, scrapeConfigProvider) {
             @Override
@@ -68,7 +72,7 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
             }
         };
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).times(2);
         expect(resourceConfig.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(configChange.getDetail()).andReturn(changeDetail).anyTimes();
         expect(changeDetail.getConfigurationItemDiff()).andReturn(configDiff).times(3);
@@ -79,6 +83,9 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
     public void resourceConfigChangePost() throws JsonProcessingException {
         Resource resource = mock(Resource.class);
         expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("AWS::EC2::Instance"));
+        expect(scrapeConfig.getDimensionToLabels()).andReturn(ImmutableList.of(dimensionToLabel));
+        expect(dimensionToLabel.getNamespace()).andReturn("AWS/EC2");
+        expect(dimensionToLabel.getEntityType()).andReturn(null);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("test", ResourceConfigChange.class)).andReturn(configChange);
         expect(configDiff.getChangeType()).andReturn("UPDATE").times(3);
