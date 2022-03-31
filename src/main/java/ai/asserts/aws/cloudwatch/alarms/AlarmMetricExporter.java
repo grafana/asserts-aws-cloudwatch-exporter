@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.annotations.VisibleForTesting;
@@ -95,7 +96,7 @@ public class AlarmMetricExporter extends Collector {
         histoLabels.put("region", labels.get("region"));
         histoLabels.put("alertname", labels.get("alertname"));
         long diff = (now().toEpochMilli() - timestamp.toEpochMilli()) / 1000;
-        this.basicMetricCollector.recordHistogram("aws_exporter_delay_seconds", histoLabels, diff);
+        this.basicMetricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histoLabels, diff);
     }
 
     @VisibleForTesting

@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.resource;
 
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
@@ -140,7 +141,7 @@ public class ResourceConfigController {
         histoLabels.put("alertname", labels.get("alertname"));
         histoLabels.put("job", labels.get("job"));
         long diff = (now().toEpochMilli() - observedTime.toEpochMilli()) / 1000;
-        this.metricCollector.recordHistogram("aws_exporter_delay_seconds", histoLabels, diff);
+        this.metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histoLabels, diff);
     }
 
     @VisibleForTesting

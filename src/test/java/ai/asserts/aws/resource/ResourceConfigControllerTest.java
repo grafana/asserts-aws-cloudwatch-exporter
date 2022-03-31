@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.resource;
 
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
@@ -105,7 +106,7 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         histoLabels.put("namespace", "AWS/EC2");
         histoLabels.put("region", "r1");
         metricCollector.recordGaugeValue("aws_resource_config", labels, 1.0D);
-        metricCollector.recordHistogram("aws_exporter_delay_seconds", histoLabels, 5);
+        metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histoLabels, 5);
         replayAll();
         assertEquals(HttpStatus.OK, testClass.resourceConfigChangePost(resourceConfig).getStatusCode());
         verifyAll();
