@@ -40,6 +40,7 @@ public enum ResourceType {
 
     @Getter
     private String nameDimension;
+    @Getter
     private CWNamespace cwNamespace;
     private SortedSet<String> otherDimensions;
 
