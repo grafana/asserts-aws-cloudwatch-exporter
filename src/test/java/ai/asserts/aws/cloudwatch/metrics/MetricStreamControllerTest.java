@@ -82,7 +82,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
 
         metricCollector.recordGaugeValue("aws_firehose_m1_sum", metricLabels, 4.0);
         metricCollector.recordGaugeValue("aws_firehose_m1_count", metricLabels, 2.0);
-        metricCollector.recordHistogram("aws_exporter_delay_seconds", metricHistoLabels, -5);
+        metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, metricHistoLabels, -5);
         labels = new HashMap<>();
         labels.put("unit", "Percent");
         labels.put("account_id", "123");

@@ -24,6 +24,7 @@ public class MetricNameUtil {
     public static final String SCRAPE_ACCOUNT_ID_LABEL = "account_id";
     public static final String SCRAPE_NAMESPACE_LABEL = "cw_namespace";
     public static final String SCRAPE_INTERVAL_LABEL = "interval";
+    public static final String EXPORTER_DELAY_SECONDS = "aws_exporter_delay_seconds";
 
     public String exportedMetricName(Metric metric, MetricStat metricStat) {
         String namespace = metric.namespace();

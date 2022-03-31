@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableList;
@@ -74,7 +75,7 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                 .put("namespace", "n1")
                 .put("region", "us-west-2").build());
 
-        basicMetricCollector.recordHistogram("aws_cw_alarm_delay_seconds", labels, now.minusSeconds(timestamp).getEpochSecond());
+        basicMetricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, labels, now.minusSeconds(timestamp).getEpochSecond());
         replayAll();
         addLabels("ALARM");
         assertEquals(1, testClass.getAlarmLabels().size());

@@ -127,7 +127,7 @@ public class MetricStreamController {
         histoLabels.put("region", labels.get("region"));
         histoLabels.put("metric_name", metric_name);
         long diff = (now().toEpochMilli() - timestamp) / 1000;
-        this.metricCollector.recordHistogram("aws_exporter_delay_seconds", histoLabels, diff);
+        this.metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histoLabels, diff);
     }
 
     @VisibleForTesting
