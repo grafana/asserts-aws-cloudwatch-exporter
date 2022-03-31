@@ -74,7 +74,7 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                 .put("namespace", "n1")
                 .put("region", "us-west-2").build());
 
-        basicMetricCollector.recordHistogram("aws_cw_alarm_delay_seconds", labels, now.minusSeconds(timestamp).getEpochSecond());
+        basicMetricCollector.recordHistogram("aws_exporter_delay_seconds", labels, now.minusSeconds(timestamp).getEpochSecond());
         replayAll();
         addLabels("ALARM");
         assertEquals(1, testClass.getAlarmLabels().size());

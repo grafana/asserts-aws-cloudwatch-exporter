@@ -95,7 +95,7 @@ public class AlarmMetricExporter extends Collector {
         histoLabels.put("region", labels.get("region"));
         histoLabels.put("alertname", labels.get("alertname"));
         long diff = (now().toEpochMilli() - timestamp.toEpochMilli()) / 1000;
-        this.basicMetricCollector.recordHistogram("aws_cw_alarm_delay_seconds", histoLabels, diff);
+        this.basicMetricCollector.recordHistogram("aws_exporter_delay_seconds", histoLabels, diff);
     }
 
     @VisibleForTesting
