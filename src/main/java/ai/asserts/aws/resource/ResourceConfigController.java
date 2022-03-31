@@ -92,7 +92,7 @@ public class ResourceConfigController {
     }
 
     @PostMapping(
-            path = CONFIG_CHANGE_RESOURCE,
+            path = CONFIG_CHANGE_RESOURCE_TOKEN,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Object> resourceConfigChangePostSecure(
@@ -103,7 +103,7 @@ public class ResourceConfigController {
     }
 
     @PutMapping(
-            path = CONFIG_CHANGE_RESOURCE,
+            path = CONFIG_CHANGE_RESOURCE_TOKEN,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Object> resourceConfigChangePutSecure(
@@ -114,7 +114,7 @@ public class ResourceConfigController {
     }
 
     @PostMapping(
-            path = CONFIG_CHANGE_SNS,
+            path = CONFIG_CHANGE_SNS_TOKEN,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Object> snsConfigChangePostSecure(
@@ -126,7 +126,7 @@ public class ResourceConfigController {
     }
 
     @PutMapping(
-            path = CONFIG_CHANGE_SNS,
+            path = CONFIG_CHANGE_SNS_TOKEN,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Object> snsConfigChangePutSecure(
