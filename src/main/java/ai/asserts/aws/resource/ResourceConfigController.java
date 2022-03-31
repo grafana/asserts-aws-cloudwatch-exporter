@@ -9,6 +9,7 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
+import ai.asserts.aws.cloudwatch.config.DimensionToLabel;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.BasicMetricCollector;
@@ -19,7 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -178,11 +178,12 @@ public class ResourceConfigController {
                 labels.put("account_id", configChange.getAccount());
                 String change = toCamelCase(configChange.getDetail().getConfigurationItemDiff().getChangeType());
                 labels.put("alertname", String.format("Config-%s", change));
-                labels.put("asserts_entity_type", "Service");
                 Optional<Resource> resource = resourceMapper.map(r);
                 if (resource.isPresent()) {
                     labels.put("job", resource.get().getName());
-                    labels.put("namespace", resource.get().getType().getCwNamespace().getNamespace());
+                    String namespace = resource.get().getType().getCwNamespace().getNamespace();
+                    labels.put("asserts_entity_type", getEntityType(namespace));
+                    labels.put("namespace", namespace);
                     recordDelayHistogram(labels, configChange.getTime());
                     metricCollector.recordGaugeValue("aws_resource_config", labels, 1.0D);
                 }
@@ -192,8 +193,19 @@ public class ResourceConfigController {
     }
 
     private String toCamelCase(String str) {
-       return str.substring(0, 1).toUpperCase()
+        return str.substring(0, 1).toUpperCase()
                 + str.substring(1).toLowerCase();
+    }
+
+    private String getEntityType(String namespace) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        Optional<DimensionToLabel> dimensionToLabel = scrapeConfig.getDimensionToLabels().stream()
+                .filter(d -> d.getNamespace().equals(namespace))
+                .findFirst();
+        if (dimensionToLabel.isPresent() && dimensionToLabel.get().getEntityType() != null) {
+            return dimensionToLabel.get().getEntityType();
+        }
+        return "Service";
     }
 
     private void recordDelayHistogram(Map<String, String> labels, String timestamp) {
