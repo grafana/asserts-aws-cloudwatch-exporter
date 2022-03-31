@@ -95,13 +95,13 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         expect(resource.getType()).andReturn(ResourceType.EC2Instance);
         SortedMap<String, String> labels = new TreeMap<>();
         labels.put("account_id", "123");
-        labels.put("alertname", "Config-UPDATE");
+        labels.put("alertname", "Config-Update");
         labels.put("asserts_entity_type", "Service");
         labels.put("job", "i-04ac60054729e1e1f");
         labels.put("namespace", "AWS/EC2");
         labels.put("region", "r1");
         SortedMap<String, String> histoLabels = new TreeMap<>();
-        histoLabels.put("alertname", "Config-UPDATE");
+        histoLabels.put("alertname", "Config-Update");
         histoLabels.put("job", "i-04ac60054729e1e1f");
         histoLabels.put("namespace", "AWS/EC2");
         histoLabels.put("region", "r1");
