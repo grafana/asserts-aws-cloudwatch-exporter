@@ -70,7 +70,7 @@ public class MetricStreamController {
         try {
             if (!CollectionUtils.isEmpty(firehoseEventRequest.getRecords())) {
                 for (RecordData recordData : firehoseEventRequest.getRecords()) {
-                    accept(recordData);
+//                    accept(recordData);
                 }
             } else {
                 log.info("Unable to process Cloudwatch metric request-{}", firehoseEventRequest.getRequestId());
@@ -88,7 +88,7 @@ public class MetricStreamController {
             CloudWatchMetrics metrics = objectMapperFactory.getObjectMapper().readValue(decodedData, CloudWatchMetrics.class);
             metrics.getMetrics().forEach(m -> {
                 publishMetric(m);
-                log.info("Metric Name{} - Namespace {}", m.getMetric_name(), m.getNamespace());
+                log.debug("Metric Name{} - Namespace {}", m.getMetric_name(), m.getNamespace());
             });
         } catch (JsonProcessingException jsp) {
             log.error("Error processing JSON {}-{}", decodedData, jsp.getMessage());
@@ -102,7 +102,7 @@ public class MetricStreamController {
         metricMap.put("region", metric.getRegion());
         metricMap.put("account_id", metric.getAccount_id());
         if (!CollectionUtils.isEmpty(metric.getDimensions())) {
-            metric.getDimensions().forEach((k, v) ->{
+            metric.getDimensions().forEach((k, v) -> {
                 metricMap.put(metricNameUtil.toSnakeCase(k), v);
             });
 
