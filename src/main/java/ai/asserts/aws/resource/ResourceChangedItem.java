@@ -12,8 +12,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
-import java.util.Map;
-
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -21,7 +19,6 @@ import java.util.Map;
 @EqualsAndHashCode
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ResourceConfigDiff {
+public class ResourceChangedItem {
     private String changeType;
-    private Map<String, ResourceChangedItem> changedProperties;
 }

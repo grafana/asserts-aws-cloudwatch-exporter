@@ -16,6 +16,7 @@ import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +48,7 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
     private ResourceConfigDiff configDiff;
     private ResourceConfigItem configItem;
     private DimensionToLabel dimensionToLabel;
+    private ResourceChangedItem changedItem;
     private ApiAuthenticator apiAuthenticator;
     private Instant now;
 
@@ -65,6 +67,7 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         configDiff = mock(ResourceConfigDiff.class);
         configItem = mock(ResourceConfigItem.class);
         dimensionToLabel = mock(DimensionToLabel.class);
+        changedItem = mock(ResourceChangedItem.class);
         apiAuthenticator = mock(ApiAuthenticator.class);
         now = Instant.now();
         testClass = new ResourceConfigController(objectMapperFactory, metricCollector, resourceMapper,
@@ -78,7 +81,7 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).times(2);
         expect(resourceConfig.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(configChange.getDetail()).andReturn(changeDetail).anyTimes();
-        expect(changeDetail.getConfigurationItemDiff()).andReturn(configDiff).times(3);
+        expect(changeDetail.getConfigurationItemDiff()).andReturn(configDiff).times(4);
         expect(changeDetail.getConfigurationItem()).andReturn(configItem).times(3);
     }
 
@@ -92,6 +95,8 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("test", ResourceConfigChange.class)).andReturn(configChange);
         expect(configDiff.getChangeType()).andReturn("UPDATE").times(3);
+        expect(configDiff.getChangedProperties()).andReturn(ImmutableMap.of("ServiceConfig", changedItem)).times(2);
+        expect(changedItem.getChangeType()).andReturn("UPDATE");
         expect(configItem.getResourceType()).andReturn("AWS::EC2::Instance").times(2);
         expect(configItem.getResourceId()).andReturn("i-04ac60054729e1e1f");
         expect(configChange.getRegion()).andReturn("r1");
@@ -105,13 +110,14 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         expect(resource.getType()).andReturn(ResourceType.EC2Instance);
         SortedMap<String, String> labels = new TreeMap<>();
         labels.put("account_id", "123");
-        labels.put("alertname", "Config-Update");
+        labels.put("alertname", "AWSResourceConfig-Update");
+        labels.put("changes", "Update-ServiceConfig");
         labels.put("asserts_entity_type", "Service");
         labels.put("job", "i-04ac60054729e1e1f");
         labels.put("namespace", "AWS/EC2");
         labels.put("region", "r1");
         SortedMap<String, String> histoLabels = new TreeMap<>();
-        histoLabels.put("alertname", "Config-Update");
+        histoLabels.put("alertname", "AWSResourceConfig-Update");
         histoLabels.put("job", "i-04ac60054729e1e1f");
         histoLabels.put("namespace", "AWS/EC2");
         histoLabels.put("region", "r1");
@@ -133,6 +139,8 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("test", ResourceConfigChange.class)).andReturn(configChange);
         expect(configDiff.getChangeType()).andReturn("UPDATE").times(3);
+        expect(configDiff.getChangedProperties()).andReturn(ImmutableMap.of("ServiceConfig", changedItem)).times(2);
+        expect(changedItem.getChangeType()).andReturn("UPDATE");
         expect(configItem.getResourceType()).andReturn("AWS::EC2::Instance").times(2);
         expect(configItem.getResourceId()).andReturn("i-04ac60054729e1e1f");
         expect(configChange.getRegion()).andReturn("r1");
@@ -146,13 +154,14 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         expect(resource.getType()).andReturn(ResourceType.EC2Instance);
         SortedMap<String, String> labels = new TreeMap<>();
         labels.put("account_id", "123");
-        labels.put("alertname", "Config-Update");
+        labels.put("alertname", "AWSResourceConfig-Update");
+        labels.put("changes", "Update-ServiceConfig");
         labels.put("asserts_entity_type", "Service");
         labels.put("job", "i-04ac60054729e1e1f");
         labels.put("namespace", "AWS/EC2");
         labels.put("region", "r1");
         SortedMap<String, String> histoLabels = new TreeMap<>();
-        histoLabels.put("alertname", "Config-Update");
+        histoLabels.put("alertname", "AWSResourceConfig-Update");
         histoLabels.put("job", "i-04ac60054729e1e1f");
         histoLabels.put("namespace", "AWS/EC2");
         histoLabels.put("region", "r1");

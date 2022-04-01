@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
@@ -176,8 +177,10 @@ public class ResourceConfigController {
                 SortedMap<String, String> labels = new TreeMap<>();
                 labels.put("region", configChange.getRegion());
                 labels.put("account_id", configChange.getAccount());
-                String change = toCamelCase(configChange.getDetail().getConfigurationItemDiff().getChangeType());
-                labels.put("alertname", String.format("Config-%s", change));
+                labels.put("alertname", String.format("AWSResourceConfig-%s",
+                        toCamelCase(configChange.getDetail().getConfigurationItemDiff().getChangeType())));
+                Optional<String> changedProperties = propertiesChanged(configChange.getDetail().getConfigurationItemDiff());
+                changedProperties.ifPresent(v -> labels.put("changes", v));
                 Optional<Resource> resource = resourceMapper.map(r);
                 if (resource.isPresent()) {
                     labels.put("job", resource.get().getName());
@@ -190,6 +193,15 @@ public class ResourceConfigController {
             });
 
         }
+    }
+
+    private Optional<String> propertiesChanged(ResourceConfigDiff configDiff) {
+        if (!CollectionUtils.isEmpty(configDiff.getChangedProperties())) {
+            return Optional.of(configDiff.getChangedProperties().entrySet().stream()
+                    .map(entry -> String.format("%s-%s", toCamelCase(entry.getValue().getChangeType()), entry.getKey()))
+                    .collect(Collectors.joining(",")));
+        }
+        return Optional.empty();
     }
 
     private String toCamelCase(String str) {

@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.cloudwatch;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -34,12 +33,11 @@ public class TimeWindowBuilder {
         // S3 Storage metrics are available at just before midnight in the region's local time
         // End is 23:59 PM of yesterday
         ZonedDateTime now = getZonedDateTime(region);
-        int dayOfMonth = now.getDayOfMonth() - 1;
-        end = ZonedDateTime.of(now.getYear(), now.getMonthValue(), dayOfMonth, 23, 59, 0, 0, now.getZone());
-        start = ZonedDateTime.of(now.getYear(), now.getMonthValue(), dayOfMonth, 0, 0, 0, 0, now.getZone());
+        ZonedDateTime previousDay = now.minusDays(1);
+        end = ZonedDateTime.of(previousDay.getYear(), previousDay.getMonthValue(), previousDay.getDayOfMonth(), 23, 59, 0, 0, now.getZone());
+        start = ZonedDateTime.of(previousDay.getYear(), previousDay.getMonthValue(), previousDay.getDayOfMonth(), 0, 0, 0, 0, now.getZone());
         return new Instant[]{start.toInstant(), end.toInstant()};
     }
-
 
 
     public ZonedDateTime getZonedDateTime(String region) {
