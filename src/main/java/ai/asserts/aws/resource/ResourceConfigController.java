@@ -177,8 +177,10 @@ public class ResourceConfigController {
                 SortedMap<String, String> labels = new TreeMap<>();
                 labels.put("region", configChange.getRegion());
                 labels.put("account_id", configChange.getAccount());
-                String changedProperties = buildAlertName(configChange.getDetail().getConfigurationItemDiff());
-                labels.put("alertname", changedProperties);
+                labels.put("alertname", String.format("AWSResourceConfig-%s",
+                        toCamelCase(configChange.getDetail().getConfigurationItemDiff().getChangeType())));
+                Optional<String> changedProperties = propertiesChanged(configChange.getDetail().getConfigurationItemDiff());
+                changedProperties.ifPresent(v -> labels.put("changes", v));
                 Optional<Resource> resource = resourceMapper.map(r);
                 if (resource.isPresent()) {
                     labels.put("job", resource.get().getName());
@@ -193,13 +195,13 @@ public class ResourceConfigController {
         }
     }
 
-    private String buildAlertName(ResourceConfigDiff configDiff) {
+    private Optional<String> propertiesChanged(ResourceConfigDiff configDiff) {
         if (!CollectionUtils.isEmpty(configDiff.getChangedProperties())) {
-            return configDiff.getChangedProperties().entrySet().stream()
+            return Optional.of(configDiff.getChangedProperties().entrySet().stream()
                     .map(entry -> String.format("%s-%s", toCamelCase(entry.getValue().getChangeType()), entry.getKey()))
-                    .collect(Collectors.joining(","));
+                    .collect(Collectors.joining(",")));
         }
-        return "Config-" + toCamelCase(configDiff.getChangeType());
+        return Optional.empty();
     }
 
     private String toCamelCase(String str) {
