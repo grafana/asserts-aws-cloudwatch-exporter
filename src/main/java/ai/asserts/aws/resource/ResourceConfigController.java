@@ -177,16 +177,13 @@ public class ResourceConfigController {
                 SortedMap<String, String> labels = new TreeMap<>();
                 labels.put("region", configChange.getRegion());
                 labels.put("account_id", configChange.getAccount());
-                labels.put("alertname", String.format("AWSResourceConfig-%s",
+                labels.put("change", String.format("AWSResourceConfig-%s",
                         toCamelCase(configChange.getDetail().getConfigurationItemDiff().getChangeType())));
                 Optional<String> changedProperties = propertiesChanged(configChange.getDetail().getConfigurationItemDiff());
-                changedProperties.ifPresent(v -> labels.put("changes", v));
+                changedProperties.ifPresent(v -> log.info("Changes={}", v));
                 Optional<Resource> resource = resourceMapper.map(r);
                 if (resource.isPresent()) {
-                    labels.put("job", resource.get().getName());
-                    String namespace = resource.get().getType().getCwNamespace().getNamespace();
-                    labels.put("asserts_entity_type", getEntityType(namespace));
-                    labels.put("namespace", namespace);
+                    putEntityLabels(resource.get().getType().getCwNamespace().getNamespace(), resource.get().getName(), labels);
                     recordDelayHistogram(labels, configChange.getTime());
                     metricCollector.recordGaugeValue("aws_resource_config", labels, 1.0D);
                 }
@@ -209,24 +206,29 @@ public class ResourceConfigController {
                 + str.substring(1).toLowerCase();
     }
 
-    private String getEntityType(String namespace) {
+    private void putEntityLabels(String namespace, String name, Map<String, String> labels) {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Optional<DimensionToLabel> dimensionToLabel = scrapeConfig.getDimensionToLabels().stream()
                 .filter(d -> d.getNamespace().equals(namespace))
                 .findFirst();
-        if (dimensionToLabel.isPresent() && dimensionToLabel.get().getEntityType() != null) {
-            return dimensionToLabel.get().getEntityType();
+        if (dimensionToLabel.isPresent()) {
+            if (dimensionToLabel.get().getMapToLabel() != null) {
+                labels.put(dimensionToLabel.get().getMapToLabel(), name);
+            } else {
+                labels.put("job", name);
+            }
+            if (dimensionToLabel.get().getEntityType() != null) {
+                labels.put("asserts_entity_type", dimensionToLabel.get().getEntityType());
+            } else {
+                labels.put("asserts_entity_type", "Service");
+            }
         }
-        return "Service";
+        labels.put("namespace", namespace);
     }
 
     private void recordDelayHistogram(Map<String, String> labels, String timestamp) {
         Instant observedTime = Instant.parse(timestamp);
-        SortedMap<String, String> histoLabels = new TreeMap<>();
-        histoLabels.put("namespace", labels.get("namespace"));
-        histoLabels.put("region", labels.get("region"));
-        histoLabels.put("alertname", labels.get("alertname"));
-        histoLabels.put("job", labels.get("job"));
+        SortedMap<String, String> histoLabels = new TreeMap<>(labels);
         long diff = (now().toEpochMilli() - observedTime.toEpochMilli()) / 1000;
         this.metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histoLabels, diff);
     }
