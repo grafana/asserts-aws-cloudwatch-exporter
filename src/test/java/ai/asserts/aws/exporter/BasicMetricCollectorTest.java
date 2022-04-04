@@ -88,8 +88,7 @@ public class BasicMetricCollectorTest extends EasyMockSupport {
                 () -> assertEquals(1, collect3.size()),
                 () -> assertEquals("metric", collect3.get(0).name),
                 () -> assertEquals(GAUGE, collect3.get(0).type),
-                () -> assertEquals(2, collect3.get(0).samples.size()),
-                () -> assertTrue(collect3.get(0).samples.contains(sample2)),
+                () -> assertEquals(1, collect3.get(0).samples.size()),
                 () -> assertTrue(collect3.get(0).samples.contains(sample3))
         );
     }

@@ -37,6 +37,11 @@
 # AWS Exporter internal metrics
 - source_labels: [ __name__, operation ]
   regex: aws_exporter.+;(.+)
+  target_label: asserts_request_type
+  replacement: outbound
+
+- source_labels: [ __name__, operation ]
+  regex: aws_exporter.+;(.+)
   target_label: asserts_request_context
   replacement: $1
 

@@ -8,7 +8,6 @@ import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import io.prometheus.client.Histogram;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -27,13 +26,16 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @Slf4j
-@AllArgsConstructor
 public class BasicMetricCollector extends Collector {
     private final ScrapeConfigProvider scrapeConfigProvider;
-    private final Map<Key, Double> gaugeValues = new ConcurrentHashMap<>();
+    private Map<Key, Double> gaugeValues = new ConcurrentHashMap<>();
     private final Map<Key, AtomicLong> counters = new ConcurrentHashMap<>();
     private final Map<Key, LatencyCounter> latencyCounters = new ConcurrentHashMap<>();
     private final Map<Key, Histogram> histograms = new ConcurrentHashMap<>();
+
+    public BasicMetricCollector(ScrapeConfigProvider scrapeConfigProvider) {
+        this.scrapeConfigProvider = scrapeConfigProvider;
+    }
 
     @Override
     public List<MetricFamilySamples> collect() {
@@ -45,6 +47,7 @@ public class BasicMetricCollector extends Collector {
                         .add(new Sample(key.metricName, key.labelNames, key.labelValues, value)));
         gaugeSamples.forEach((name, samples) ->
                 familySamples.add(new MetricFamilySamples(name, Type.GAUGE, "", samples)));
+        gaugeValues = new ConcurrentHashMap<>();
 
         Map<String, List<Sample>> counterSamples = new TreeMap<>();
         counters.forEach((key, value) ->
