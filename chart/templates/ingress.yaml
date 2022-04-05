@@ -2,7 +2,6 @@
 {{- $ingressApiIsStable := eq (include "ingress.isStable" .) "true" -}}
 {{- $ingressSupportsIngressClassName := eq (include "ingress.supportsIngressClassName" .) "true" -}}
 {{- $ingressSupportsPathType := eq (include "ingress.supportsPathType" .) "true" -}}
-{{- $releaseName := .Release.Name -}}
 {{- $serviceName := include "aws-exporter.fullname" . }}
 {{- $servicePort := .Values.service.aws.port -}}
 {{- $ingressPath := .Values.ingress.path -}}
