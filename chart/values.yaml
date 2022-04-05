@@ -12,19 +12,36 @@ service:
   # jmx:
   #   port: 8095
 
-# Ingress configuration
 ingress:
   enabled: false
+
+  # For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
+  # See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
+  # ingressClassName: nginx
+
   annotations: {}
-  hosts:
-    - host: aws-exporter.example.com
-      paths:
-        - /
-  # -- TLS configuration for the api-server ingress
-  tls:
-    - secretName: aws-exporter-tls
-      hosts:
-        - aws-exporter.example.com
+
+  extraLabels: {}
+
+  hosts: []
+  #   - aws-exporter.domain.com
+
+  path: /
+
+  # pathType is only for k8s >= 1.18
+  pathType: Prefix
+
+  ## Extra paths to prepend to every host configuration. This is useful when working with annotation based services.
+  extraPaths: []
+  # - path: /*
+  #   backend:
+  #     serviceName: ssl-redirect
+  #     servicePort: use-annotation
+
+  tls: []
+  #   - secretName: aws-exporter-tls
+  #     hosts:
+  #       - aws-exporter.domain.com
 
 env:
   AWS_ACCESS_KEY_ID: ""
