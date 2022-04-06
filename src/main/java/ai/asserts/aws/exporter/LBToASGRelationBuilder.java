@@ -52,33 +52,35 @@ public class LBToASGRelationBuilder {
         Set<ResourceRelation> newConfigs = new HashSet<>();
         scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
             String api = "AutoScalingClient/describeAutoScalingGroups";
-            try (AutoScalingClient autoScalingClient = rateLimiter.doWithRateLimit(api,
-                    ImmutableSortedMap.of(
-                            SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api
-                    ),
-                    () -> awsClientProvider.getAutoScalingClient(region))) {
-                DescribeAutoScalingGroupsResponse resp = autoScalingClient.describeAutoScalingGroups();
-                List<AutoScalingGroup> groups = resp.autoScalingGroups();
-                if (!isEmpty(groups)) {
-                    groups.forEach(asg -> resourceMapper.map(asg.autoScalingGroupARN()).ifPresent(asgRes -> {
-                        if (!isEmpty(asg.targetGroupARNs())) {
-                            asg.targetGroupARNs().stream()
-                                    .map(resourceMapper::map)
-                                    .filter(Optional::isPresent)
-                                    .map(Optional::get)
-                                    .filter(tg -> targetGroupLBMapProvider.getTgToLB().containsKey(tg))
-                                    .map(tg -> targetGroupLBMapProvider.getTgToLB().get(tg))
-                                    .forEach(lb -> newConfigs.add(ResourceRelation.builder()
-                                            .from(lb)
-                                            .to(asgRes)
-                                            .name("ROUTES_TO")
-                                            .build()));
-                        }
-                    }));
+            scrapeConfigProvider.getScrapeConfig().getAssumeRoles().forEach(role -> {
+                try (AutoScalingClient autoScalingClient = rateLimiter.doWithRateLimit(api,
+                        ImmutableSortedMap.of(
+                                SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api
+                        ),
+                        () -> awsClientProvider.getAutoScalingClient(region, role))) {
+                    DescribeAutoScalingGroupsResponse resp = autoScalingClient.describeAutoScalingGroups();
+                    List<AutoScalingGroup> groups = resp.autoScalingGroups();
+                    if (!isEmpty(groups)) {
+                        groups.forEach(asg -> resourceMapper.map(asg.autoScalingGroupARN()).ifPresent(asgRes -> {
+                            if (!isEmpty(asg.targetGroupARNs())) {
+                                asg.targetGroupARNs().stream()
+                                        .map(resourceMapper::map)
+                                        .filter(Optional::isPresent)
+                                        .map(Optional::get)
+                                        .filter(tg -> targetGroupLBMapProvider.getTgToLB().containsKey(tg))
+                                        .map(tg -> targetGroupLBMapProvider.getTgToLB().get(tg))
+                                        .forEach(lb -> newConfigs.add(ResourceRelation.builder()
+                                                .from(lb)
+                                                .to(asgRes)
+                                                .name("ROUTES_TO")
+                                                .build()));
+                            }
+                        }));
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to build LB to ASG relationship", e);
                 }
-            } catch (Exception e) {
-                log.error("Failed to build LB to ASG relationship", e);
-            }
+            });
         });
         routingConfigs = newConfigs;
     }

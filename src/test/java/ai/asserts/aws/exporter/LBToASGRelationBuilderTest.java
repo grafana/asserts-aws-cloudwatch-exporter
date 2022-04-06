@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup;
 import software.amazon.awssdk.services.autoscaling.model.DescribeAutoScalingGroupsResponse;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.SortedMap;
 
@@ -58,11 +59,12 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
+        expect(scrapeConfig.getAssumeRoles()).andReturn(Collections.singletonList(null));
     }
 
     @Test
     void updateRouting() {
-        expect(awsClientProvider.getAutoScalingClient("region")).andReturn(autoScalingClient);
+        expect(awsClientProvider.getAutoScalingClient("region", null)).andReturn(autoScalingClient);
         expect(autoScalingClient.describeAutoScalingGroups()).andReturn(DescribeAutoScalingGroupsResponse.builder()
                 .autoScalingGroups(AutoScalingGroup.builder()
                         .autoScalingGroupARN("asg-arn")

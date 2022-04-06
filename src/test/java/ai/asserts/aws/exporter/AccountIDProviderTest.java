@@ -46,4 +46,20 @@ public class AccountIDProviderTest extends EasyMockSupport {
         assertEquals("TestAccount", testClass.getAccountId());
         verifyAll();
     }
+
+    @Test
+    public void getRoleAccountID() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
+        expect(awsClientProvider.getStsClient("region")).andReturn(stsClient);
+        expect(stsClient.getCallerIdentity()).andReturn(GetCallerIdentityResponse.builder()
+                .account("TestAccount")
+                .build());
+        replayAll();
+        testClass.afterPropertiesSet();
+        assertEquals("TestAccount", testClass.getRoleAccountID(null));
+        assertEquals("342994379019", testClass.
+                getRoleAccountID("arn:aws:iam::342994379019:role/grafana-cloudwatch-assumerole"));
+        verifyAll();
+    }
 }

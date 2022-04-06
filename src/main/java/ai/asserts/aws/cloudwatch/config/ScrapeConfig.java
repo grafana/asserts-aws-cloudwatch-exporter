@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -90,7 +91,8 @@ public class ScrapeConfig {
 
     private String tenant;
 
-    private String assumeRole;
+    @Builder.Default
+    private List<String> assumeRole = new ArrayList<>();
 
     @Builder.Default
     private List<RelabelConfig> relabelConfigs = new ArrayList<>();
@@ -160,9 +162,9 @@ public class ScrapeConfig {
             dimensionToLabels.stream()
                     .filter(d -> alarmDimensions.containsKey(d.getDimensionName()))
                     .findFirst().ifPresent(dimensionToLabel -> {
-                mapTypeAndName(alarmDimensions, labels, dimensionToLabel);
-                labels.put("namespace", dimensionToLabel.getNamespace());
-            });
+                        mapTypeAndName(alarmDimensions, labels, dimensionToLabel);
+                        labels.put("namespace", dimensionToLabel.getNamespace());
+                    });
         }
 
         return labels;
@@ -210,6 +212,13 @@ public class ScrapeConfig {
             labels = config.addReplacements(metricName, labels);
         }
         return labels;
+    }
+
+    public List<String> getAssumeRoles() {
+        if (CollectionUtils.isEmpty(assumeRole)) {
+            return Collections.singletonList(null); //null when no assume role is configured.
+        }
+        return assumeRole;
     }
 }
 

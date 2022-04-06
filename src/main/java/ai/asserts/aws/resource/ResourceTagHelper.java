@@ -216,22 +216,24 @@ public class ResourceTagHelper {
                                 .collect(Collectors.toList())));
             }
         } else if (resourceType.equals("AWS::AutoScaling::AutoScalingGroup")) {
-            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region)) {
-                software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse describeTagsResponse = asgClient.describeTags(software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder()
-                        .build());
-                describeTagsResponse.tags()
-                        .forEach(tagDescription -> {
-                            if (tagDescription.key().contains("k8s") || tagDescription.key().contains("kubernetes")) {
-                                resourceByName.computeIfAbsent(tagDescription.resourceId(), k -> Resource.builder()
-                                        .name(tagDescription.resourceId())
-                                        .type(AutoScalingGroup)
-                                        .subType("k8s")
-                                        .region(region)
-                                        .account(accountIDProvider.getAccountId())
-                                        .build());
-                            }
-                        });
-            }
+            scrapeConfigProvider.getScrapeConfig().getAssumeRoles().forEach(role -> {
+                try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, role)) {
+                    software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse describeTagsResponse = asgClient.describeTags(software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder()
+                            .build());
+                    describeTagsResponse.tags()
+                            .forEach(tagDescription -> {
+                                if (tagDescription.key().contains("k8s") || tagDescription.key().contains("kubernetes")) {
+                                    resourceByName.computeIfAbsent(tagDescription.resourceId(), k -> Resource.builder()
+                                            .name(tagDescription.resourceId())
+                                            .type(AutoScalingGroup)
+                                            .subType("k8s")
+                                            .region(region)
+                                            .account(accountIDProvider.getRoleAccountID(role))
+                                            .build());
+                                }
+                            });
+                }
+            });
         }
 
         resources.forEach(resource -> {
