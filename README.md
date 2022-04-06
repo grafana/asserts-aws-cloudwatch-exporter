@@ -1,4 +1,4 @@
-# aws-exporter
+# aws-exporter test
 Standalone exporter to export
 [AWS CloudWatch Metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html) and
 Logs as prometheus metrics. This exporter uses AWS APIs and fetches both metadata and metric data
