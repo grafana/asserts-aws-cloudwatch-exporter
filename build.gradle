@@ -50,9 +50,6 @@ dependencies {
             "software.amazon.awssdk:kinesisanalyticsv2:$awsSdkVersion",
             "software.amazon.awssdk:firehose:$awsSdkVersion",
             "software.amazon.awssdk:secretsmanager:$awsSdkVersion",
-            "io.opentelemetry:opentelemetry-proto:$opentelemetryProtoBufVersion",
-            "com.google.protobuf:protobuf-java:$protobufVersion",
-            "com.google.protobuf:protobuf-java-util:$protobufVersion"
     )
 
     compileOnly(

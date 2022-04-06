@@ -4,12 +4,14 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static io.micrometer.core.instrument.util.StringUtils.isEmpty;
 import static org.springframework.util.StringUtils.hasLength;
 
 @Component
@@ -32,6 +35,7 @@ import static org.springframework.util.StringUtils.hasLength;
 @AllArgsConstructor
 public class AlarmMetricConverter {
     private final ScrapeConfigProvider scrapeConfigProvider;
+    private final ObjectMapperFactory objectMapperFactory;
 
     public List<Map<String, String>> convertAlarm(AlarmStateChange alarmStateChange) {
         List<Map<String, String>> labelsList = new ArrayList<>();
@@ -142,14 +146,21 @@ public class AlarmMetricConverter {
     }
 
     private Optional<String> parseThreshold(String reasonData) {
-        JsonElement element = JsonParser.parseString(reasonData);
-        if (element.isJsonObject()) {
-            JsonObject jsonObject = (JsonObject) element;
-            JsonElement ele_threshold = jsonObject.get("threshold");
-            if (ele_threshold.isJsonPrimitive()) {
-                return Optional.of(ele_threshold.getAsString());
+        try {
+            ReasonData reasonDataObj = objectMapperFactory.getObjectMapper().readValue(reasonData, ReasonData.class);
+            if (!isEmpty(reasonDataObj.getThreshold())) {
+                return Optional.of(reasonDataObj.getThreshold());
             }
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
         return Optional.empty();
+    }
+
+    @Getter
+    @Setter
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ReasonData {
+        private String threshold;
     }
 }
