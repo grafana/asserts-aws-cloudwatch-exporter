@@ -94,8 +94,8 @@ publishing {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/asserts/aws-cloudwatch-exporter")
             credentials {
-                username = project.findProperty("gpr.user") ?: System.getenv("gpr.user")
-                password = project.findProperty("gpr.key") ?: System.getenv("gpr.key")
+                username = project.findProperty("gpr.user") ?: System.getenv("GPR_USER")
+                password = project.findProperty("gpr.key") ?: System.getenv("GPR_TOKEN")
             }
         }
     }
