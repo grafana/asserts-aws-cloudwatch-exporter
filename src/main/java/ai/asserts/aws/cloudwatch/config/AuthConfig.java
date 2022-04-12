@@ -28,9 +28,11 @@ public class AuthConfig {
     private AuthType type = NoAuth;
     private String apiToken;
     private String secretARN;
+    private String assertsUser;
+    private String assertsPassword;
 
     public enum AuthType {
-        NoAuth, ApiTokenInConfig, ApiTokenInSecretsManager
+        NoAuth, ApiTokenInConfig, ApiTokenInSecretsManager, ApiTokenInAsserts
     }
 
     public void validate() {

@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
 import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +46,7 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         metric = mock(AlarmMetric.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
-        testClass = new AlarmMetricConverter(scrapeConfigProvider);
+        testClass = new AlarmMetricConverter(scrapeConfigProvider, new ObjectMapperFactory());
     }
 
     @Test
