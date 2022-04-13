@@ -6,7 +6,7 @@ package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
-import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
+import ai.asserts.aws.config.LogScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.google.common.collect.ImmutableList;
 import org.easymock.EasyMockSupport;

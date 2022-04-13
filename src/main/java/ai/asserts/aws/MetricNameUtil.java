@@ -1,9 +1,8 @@
 
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.model.CWNamespace;
-import ai.asserts.aws.cloudwatch.model.MetricStat;
+import ai.asserts.aws.model.CWNamespace;
+import ai.asserts.aws.model.MetricStat;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;

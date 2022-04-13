@@ -5,8 +5,8 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.ObjectMapperFactory;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;

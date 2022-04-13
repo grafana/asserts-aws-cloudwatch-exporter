@@ -1,6 +1,6 @@
 package ai.asserts.aws.resource;
 
-import ai.asserts.aws.cloudwatch.model.CWNamespace;
+import ai.asserts.aws.model.CWNamespace;
 import com.google.common.collect.Sets;
 import lombok.Getter;
 

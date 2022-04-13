@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;

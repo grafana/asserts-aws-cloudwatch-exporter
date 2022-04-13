@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.query;
 
-import ai.asserts.aws.cloudwatch.config.MetricConfig;
+import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.resource.Resource;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
@@ -34,7 +34,7 @@ public class MetricQueryBuilder {
     }
 
     MetricQuery buildQuery(QueryIdGenerator queryIdGenerator, MetricConfig metricConfig,
-                           ai.asserts.aws.cloudwatch.model.MetricStat stat,
+                           ai.asserts.aws.model.MetricStat stat,
                            Metric metric) {
         MetricStat metricStat = MetricStat.builder()
                 .period(metricConfig.getScrapeInterval())

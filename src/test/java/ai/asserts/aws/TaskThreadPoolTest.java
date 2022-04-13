@@ -4,8 +4,7 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.Test;

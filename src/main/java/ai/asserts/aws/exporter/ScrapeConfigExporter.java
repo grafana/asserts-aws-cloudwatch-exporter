@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;

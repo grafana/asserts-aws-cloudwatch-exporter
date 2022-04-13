@@ -1,8 +1,8 @@
 
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.NamespaceConfig;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ApiGatewayToLambdaBuilder;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;
@@ -100,7 +100,7 @@ public class MetadataTaskManager implements InitializingBean {
         return new LambdaLogMetricScrapeTask(region);
     }
 
-    private LambdaLogMetricScrapeTask lambdaLogScrapeTask(ai.asserts.aws.cloudwatch.config.NamespaceConfig nc,
+    private LambdaLogMetricScrapeTask lambdaLogScrapeTask(NamespaceConfig nc,
                                                           String region) {
         log.info("Setup lambda log scrape task for region {} with scrape configs {}", region, nc.getLogs());
         LambdaLogMetricScrapeTask logScraperTask = newLogScrapeTask(region);

@@ -1,8 +1,7 @@
 
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.model.MetricStat;
+import ai.asserts.aws.model.MetricStat;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,13 +9,13 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import java.util.Optional;
 
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.dynamodb;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.ecs_containerinsights;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.ecs_svc;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambdainsights;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.s3;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.sqs;
+import static ai.asserts.aws.model.CWNamespace.dynamodb;
+import static ai.asserts.aws.model.CWNamespace.ecs_containerinsights;
+import static ai.asserts.aws.model.CWNamespace.ecs_svc;
+import static ai.asserts.aws.model.CWNamespace.lambda;
+import static ai.asserts.aws.model.CWNamespace.lambdainsights;
+import static ai.asserts.aws.model.CWNamespace.s3;
+import static ai.asserts.aws.model.CWNamespace.sqs;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

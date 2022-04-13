@@ -4,9 +4,8 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.AuthConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.AuthConfig;
+import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -18,7 +17,7 @@ import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRespon
 
 import java.util.Optional;
 
-import static ai.asserts.aws.cloudwatch.config.AuthConfig.AuthType.ApiTokenInConfig;
+import static ai.asserts.aws.config.AuthConfig.AuthType.ApiTokenInConfig;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Slf4j

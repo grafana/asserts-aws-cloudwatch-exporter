@@ -5,8 +5,8 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
+import ai.asserts.aws.config.LogScrapeConfig;
+import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;

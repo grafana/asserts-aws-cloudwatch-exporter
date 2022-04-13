@@ -4,8 +4,8 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.easymock.Capture;
@@ -57,7 +57,7 @@ public class AlertsProcessorTest extends EasyMockSupport {
         Capture<HttpEntity<PrometheusAlerts>> callbackCapture = Capture.newInstance();
         Capture<String> callbackCapture1 = Capture.newInstance();
         String url = "url1?tenant=tenant";
-        expect(restTemplate.postForObject(capture(callbackCapture1), capture(callbackCapture), eq(Object.class))).andReturn(new String());
+        expect(restTemplate.postForObject(capture(callbackCapture1), capture(callbackCapture), eq(Object.class))).andReturn("");
         replayAll();
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("state", "ALARM")

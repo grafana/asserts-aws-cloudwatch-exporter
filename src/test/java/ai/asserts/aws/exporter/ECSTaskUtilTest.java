@@ -5,11 +5,12 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.cloudwatch.config.ECSTaskDefScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
+import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
@@ -107,9 +108,33 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     }
 
     @Test
+    public void getECSScrapeConfig_None() {
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder().build();
+        assertEquals(Optional.empty(), testClass.getECSScrapeConfig(TaskDefinition.builder().build(), scrapeConfig));
+    }
+
+    @Test
+    public void getECSScrapeConfig_Exists() {
+        ECSTaskDefScrapeConfig mockConfig = mock(ECSTaskDefScrapeConfig.class);
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .ecsTaskScrapeConfigs(ImmutableList.of(mockConfig))
+                .build();
+        TaskDefinition taskDefinition = TaskDefinition.builder()
+                .containerDefinitions(ContainerDefinition.builder().name("cn").build())
+                .build();
+
+        expect(mockConfig.getContainerDefinitionName()).andReturn("cn");
+
+        replayAll();
+        assertEquals(Optional.of(mockConfig), testClass.getECSScrapeConfig(taskDefinition, scrapeConfig));
+        verifyAll();
+    }
+
+    @Test
     public void buildScrapeTarget_use_taskdef_docker_labels_config_success() {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
+        expect(scrapeConfig.getEcsTaskScrapeConfigs()).andReturn(ImmutableList.of()).anyTimes();
 
         TaskDefinition taskDefinition = TaskDefinition.builder()
                 .containerDefinitions(ContainerDefinition.builder()
@@ -131,8 +156,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                         .build())
                                 .build())
                 .build();
-
-        expect(scrapeConfig.getECSScrapeConfig(taskDefinition)).andReturn(Optional.empty());
 
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
@@ -174,7 +197,9 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
-        expect(taskDefScrapeConfig.getContainerDefinitionName()).andReturn("model-builder");
+        expect(scrapeConfig.getEcsTaskScrapeConfigs()).andReturn(ImmutableList.of(taskDefScrapeConfig)).anyTimes();
+
+        expect(taskDefScrapeConfig.getContainerDefinitionName()).andReturn("model-builder").anyTimes();
         expect(taskDefScrapeConfig.getMetricPath()).andReturn("/metric/path").anyTimes();
         expect(taskDefScrapeConfig.getContainerPort()).andReturn(8080).anyTimes();
 
@@ -199,8 +224,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
                 .taskDefinition(taskDefinition)
                 .build());
-
-        expect(scrapeConfig.getECSScrapeConfig(taskDefinition)).andReturn(Optional.of(taskDefScrapeConfig));
 
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
@@ -237,6 +260,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
+        expect(scrapeConfig.getEcsTaskScrapeConfigs()).andReturn(ImmutableList.of(taskDefScrapeConfig)).anyTimes();
+
+        expect(taskDefScrapeConfig.getContainerDefinitionName()).andReturn("model-builder-v1").anyTimes();
+        expect(taskDefScrapeConfig.getMetricPath()).andReturn("/metric/path").anyTimes();
+        expect(taskDefScrapeConfig.getContainerPort()).andReturn(8080).anyTimes();
+
         TaskDefinition taskDefinition = TaskDefinition.builder()
                 .containerDefinitions(ContainerDefinition.builder()
                         .name("model-builder")
@@ -246,7 +275,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 .build())
                         .build())
                 .build();
-        expect(scrapeConfig.getECSScrapeConfig(taskDefinition)).andReturn(Optional.empty());
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
@@ -277,6 +305,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
+        expect(scrapeConfig.getEcsTaskScrapeConfigs()).andReturn(ImmutableList.of()).anyTimes();
+
         TaskDefinition taskDefinition = TaskDefinition.builder()
                 .containerDefinitions(ContainerDefinition.builder()
                                 .name("model-builder")
@@ -293,7 +323,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                         .build())
                                 .build())
                 .build();
-        expect(scrapeConfig.getECSScrapeConfig(taskDefinition)).andReturn(Optional.empty());
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()

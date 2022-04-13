@@ -4,8 +4,8 @@
  */
 package ai.asserts.aws.cloudwatch.query;
 
-import ai.asserts.aws.cloudwatch.config.MetricConfig;
-import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
+import ai.asserts.aws.config.MetricConfig;
+import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.resource.Resource;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
@@ -18,8 +18,8 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-import static ai.asserts.aws.cloudwatch.model.MetricStat.Average;
-import static ai.asserts.aws.cloudwatch.model.MetricStat.Maximum;
+import static ai.asserts.aws.model.MetricStat.Average;
+import static ai.asserts.aws.model.MetricStat.Maximum;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
