@@ -8,6 +8,7 @@ RUN apt-get install git && git --version
 WORKDIR /home/gradle/app
 # Only copy gradle dependency-related files
 COPY --chown=gradle:gradle build.gradle /home/gradle/app/
+COPY --chown=gradle:gradle settings.gradle /home/gradle/app/
 COPY --chown=gradle:gradle gradle.properties /home/gradle/app/
 
 # Trigger Build with only gradle files to download proj gradle dependencies
@@ -18,10 +19,13 @@ COPY --chown=gradle:gradle gradle.properties /home/gradle/app/
 # Adds ~7 secs to 1st build, (~1min), subsequent builds will be ~20 secs
 # Without this 1-liner every container build would be ~1min
 COPY --chown=gradle:gradle ./.git /home/gradle/app/.git
-RUN gradle build --no-daemon > /dev/null 2>&1 || true
-
 COPY --chown=gradle:gradle ./src /home/gradle/app/src
+COPY --chown=gradle:gradle ./config /home/gradle/app/config
+RUN gradle build --no-daemon > /dev/null 2>&1 || true
 RUN gradle bootJar --no-daemon
+
+WORKDIR /home/gradle/app/config
+RUN gradle build publish
 
 
 # Stage 2 - Create a size optimized Image for our Service with only what we need to run
