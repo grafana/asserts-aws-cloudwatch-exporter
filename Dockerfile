@@ -24,6 +24,7 @@ COPY --chown=gradle:gradle ./config /home/gradle/app/config
 RUN gradle build --no-daemon > /dev/null 2>&1 || true
 RUN gradle bootJar --no-daemon
 
+# Publish config submodule artifact
 WORKDIR /home/gradle/app/config
 RUN gradle build publish
 
