@@ -39,11 +39,10 @@ test {
 publishing {
     repositories {
         maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/asserts/aws-cloudwatch-exporter")
-            credentials {
-                username = project.findProperty("gpr.user") ?: System.getenv("GPR_USER")
-                password = project.findProperty("gpr.key") ?: System.getenv("GPR_TOKEN")
+            name = "AssertsMavenRepo"
+            url = "s3://asserts-maven-repo"
+            authentication {
+                awsIm(AwsImAuthentication)
             }
         }
     }
