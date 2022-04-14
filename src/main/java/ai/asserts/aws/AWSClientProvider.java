@@ -1,6 +1,5 @@
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;

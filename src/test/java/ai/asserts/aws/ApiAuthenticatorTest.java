@@ -4,9 +4,8 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.AuthConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.AuthConfig;
+import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,9 +16,9 @@ import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRespon
 
 import java.util.Optional;
 
-import static ai.asserts.aws.cloudwatch.config.AuthConfig.AuthType.ApiTokenInConfig;
-import static ai.asserts.aws.cloudwatch.config.AuthConfig.AuthType.ApiTokenInSecretsManager;
-import static ai.asserts.aws.cloudwatch.config.AuthConfig.AuthType.NoAuth;
+import static ai.asserts.aws.config.AuthConfig.AuthType.ApiTokenInConfig;
+import static ai.asserts.aws.config.AuthConfig.AuthType.ApiTokenInSecretsManager;
+import static ai.asserts.aws.config.AuthConfig.AuthType.NoAuth;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

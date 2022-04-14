@@ -4,8 +4,8 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -32,7 +32,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
+import static ai.asserts.aws.model.CWNamespace.lambda;
 import static java.lang.String.format;
 
 @Component

@@ -1,8 +1,8 @@
 
 package ai.asserts.aws.cloudwatch.query;
 
-import ai.asserts.aws.cloudwatch.config.MetricConfig;
-import ai.asserts.aws.cloudwatch.model.MetricStat;
+import ai.asserts.aws.config.MetricConfig;
+import ai.asserts.aws.model.MetricStat;
 import ai.asserts.aws.resource.Resource;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;

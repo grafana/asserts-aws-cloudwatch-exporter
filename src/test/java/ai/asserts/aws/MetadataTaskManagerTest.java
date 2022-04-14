@@ -4,10 +4,9 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.LogScrapeConfig;
+import ai.asserts.aws.config.NamespaceConfig;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ApiGatewayToLambdaBuilder;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;

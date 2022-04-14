@@ -5,8 +5,8 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.ObjectMapperFactory;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.easymock.EasyMockSupport;
