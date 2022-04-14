@@ -96,6 +96,7 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
                                 labels.put("aws_resource_type", labels.get("type"));
                                 if (StringUtils.hasLength(resource.getAccount())) {
                                     labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
+                                    labels.remove("account");
                                 }
                                 labels.remove("type");
                                 if (labels.containsKey("name")) {
