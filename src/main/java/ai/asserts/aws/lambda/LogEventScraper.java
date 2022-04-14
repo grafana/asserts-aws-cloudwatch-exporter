@@ -6,7 +6,7 @@ package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
-import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
+import ai.asserts.aws.config.LogScrapeConfig;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

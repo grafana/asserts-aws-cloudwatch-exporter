@@ -6,8 +6,8 @@ package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

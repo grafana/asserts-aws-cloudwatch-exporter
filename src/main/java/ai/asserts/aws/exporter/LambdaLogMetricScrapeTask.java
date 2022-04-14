@@ -2,9 +2,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.cloudwatch.config.LogScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.LogScrapeConfig;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.lambda.LambdaFunction;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.lambda.LogEventMetricEmitter;

@@ -5,9 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
-import ai.asserts.aws.cloudwatch.model.MetricStat;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.model.MetricStat;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;

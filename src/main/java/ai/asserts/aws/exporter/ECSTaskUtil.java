@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.cloudwatch.config.ECSTaskDefScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
+import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels.LabelsBuilder;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
@@ -107,7 +108,7 @@ public class ECSTaskUtil {
                 labelsBuilder = labelsBuilder.metricsPath(metricPathUsingDockerLabel.get());
             }
 
-            Optional<ECSTaskDefScrapeConfig> defConfig = scrapeConfig.getECSScrapeConfig(taskDefinition);
+            Optional<ECSTaskDefScrapeConfig> defConfig = getECSScrapeConfig(taskDefinition, scrapeConfig);
             Optional<String> containerNameOpt = defConfig.map(ECSTaskDefScrapeConfig::getContainerDefinitionName);
 
             if (defConfig.isPresent()) {
@@ -193,5 +194,16 @@ public class ECSTaskUtil {
             }
         }
         return path;
+    }
+
+    public Optional<ECSTaskDefScrapeConfig> getECSScrapeConfig(TaskDefinition task, ScrapeConfig scrapeConfig) {
+        if (CollectionUtils.isEmpty(scrapeConfig.getEcsTaskScrapeConfigs())) {
+            return Optional.empty();
+        }
+        return scrapeConfig.getEcsTaskScrapeConfigs().stream()
+                .filter(config -> task.hasContainerDefinitions() && task.containerDefinitions().stream()
+                        .map(ContainerDefinition::name)
+                        .anyMatch(name -> name.equals(config.getContainerDefinitionName())))
+                .findFirst();
     }
 }

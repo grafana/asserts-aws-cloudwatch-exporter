@@ -6,9 +6,10 @@ package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.config.NamespaceConfig;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -62,16 +63,18 @@ public class ResourceTagHelper {
     private final LoadingCache<Key, Set<Resource>> resourceCache;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RateLimiter rateLimiter;
+    private final TagUtil tagUtil;
     private final Map<String, Set<String>> configServiceToServiceNames = new TreeMap<>();
 
     public ResourceTagHelper(AccountIDProvider accountIDProvider, ScrapeConfigProvider scrapeConfigProvider,
                              AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
-                             RateLimiter rateLimiter) {
+                             RateLimiter rateLimiter, TagUtil tagUtil) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
         this.accountIDProvider = accountIDProvider;
+        this.tagUtil = tagUtil;
 
         configServiceToServiceNames.put("AWS::SQS::Queue", ImmutableSet.of("sqs:queue"));
         configServiceToServiceNames.put("AWS::DynamoDB::Table", ImmutableSet.of("dynamodb:table"));
@@ -170,9 +173,9 @@ public class ResourceTagHelper {
                     response.resourceTagMappingList().forEach(resourceTagMapping ->
                             resourceMapper.map(resourceTagMapping.resourceARN()).ifPresent(resource -> {
                                 resource.setTags(resourceTagMapping.tags().stream()
-                                        .filter(scrapeConfig::shouldExportTag)
+                                        .filter(t -> scrapeConfig.shouldExportTag(t.key(), t.value()))
                                         .collect(Collectors.toList()));
-                                scrapeConfig.setEnvTag(resource);
+                                tagUtil.setEnvTag(resource);
                                 resources.add(resource);
                             }));
                 }
@@ -212,7 +215,7 @@ public class ResourceTagHelper {
                                         .key(t.key())
                                         .value(t.value())
                                         .build())
-                                .filter(scrapeConfig::shouldExportTag)
+                                .filter(t -> scrapeConfig.shouldExportTag(t.key(), t.value()))
                                 .collect(Collectors.toList())));
             }
         } else if (resourceType.equals("AWS::AutoScaling::AutoScalingGroup")) {

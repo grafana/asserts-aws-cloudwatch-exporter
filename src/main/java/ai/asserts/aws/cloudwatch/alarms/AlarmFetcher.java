@@ -6,8 +6,8 @@ package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
@@ -101,9 +101,7 @@ public class AlarmFetcher {
         }
         labels.putAll(alarmMetricConverter.extractMetricAndEntityLabels(alarm));
         if (alarm.hasDimensions()) {
-            alarm.dimensions().forEach(dimension -> {
-                labels.put("d_" + dimension.name(), dimension.value());
-            });
+            alarm.dimensions().forEach(dimension -> labels.put("d_" + dimension.name(), dimension.value()));
         }
         return labels;
     }

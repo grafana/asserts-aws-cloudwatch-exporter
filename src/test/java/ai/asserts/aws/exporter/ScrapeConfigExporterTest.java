@@ -4,9 +4,9 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.cloudwatch.config.NamespaceConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfig;
-import ai.asserts.aws.cloudwatch.config.ScrapeConfigProvider;
+import ai.asserts.aws.config.NamespaceConfig;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
-import static ai.asserts.aws.cloudwatch.model.CWNamespace.lambda;
+import static ai.asserts.aws.model.CWNamespace.lambda;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
