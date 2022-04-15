@@ -13,6 +13,7 @@ import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2Client;
 import software.amazon.awssdk.services.kinesisanalyticsv2.model.ApplicationSummary;
 import software.amazon.awssdk.services.kinesisanalyticsv2.model.ListApplicationsResponse;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
@@ -80,6 +82,10 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                                 Map<String, String> labels = new TreeMap<>();
                                 resource.addLabels(labels, "");
                                 labels.put("aws_resource_type", labels.get("type"));
+                                if (StringUtils.hasLength(resource.getAccount())) {
+                                    labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
+                                    labels.remove("account");
+                                }
                                 labels.remove("type");
                                 if (labels.containsKey("name")) {
                                     labels.put("job", labels.get("name"));

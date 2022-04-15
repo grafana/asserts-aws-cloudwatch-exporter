@@ -40,6 +40,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
+import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
 
 @Component
 @Slf4j
@@ -164,17 +165,17 @@ public class ResourceExporter extends Collector implements MetricProvider {
             labels.putIfAbsent("name", nameFromResource);
 
             // If the arn has an id, we prefer it as the id
-            if (resource.getId() != null) {
+            if (isNotEmpty(resource.getId())) {
                 labels.put("id", resource.getId());
             } else if (hasName && !rI.resourceName().equals(nameFromResource)) {
                 labels.put("id", nameFromResource);
             }
 
-            if (labels.containsKey("id") && longId(labels)) {
+            if (labels.containsKey("id") && isIdValueUrlOrARN(labels)) {
                 labels.remove("id");
             }
 
-            if (resource.getAccount() != null) {
+            if (isNotEmpty(resource.getAccount())) {
                 labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
             }
             switch (resource.getType()) {
@@ -222,7 +223,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
         return metrics;
     }
 
-    private boolean longId(SortedMap<String, String> labels) {
+    private boolean isIdValueUrlOrARN(SortedMap<String, String> labels) {
         return labels.get("id").contains("arn:aws") || labels.get("id").contains("https://");
     }
 }
