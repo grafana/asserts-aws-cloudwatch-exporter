@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -54,6 +55,7 @@ public class AuthConfig {
         }
     }
 
+    @JsonIgnore
     public boolean isAuthenticationRequired() {
         return !NoAuth.equals(type);
     }

@@ -76,7 +76,8 @@ public class NamespaceConfig {
         }
     }
 
-    public Integer getScrapeInterval() {
+    @JsonIgnore
+    public Integer getEffectiveScrapeInterval() {
         if (scrapeInterval != null) {
             return scrapeInterval;
         } else {

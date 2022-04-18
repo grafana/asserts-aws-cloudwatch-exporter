@@ -47,7 +47,7 @@ public class MetricTaskManager implements InitializingBean {
         Set<String> regions = scrapeConfig.getRegions();
         scrapeConfig.getNamespaces().stream()
                 .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
-                .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getScrapeInterval))
+                .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))
                 .forEach(interval ->
                         regions.forEach(region -> addScrapeTask(scrapeConfig, interval, region)));
         alarmMetricExporter.register(collectorRegistry);

@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -31,6 +32,7 @@ public class ECSTaskDefScrapeConfig {
         private String metricPath;
     }
 
+    @JsonIgnore
     public boolean validate() {
         return StringUtils.hasLength(containerDefinitionName) &&
                 (containerPort != null || StringUtils.hasLength(metricPath));

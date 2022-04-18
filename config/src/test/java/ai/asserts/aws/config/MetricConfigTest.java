@@ -5,8 +5,6 @@
 package ai.asserts.aws.config;
 
 import ai.asserts.aws.model.MetricStat;
-import ai.asserts.aws.config.MetricConfig;
-import ai.asserts.aws.config.NamespaceConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
@@ -30,13 +28,13 @@ public class MetricConfigTest extends EasyMockSupport {
                 .namespace(namespaceConfig)
                 .build();
 
-        expect(namespaceConfig.getScrapeInterval()).andReturn(60);
+        expect(namespaceConfig.getEffectiveScrapeInterval()).andReturn(60);
         replayAll();
-        assertEquals(60, metricConfig.getScrapeInterval());
+        assertEquals(60, metricConfig.getEffectiveScrapeInterval());
         verifyAll();
 
         metricConfig.setScrapeInterval(120);
-        assertEquals(120, metricConfig.getScrapeInterval());
+        assertEquals(120, metricConfig.getEffectiveScrapeInterval());
     }
 
     @Test

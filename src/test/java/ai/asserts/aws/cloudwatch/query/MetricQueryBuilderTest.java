@@ -32,7 +32,7 @@ public class MetricQueryBuilderTest extends EasyMockSupport {
 
         MetricQueryBuilder metricQueryBuilder = new MetricQueryBuilder();
 
-        expect(namespaceConfig.getScrapeInterval()).andReturn(300).anyTimes();
+        expect(namespaceConfig.getEffectiveScrapeInterval()).andReturn(300).anyTimes();
 
         expect(queryIdGenerator.next()).andReturn("q1");
         expect(queryIdGenerator.next()).andReturn("q2");

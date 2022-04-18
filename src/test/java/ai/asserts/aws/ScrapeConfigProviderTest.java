@@ -1,12 +1,10 @@
 package ai.asserts.aws;
 
-import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.RelabelConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.MetricStat;
-import ai.asserts.aws.ScrapeConfigProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -79,8 +77,8 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
         scrapeConfig.validateConfig();
-        assertEquals(60, namespaceConfig.getScrapeInterval());
-        assertEquals(60, metricConfig.getScrapeInterval());
+        assertEquals(60, namespaceConfig.getEffectiveScrapeInterval());
+        assertEquals(60, metricConfig.getEffectiveScrapeInterval());
     }
 
     @Test
@@ -99,8 +97,8 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
         scrapeConfig.validateConfig();
-        assertEquals(600, namespaceConfig.getScrapeInterval());
-        assertEquals(600, metricConfig.getScrapeInterval());
+        assertEquals(600, namespaceConfig.getEffectiveScrapeInterval());
+        assertEquals(600, metricConfig.getEffectiveScrapeInterval());
     }
 
     @Test
@@ -121,8 +119,8 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
         scrapeConfig.validateConfig();
-        assertEquals(600, namespaceConfig.getScrapeInterval());
-        assertEquals(600, metricConfig.getScrapeInterval());
+        assertEquals(600, namespaceConfig.getEffectiveScrapeInterval());
+        assertEquals(600, metricConfig.getEffectiveScrapeInterval());
     }
 
     @Test
@@ -144,8 +142,8 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
         scrapeConfig.validateConfig();
-        assertEquals(600, namespaceConfig.getScrapeInterval());
-        assertEquals(900, metricConfig.getScrapeInterval());
+        assertEquals(600, namespaceConfig.getEffectiveScrapeInterval());
+        assertEquals(900, metricConfig.getEffectiveScrapeInterval());
     }
 
     @Test

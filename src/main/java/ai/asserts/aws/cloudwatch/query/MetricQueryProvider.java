@@ -131,7 +131,7 @@ public class MetricQueryProvider {
                     if (metricNames.add(exportedMetricName)) {
                         log.info("Will scrape {} agg over {} seconds every {} seconds",
                                 exportedMetricName,
-                                metricQuery.getMetricConfig().getScrapeInterval(),
+                                metricQuery.getMetricConfig().getEffectiveScrapeInterval(),
                                 interval);
                     }
                 })));
@@ -162,7 +162,7 @@ public class MetricQueryProvider {
                               Set<Resource> resources, MetricConfig metricConfig, Metric metric) {
         List<MetricQuery> metricQueries = byIntervalWithDimensions
                 .computeIfAbsent(region, k -> new TreeMap<>())
-                .computeIfAbsent(metricConfig.getScrapeInterval(), k -> new ArrayList<>());
+                .computeIfAbsent(metricConfig.getEffectiveScrapeInterval(), k -> new ArrayList<>());
         metricQueries.addAll(metricQueryBuilder.buildQueries(queryIdGenerator, resources, metricConfig,
                 metric));
     }
