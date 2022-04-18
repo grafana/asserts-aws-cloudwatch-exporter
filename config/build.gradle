@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'ai.asserts.aws-cloudwatch-exporter'
-version '22.4.0.0bac16f'
+version = new Date().format("YY.M.0") + '.' + 'git rev-parse --short HEAD'.execute().text.trim()
 
 repositories {
     mavenCentral()
