@@ -28,11 +28,11 @@ public class NamespaceConfigTest extends EasyMockSupport {
 
         expect(scrapeConfig.getScrapeInterval()).andReturn(60);
         replayAll();
-        assertEquals(60, namespaceConfig.getScrapeInterval());
+        assertEquals(60, namespaceConfig.getEffectiveScrapeInterval());
         verifyAll();
 
         namespaceConfig.setScrapeInterval(120);
-        assertEquals(120, namespaceConfig.getScrapeInterval());
+        assertEquals(120, namespaceConfig.getEffectiveScrapeInterval());
     }
 
     @Test

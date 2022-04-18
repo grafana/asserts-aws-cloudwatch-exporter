@@ -102,7 +102,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(namespaceConfig.getMetrics()).andReturn(ImmutableList.of(metricConfig));
 
         expect(metricConfig.getName()).andReturn(metricName).anyTimes();
-        expect(metricConfig.getScrapeInterval()).andReturn(60).anyTimes();
+        expect(metricConfig.getEffectiveScrapeInterval()).andReturn(60).anyTimes();
         expect(metricConfig.matchesMetric(metric)).andReturn(true).anyTimes();
 
         ListMetricsResponse listMetricsResponse1 = ListMetricsResponse.builder()

@@ -39,7 +39,7 @@ public class ScrapeConfigExporter extends Collector implements InitializingBean 
                                 intervalSamples.add(sampleBuilder.buildSingleSample(
                                         "aws_exporter_scrape_interval",
                                         ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, cwNamespace.getNormalizedNamespace()),
-                                        namespaceConfig.getScrapeInterval() * 1.0D))));
+                                        namespaceConfig.getEffectiveScrapeInterval() * 1.0D))));
 
         if (intervalSamples.size() > 0) {
             metricFamilySamples.add(sampleBuilder.buildFamily(intervalSamples));

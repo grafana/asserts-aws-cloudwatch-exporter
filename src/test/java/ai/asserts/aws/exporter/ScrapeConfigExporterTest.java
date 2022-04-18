@@ -61,7 +61,7 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
         expect(namespaceConfig.getName()).andReturn("ns1");
         expect(scrapeConfigProvider.getStandardNamespace("ns1")).andReturn(Optional.of(lambda));
 
-        expect(namespaceConfig.getScrapeInterval()).andReturn(61);
+        expect(namespaceConfig.getEffectiveScrapeInterval()).andReturn(61);
         expect(metricSampleBuilder.buildSingleSample("aws_exporter_scrape_interval",
                 ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"), 61.0D)).andReturn(sample);
 

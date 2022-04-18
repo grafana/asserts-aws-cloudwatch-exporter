@@ -35,11 +35,12 @@ public class MetricConfig {
     private Integer scrapeInterval;
     private Set<MetricStat> stats;
 
-    public Integer getScrapeInterval() {
+    @JsonIgnore
+    public Integer getEffectiveScrapeInterval() {
         if (scrapeInterval != null) {
             return scrapeInterval;
         } else {
-            return namespace.getScrapeInterval();
+            return namespace.getEffectiveScrapeInterval();
         }
     }
 

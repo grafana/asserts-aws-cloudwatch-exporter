@@ -37,7 +37,7 @@ public class MetricQueryBuilder {
                            ai.asserts.aws.model.MetricStat stat,
                            Metric metric) {
         MetricStat metricStat = MetricStat.builder()
-                .period(metricConfig.getScrapeInterval())
+                .period(metricConfig.getEffectiveScrapeInterval())
                 .stat(stat.toString())
                 .metric(metric)
                 .build();
