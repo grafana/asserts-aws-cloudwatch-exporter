@@ -7,8 +7,8 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.CWNamespace;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -17,7 +17,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.ecs.EcsClient;
@@ -220,9 +222,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         if (taskResponse.hasTasks()) {
             configs.addAll(taskResponse.tasks().stream()
                     .filter(ecsTaskUtil::hasAllInfo)
-                    .map(task -> ecsTaskUtil.buildScrapeTarget(scrapeConfig, ecsClient, cluster, service, task))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .flatMap(task -> ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task).stream())
                     .collect(Collectors.toList()));
         }
         return configs;
@@ -231,12 +231,14 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     @Builder
     @Getter
     public static class StaticConfig {
-        private final Set<String> targets;
+        private final Set<String> targets = new TreeSet<>();
         private final Labels labels;
     }
 
     @Getter
     @Builder
+    @EqualsAndHashCode
+    @ToString
     public static class Labels {
         @JsonProperty("__metrics_path__")
         private final String metricsPath;
@@ -247,6 +249,8 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         private final String taskDefName;
         @JsonProperty("ecs_taskdef_version")
         private final String taskDefVersion;
+        @JsonProperty
+        private final String container;
         @JsonProperty("ecs_task_id")
         private final String taskId;
         @JsonProperty("cw_namespace")

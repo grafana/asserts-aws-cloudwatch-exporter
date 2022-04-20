@@ -7,8 +7,8 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -372,11 +372,11 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(ecsTaskUtil.hasAllInfo(task1)).andReturn(true);
         expect(ecsTaskUtil.hasAllInfo(task2)).andReturn(true);
 
-        expect(ecsTaskUtil.buildScrapeTarget(scrapeConfig, ecsClient, cluster, service, task1))
-                .andReturn(Optional.of(mockStaticConfig));
+        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task1))
+                .andReturn(ImmutableList.of(mockStaticConfig));
 
-        expect(ecsTaskUtil.buildScrapeTarget(scrapeConfig, ecsClient, cluster, service, task2))
-                .andReturn(Optional.of(mockStaticConfig));
+        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task2))
+                .andReturn(ImmutableList.of(mockStaticConfig));
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,

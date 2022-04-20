@@ -10,28 +10,25 @@ import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels.LabelsBuilder;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
-import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig.StaticConfigBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
-import io.micrometer.core.instrument.util.StringUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
-import software.amazon.awssdk.services.ecs.model.PortMapping;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -57,12 +54,11 @@ public class ECSTaskUtil {
                 .anyMatch(detail -> detail.name().equals(PRIVATE_IPv4ADDRESS));
     }
 
-    public Optional<StaticConfig> buildScrapeTarget(ScrapeConfig scrapeConfig, EcsClient ecsClient,
-                                                    Resource cluster, Resource service, Task task) {
-        StaticConfigBuilder staticConfigBuilder = StaticConfig.builder();
+    public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
+                                                 Resource cluster, Resource service, Task task) {
+        Map<Labels, StaticConfig> targetsByLabel = new HashMap<>();
 
         String ipAddress;
-        Set<String> targets = new TreeSet<>();
         Resource taskDefResource = resourceMapper.map(task.taskDefinitionArn())
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskDefinitionArn()));
         Resource taskResource = resourceMapper.map(task.taskArn())
@@ -86,7 +82,7 @@ public class ECSTaskUtil {
             ipAddress = ipAddressOpt.get().value();
         } else {
             log.error("Couldn't find IP address of task instance for task   {}", task.taskArn());
-            return Optional.empty();
+            return Collections.emptyList();
         }
 
         try {
@@ -101,109 +97,74 @@ public class ECSTaskUtil {
                                     .build()).taskDefinition()
             );
 
-            // Build targets using docker labels if present
-            getTargetUsingDockerLabels(ipAddress, taskDefinition).ifPresent(targets::add);
-            Optional<String> metricPathUsingDockerLabel = getMetricPathUsingDockerLabel(taskDefinition);
-            if (metricPathUsingDockerLabel.isPresent()) {
-                labelsBuilder = labelsBuilder.metricsPath(metricPathUsingDockerLabel.get());
-            }
-
-            Optional<ECSTaskDefScrapeConfig> defConfig = getECSScrapeConfig(taskDefinition, scrapeConfig);
-            Optional<String> containerNameOpt = defConfig.map(ECSTaskDefScrapeConfig::getContainerDefinitionName);
-
-            if (defConfig.isPresent()) {
-                // If metric path specified use it
-                if (StringUtils.isNotEmpty(defConfig.get().getMetricPath())) {
-                    labelsBuilder = labelsBuilder.metricsPath(defConfig.get().getMetricPath());
-                }
-
-                if (taskDefinition.hasContainerDefinitions()) {
-                    // When container name is specified, scrape the port if there is only one part. Else
-                    // scrape the specified port
-                    containerNameOpt.flatMap(s -> taskDefinition.containerDefinitions().stream()
-                            .filter(containerDefinition -> containerDefinition.name().equals(s))
-                            .findFirst()).ifPresent(container -> {
-                        if (container.portMappings().size() > 1 && defConfig.get().getContainerPort() != null) {
-                            container.portMappings().stream()
-                                    .filter(portMapping -> portMapping.containerPort()
-                                            .equals(defConfig.get().getContainerPort()))
-                                    .map(PortMapping::hostPort)
-                                    .findFirst()
-                                    .ifPresent(port -> targets.add(format("%s:%d", ipAddress, port)));
-                        } else {
-                            PortMapping portMapping = container.portMappings().get(0);
-                            targets.add(format("%s:%d", ipAddress, portMapping.hostPort()));
-                        }
-                    });
-                }
+            Map<String, Map<Integer, ECSTaskDefScrapeConfig>> configs = scrapeConfig.getECSConfigByNameAndPort();
+            if (taskDefinition.hasContainerDefinitions()) {
+                // In all cases, if a container config is specified, we use the specified port and path
+                taskDefinition.containerDefinitions().forEach(cD -> {
+                    Optional<String> pathFromLabel = getDockerLabel(cD, PROMETHEUS_METRIC_PATH_DOCKER_LABEL);
+                    Optional<String> portFromLabel = getDockerLabel(cD, PROMETHEUS_PORT_DOCKER_LABEL);
+                    if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
+                        Labels labels = labelsBuilder
+                                .metricsPath(pathFromLabel.get())
+                                .container(cD.name())
+                                .build();
+                        StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
+                                labels, k -> StaticConfig.builder().labels(labels).build());
+                        staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
+                    } else if (configs.containsKey(cD.name())) {
+                        Map<Integer, ECSTaskDefScrapeConfig> byPort = configs.get(cD.name());
+                        ECSTaskDefScrapeConfig forAnyPort = byPort.get(-1);
+                        cD.portMappings().forEach(port -> {
+                            Labels labels;
+                            if (byPort.get(port.containerPort()) != null) {
+                                labels = labelsBuilder
+                                        .metricsPath(byPort.get(port.containerPort()).getMetricPath())
+                                        .container(cD.name())
+                                        .build();
+                            } else if (forAnyPort != null) {
+                                labels = labelsBuilder
+                                        .metricsPath(forAnyPort.getMetricPath())
+                                        .container(cD.name())
+                                        .build();
+                            } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
+                                labels = labelsBuilder
+                                        .metricsPath("/metrics")
+                                        .container(cD.name())
+                                        .build();
+                            } else {
+                                labels = null;
+                            }
+                            if (labels != null) {
+                                StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
+                                        labels, k -> StaticConfig.builder().labels(labels).build());
+                                staticConfig.getTargets().add(format("%s:%d", ipAddress, port.containerPort()));
+                            }
+                        });
+                    } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
+                        Labels labels = labelsBuilder
+                                .metricsPath("/metrics")
+                                .container(cD.name())
+                                .build();
+                        StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
+                                labels, k -> StaticConfig.builder().labels(labels).build());
+                        cD.portMappings().forEach(port ->
+                                staticConfig.getTargets().add(format("%s:%d", ipAddress, port.containerPort())));
+                    }
+                });
             }
         } catch (
                 Exception e) {
             log.error("Failed to describe task definition", e);
-            return Optional.empty();
+            return Collections.emptyList();
         }
 
-        if (targets.size() == 1) {
-            return Optional.of(staticConfigBuilder
-                    .labels(labelsBuilder.build())
-                    .targets(targets)
-                    .build());
-        } else {
-            log.warn("No targets in service {}", service);
-            return Optional.empty();
-        }
-
+        return new ArrayList<>(targetsByLabel.values());
     }
 
-    Optional<String> getTargetUsingDockerLabels(String ipAddress, TaskDefinition taskDefinition) {
-        Optional<String> target = Optional.empty();
-        if (taskDefinition.hasContainerDefinitions()) {
-            List<ContainerDefinition> containerDefinitions = taskDefinition.containerDefinitions();
-            for (ContainerDefinition container : containerDefinitions) {
-                Optional<String> portLabel = container.dockerLabels().entrySet().stream()
-                        .filter(entry -> entry.getKey().equals(PROMETHEUS_PORT_DOCKER_LABEL))
-                        .map(Map.Entry::getValue)
-                        .findFirst();
-
-                if (portLabel.isPresent()) {
-                    Optional<PortMapping> portMappingOpt = container.portMappings().stream()
-                            .filter(portMapping -> portMapping.containerPort().toString().equals(portLabel.get()))
-                            .findFirst();
-                    if (portMappingOpt.isPresent()) {
-                        target = Optional.of(format("%s:%s", ipAddress, portMappingOpt.get().hostPort()));
-                        break;
-                    }
-                }
-            }
-        }
-        return target;
-    }
-
-    Optional<String> getMetricPathUsingDockerLabel(TaskDefinition taskDefinition) {
-        Optional<String> path = Optional.empty();
-        if (taskDefinition.hasContainerDefinitions()) {
-            List<ContainerDefinition> containerDefinitions = taskDefinition.containerDefinitions();
-            for (ContainerDefinition container : containerDefinitions) {
-                path = container.dockerLabels().entrySet().stream()
-                        .filter(entry -> entry.getKey().equals(PROMETHEUS_METRIC_PATH_DOCKER_LABEL))
-                        .map(Map.Entry::getValue)
-                        .findFirst();
-                if (path.isPresent()) {
-                    break;
-                }
-            }
-        }
-        return path;
-    }
-
-    public Optional<ECSTaskDefScrapeConfig> getECSScrapeConfig(TaskDefinition task, ScrapeConfig scrapeConfig) {
-        if (CollectionUtils.isEmpty(scrapeConfig.getEcsTaskScrapeConfigs())) {
-            return Optional.empty();
-        }
-        return scrapeConfig.getEcsTaskScrapeConfigs().stream()
-                .filter(config -> task.hasContainerDefinitions() && task.containerDefinitions().stream()
-                        .map(ContainerDefinition::name)
-                        .anyMatch(name -> name.equals(config.getContainerDefinitionName())))
+    Optional<String> getDockerLabel(ContainerDefinition container, String labelName) {
+        return container.dockerLabels().entrySet().stream()
+                .filter(entry -> entry.getKey().equals(labelName))
+                .map(Map.Entry::getValue)
                 .findFirst();
     }
 }

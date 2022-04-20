@@ -2,6 +2,7 @@ package ai.asserts.aws.config;
 
 
 import ai.asserts.aws.model.CWNamespace;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
@@ -72,6 +73,10 @@ public class ScrapeConfig {
     @Builder.Default
     @Setter
     private boolean discoverECSTasks = false;
+
+    @Builder.Default
+    @Setter
+    private boolean discoverAllECSTasksByDefault = true;
 
     @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
@@ -188,6 +193,21 @@ public class ScrapeConfig {
             labels = config.addReplacements(metricName, labels);
         }
         return labels;
+    }
+
+    @JsonIgnore
+    public Map<String, Map<Integer, ECSTaskDefScrapeConfig>> getECSConfigByNameAndPort() {
+        Map<String, Map<Integer, ECSTaskDefScrapeConfig>> configs = new TreeMap<>();
+        ecsTaskScrapeConfigs.forEach(c -> {
+            String containerName = c.getContainerDefinitionName();
+            Map<Integer, ECSTaskDefScrapeConfig> map = configs.computeIfAbsent(containerName, k -> new TreeMap<>());
+            if (c.getContainerPort() != null) {
+                map.put(c.getContainerPort(), c);
+            } else {
+                map.put(-1, c);
+            }
+        });
+        return configs;
     }
 }
 
