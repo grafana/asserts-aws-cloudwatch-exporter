@@ -45,11 +45,6 @@
   target_label: asserts_request_context
   replacement: $1
 
-- source_labels: [ __name__, operation ]
-  regex: aws_exporter.+;(.+)
-  target_label: asserts_request_context
-  replacement: outbound
-
   # Some operations use CloudWatch namespace as a parameter
 - source_labels: [ __name__, cw_namespace, operation ]
   regex: aws_exporter.+;(.+);(.+)
