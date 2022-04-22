@@ -219,7 +219,7 @@ public class ResourceTagHelper {
                                 .collect(Collectors.toList())));
             }
         } else if (resourceType.equals("AWS::AutoScaling::AutoScalingGroup")) {
-            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region)) {
+            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, null)) {
                 software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse describeTagsResponse = asgClient.describeTags(software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder()
                         .build());
                 describeTagsResponse.tags()

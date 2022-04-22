@@ -5,9 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountRegionProvider;
+import ai.asserts.aws.AccountRegionProvider.AccountRegion;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -39,12 +39,11 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
     private ResourceMapper resourceMapper;
     private TargetGroupLBMapProvider targetGroupLBMapProvider;
     private BasicMetricCollector metricCollector;
+    private AccountRegionProvider accountRegionProvider;
     private LBToASGRelationBuilder testClass;
 
     @BeforeEach
     public void setup() {
-        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
-        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
         autoScalingClient = mock(AutoScalingClient.class);
         targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
@@ -53,16 +52,17 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         lbResource = mock(Resource.class);
         resourceMapper = mock(ResourceMapper.class);
         metricCollector = mock(BasicMetricCollector.class);
-        testClass = new LBToASGRelationBuilder(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                targetGroupLBMapProvider, new RateLimiter(metricCollector));
-
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
+        accountRegionProvider = mock(AccountRegionProvider.class);
+        testClass = new LBToASGRelationBuilder(awsClientProvider, resourceMapper,
+                targetGroupLBMapProvider, new RateLimiter(metricCollector), accountRegionProvider);
     }
 
     @Test
     void updateRouting() {
-        expect(awsClientProvider.getAutoScalingClient("region")).andReturn(autoScalingClient);
+        expect(accountRegionProvider.getAccountAndRegions()).andReturn(ImmutableSet.of(
+                new AccountRegion("123123123", "role", ImmutableSet.of("region"))
+        ));
+        expect(awsClientProvider.getAutoScalingClient("region", "role")).andReturn(autoScalingClient);
         expect(autoScalingClient.describeAutoScalingGroups()).andReturn(DescribeAutoScalingGroupsResponse.builder()
                 .autoScalingGroups(AutoScalingGroup.builder()
                         .autoScalingGroupARN("asg-arn")

@@ -17,7 +17,6 @@ import software.amazon.awssdk.services.firehose.FirehoseClient;
 import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2Client;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
-import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.sts.StsClient;
 
@@ -28,10 +27,6 @@ import java.util.Optional;
 public class AWSClientProvider {
     private final AWSSessionProvider awsSessionProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
-
-    public S3Client getS3Client() {
-        return S3Client.builder().build();
-    }
 
     public SecretsManagerClient getSecretsManagerClient(String region) {
         Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
@@ -45,9 +40,8 @@ public class AWSClientProvider {
                 .orElse(SecretsManagerClient.builder().region(Region.of(region)).build());
     }
 
-    public AutoScalingClient getAutoScalingClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public AutoScalingClient getAutoScalingClient(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         AutoScalingClient.builder()
@@ -58,9 +52,8 @@ public class AWSClientProvider {
                         .orElse(AutoScalingClient.builder().region(Region.of(region)).build());
     }
 
-    public ApiGatewayClient getApiGatewayClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public ApiGatewayClient getApiGatewayClient(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         ApiGatewayClient.builder()

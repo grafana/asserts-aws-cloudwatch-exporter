@@ -5,8 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountRegionProvider;
+import ai.asserts.aws.AccountRegionProvider.AccountRegion;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
 import io.micrometer.core.instrument.util.StringUtils;
@@ -37,53 +38,53 @@ import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 @Component
 @Slf4j
 public class ApiGatewayToLambdaBuilder {
-    private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
-    private final AccountIDProvider accountIDProvider;
+    private final AccountRegionProvider accountRegionProvider;
     private final Pattern LAMBDA_URI_PATTERN = Pattern.compile(
             "arn:aws:apigateway:(.+?):lambda:path/.+?/functions/arn:aws:lambda:(.+?):(.+?):function:(.+)/invocations");
 
     @Getter
     private volatile Set<ResourceRelation> lambdaIntegrations = new HashSet<>();
 
-    public ApiGatewayToLambdaBuilder(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                     RateLimiter rateLimiter, AccountIDProvider accountIDProvider) {
-        this.scrapeConfigProvider = scrapeConfigProvider;
+    public ApiGatewayToLambdaBuilder(AWSClientProvider awsClientProvider,
+                                     RateLimiter rateLimiter, AccountRegionProvider accountRegionProvider) {
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
-        this.accountIDProvider = accountIDProvider;
+        this.accountRegionProvider = accountRegionProvider;
     }
 
     public void update() {
         Set<ResourceRelation> newIntegrations = new HashSet<>();
         try {
-            String accountId = accountIDProvider.getAccountId();
-            scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-                try (ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region)) {
-                    SortedMap<String, String> labels = new TreeMap<>();
-                    String getRestApis = "ApiGatewayClient/getRestApis";
-                    labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
-                    labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
-                    labels.put(SCRAPE_REGION_LABEL, region);
-                    GetRestApisResponse restApis = rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
-                    if (restApis.hasItems()) {
-                        restApis.items().forEach(restApi -> {
-                            String getResources = "getResources";
-                            labels.put(SCRAPE_OPERATION_LABEL, getResources);
-                            GetResourcesResponse resources = rateLimiter.doWithRateLimit(getResources, labels,
-                                    () -> client.getResources(GetResourcesRequest.builder()
-                                            .restApiId(restApi.id())
-                                            .build()));
-                            if (resources.hasItems()) {
-                                resources.items().forEach(resource ->
-                                        captureIntegrations(client, newIntegrations, accountId, labels, region, restApi,
-                                                resource));
-                            }
-                        });
+            for (AccountRegion accountRegion : accountRegionProvider.getAccountAndRegions()) {
+                accountRegion.getRegions().forEach(region -> {
+                    String assumeRole = accountRegion.getAssumeRole();
+                    try (ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, assumeRole)) {
+                        SortedMap<String, String> labels = new TreeMap<>();
+                        String getRestApis = "ApiGatewayClient/getRestApis";
+                        labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccount());
+                        labels.put(SCRAPE_REGION_LABEL, region);
+                        GetRestApisResponse restApis = rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
+                        if (restApis.hasItems()) {
+                            restApis.items().forEach(restApi -> {
+                                String getResources = "getResources";
+                                labels.put(SCRAPE_OPERATION_LABEL, getResources);
+                                GetResourcesResponse resources = rateLimiter.doWithRateLimit(getResources, labels,
+                                        () -> client.getResources(GetResourcesRequest.builder()
+                                                .restApiId(restApi.id())
+                                                .build()));
+                                if (resources.hasItems()) {
+                                    resources.items().forEach(resource ->
+                                            captureIntegrations(client, newIntegrations, accountRegion.getAccount(),
+                                                    labels, region, restApi, resource));
+                                }
+                            });
+                        }
                     }
-                }
-            });
+                });
+            }
         } catch (Exception e) {
             log.error("Failed to discover lambda integrations", e);
         }
