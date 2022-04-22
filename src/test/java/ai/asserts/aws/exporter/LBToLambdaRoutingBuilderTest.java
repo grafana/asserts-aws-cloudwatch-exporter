@@ -5,9 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountRegionProvider;
+import ai.asserts.aws.AccountRegionProvider.AccountRegion;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -43,10 +43,8 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        AccountIDProvider accountIDProvider = mock(AccountIDProvider.class);
-        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+        AccountRegionProvider accountRegionProvider = mock(AccountRegionProvider.class);
         TargetGroupLBMapProvider targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
 
         metricCollector = mock(BasicMetricCollector.class);
@@ -57,14 +55,13 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
         lbRsource = mock(Resource.class);
         lambdaResource = mock(Resource.class);
 
-        testClass = new LBToLambdaRoutingBuilder(accountIDProvider, scrapeConfigProvider, awsClientProvider,
-                new RateLimiter(metricCollector), resourceMapper, targetGroupLBMapProvider);
+        testClass = new LBToLambdaRoutingBuilder(awsClientProvider, new RateLimiter(metricCollector),
+                resourceMapper, accountRegionProvider, targetGroupLBMapProvider);
 
-
-        expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
-        expect(awsClientProvider.getELBV2Client("region")).andReturn(elbV2Client).anyTimes();
+        expect(accountRegionProvider.getAccountAndRegions()).andReturn(ImmutableSet.of(
+                new AccountRegion("account", "role", ImmutableSet.of("regions"))
+        )).anyTimes();
+        expect(awsClientProvider.getELBV2Client("region", "role")).andReturn(elbV2Client).anyTimes();
         expect(targetGroupLBMapProvider.getTgToLB()).andReturn(ImmutableMap.of(targetResource, lbRsource));
     }
 

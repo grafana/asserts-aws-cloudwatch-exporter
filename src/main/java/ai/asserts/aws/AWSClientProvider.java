@@ -64,9 +64,8 @@ public class AWSClientProvider {
                         .orElse(ApiGatewayClient.builder().region(Region.of(region)).build());
     }
 
-    public ElasticLoadBalancingV2Client getELBV2Client(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public ElasticLoadBalancingV2Client getELBV2Client(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         ElasticLoadBalancingV2Client.builder()
