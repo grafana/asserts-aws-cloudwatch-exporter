@@ -14,17 +14,6 @@ namespaces:
     dimensionFilters:
       FunctionName: .+
     metrics:
-#      - name: Invocations
-#        stats:
-#          - Sum
-#      - name: Errors
-#        stats:
-#          - Sum
-#      - name: Duration
-#        stats:
-#          - p99
-#          - Average
-#          - Maximum
       - name: Throttles
         stats:
           - Sum
@@ -126,3 +115,13 @@ dimensionToLabels:
     dimensionName: StreamName
   - namespace: AWS/KinesisAnalytics
     dimensionName: Application
+relabelConfigs:
+  - source_labels: [account_id]
+    regex: (.+)
+    target_label: asserts_env
+    replacement: $1
+
+  - source_labels: [region]
+    regex: (.+)
+    target_label: asserts_site
+    replacement: $1
