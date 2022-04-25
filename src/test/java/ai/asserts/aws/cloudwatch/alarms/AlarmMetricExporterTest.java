@@ -73,6 +73,7 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                         .build(), 1.0)).andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples);
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
+                .put("account_id", "account")
                 .put("alertname", "a1")
                 .put("namespace", "n1")
                 .put("region", "us-west-2").build());
