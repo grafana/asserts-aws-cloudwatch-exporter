@@ -53,7 +53,7 @@ public class LabelBuilderTest extends EasyMockSupport {
 
         replayAll();
 
-        Map<String, String> labels = labelBuilder.buildLabels("region1", MetricQuery.builder()
+        Map<String, String> labels = labelBuilder.buildLabels("account", "region1", MetricQuery.builder()
                 .metric(Metric.builder()
                         .metricName("Invocations")
                         .namespace("AWS/Lambda")
@@ -63,6 +63,7 @@ public class LabelBuilderTest extends EasyMockSupport {
         verifyAll();
 
         assertEquals(ImmutableMap.of(
+                "account_id", "account",
                 "region", "region1",
                 "cw_namespace", "AWS/Lambda",
                 "d_function_name", "function1",
@@ -82,7 +83,7 @@ public class LabelBuilderTest extends EasyMockSupport {
                 .build();
 
         replayAll();
-        Map<String, String> labels = labelBuilder.buildLabels("region1", MetricQuery.builder()
+        Map<String, String> labels = labelBuilder.buildLabels("account", "region1", MetricQuery.builder()
                 .metric(Metric.builder()
                         .metricName("memory_utilization")
                         .namespace("LambdaInsights")
@@ -92,6 +93,7 @@ public class LabelBuilderTest extends EasyMockSupport {
         verifyAll();
 
         assertEquals(ImmutableMap.of(
+                "account_id", "account",
                 "region", "region1",
                 "cw_namespace", "AWS/Lambda",
                 "d_function_name", "function1",
@@ -106,7 +108,7 @@ public class LabelBuilderTest extends EasyMockSupport {
         expect(metricNameUtil.toSnakeCase("QueueName")).andReturn("queue_name");
 
         replayAll();
-        Map<String, String> labels = labelBuilder.buildLabels("region1", MetricQuery.builder()
+        Map<String, String> labels = labelBuilder.buildLabels("account", "region1", MetricQuery.builder()
                 .metric(Metric.builder()
                         .metricName("NumberOfMessagesReceived")
                         .namespace("AWS/SQS")
@@ -119,6 +121,7 @@ public class LabelBuilderTest extends EasyMockSupport {
         verifyAll();
 
         assertEquals(ImmutableMap.of(
+                "account_id", "account",
                 "region", "region1",
                 "cw_namespace", "AWS/SQS",
                 "d_queue_name", "queue1",
@@ -134,7 +137,7 @@ public class LabelBuilderTest extends EasyMockSupport {
         expect(metricNameUtil.toSnakeCase("ServiceName")).andReturn("service_name");
 
         replayAll();
-        Map<String, String> labels = labelBuilder.buildLabels("region1", MetricQuery.builder()
+        Map<String, String> labels = labelBuilder.buildLabels("account", "region1", MetricQuery.builder()
                 .metric(Metric.builder()
                         .metricName("CPUUtilization")
                         .namespace("ECS/ContainerInsights")
@@ -147,6 +150,7 @@ public class LabelBuilderTest extends EasyMockSupport {
         verifyAll();
 
         assertEquals(ImmutableMap.of(
+                "account_id", "account",
                 "region", "region1",
                 "cw_namespace", "AWS/ECS",
                 "d_service_name", "service-name",

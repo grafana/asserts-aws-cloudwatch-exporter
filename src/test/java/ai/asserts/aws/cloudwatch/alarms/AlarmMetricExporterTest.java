@@ -64,12 +64,14 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
     public void collect() {
         long timestamp = Instant.parse("2022-02-07T09:56:46Z").getEpochSecond();
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
-                ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
-                        "region", "us-west-2"), 1.0)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm",
-                ImmutableMap.of("metric_name", "m1", "alertname", "a1", "namespace", "n1",
-                        "region", "us-west-2"), 1.0)).andReturn(sample);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples).times(2);
+                new ImmutableMap.Builder<String, String>()
+                        .put("account_id", "account")
+                        .put("metric_name", "m1")
+                        .put("alertname", "a1")
+                        .put("namespace", "n1")
+                        .put("region", "us-west-2")
+                        .build(), 1.0)).andReturn(sample);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples);
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("alertname", "a1")
                 .put("namespace", "n1")
@@ -80,13 +82,13 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
         addLabels("ALARM");
         assertEquals(1, testClass.getAlarmLabels().size());
         testClass.collect();
-        testClass.collect();
         verifyAll();
     }
 
     private void addLabels(String state) {
         Map<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("state", state)
+                .put("account_id", "account")
                 .put("namespace", "n1")
                 .put("metric_name", "m1")
                 .put("alertname", "a1")

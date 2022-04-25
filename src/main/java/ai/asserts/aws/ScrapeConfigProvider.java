@@ -1,6 +1,5 @@
 package ai.asserts.aws;
 
-import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.config.RelabelConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.CWNamespace;
@@ -48,9 +47,6 @@ public class ScrapeConfigProvider {
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
     private final ScrapeConfig NOOP_CONFIG = new ScrapeConfig();
     private final RestTemplate restTemplate;
-    private final String ASSERTS_HOST = "ASSERTS_HOST";
-    private final String ASSERTS_USER = "ASSERTS_USER";
-    private final String ASSERTS_PASSWORD = "ASSERTS_PASSWORD";
     private volatile ScrapeConfig configCache;
 
 
@@ -98,9 +94,9 @@ public class ScrapeConfigProvider {
     }
 
     private ScrapeConfig getConfig(Map<String, String> envVariables) {
-        String host = envVariables.get(ASSERTS_HOST);
-        String user = envVariables.get(ASSERTS_USER);
-        String key = envVariables.get(ASSERTS_PASSWORD);
+        String host = envVariables.get(ApiServerConstants.ASSERTS_HOST);
+        String user = envVariables.get(ApiServerConstants.ASSERTS_USER);
+        String key = envVariables.get(ApiServerConstants.ASSERTS_PASSWORD);
         String url = host + "/api-server/v1/config/aws-exporter";
         log.info("Will load configuration from server [{}] with credentials of user [{}]", host, user);
         ResponseEntity<ScrapeConfig> response = restTemplate.exchange(url,
@@ -131,8 +127,8 @@ public class ScrapeConfigProvider {
         try {
             Map<String, String> envVariables = getGetenv();
             ObjectMapper objectMapper = objectMapperFactory.getObjectMapper();
-            if (envVariables.containsKey(ASSERTS_HOST) && envVariables.containsKey(ASSERTS_USER)
-                    && envVariables.containsKey(ASSERTS_PASSWORD)) {
+            if (envVariables.containsKey(ApiServerConstants.ASSERTS_HOST) && envVariables.containsKey(ApiServerConstants.ASSERTS_USER)
+                    && envVariables.containsKey(ApiServerConstants.ASSERTS_PASSWORD)) {
                 scrapeConfig = getConfig(envVariables);
             } else if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
                 try {

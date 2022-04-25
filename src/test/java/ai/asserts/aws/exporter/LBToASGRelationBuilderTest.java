@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountRegionProvider;
-import ai.asserts.aws.AccountRegionProvider.AccountRegion;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -39,7 +39,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
     private ResourceMapper resourceMapper;
     private TargetGroupLBMapProvider targetGroupLBMapProvider;
     private BasicMetricCollector metricCollector;
-    private AccountRegionProvider accountRegionProvider;
+    private AccountProvider accountProvider;
     private LBToASGRelationBuilder testClass;
 
     @BeforeEach
@@ -52,15 +52,15 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         lbResource = mock(Resource.class);
         resourceMapper = mock(ResourceMapper.class);
         metricCollector = mock(BasicMetricCollector.class);
-        accountRegionProvider = mock(AccountRegionProvider.class);
+        accountProvider = mock(AccountProvider.class);
         testClass = new LBToASGRelationBuilder(awsClientProvider, resourceMapper,
-                targetGroupLBMapProvider, new RateLimiter(metricCollector), accountRegionProvider);
+                targetGroupLBMapProvider, new RateLimiter(metricCollector), accountProvider);
     }
 
     @Test
     void updateRouting() {
-        expect(accountRegionProvider.getAccountAndRegions()).andReturn(ImmutableSet.of(
-                new AccountRegion("123123123", "role", ImmutableSet.of("region"))
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
+                new AWSAccount("123123123", "role", ImmutableSet.of("region"))
         ));
         expect(awsClientProvider.getAutoScalingClient("region", "role")).andReturn(autoScalingClient);
         expect(autoScalingClient.describeAutoScalingGroups()).andReturn(DescribeAutoScalingGroupsResponse.builder()

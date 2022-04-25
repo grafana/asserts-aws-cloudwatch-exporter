@@ -66,18 +66,22 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         cluster = Resource.builder()
                 .name("cluster")
                 .region("us-west-2")
+                .account("account")
                 .build();
         service = Resource.builder()
                 .name("service")
                 .region("us-west-2")
+                .account("account")
                 .build();
         task = Resource.builder()
                 .name("task-id")
                 .region("us-west-2")
+                .account("account")
                 .build();
         taskDef = Resource.builder()
                 .name("task-def")
                 .version("5")
+                .account("account")
                 .region("us-west-2")
                 .build();
     }

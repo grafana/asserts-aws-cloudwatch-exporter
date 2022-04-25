@@ -5,9 +5,10 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,10 +35,10 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AlarmFetcherTest extends EasyMockSupport {
-
+    private AccountProvider accountProvider;
+    private AWSAccount awsAccount;
     private RateLimiter rateLimiter;
     private AWSClientProvider awsClientProvider;
-    private ScrapeConfigProvider scrapeConfigProvider;
     private AlertsProcessor alertsProcessor;
     private ScrapeConfig scrapeConfig;
     private CloudWatchClient cloudWatchClient;
@@ -49,7 +50,8 @@ public class AlarmFetcherTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         now = Instant.now();
-        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        awsAccount = new AWSAccount("123456789", "role", ImmutableSet.of("region"));
+        accountProvider = mock(AccountProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         alertsProcessor = mock(AlertsProcessor.class);
         awsClientProvider = mock(AWSClientProvider.class);
@@ -57,16 +59,17 @@ public class AlarmFetcherTest extends EasyMockSupport {
         cloudWatchClient = mock(CloudWatchClient.class);
         accountIDProvider = mock(AccountIDProvider.class);
         alarmMetricConverter = mock(AlarmMetricConverter.class);
-        testClass = new AlarmFetcher(accountIDProvider, rateLimiter, awsClientProvider, scrapeConfigProvider, alertsProcessor, alarmMetricConverter);
+        testClass = new AlarmFetcher(accountProvider, rateLimiter, awsClientProvider, alertsProcessor,
+                alarmMetricConverter);
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void sendAlarmsForRegions() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(accountIDProvider.getAccountId()).andReturn("123456789").anyTimes();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
-        expect(awsClientProvider.getCloudWatchClient("region")).andReturn(cloudWatchClient).anyTimes();
-
+        expect(awsClientProvider.getCloudWatchClient("region", "role"))
+                .andReturn(cloudWatchClient).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<DescribeAlarmsResponse>> callbackCapture = Capture.newInstance();
 
@@ -82,7 +85,8 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .metricAlarms(ImmutableList.of(alarm))
                 .build();
 
-        expect(alarmMetricConverter.extractMetricAndEntityLabels(alarm)).andReturn(ImmutableMap.of("label1", "value1"));
+        expect(alarmMetricConverter.extractMetricAndEntityLabels(alarm))
+                .andReturn(ImmutableMap.of("label1", "value1"));
 
         DescribeAlarmsRequest request = DescribeAlarmsRequest.builder()
                 .stateValue(StateValue.ALARM)
@@ -107,7 +111,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .build());
         alertsProcessor.sendAlerts(ImmutableList.of(labels));
         replayAll();
-        testClass.sendAlarmsForRegions();
+        testClass.fetchAlarms();
         assertEquals(response, callbackCapture.getValue().makeCall());
 
         verifyAll();

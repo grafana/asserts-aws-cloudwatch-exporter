@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountRegionProvider;
-import ai.asserts.aws.AccountRegionProvider.AccountRegion;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -35,29 +35,29 @@ public class LBToASGRelationBuilder {
     private final ResourceMapper resourceMapper;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final RateLimiter rateLimiter;
-    private final AccountRegionProvider accountRegionProvider;
+    private final AccountProvider accountProvider;
     @Getter
     private volatile Set<ResourceRelation> routingConfigs = new HashSet<>();
 
     public LBToASGRelationBuilder(AWSClientProvider awsClientProvider,
                                   ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider,
-                                  RateLimiter rateLimiter, AccountRegionProvider accountRegionProvider) {
+                                  RateLimiter rateLimiter, AccountProvider accountProvider) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
         this.rateLimiter = rateLimiter;
-        this.accountRegionProvider = accountRegionProvider;
+        this.accountProvider = accountProvider;
     }
 
     public void updateRouting() {
         log.info("Updating LB to ASG Routing relations");
         Set<ResourceRelation> newConfigs = new HashSet<>();
-        for (AccountRegion accountRegion : accountRegionProvider.getAccountAndRegions()) {
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
                 String api = "AutoScalingClient/describeAutoScalingGroups";
                 try (AutoScalingClient autoScalingClient = rateLimiter.doWithRateLimit(api,
                         ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccount(),
+                                SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, api
                         ),

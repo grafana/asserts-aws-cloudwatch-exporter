@@ -76,9 +76,8 @@ public class AWSClientProvider {
                         .orElse(ElasticLoadBalancingV2Client.builder().region(Region.of(region)).build());
     }
 
-    public ElasticLoadBalancingClient getELBClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public ElasticLoadBalancingClient getELBClient(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config -> ElasticLoadBalancingClient.builder()
                         .credentialsProvider(() -> AwsSessionCredentials.create(
@@ -88,9 +87,8 @@ public class AWSClientProvider {
                         .orElse(ElasticLoadBalancingClient.builder().region(Region.of(region)).build());
     }
 
-    public CloudWatchClient getCloudWatchClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public CloudWatchClient getCloudWatchClient(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         CloudWatchClient.builder()
@@ -101,9 +99,8 @@ public class AWSClientProvider {
                         .orElse(CloudWatchClient.builder().region(Region.of(region)).build());
     }
 
-    public CloudWatchLogsClient getCloudWatchLogsClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public CloudWatchLogsClient getCloudWatchLogsClient(String region, String assumedRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumedRole);
         return
                 sessionConfig.map(config ->
                         CloudWatchLogsClient.builder()
@@ -114,9 +111,8 @@ public class AWSClientProvider {
                         .orElse(CloudWatchLogsClient.builder().region(Region.of(region)).build());
     }
 
-    public LambdaClient getLambdaClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public LambdaClient getLambdaClient(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         LambdaClient.builder()
@@ -127,9 +123,8 @@ public class AWSClientProvider {
                         .orElse(LambdaClient.builder().region(Region.of(region)).build());
     }
 
-    public ResourceGroupsTaggingApiClient getResourceTagClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public ResourceGroupsTaggingApiClient getResourceTagClient(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         ResourceGroupsTaggingApiClient.builder()
@@ -140,9 +135,8 @@ public class AWSClientProvider {
                         .orElse(ResourceGroupsTaggingApiClient.builder().region(Region.of(region)).build());
     }
 
-    public EcsClient getECSClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public EcsClient getECSClient(String region, String role) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, role);
         return
                 sessionConfig.map(config ->
                         EcsClient.builder()
@@ -153,9 +147,8 @@ public class AWSClientProvider {
                         .orElse(EcsClient.builder().region(Region.of(region)).build());
     }
 
-    public ConfigClient getConfigClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public ConfigClient getConfigClient(String region, String role) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, role);
         return sessionConfig.map(config -> ConfigClient.builder()
                 .credentialsProvider(() -> AwsSessionCredentials.create(
                         config.getAccessKeyId(), config.getSecretAccessKey(),
@@ -177,9 +170,8 @@ public class AWSClientProvider {
                         .orElse(StsClient.builder().region(Region.of(region)).build());
     }
 
-    public Ec2Client getEc2Client(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public Ec2Client getEc2Client(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         Ec2Client.builder()
@@ -190,9 +182,8 @@ public class AWSClientProvider {
                         .orElse(Ec2Client.builder().region(Region.of(region)).build());
     }
 
-    public KinesisAnalyticsV2Client getKAClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public KinesisAnalyticsV2Client getKAClient(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         KinesisAnalyticsV2Client.builder()
@@ -203,9 +194,8 @@ public class AWSClientProvider {
                         .orElse(KinesisAnalyticsV2Client.builder().region(Region.of(region)).build());
     }
 
-    public FirehoseClient getFirehoseClient(String region) {
-        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region,
-                scrapeConfigProvider.getScrapeConfig().getAssumeRole());
+    public FirehoseClient getFirehoseClient(String region, String assumeRole) {
+        Optional<AWSSessionConfig> sessionConfig = awsSessionProvider.getSessionCredential(region, assumeRole);
         return
                 sessionConfig.map(config ->
                         FirehoseClient.builder()

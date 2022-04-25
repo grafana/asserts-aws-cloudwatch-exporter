@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountRegionProvider;
-import ai.asserts.aws.AccountRegionProvider.AccountRegion;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -40,7 +40,7 @@ import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 public class ApiGatewayToLambdaBuilder {
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
-    private final AccountRegionProvider accountRegionProvider;
+    private final AccountProvider accountProvider;
     private final Pattern LAMBDA_URI_PATTERN = Pattern.compile(
             "arn:aws:apigateway:(.+?):lambda:path/.+?/functions/arn:aws:lambda:(.+?):(.+?):function:(.+)/invocations");
 
@@ -48,23 +48,23 @@ public class ApiGatewayToLambdaBuilder {
     private volatile Set<ResourceRelation> lambdaIntegrations = new HashSet<>();
 
     public ApiGatewayToLambdaBuilder(AWSClientProvider awsClientProvider,
-                                     RateLimiter rateLimiter, AccountRegionProvider accountRegionProvider) {
+                                     RateLimiter rateLimiter, AccountProvider accountProvider) {
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
-        this.accountRegionProvider = accountRegionProvider;
+        this.accountProvider = accountProvider;
     }
 
     public void update() {
         Set<ResourceRelation> newIntegrations = new HashSet<>();
         try {
-            for (AccountRegion accountRegion : accountRegionProvider.getAccountAndRegions()) {
+            for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region -> {
                     String assumeRole = accountRegion.getAssumeRole();
                     try (ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, assumeRole)) {
                         SortedMap<String, String> labels = new TreeMap<>();
                         String getRestApis = "ApiGatewayClient/getRestApis";
                         labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
-                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccount());
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
                         labels.put(SCRAPE_REGION_LABEL, region);
                         GetRestApisResponse restApis = rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
                         if (restApis.hasItems()) {
@@ -77,7 +77,7 @@ public class ApiGatewayToLambdaBuilder {
                                                 .build()));
                                 if (resources.hasItems()) {
                                     resources.items().forEach(resource ->
-                                            captureIntegrations(client, newIntegrations, accountRegion.getAccount(),
+                                            captureIntegrations(client, newIntegrations, accountRegion.getAccountId(),
                                                     labels, region, restApi, resource));
                                 }
                             });

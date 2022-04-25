@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
@@ -33,32 +34,30 @@ import static ai.asserts.aws.resource.ResourceType.EC2Instance;
 @Slf4j
 @Component
 public class EC2ToEBSVolumeExporter {
-    private final AccountIDProvider accountIDProvider;
-    private final ScrapeConfigProvider scrapeConfigProvider;
+    private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
 
     @Getter
     private volatile Set<ResourceRelation> attachedVolumes = new HashSet<>();
 
-    public EC2ToEBSVolumeExporter(AccountIDProvider accountIDProvider, ScrapeConfigProvider scrapeConfigProvider,
-                                  AWSClientProvider awsClientProvider, RateLimiter rateLimiter) {
-        this.accountIDProvider = accountIDProvider;
-        this.scrapeConfigProvider = scrapeConfigProvider;
+    public EC2ToEBSVolumeExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
+                                  RateLimiter rateLimiter) {
+        this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
     }
 
     public void update() {
         Set<ResourceRelation> newAttachedVolumes = new HashSet<>();
-        try {
-            scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-                Ec2Client ec2Client = awsClientProvider.getEc2Client(region);
+        accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
+            try {
+                Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount.getAssumeRole());
                 SortedMap<String, String> telemetryLabels = new TreeMap<>();
                 String api = "Ec2Client/describeVolumes";
                 telemetryLabels.put(SCRAPE_OPERATION_LABEL, api);
                 telemetryLabels.put(SCRAPE_REGION_LABEL, region);
-                String accountId = accountIDProvider.getAccountId();
+                String accountId = awsAccount.getAccountId();
                 telemetryLabels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
 
                 AtomicReference<String> nextToken = new AtomicReference<>();
@@ -89,10 +88,10 @@ public class EC2ToEBSVolumeExporter {
                     }
                     nextToken.set(resp.nextToken());
                 } while (nextToken.get() != null);
-            });
-        } catch (Exception e) {
-            log.error("Failed to fetch ec2 ebs volumes relation", e);
-        }
+            } catch (Exception e) {
+                log.error("Failed to fetch ec2 ebs volumes relation", e);
+            }
+        }));
         attachedVolumes = newAttachedVolumes;
     }
 }

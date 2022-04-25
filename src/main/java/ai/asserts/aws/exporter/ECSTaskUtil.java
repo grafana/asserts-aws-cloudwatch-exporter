@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -88,6 +89,7 @@ public class ECSTaskUtil {
         try {
             TaskDefinition taskDefinition = rateLimiter.doWithRateLimit("EcsClient/describeTaskDefinition",
                     ImmutableSortedMap.of(
+                            SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                             SCRAPE_REGION_LABEL, cluster.getRegion(),
                             SCRAPE_OPERATION_LABEL, "describeTaskDefinition",
                             SCRAPE_NAMESPACE_LABEL, "AWS/ECS"

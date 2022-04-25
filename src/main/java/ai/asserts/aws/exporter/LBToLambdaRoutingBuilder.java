@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountRegionProvider;
+import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -36,13 +36,13 @@ public class LBToLambdaRoutingBuilder {
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
-    private final AccountRegionProvider accountRegionProvider;
+    private final AccountProvider accountProvider;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
 
     public Set<ResourceRelation> getRoutings() {
         log.info("LB To Lambda routing relation builder about to build relations");
         Set<ResourceRelation> routing = new HashSet<>();
-        for (AccountRegionProvider.AccountRegion accountRegion : accountRegionProvider.getAccountAndRegions()) {
+        for (AccountProvider.AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
                 String assumeRole = accountRegion.getAssumeRole();
                 try (ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region, assumeRole)) {
@@ -54,7 +54,7 @@ public class LBToLambdaRoutingBuilder {
                                     api,
                                     ImmutableSortedMap.of(
                                             SCRAPE_REGION_LABEL, region,
-                                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccount(),
+                                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
                                             SCRAPE_OPERATION_LABEL, api
                                     )
                                     , () -> elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()

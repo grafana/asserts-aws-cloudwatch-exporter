@@ -5,9 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -31,6 +31,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.springframework.util.CollectionUtils.isEmpty;
@@ -39,7 +40,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @Slf4j
 @AllArgsConstructor
 public class TargetGroupLBMapProvider {
-    private final ScrapeConfigProvider scrapeConfigProvider;
+    private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final RateLimiter rateLimiter;
@@ -47,22 +48,23 @@ public class TargetGroupLBMapProvider {
     private final Map<Resource, Resource> tgToLB = new ConcurrentHashMap<>();
 
     public void update() {
-        try {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            scrapeConfig.getRegions().forEach(region -> {
-                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region)) {
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            String assumeRole = accountRegion.getAssumeRole();
+            accountRegion.getRegions().forEach(region -> {
+                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region, assumeRole)) {
                     String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
                     ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
+                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
                             SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api);
                     DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(api, labels,
                             lbClient::describeLoadBalancers);
                     if (resp.hasLoadBalancers()) {
                         resp.loadBalancers().forEach(lb -> mapLB(lbClient, labels, lb));
                     }
+                } catch (Exception e) {
+                    log.error("Failed to build LB Target Group map", e);
                 }
             });
-        } catch (Exception e) {
-            log.error("Failed to build LB Target Group map", e);
         }
     }
 
@@ -71,7 +73,7 @@ public class TargetGroupLBMapProvider {
         String lbArn = lb.loadBalancerArn();
         resourceMapper.map(lbArn).ifPresent(lbResource -> {
             String api = "ElasticLoadBalancingV2Client/describeListeners";
-            SortedMap<String ,String> telemetryLabels = new TreeMap<>(labels);
+            SortedMap<String, String> telemetryLabels = new TreeMap<>(labels);
             telemetryLabels.put(SCRAPE_OPERATION_LABEL, api);
             rateLimiter.doWithRateLimit(api, telemetryLabels, () -> {
                 DescribeListenersRequest listenersRequest = DescribeListenersRequest.builder()
@@ -90,7 +92,7 @@ public class TargetGroupLBMapProvider {
     @VisibleForTesting
     void mapListener(ElasticLoadBalancingV2Client lbClient, SortedMap<String, String> labels, Resource lbResource,
                      Listener listener) {
-        SortedMap<String ,String> telemetryLabels = new TreeMap<>(labels);
+        SortedMap<String, String> telemetryLabels = new TreeMap<>(labels);
         telemetryLabels.put(SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClientV2/describeRules");
         DescribeRulesResponse dLR = rateLimiter.doWithRateLimit("ElasticLoadBalancingClientV2/describeRules",
                 telemetryLabels,

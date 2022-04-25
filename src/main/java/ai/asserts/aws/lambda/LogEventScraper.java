@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.FilteredLogEvent;
 import java.time.Instant;
 import java.util.Optional;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -52,6 +53,7 @@ public class LogEventScraper {
             FilterLogEventsResponse response = rateLimiter.doWithRateLimit(
                     "CloudWatchLogsClient/filterLogEvents",
                     ImmutableSortedMap.of(
+                            SCRAPE_ACCOUNT_ID_LABEL, functionConfig.getAccount(),
                             SCRAPE_REGION_LABEL, functionConfig.getRegion(),
                             SCRAPE_OPERATION_LABEL, "filterLogEvents",
                             SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"

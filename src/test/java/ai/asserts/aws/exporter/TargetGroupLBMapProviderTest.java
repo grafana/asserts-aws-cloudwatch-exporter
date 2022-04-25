@@ -5,9 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +32,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -43,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TargetGroupLBMapProviderTest extends EasyMockSupport {
-    private ScrapeConfigProvider scrapeConfigProvider;
+    private AccountProvider accountProvider;
     private AWSClientProvider awsClientProvider;
     private ElasticLoadBalancingV2Client lbClient;
     private ResourceMapper resourceMapper;
@@ -52,19 +53,20 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
+        accountProvider = mock(AccountProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
         lbClient = mock(ElasticLoadBalancingV2Client.class);
         resourceMapper = mock(ResourceMapper.class);
         metricCollector = mock(BasicMetricCollector.class);
         labels = ImmutableSortedMap.of(
+                SCRAPE_ACCOUNT_ID_LABEL, "account",
                 SCRAPE_REGION_LABEL, "region",
                 SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingV2Client/describeLoadBalancers"
         );
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
+                new AWSAccount("account", "role", ImmutableSet.of("region"))
+        )).anyTimes();
     }
 
     @Test
@@ -73,7 +75,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 .loadBalancerArn("lb-arn")
                 .build();
 
-        expect(awsClientProvider.getELBV2Client("region")).andReturn(lbClient);
+        expect(awsClientProvider.getELBV2Client("region", "role")).andReturn(lbClient);
 
         expect(lbClient.describeLoadBalancers()).andReturn(DescribeLoadBalancersResponse.builder()
                 .loadBalancers(loadBalancer)
@@ -82,7 +84,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
 
         AtomicInteger sideEffect = new AtomicInteger();
 
-        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(scrapeConfigProvider, awsClientProvider,
+        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
                 resourceMapper, new RateLimiter(metricCollector)) {
             @Override
             void mapLB(ElasticLoadBalancingV2Client client, SortedMap<String, String> theLabels,
@@ -129,7 +131,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
 
         AtomicInteger sideEffect = new AtomicInteger();
 
-        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(scrapeConfigProvider, awsClientProvider,
+        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
                 resourceMapper, new RateLimiter(metricCollector)) {
             @Override
             void mapListener(ElasticLoadBalancingV2Client theClient, SortedMap<String, String> labels,
@@ -177,7 +179,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
 
         expect(resourceMapper.map("tg-arn")).andReturn(Optional.of(tgResource));
 
-        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(scrapeConfigProvider, awsClientProvider,
+        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
                 resourceMapper, new RateLimiter(metricCollector));
 
         replayAll();

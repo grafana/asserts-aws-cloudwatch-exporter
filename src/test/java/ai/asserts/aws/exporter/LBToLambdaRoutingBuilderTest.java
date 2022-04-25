@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountRegionProvider;
-import ai.asserts.aws.AccountRegionProvider.AccountRegion;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -44,7 +44,7 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
-        AccountRegionProvider accountRegionProvider = mock(AccountRegionProvider.class);
+        AccountProvider accountProvider = mock(AccountProvider.class);
         TargetGroupLBMapProvider targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
 
         metricCollector = mock(BasicMetricCollector.class);
@@ -56,10 +56,10 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
         lambdaResource = mock(Resource.class);
 
         testClass = new LBToLambdaRoutingBuilder(awsClientProvider, new RateLimiter(metricCollector),
-                resourceMapper, accountRegionProvider, targetGroupLBMapProvider);
+                resourceMapper, accountProvider, targetGroupLBMapProvider);
 
-        expect(accountRegionProvider.getAccountAndRegions()).andReturn(ImmutableSet.of(
-                new AccountRegion("account", "role", ImmutableSet.of("regions"))
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
+                new AWSAccount("account", "role", ImmutableSet.of("region"))
         )).anyTimes();
         expect(awsClientProvider.getELBV2Client("region", "role")).andReturn(elbV2Client).anyTimes();
         expect(targetGroupLBMapProvider.getTgToLB()).andReturn(ImmutableMap.of(targetResource, lbRsource));

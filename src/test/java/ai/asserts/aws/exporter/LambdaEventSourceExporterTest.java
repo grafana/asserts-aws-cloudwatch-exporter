@@ -2,11 +2,13 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -34,6 +36,7 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class LambdaEventSourceExporterTest extends EasyMockSupport {
+    private AWSAccount accountRegion;
     private LambdaClient lambdaClient;
     private MetricNameUtil metricNameUtil;
     private ResourceMapper resourceMapper;
@@ -49,6 +52,8 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        accountRegion = new AWSAccount("account1", "role", ImmutableSet.of("region1"));
+        AccountProvider accountProvider = mock(AccountProvider.class);
         metricNameUtil = mock(MetricNameUtil.class);
         lambdaClient = mock(LambdaClient.class);
         resourceMapper = mock(ResourceMapper.class);
@@ -70,10 +75,12 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                         .build()
         ).anyTimes();
 
-        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient).anyTimes();
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
 
-        testClass = new LambdaEventSourceExporter(scrapeConfigProvider, awsClientProvider,
+        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+        expect(awsClientProvider.getLambdaClient("region1", "role")).andReturn(lambdaClient).anyTimes();
+
+        testClass = new LambdaEventSourceExporter(accountProvider, scrapeConfigProvider, awsClientProvider,
                 metricNameUtil, resourceMapper, resourceTagHelper, sampleBuilder,
                 new RateLimiter(metricCollector));
     }
@@ -116,7 +123,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
         expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
 
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(accountRegion, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource, fnResource));
 
         expect(fnResource.getName()).andReturn("fn1");

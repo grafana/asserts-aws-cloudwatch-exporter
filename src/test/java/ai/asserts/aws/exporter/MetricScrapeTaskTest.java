@@ -4,10 +4,10 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
-import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
+import ai.asserts.aws.config.MetricConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;
@@ -34,6 +34,8 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MetricScrapeTaskTest extends EasyMockSupport {
+    private String accountId;
+    private String accountRole;
     private String region;
     private Integer interval;
     private Integer delay;
@@ -52,7 +54,8 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         now = Instant.now();
-
+        accountId = "account";
+        accountRole = "role";
         region = "region1";
         interval = 60;
         delay = 0;
@@ -67,7 +70,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         familySamples = mock(Collector.MetricFamilySamples.class);
         timeWindowBuilder = mock(TimeWindowBuilder.class);
 
-        testClass = new MetricScrapeTask(region, interval, delay);
+        testClass = new MetricScrapeTask(accountId, accountRole, region, interval, delay);
         testClass.setMetricQueryProvider(metricQueryProvider);
         testClass.setQueryBatcher(queryBatcher);
         testClass.setAwsClientProvider(awsClientProvider);
@@ -102,9 +105,9 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                         .build());
 
         expect(metricQueryProvider.getMetricQueries())
-                .andReturn(ImmutableMap.of(region, ImmutableMap.of(interval, queries)));
+                .andReturn(ImmutableMap.of(accountId, ImmutableMap.of(region, ImmutableMap.of(interval, queries))));
 
-        expect(awsClientProvider.getCloudWatchClient(region)).andReturn(cloudWatchClient);
+        expect(awsClientProvider.getCloudWatchClient(region, accountRole)).andReturn(cloudWatchClient);
 
         expect(timeWindowBuilder.getTimePeriod(region, interval)).andReturn(new Instant[]{now.minusSeconds(60), now});
 
@@ -135,7 +138,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         );
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
-        expect(sampleBuilder.buildSamples(region, queries.get(0), mdr1))
+        expect(sampleBuilder.buildSamples(accountId, region, queries.get(0), mdr1))
                 .andReturn(ImmutableList.of(sample));
 
         request = GetMetricDataRequest.builder()
@@ -162,7 +165,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
 
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
-        expect(sampleBuilder.buildSamples(region, queries.get(1), mdr2))
+        expect(sampleBuilder.buildSamples(accountId, region, queries.get(1), mdr2))
                 .andReturn(ImmutableList.of(sample));
 
         cloudWatchClient.close();
@@ -189,7 +192,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     @Test
     public void run_NoQueriesForInterval() {
         expect(metricQueryProvider.getMetricQueries())
-                .andReturn(ImmutableMap.of(region, ImmutableMap.of()));
+                .andReturn(ImmutableMap.of(accountId, ImmutableMap.of(region, ImmutableMap.of())));
 
         replayAll();
         testClass.update();

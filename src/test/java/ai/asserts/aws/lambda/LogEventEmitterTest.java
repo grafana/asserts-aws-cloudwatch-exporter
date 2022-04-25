@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.lambda;
 
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.config.LogScrapeConfig;
 import ai.asserts.aws.config.NamespaceConfig;
@@ -26,6 +27,7 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class LogEventEmitterTest extends EasyMockSupport {
+    private AWSAccount account;
     private ResourceTagHelper resourceTagHelper;
     private Resource resource;
     private MetricNameUtil metricNameUtil;
@@ -39,6 +41,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        account = mock(AWSAccount.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         resource = mock(Resource.class);
         metricNameUtil = mock(MetricNameUtil.class);
@@ -54,7 +57,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
 
     @Test
     public void emitMetric_withResourceTags() {
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(account, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(logScrapeConfig.extractLabels("message")).andReturn(labels);
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
@@ -74,6 +77,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
         replayAll();
         assertEquals(Optional.of(sample), testClass.getSample(namespaceConfig,
                 LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
+                        .account(account)
                         .logScrapeConfig(logScrapeConfig)
                         .lambdaFunction(lambdaFunction)
                         .build(),
@@ -86,7 +90,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
 
     @Test
     public void emitMetric_withoutResource() {
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(account, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of());
         expect(logScrapeConfig.extractLabels("message")).andReturn(labels);
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
@@ -102,6 +106,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
         replayAll();
         assertEquals(Optional.of(sample), testClass.getSample(namespaceConfig,
                 LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
+                        .account(account)
                         .logScrapeConfig(logScrapeConfig)
                         .lambdaFunction(lambdaFunction)
                         .build(),

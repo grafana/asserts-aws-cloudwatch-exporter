@@ -21,7 +21,6 @@ import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
 import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.CollectorRegistry;
 import org.easymock.Capture;
 import org.easymock.EasyMockSupport;
@@ -83,17 +82,11 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         apiGatewayToLambdaBuilder = mock(ApiGatewayToLambdaBuilder.class);
         kinesisAnalyticsExporter = mock(KinesisAnalyticsExporter.class);
         kinesisFirehoseExporter = mock(KinesisFirehoseExporter.class);
-        testClass = new MetadataTaskManager(autowireCapableBeanFactory, collectorRegistry, lambdaCapacityExporter,
-                lambdaEventSourceExporter, lambdaInvokeConfigExporter, metricCollector, resourceExporter,
-                targetGroupLBMapProvider, relationExporter, lbToASGRelationBuilder, ec2ToEBSVolumeExporter,
-                apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
-                taskThreadPool, scrapeConfigProvider) {
-
-            @Override
-            LambdaLogMetricScrapeTask newLogScrapeTask(String region) {
-                return logMetricScrapeTask;
-            }
-        };
+        testClass = new MetadataTaskManager(
+                collectorRegistry, lambdaCapacityExporter, lambdaEventSourceExporter, lambdaInvokeConfigExporter,
+                logMetricScrapeTask, metricCollector, resourceExporter, targetGroupLBMapProvider, relationExporter,
+                lbToASGRelationBuilder, ec2ToEBSVolumeExporter, apiGatewayToLambdaBuilder, kinesisAnalyticsExporter,
+                kinesisFirehoseExporter, taskThreadPool, scrapeConfigProvider);
     }
 
     @Test
@@ -107,15 +100,13 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(namespaceConfig.getLogs()).andReturn(ImmutableList.of(logScrapeConfig)).anyTimes();
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1"));
-        autowireCapableBeanFactory.autowireBean(logMetricScrapeTask);
-        expect(logMetricScrapeTask.register(collectorRegistry)).andReturn(null);
         replayAll();
         testClass.afterPropertiesSet();
         verifyAll();
     }
 
     @Test
+    @SuppressWarnings("null")
     public void updateMetadata() {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();

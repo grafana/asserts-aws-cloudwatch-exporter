@@ -5,10 +5,12 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -45,6 +47,7 @@ import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
 @Component
 @Slf4j
 public class ResourceExporter extends Collector implements MetricProvider {
+    private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
@@ -52,16 +55,16 @@ public class ResourceExporter extends Collector implements MetricProvider {
     private final ResourceMapper resourceMapper;
     private final MetricNameUtil metricNameUtil;
     private final ResourceTagHelper resourceTagHelper;
-    private final AccountIDProvider accountIDProvider;
     private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
 
-    public ResourceExporter(ScrapeConfigProvider scrapeConfigProvider,
+    public ResourceExporter(AccountProvider accountProvider,
+                            ScrapeConfigProvider scrapeConfigProvider,
                             AWSClientProvider awsClientProvider,
                             RateLimiter rateLimiter,
                             MetricSampleBuilder sampleBuilder, ResourceMapper resourceMapper,
                             MetricNameUtil metricNameUtil,
-                            ResourceTagHelper resourceTagHelper,
-                            AccountIDProvider accountIDProvider) {
+                            ResourceTagHelper resourceTagHelper) {
+        this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
@@ -69,7 +72,6 @@ public class ResourceExporter extends Collector implements MetricProvider {
         this.resourceMapper = resourceMapper;
         this.metricNameUtil = metricNameUtil;
         this.resourceTagHelper = resourceTagHelper;
-        this.accountIDProvider = accountIDProvider;
     }
 
     @Override
@@ -79,12 +81,16 @@ public class ResourceExporter extends Collector implements MetricProvider {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             Set<String> discoverResourceTypes = scrapeConfig.getDiscoverResourceTypes();
             if (discoverResourceTypes.size() > 0) {
-                scrapeConfig.getRegions().forEach(region -> {
-                    log.info("Discovering resources in region {}", region);
-                    try (ConfigClient configClient = awsClientProvider.getConfigClient(region)) {
-                        discoverResourceTypes.forEach(resourceType ->
-                                samples.addAll(getResources(region, configClient, resourceType)));
-                    }
+                accountProvider.getAccounts().forEach(account -> {
+                    String accountId = account.getAccountId();
+                    String role = account.getAssumeRole();
+                    account.getRegions().forEach(region -> {
+                        log.info("Discovering resources in account {} region {}", accountId, region);
+                        try (ConfigClient configClient = awsClientProvider.getConfigClient(region, role)) {
+                            discoverResourceTypes.forEach(resourceType ->
+                                    samples.addAll(getResources(account, region, configClient, resourceType)));
+                        }
+                    });
                 });
                 List<MetricFamilySamples> latest = new ArrayList<>();
                 if (!CollectionUtils.isEmpty(samples)) {
@@ -97,7 +103,9 @@ public class ResourceExporter extends Collector implements MetricProvider {
         }
     }
 
-    private List<Sample> getResources(String region, ConfigClient configClient, String resourceType) {
+    private List<Sample> getResources(
+            AWSAccount account, String region,
+            ConfigClient configClient, String resourceType) {
         List<Sample> samples = new ArrayList<>();
         String[] nextToken = new String[]{null};
         try {
@@ -105,6 +113,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
                 ListDiscoveredResourcesResponse response = rateLimiter.doWithRateLimit(
                         "ConfigClient/listDiscoveredResources",
                         ImmutableSortedMap.of(
+                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, "ConfigClient/listDiscoveredResources"
                         ),
@@ -121,11 +130,11 @@ public class ResourceExporter extends Collector implements MetricProvider {
                             .filter(StringUtils::isNotEmpty)
                             .collect(Collectors.toList());
                     Map<String, Resource> resourceByName = resourceTagHelper.getResourcesWithTag(
-                            region, resourceType, resourceNames);
+                            account, region, resourceType, resourceNames);
                     response.resourceIdentifiers().forEach(rI -> {
                         SortedMap<String, String> labels = new TreeMap<>();
                         labels.put(SCRAPE_REGION_LABEL, region);
-                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId());
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
                         String nameOrId = Optional.ofNullable(rI.resourceName()).orElse(rI.resourceId());
                         log.debug("Discovered resource {}-{}", rI.resourceType().toString(), nameOrId);
                         labels.put("aws_resource_type", rI.resourceType().toString());

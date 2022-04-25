@@ -22,37 +22,32 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
 @AllArgsConstructor
 public class MetricTaskManager implements InitializingBean {
+    private final AccountProvider accountProvider;
+    private final ScrapeConfigProvider scrapeConfigProvider;
     private final CollectorRegistry collectorRegistry;
     private final AutowireCapableBeanFactory beanFactory;
-    private final ScrapeConfigProvider scrapeConfigProvider;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskThreadPool taskThreadPool;
     private final AlarmMetricExporter alarmMetricExporter;
     private final AlarmFetcher alarmFetcher;
 
     /**
-     * Maintains the last scrape time for all the metricso of a given scrape interval. The scrapes are
+     * Maintains the last scrape time for all the metrics of a given scrape interval. The scrapes are
      * not expected to happen concurrently so no need to worry about thread safety
      */
     @Getter
-    private final Map<Integer, Map<String, MetricScrapeTask>> metricScrapeTasks = new TreeMap<>();
+    private final Map<String, Map<String, Map<Integer, MetricScrapeTask>>> metricScrapeTasks = new TreeMap<>();
 
     public void afterPropertiesSet() {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Set<String> regions = scrapeConfig.getRegions();
-        scrapeConfig.getNamespaces().stream()
-                .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
-                .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))
-                .forEach(interval ->
-                        regions.forEach(region -> addScrapeTask(scrapeConfig, interval, region)));
         alarmMetricExporter.register(collectorRegistry);
         //After AlarmMetricExporter is register call one time alarm fetcher
-        alarmFetcher.sendAlarmsForRegions();
+        alarmFetcher.fetchAlarms();
     }
 
     @SuppressWarnings("unused")
@@ -60,8 +55,10 @@ public class MetricTaskManager implements InitializingBean {
             initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping cloudwatch metrics from all regions", histogram = true)
     public void triggerScrapes() {
+        updateScrapeTasks();
         ExecutorService executorService = taskThreadPool.getExecutorService();
         metricScrapeTasks.values().stream()
+                .flatMap(map -> map.values().stream())
                 .flatMap(map -> map.values().stream())
                 .forEach(task -> executorService.submit(task::update));
 
@@ -69,20 +66,40 @@ public class MetricTaskManager implements InitializingBean {
     }
 
     @VisibleForTesting
-    MetricScrapeTask newScrapeTask(String region, Integer interval, Integer delay) {
-        return new MetricScrapeTask(region, interval, delay);
+    MetricScrapeTask newScrapeTask(String account, String assumeRole, String region, Integer interval, Integer delay) {
+        return new MetricScrapeTask(account, assumeRole, region, interval, delay);
     }
 
-    private void addScrapeTask(ScrapeConfig scrapeConfig, Integer interval, String region) {
-        Map<String, MetricScrapeTask> byRegion = metricScrapeTasks.computeIfAbsent(interval,
-                k -> new TreeMap<>());
-        if (!byRegion.containsKey(region)) {
-            byRegion.put(region, metricScrapeTask(region, interval, scrapeConfig.getDelay()));
-        }
+    @VisibleForTesting
+    void updateScrapeTasks() {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        Set<AccountProvider.AWSAccount> allAccounts = accountProvider.getAccounts();
+        allAccounts.forEach(awsAccount -> awsAccount.getRegions().forEach(region -> scrapeConfig.getNamespaces().stream()
+                .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
+                .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))
+                .forEach(interval -> {
+                    String accountId = awsAccount.getAccountId();
+                    metricScrapeTasks.computeIfAbsent(accountId, k -> new TreeMap<>())
+                            .computeIfAbsent(region, k -> new TreeMap<>())
+                            .computeIfAbsent(interval, k -> metricScrapeTask(
+                                    accountId, awsAccount.getAssumeRole(), region,
+                                    interval, scrapeConfig.getDelay()));
+                })));
+
+        // Remove any accounts or regions that don't have to be scraped anymore
+        Set<String> accounts = allAccounts.stream()
+                .map(AccountProvider.AWSAccount::getAccountId)
+                .collect(Collectors.toSet());
+        metricScrapeTasks.entrySet().removeIf(entry -> !accounts.contains(entry.getKey()));
+        allAccounts.forEach(account -> {
+            Map<String, Map<Integer, MetricScrapeTask>> byRegions = metricScrapeTasks.get(account.getAccountId());
+            byRegions.entrySet().removeIf(region -> !account.getRegions().contains(region.getKey()));
+        });
     }
 
-    private MetricScrapeTask metricScrapeTask(String region, Integer interval, Integer delay) {
-        MetricScrapeTask metricScrapeTask = newScrapeTask(region, interval, delay);
+    private MetricScrapeTask metricScrapeTask(String account, String assumeRole, String region, Integer interval,
+                                              Integer delay) {
+        MetricScrapeTask metricScrapeTask = newScrapeTask(account, assumeRole, region, interval, delay);
         beanFactory.autowireBean(metricScrapeTask);
         metricScrapeTask.register(collectorRegistry);
         log.info("Setup metric scrape task for region {} and interval {}", region, interval);

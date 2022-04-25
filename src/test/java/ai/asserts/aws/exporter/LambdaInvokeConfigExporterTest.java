@@ -5,18 +5,21 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.model.CWNamespace;
 import ai.asserts.aws.lambda.LambdaFunction;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
+import ai.asserts.aws.model.CWNamespace;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +57,8 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        AWSAccount accountRegion = new AWSAccount("account", "role", ImmutableSet.of("region1"));
+        AccountProvider accountProvider = mock(AccountProvider.class);
         fnScraper = mock(LambdaFunctionScraper.class);
         awsClientProvider = mock(AWSClientProvider.class);
         lambdaClient = mock(LambdaClient.class);
@@ -67,9 +72,10 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         metricCollector = mock(BasicMetricCollector.class);
 
-        testClass = new LambdaInvokeConfigExporter(fnScraper, awsClientProvider, metricNameUtil,
+        testClass = new LambdaInvokeConfigExporter(accountProvider, fnScraper, awsClientProvider, metricNameUtil,
                 scrapeConfigProvider, resourceMapper, metricSampleBuilder, new RateLimiter(metricCollector));
 
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(metricNameUtil.getMetricPrefix(CWNamespace.lambda.getNamespace())).andReturn("prefix");
@@ -77,7 +83,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
 
     @Test
     void collect() {
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region1", "role")).andReturn(lambdaClient);
 
         ListFunctionEventInvokeConfigsRequest request = ListFunctionEventInvokeConfigsRequest.builder()
                 .functionName("fn1")
@@ -104,15 +110,15 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         expect(lambdaClient.listFunctionEventInvokeConfigs(request)).andReturn(response);
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
 
-        expect(fnScraper.getFunctions()).andReturn(ImmutableMap.of(
-                "region1", ImmutableMap.of("fn1:arn", LambdaFunction.builder()
-                        .name("fn1")
-                        .arn("fn1:arn")
-                        .region("region1")
-                        .account("account1")
-                        .resource(resource)
-                        .build())
-        ));
+        expect(fnScraper.getFunctions()).andReturn(
+                ImmutableMap.of("account",
+                        ImmutableMap.of("region1", ImmutableMap.of("fn1:arn", LambdaFunction.builder()
+                                .name("fn1")
+                                .arn("fn1:arn")
+                                .region("region1")
+                                .account("account1")
+                                .resource(resource)
+                                .build()))));
 
         Map<String, String> baseLabels = ImmutableMap.of(
                 "d_function_name", "fn1", "region", "region1", SCRAPE_ACCOUNT_ID_LABEL, "account1");

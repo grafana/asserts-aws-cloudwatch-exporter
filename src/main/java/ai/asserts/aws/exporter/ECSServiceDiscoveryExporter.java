@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
@@ -43,6 +44,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -54,6 +56,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 @Slf4j
 @Component
 public class ECSServiceDiscoveryExporter implements Runnable {
+    private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
@@ -68,10 +71,11 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     @Getter
     private volatile Set<ResourceRelation> routing = new HashSet<>();
 
-    public ECSServiceDiscoveryExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                       ResourceMapper resourceMapper, ECSTaskUtil ecsTaskUtil,
-                                       ObjectMapperFactory objectMapperFactory, RateLimiter rateLimiter,
-                                       LBToECSRoutingBuilder lbToECSRoutingBuilder) {
+    public ECSServiceDiscoveryExporter(AccountProvider accountProvider, ScrapeConfigProvider scrapeConfigProvider,
+                                       AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
+                                       ECSTaskUtil ecsTaskUtil, ObjectMapperFactory objectMapperFactory,
+                                       RateLimiter rateLimiter, LBToECSRoutingBuilder lbToECSRoutingBuilder) {
+        this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
@@ -87,17 +91,19 @@ public class ECSServiceDiscoveryExporter implements Runnable {
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         List<StaticConfig> latestTargets = new ArrayList<>();
-        Set<String> regions = scrapeConfig.getRegions();
-        ImmutableSortedMap<String, String> TELEMETRY_LABELS = ImmutableSortedMap.of(
-                SCRAPE_OPERATION_LABEL, "listClusters",
-                SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace());
-        for (String region : regions) {
+        accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
+            ImmutableSortedMap<String, String> TELEMETRY_LABELS = ImmutableSortedMap.of(
+                    SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
+                    SCRAPE_REGION_LABEL, region,
+                    SCRAPE_OPERATION_LABEL, "listClusters",
+                    SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace());
             SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
-            try (EcsClient ecsClient = awsClientProvider.getECSClient(region)) {
+            try (EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount.getAssumeRole())) {
                 // List clusters just returns the cluster ARN. There is no need to paginate
                 ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(
                         "EcsClient/listClusters",
                         ImmutableSortedMap.of(
+                                SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, "listClusters",
                                 SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
@@ -116,7 +122,8 @@ public class ECSServiceDiscoveryExporter implements Runnable {
             } catch (Exception e) {
                 log.error("Failed to get list of ECS Clusters", e);
             }
-        }
+        }));
+
         routing = newRouting;
         targets = latestTargets;
 
@@ -142,6 +149,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 .build();
         ListServicesResponse serviceResp = rateLimiter.doWithRateLimit("EcsClient/listServices",
                 ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                         SCRAPE_REGION_LABEL, cluster.getRegion(),
                         SCRAPE_OPERATION_LABEL, "listServices",
                         SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
@@ -179,6 +187,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                     .build();
             ListTasksResponse tasksResp = rateLimiter.doWithRateLimit("EcsClient/listTasks",
                     ImmutableSortedMap.of(
+                            SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                             SCRAPE_REGION_LABEL, cluster.getRegion(),
                             SCRAPE_OPERATION_LABEL, "listTasks",
                             SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
@@ -214,6 +223,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                 .build();
         DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit("EcsClient/describeTasks",
                 ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                         SCRAPE_REGION_LABEL, cluster.getRegion(),
                         SCRAPE_OPERATION_LABEL, "describeTasks",
                         SCRAPE_NAMESPACE_LABEL, "AWS/ECS"

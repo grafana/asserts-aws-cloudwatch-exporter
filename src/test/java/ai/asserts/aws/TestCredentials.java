@@ -11,9 +11,9 @@ import java.util.Optional;
 public class TestCredentials {
     public Optional<AwsSessionCredentials> getSessionCredentials() {
         Credentials credentials = Credentials.builder()
-                .accessKeyId("ASIAU7XAO4EF5R73QZ63")
-                .secretAccessKey("mRiek8/jZoLVdbl46Y4GPDDgDehRd6muXM6ZoXn5")
-                .sessionToken("FwoGZXIvYXdzEMj//////////wEaDMtfXEnOmj1lKgUKwiK4AX58l6zz/VeaD7Vl51TdmlPly5e+Fvfa55bTiGV4SqqZBHIWqNJv/r/zo7CS90UZBypU0EfXjIKSRzoYDd1ulidJyhQlcJhqZA96gkeCma0eWdk+/Eglz98XqVrC+wNDWc8GE4ZdItwaMd9mShRf2yE/l/SvPaiPloNVOmfzhQ9/LTazJEZ6Cq8V+1+Gxh7R91vBoBo0+KUA6FRswCjamPEoT3hseO6X5OR2AZp4A/KUyB8TXMAr4JAoh/PHjAYyLXj4U/JI6qvRpju16QJew0IwL6MarielZMVCKjZ1s5E9Pq+g+gRfAC8VjJYzgw==")
+                .accessKeyId("ASIAU7XAO4EFZGJBEFMD")
+                .secretAccessKey("loa/pKZ0NCKb8NURmUbhLNh4471ip4hy5xmJzHDU")
+                .sessionToken("FwoGZXIvYXdzEJX//////////wEaDB2KCtC0Mf1GiIgVWyK4Af2Hl79yECmqV9zHbeB2B2anuUnuWdq4+VOJtRMSvHT3HcaOwwmQbPFuRyuKqciPIcRVUo7aO3KkxAJ7jqqanNH1502OlEqOp8NJNjNQU3nNy5h2FNp9daEsHZDPVjhaMQUN9wv7GvyXlthHeH0nywUYBLub9HwlCfA06ShaihURkldpDmhhYaN1SATCVsgICaKWEFQwTcwQwVvoiUjOLL6WTfBwjAFQYI/+phNTOLFGiC1TNYbD2s4og82IkwYyLXiiArn/hGQa+YVdNyOuWszMEFRdUWMEEjIn5wkLmdJ8r2FYDFfq08Y+XyEHkQ==")
                 .build();
 
         return Optional.of(AwsSessionCredentials.create(
