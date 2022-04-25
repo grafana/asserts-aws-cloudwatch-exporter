@@ -94,7 +94,7 @@ public class ScrapeConfigProvider {
     }
 
     private ScrapeConfig getConfig(Map<String, String> envVariables) {
-        String host = envVariables.get(ApiServerConstants.ASSERTS_HOST);
+        String host = envVariables.get(ApiServerConstants.ASSERTS_API_SERVER_URL);
         String user = envVariables.get(ApiServerConstants.ASSERTS_USER);
         String key = envVariables.get(ApiServerConstants.ASSERTS_PASSWORD);
         String url = host + "/api-server/v1/config/aws-exporter";
@@ -127,8 +127,9 @@ public class ScrapeConfigProvider {
         try {
             Map<String, String> envVariables = getGetenv();
             ObjectMapper objectMapper = objectMapperFactory.getObjectMapper();
-            if (envVariables.containsKey(ApiServerConstants.ASSERTS_HOST) && envVariables.containsKey(ApiServerConstants.ASSERTS_USER)
-                    && envVariables.containsKey(ApiServerConstants.ASSERTS_PASSWORD)) {
+            if (envVariables.containsKey(ApiServerConstants.ASSERTS_API_SERVER_URL)
+            && envVariables.containsKey(ApiServerConstants.ASSERTS_USER)
+            && envVariables.containsKey(ApiServerConstants.ASSERTS_PASSWORD)) {
                 scrapeConfig = getConfig(envVariables);
             } else if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
                 try {

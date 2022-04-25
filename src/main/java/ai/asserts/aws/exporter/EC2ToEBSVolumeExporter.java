@@ -7,7 +7,6 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
 import lombok.Getter;

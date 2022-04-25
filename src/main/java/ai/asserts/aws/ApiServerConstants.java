@@ -5,7 +5,7 @@
 package ai.asserts.aws;
 
 public interface ApiServerConstants {
-    String ASSERTS_HOST = "ASSERTS_HOST";
+    String ASSERTS_API_SERVER_URL = "ASSERTS_API_SERVER_URL";
     String ASSERTS_USER = "ASSERTS_USER";
     String ASSERTS_PASSWORD = "ASSERTS_PASSWORD";
 }

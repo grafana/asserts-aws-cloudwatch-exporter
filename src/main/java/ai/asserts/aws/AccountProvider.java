@@ -8,6 +8,7 @@ import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -20,7 +21,6 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -32,12 +32,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static ai.asserts.aws.ApiServerConstants.ASSERTS_HOST;
+import static ai.asserts.aws.ApiServerConstants.ASSERTS_API_SERVER_URL;
 import static ai.asserts.aws.ApiServerConstants.ASSERTS_PASSWORD;
 import static ai.asserts.aws.ApiServerConstants.ASSERTS_USER;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 @Component
@@ -47,8 +49,14 @@ public class AccountProvider {
     private final AccountIDProvider accountIDProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RestTemplate restTemplate;
+    private final Supplier<Set<AWSAccount>> accountsCache =
+            Suppliers.memoizeWithExpiration(this::getAccountsInternal, 5, MINUTES);
 
     public Set<AWSAccount> getAccounts() {
+        return accountsCache.get();
+    }
+
+    private Set<AWSAccount> getAccountsInternal() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<AWSAccount> accountRegions = new LinkedHashSet<>(getAccountsFromApiServer(scrapeConfig));
         String accountId = accountIDProvider.getAccountId();
@@ -65,23 +73,22 @@ public class AccountProvider {
 
     private Set<AWSAccount> getAccountsFromApiServer(ScrapeConfig scrapeConfig) {
         Map<String, String> envVariables = getEnvVariables();
-        if (Stream.of(ASSERTS_HOST, ASSERTS_PASSWORD, ASSERTS_USER).allMatch(envVariables::containsKey)) {
-            String host = envVariables.get(ASSERTS_HOST);
+        if (Stream.of(ASSERTS_API_SERVER_URL, ASSERTS_PASSWORD, ASSERTS_USER).allMatch(envVariables::containsKey)) {
             String user = envVariables.get(ASSERTS_USER);
-            String key = envVariables.get(ASSERTS_PASSWORD);
-            String url = host + "/api-server/v1/config/cloudwatch";
-            log.info("Will load configuration from server [{}] with credentials of user [{}]", host, user);
+            String password = envVariables.get(ASSERTS_PASSWORD);
+            String url = getAccountApiUrl(envVariables);
+            log.info("Will load configuration from server [{}] with credentials of user [{}]", url, user);
             try {
-                ResponseEntity<List<AccountConfig>> response = restTemplate.exchange(url,
+                ResponseEntity<ResponseDto> response = restTemplate.exchange(url,
                         HttpMethod.GET,
-                        createAuthHeader(user, key),
-                        new ParameterizedTypeReference<List<AccountConfig>>() {
+                        createAuthHeader(user, password),
+                        new ParameterizedTypeReference<ResponseDto>() {
                         });
                 if (response.getStatusCode().is2xxSuccessful()) {
-                    List<AccountConfig> accountConfigs = response.getBody();
-                    if (accountConfigs != null) {
-                        return accountConfigs.stream()
-                                .map(config -> new AWSAccount(config.accountId, config.assumeRoleARN, scrapeConfig.getRegions()))
+                    ResponseDto responseDto = response.getBody();
+                    if (responseDto != null && responseDto.getCloudwatchConfigs() != null) {
+                        return responseDto.getCloudwatchConfigs().stream()
+                                .map(config -> new AWSAccount(config.accountID, config.assumeRoleARN, scrapeConfig.getRegions()))
                                 .collect(Collectors.toSet());
                     }
                 }
@@ -110,8 +117,17 @@ public class AccountProvider {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class AccountConfig {
-        private String accountId;
+        private String accountID;
         private String assumeRoleARN;
+    }
+
+    @Getter
+    @Setter
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ResponseDto {
+        private List<AccountConfig> cloudwatchConfigs;
     }
 
 
@@ -129,5 +145,10 @@ public class AccountProvider {
     @VisibleForTesting
     HttpHeaders newHttpHeaders() {
         return new HttpHeaders();
+    }
+
+    @VisibleForTesting
+    String getAccountApiUrl(Map<String, String> envVariables) {
+        return envVariables.get(ASSERTS_API_SERVER_URL) + "/api-server/v1/config/cloudwatch";
     }
 }

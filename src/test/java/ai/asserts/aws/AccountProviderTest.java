@@ -6,6 +6,7 @@ package ai.asserts.aws;
 
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.AccountProvider.AccountConfig;
+import ai.asserts.aws.AccountProvider.ResponseDto;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableList;
@@ -15,28 +16,26 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static ai.asserts.aws.ApiServerConstants.ASSERTS_HOST;
+import static ai.asserts.aws.ApiServerConstants.ASSERTS_API_SERVER_URL;
 import static ai.asserts.aws.ApiServerConstants.ASSERTS_PASSWORD;
 import static ai.asserts.aws.ApiServerConstants.ASSERTS_USER;
-import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
+@SuppressWarnings("rawtypes")
 public class AccountProviderTest extends EasyMockSupport {
     private RestTemplate restTemplate;
     private AccountIDProvider accountIDProvider;
@@ -77,6 +76,13 @@ public class AccountProviderTest extends EasyMockSupport {
     }
 
     @Test
+    public void getAccountApiUrl() {
+        envProperties.put(ASSERTS_API_SERVER_URL, "https://api-server");
+        assertEquals("https://api-server/api-server/v1/config/cloudwatch", testClass.getAccountApiUrl(envProperties));
+    }
+
+
+    @Test
     public void getAccounts_ApiServerCredentialsMissing() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
@@ -91,13 +97,9 @@ public class AccountProviderTest extends EasyMockSupport {
 
     @Test
     public void getAccounts_ApiServerCredentialsPresent() {
-        envProperties.put(ASSERTS_HOST, "host");
+        envProperties.put(ASSERTS_API_SERVER_URL, "host");
         envProperties.put(ASSERTS_USER, "user");
         envProperties.put(ASSERTS_PASSWORD, "password");
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBasicAuth("user", "password");
-        headers.setAccept(ImmutableList.of(APPLICATION_JSON));
-        HttpEntity<Map<String, String>> entity = new HttpEntity<>(headers);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(accountIDProvider.getAccountId()).andReturn("account1");
@@ -110,11 +112,11 @@ public class AccountProviderTest extends EasyMockSupport {
         expect(restTemplate.exchange(
                 eq("host/api-server/v1/config/cloudwatch"),
                 eq(GET),
-                capture(requestEntityCapture),
-                eq(new ParameterizedTypeReference<List<AccountConfig>>() {
+                anyObject(RequestEntity.class),
+                eq(new ParameterizedTypeReference<ResponseDto>() {
                 })))
                 .andReturn(ResponseEntity.ok(
-                        ImmutableList.of(new AccountConfig("account2", "role2"))));
+                        new ResponseDto(ImmutableList.of(new AccountConfig("account2", "role2")))));
 
         replayAll();
         assertEquals(
@@ -125,7 +127,6 @@ public class AccountProviderTest extends EasyMockSupport {
                 testClass.getAccounts()
         );
         assertAll(
-                () -> assertNotNull(requestEntityCapture.getValue()),
                 () -> assertEquals("user", basicAuthUser),
                 () -> assertEquals("password", basicAuthPassword)
         );
