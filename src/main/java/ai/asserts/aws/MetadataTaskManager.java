@@ -1,7 +1,6 @@
 
 package ai.asserts.aws;
 
-import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ApiGatewayToLambdaBuilder;
 import ai.asserts.aws.exporter.BasicMetricCollector;
@@ -16,14 +15,12 @@ import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
 import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
-import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -35,11 +32,11 @@ import java.util.List;
 @AllArgsConstructor
 @Slf4j
 public class MetadataTaskManager implements InitializingBean {
-    private final AutowireCapableBeanFactory beanFactory;
     private final CollectorRegistry collectorRegistry;
     private final LambdaCapacityExporter lambdaCapacityExporter;
     private final LambdaEventSourceExporter lambdaEventSourceExporter;
     private final LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
+    private final LambdaLogMetricScrapeTask lambdaLogScrapeTask;
     private final BasicMetricCollector metricCollector;
     private final ResourceExporter resourceExporter;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
@@ -66,9 +63,7 @@ public class MetadataTaskManager implements InitializingBean {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getLambdaConfig().ifPresent(nc -> {
             if (!CollectionUtils.isEmpty(nc.getLogs())) {
-                scrapeConfig.getRegions().forEach(region ->
-                        logScrapeTasks.add(lambdaLogScrapeTask(nc, region))
-                );
+                logScrapeTasks.add(lambdaLogScrapeTask);
             }
         });
     }
@@ -93,19 +88,5 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(() ->
                 logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));
         scrapeConfigProvider.update();
-    }
-
-    @VisibleForTesting
-    LambdaLogMetricScrapeTask newLogScrapeTask(String region) {
-        return new LambdaLogMetricScrapeTask(region);
-    }
-
-    private LambdaLogMetricScrapeTask lambdaLogScrapeTask(NamespaceConfig nc,
-                                                          String region) {
-        log.info("Setup lambda log scrape task for region {} with scrape configs {}", region, nc.getLogs());
-        LambdaLogMetricScrapeTask logScraperTask = newLogScrapeTask(region);
-        beanFactory.autowireBean(logScraperTask);
-        logScraperTask.register(collectorRegistry);
-        return logScraperTask;
     }
 }

@@ -5,9 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.ResourceRelation;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,18 +43,17 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
-
         AccountIDProvider accountIDProvider = mock(AccountIDProvider.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+        AccountProvider accountProvider = mock(AccountProvider.class);
         apiGatewayClient = mock(ApiGatewayClient.class);
         metricCollector = mock(BasicMetricCollector.class);
-        testClass = new ApiGatewayToLambdaBuilder(scrapeConfigProvider, awsClientProvider,
-                new RateLimiter(metricCollector), accountIDProvider);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
-        expect(awsClientProvider.getApiGatewayClient("region")).andReturn(apiGatewayClient).anyTimes();
+        testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, new RateLimiter(metricCollector),
+                accountProvider);
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
+                new AWSAccount("account", "role", ImmutableSet.of("region"))
+        ));
+        expect(awsClientProvider.getApiGatewayClient("region", "role")).andReturn(apiGatewayClient).anyTimes();
         expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
     }
 

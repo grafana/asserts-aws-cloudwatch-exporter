@@ -5,12 +5,12 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -44,6 +44,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -57,7 +58,6 @@ import static java.util.stream.Collectors.joining;
 @Component
 @Slf4j
 public class ResourceTagHelper {
-    private final AccountIDProvider accountIDProvider;
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
@@ -66,14 +66,13 @@ public class ResourceTagHelper {
     private final TagUtil tagUtil;
     private final Map<String, Set<String>> configServiceToServiceNames = new TreeMap<>();
 
-    public ResourceTagHelper(AccountIDProvider accountIDProvider, ScrapeConfigProvider scrapeConfigProvider,
+    public ResourceTagHelper(ScrapeConfigProvider scrapeConfigProvider,
                              AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
                              RateLimiter rateLimiter, TagUtil tagUtil) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
-        this.accountIDProvider = accountIDProvider;
         this.tagUtil = tagUtil;
 
         configServiceToServiceNames.put("AWS::SQS::Queue", ImmutableSet.of("sqs:queue"));
@@ -107,8 +106,9 @@ public class ResourceTagHelper {
 
     }
 
-    public Set<Resource> getFilteredResources(String region, NamespaceConfig namespaceConfig) {
+    public Set<Resource> getFilteredResources(AWSAccount accountRegion, String region, NamespaceConfig namespaceConfig) {
         return resourceCache.getUnchecked(Key.builder()
+                .accountRegion(accountRegion)
                 .region(region)
                 .namespace(namespaceConfig)
                 .build());
@@ -143,7 +143,7 @@ public class ResourceTagHelper {
                     SCRAPE_NAMESPACE_LABEL, key.namespace.getName(),
                     SCRAPE_OPERATION_LABEL, "getResources"
             );
-            resources.addAll(getResourcesWithTag(key.region, labels, builder));
+            resources.addAll(getResourcesWithTag(key.accountRegion, key.region, labels, builder));
             log.info("Found {}", resources.stream()
                     .collect(groupingBy(Resource::getType))
                     .entrySet()
@@ -154,17 +154,19 @@ public class ResourceTagHelper {
         return resources;
     }
 
-    public Set<Resource> getResourcesWithTag(String region, SortedMap<String, String> labels,
+    public Set<Resource> getResourcesWithTag(AWSAccount accountRegion, String region, SortedMap<String, String> labels,
                                              GetResourcesRequest.Builder builder) {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<Resource> resources = new HashSet<>();
         String nextToken = null;
-        try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region)) {
+        String assumeRole = accountRegion.getAssumeRole();
+        try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region, assumeRole)) {
             do {
                 GetResourcesRequest req = builder
                         .paginationToken(nextToken)
                         .build();
                 SortedMap<String, String> telemetryLabels = new TreeMap<>(labels);
+                telemetryLabels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
                 telemetryLabels.put(SCRAPE_OPERATION_LABEL, "ResourceGroupsTaggingApiClient/getResources");
                 GetResourcesResponse response = rateLimiter.doWithRateLimit(
                         "ResourceGroupsTaggingApiClient/getResources", telemetryLabels, () -> client.getResources(req));
@@ -187,7 +189,8 @@ public class ResourceTagHelper {
         return resources;
     }
 
-    public Map<String, Resource> getResourcesWithTag(String region, String resourceType, List<String> resourceNames) {
+    public Map<String, Resource> getResourcesWithTag(AWSAccount accountRegion,
+                                                     String region, String resourceType, List<String> resourceNames) {
         Map<String, Resource> resourceByName = new TreeMap<>();
         if (CollectionUtils.isEmpty(resourceNames) || resourceNames.stream().noneMatch(StringUtils::isNotEmpty)) {
             return resourceByName;
@@ -197,15 +200,17 @@ public class ResourceTagHelper {
         Set<String> tagServiceNames = configServiceToServiceNames.getOrDefault(resourceType, Collections.emptySet());
         Map<String, List<Tag>> classLBTagsByName = new TreeMap<>();
         if (!CollectionUtils.isEmpty(tagServiceNames)) {
-            resources.addAll(getResourcesWithTag(region,
+            resources.addAll(getResourcesWithTag(accountRegion, region,
                     ImmutableSortedMap.of(
+                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
                             SCRAPE_REGION_LABEL, region,
                             SCRAPE_OPERATION_LABEL, "ConfigClient/listDiscoveredResources"
                     ), GetResourcesRequest.builder().resourceTypeFilters(tagServiceNames)));
         }
         if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region)) {
+            String assumeRole = accountRegion.getAssumeRole();
+            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, assumeRole)) {
                 DescribeTagsResponse describeTagsResponse = elbClient.describeTags(DescribeTagsRequest.builder()
                         .loadBalancerNames(resourceNames)
                         .build());
@@ -219,7 +224,7 @@ public class ResourceTagHelper {
                                 .collect(Collectors.toList())));
             }
         } else if (resourceType.equals("AWS::AutoScaling::AutoScalingGroup")) {
-            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region)) {
+            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, null)) {
                 software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse describeTagsResponse = asgClient.describeTags(software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder()
                         .build());
                 describeTagsResponse.tags()
@@ -230,7 +235,7 @@ public class ResourceTagHelper {
                                         .type(AutoScalingGroup)
                                         .subType("k8s")
                                         .region(region)
-                                        .account(accountIDProvider.getAccountId())
+                                        .account(accountRegion.getAccountId())
                                         .build());
                             }
                         });
@@ -254,7 +259,7 @@ public class ResourceTagHelper {
                 resourceByName.put(name, Resource.builder()
                         .type(LoadBalancer)
                         .name(name)
-                        .account(accountIDProvider.getAccountId())
+                        .account(accountRegion.getAccountId())
                         .region(region)
                         .tags(tags)
                         .build());
@@ -268,6 +273,7 @@ public class ResourceTagHelper {
     @Builder
     @Getter
     public static class Key {
+        private final AWSAccount accountRegion;
         private final String region;
         private final NamespaceConfig namespace;
     }

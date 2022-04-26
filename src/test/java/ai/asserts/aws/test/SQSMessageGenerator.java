@@ -17,9 +17,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static ai.asserts.aws.test.SQSMessageGenerator.Problem.error;
-import static ai.asserts.aws.test.SQSMessageGenerator.Problem.latency;
-import static ai.asserts.aws.test.SQSMessageGenerator.Problem.memory;
 import static ai.asserts.aws.test.SQSMessageGenerator.Problem.normal;
 
 public class SQSMessageGenerator {
@@ -78,7 +75,7 @@ public class SQSMessageGenerator {
                 messages.add(buildMessage(UUID.randomUUID().toString(), current));
             }
 
-            Stream.of("Orders", "Queue1", "Queue4", "Queue7").forEach(qName -> {
+            Stream.of("NodeJSPerf-WithLayer").forEach(qName -> {
                 SendMessageBatchRequest batchRequest = SendMessageBatchRequest.builder()
                         .queueUrl("https://sqs.us-west-2.amazonaws.com/342994379019/" + qName)
                         .entries(messages.toArray(new SendMessageBatchRequestEntry[0]))

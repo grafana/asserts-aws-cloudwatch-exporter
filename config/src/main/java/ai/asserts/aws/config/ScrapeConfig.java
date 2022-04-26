@@ -17,7 +17,6 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,7 +37,7 @@ import java.util.stream.Collectors;
 public class ScrapeConfig {
     @Setter
     @Builder.Default
-    private Set<String> regions = new HashSet<>();
+    private Set<String> regions = new TreeSet<>();
 
     @Builder.Default
     private List<NamespaceConfig> namespaces = new ArrayList<>();

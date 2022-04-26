@@ -5,10 +5,10 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.model.MetricStat;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
+import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.model.MetricStat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -55,12 +55,14 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
                 .metricStat(MetricStat.Average)
                 .build();
         expect(metricNameUtil.exportedMetricName(metric, MetricStat.Average)).andReturn("metric");
-        ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
-        expect(labelBuilder.buildLabels("region", metricQuery)).andReturn(labels);
+        ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
+                "label1", "value1", "label2", "value2"
+        );
+        expect(labelBuilder.buildLabels("account", "region", metricQuery)).andReturn(labels);
         expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
         replayAll();
 
-        List<Sample> samples = testClass.buildSamples("region",
+        List<Sample> samples = testClass.buildSamples("account", "region",
                 metricQuery,
                 MetricDataResult.builder()
                         .timestamps(instant, instant.plusSeconds(60))

@@ -2,10 +2,12 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.NamespaceConfig;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -38,6 +40,7 @@ import static java.lang.String.format;
 @Component
 @Slf4j
 public class LambdaEventSourceExporter extends Collector implements MetricProvider {
+    private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final MetricNameUtil metricNameUtil;
@@ -47,12 +50,14 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
     private final RateLimiter rateLimiter;
     private volatile List<MetricFamilySamples> metrics;
 
-    public LambdaEventSourceExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
+    public LambdaEventSourceExporter(AccountProvider accountProvider,
+                                     ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
                                      MetricNameUtil metricNameUtil,
                                      ResourceMapper resourceMapper,
                                      ResourceTagHelper resourceTagHelper,
                                      MetricSampleBuilder sampleBuilder,
                                      RateLimiter rateLimiter) {
+        this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricNameUtil = metricNameUtil;
@@ -77,48 +82,56 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
 
         Map<String, List<EventSourceMappingConfiguration>> byRegion = new TreeMap<>();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        scrapeConfig.getLambdaConfig().ifPresent(namespaceConfig -> scrapeConfig.getRegions().forEach(region -> {
-            try (LambdaClient client = awsClientProvider.getLambdaClient(region)) {
-                // Get all event source mappings
-                log.info("Discovering Lambda event source mappings for region={}", region);
-                String nextToken = null;
-                do {
-                    ListEventSourceMappingsRequest req = ListEventSourceMappingsRequest.builder()
-                            .marker(nextToken)
-                            .build();
-                    ListEventSourceMappingsResponse response = rateLimiter.doWithRateLimit(
-                            "LambdaClient/listEventSourceMappings",
-                            ImmutableSortedMap.of(
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_OPERATION_LABEL, "listEventSourceMappings",
-                                    SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
-                            ),
-                            () -> client.listEventSourceMappings(req));
-                    if (response.hasEventSourceMappings()) {
-                        byRegion.computeIfAbsent(region, k -> new ArrayList<>())
-                                .addAll(response.eventSourceMappings().stream()
-                                        .filter(mapping -> resourceMapper.map(mapping.functionArn()).isPresent())
-                                        .collect(Collectors.toList()));
+        Optional<NamespaceConfig> lambdaConfig = scrapeConfig.getLambdaConfig();
+        lambdaConfig.ifPresent(namespaceConfig -> {
+            for (AccountProvider.AWSAccount accountRegion : accountProvider.getAccounts()) {
+                String assumeRole = accountRegion.getAssumeRole();
+                accountRegion.getRegions().forEach(region -> {
+                    try (LambdaClient client = awsClientProvider.getLambdaClient(region, assumeRole)) {
+                        // Get all event source mappings
+                        log.info("Discovering Lambda event source mappings for region={}", region);
+                        String nextToken = null;
+                        do {
+                            ListEventSourceMappingsRequest req = ListEventSourceMappingsRequest.builder()
+                                    .marker(nextToken)
+                                    .build();
+                            ListEventSourceMappingsResponse response = rateLimiter.doWithRateLimit(
+                                    "LambdaClient/listEventSourceMappings",
+                                    ImmutableSortedMap.of(
+                                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                                            SCRAPE_REGION_LABEL, region,
+                                            SCRAPE_OPERATION_LABEL, "listEventSourceMappings",
+                                            SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
+                                    ),
+                                    () -> client.listEventSourceMappings(req));
+                            if (response.hasEventSourceMappings()) {
+                                byRegion.computeIfAbsent(region, k -> new ArrayList<>())
+                                        .addAll(response.eventSourceMappings().stream()
+                                                .filter(mapping -> resourceMapper.map(mapping.functionArn()).isPresent())
+                                                .collect(Collectors.toList()));
 
+                            }
+                            nextToken = response.nextMarker();
+                        } while (StringUtils.hasText(nextToken));
+
+                        Set<Resource> fnResources = resourceTagHelper.getFilteredResources(accountRegion, region, namespaceConfig);
+                        byRegion.computeIfAbsent(region, k -> new ArrayList<>()).forEach(mappingConfiguration -> {
+                            Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
+                                    .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
+                                    .findFirst()
+                                    .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
+                            Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
+                            eventResourceOpt.ifPresent(eventResource ->
+                                    fnResource.ifPresent(fn -> buildSample(region, fn, eventResource, samples))
+                            );
+                        });
+                    } catch (Exception e) {
+                        log.info("Failed to discover event source mappings", e);
                     }
-                    nextToken = response.nextMarker();
-                } while (StringUtils.hasText(nextToken));
-
-                Set<Resource> fnResources = resourceTagHelper.getFilteredResources(region, namespaceConfig);
-                byRegion.computeIfAbsent(region, k -> new ArrayList<>()).forEach(mappingConfiguration -> {
-                    Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
-                            .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
-                            .findFirst()
-                            .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
-                    Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
-                    eventResourceOpt.ifPresent(eventResource ->
-                            fnResource.ifPresent(fn -> buildSample(region, fn, eventResource, samples))
-                    );
                 });
-            } catch (Exception e) {
-                log.info("Failed to discover event source mappings", e);
             }
-        }));
+        });
+
         return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
                 .collect(Collectors.toList());

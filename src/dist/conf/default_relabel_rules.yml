@@ -44,16 +44,3 @@
   regex: aws_exporter.+;(.+)
   target_label: asserts_request_context
   replacement: $1
-
-  # Some operations use CloudWatch namespace as a parameter
-- source_labels: [ __name__, cw_namespace, operation ]
-  regex: aws_exporter.+;(.+);(.+)
-  target_label: asserts_request_context
-  replacement: $1/$2
-
-# AWS Lambda metrics
-- source_labels: [ __name__, cw_namespace ]
-  regex: aws_.+;(.+)
-  target_label: namespace
-  replacement: $1
-  

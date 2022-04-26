@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -31,7 +31,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 public class KinesisAnalyticsExporter extends Collector implements InitializingBean {
-    private final ScrapeConfigProvider scrapeConfigProvider;
+    private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     public final CollectorRegistry collectorRegistry;
     private final RateLimiter rateLimiter;
@@ -39,11 +39,11 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
     private final MetricSampleBuilder sampleBuilder;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
-    public KinesisAnalyticsExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
+    public KinesisAnalyticsExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                     CollectorRegistry collectorRegistry, ResourceMapper resourceMapper,
                                     RateLimiter rateLimiter,
                                     MetricSampleBuilder sampleBuilder) {
-        this.scrapeConfigProvider = scrapeConfigProvider;
+        this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.resourceMapper = resourceMapper;
@@ -64,11 +64,12 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
     public void update() {
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-        scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            try (KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region)) {
+        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
+            try (KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region, account.getAssumeRole())) {
                 String api = "KinesisAnalyticsV2Client/listApplications";
                 ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
+                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, api
                         ), client::listApplications);
@@ -95,7 +96,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                             .collect(Collectors.toList()));
                 }
             }
-        });
+        }));
         newFamily.add(sampleBuilder.buildFamily(samples));
         metricFamilySamples = newFamily;
     }

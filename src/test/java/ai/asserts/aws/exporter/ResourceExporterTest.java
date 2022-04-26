@@ -5,10 +5,12 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.config.TagExportConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -46,7 +48,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static software.amazon.awssdk.services.config.model.ResourceType.AWS_DYNAMO_DB_TABLE;
 import static software.amazon.awssdk.services.config.model.ResourceType.AWS_S3_BUCKET;
 
+@SuppressWarnings("unchecked")
 public class ResourceExporterTest extends EasyMockSupport {
+    private AWSAccount account;
+    private AccountProvider accountProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
     private TagExportConfig tagExportConfig;
@@ -60,11 +65,12 @@ public class ResourceExporterTest extends EasyMockSupport {
     private Resource resource;
     private MetricNameUtil metricNameUtil;
     private ResourceTagHelper resourceTagHelper;
-    private AccountIDProvider accountIDProvider;
     private ResourceExporter testClass;
 
     @BeforeEach
     public void setup() {
+        account = new AWSAccount("account", "role", ImmutableSet.of("region"));
+        accountProvider = mock(AccountProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         tagExportConfig = mock(TagExportConfig.class);
@@ -77,20 +83,18 @@ public class ResourceExporterTest extends EasyMockSupport {
         resourceMapper = mock(ResourceMapper.class);
         metricNameUtil = mock(MetricNameUtil.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
-        accountIDProvider = mock(AccountIDProvider.class);
         resource = mock(Resource.class);
-        testClass = new ResourceExporter(scrapeConfigProvider, awsClientProvider, rateLimiter, metricSampleBuilder,
-                resourceMapper, metricNameUtil, resourceTagHelper, accountIDProvider);
+        testClass = new ResourceExporter(accountProvider, scrapeConfigProvider, awsClientProvider, rateLimiter,
+                metricSampleBuilder, resourceMapper, metricNameUtil, resourceTagHelper);
     }
 
     @Test
     public void update() {
-        expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("type1")).anyTimes();
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
-        expect(awsClientProvider.getConfigClient("region")).andReturn(configClient).anyTimes();
+        expect(awsClientProvider.getConfigClient("region", "role")).andReturn(configClient).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<ListDiscoveredResourcesResponse>> callbackCapture = Capture.newInstance();
 
@@ -110,7 +114,7 @@ public class ResourceExporterTest extends EasyMockSupport {
                 .includeDeletedResources(false)
                 .resourceType("type1")
                 .build())).andReturn(response);
-        expect(resourceTagHelper.getResourcesWithTag("region", "type1", ImmutableList.of(
+        expect(resourceTagHelper.getResourcesWithTag(account, "region", "type1", ImmutableList.of(
                 "TableName", "BucketName"
         ))).andReturn(ImmutableMap.of());
         expect(resourceMapper.map(anyString())).andReturn(Optional.empty()).anyTimes();
@@ -153,12 +157,11 @@ public class ResourceExporterTest extends EasyMockSupport {
 
     @Test
     public void update_empty_resource() {
-        expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("type1")).anyTimes();
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
-        expect(awsClientProvider.getConfigClient("region")).andReturn(configClient).anyTimes();
+        expect(awsClientProvider.getConfigClient("region", "role")).andReturn(configClient).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<ListDiscoveredResourcesResponse>> callbackCapture = Capture.newInstance();
 

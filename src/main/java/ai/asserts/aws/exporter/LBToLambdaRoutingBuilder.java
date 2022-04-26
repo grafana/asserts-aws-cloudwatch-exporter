@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -33,49 +33,51 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @Slf4j
 @AllArgsConstructor
 public class LBToLambdaRoutingBuilder {
-    private final AccountIDProvider accountIDProvider;
-    private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
+    private final AccountProvider accountProvider;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
 
     public Set<ResourceRelation> getRoutings() {
         log.info("LB To Lambda routing relation builder about to build relations");
         Set<ResourceRelation> routing = new HashSet<>();
-        scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            try (ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region)) {
-                Map<Resource, Resource> tgToLB = targetGroupLBMapProvider.getTgToLB();
-                tgToLB.keySet().forEach(tg -> {
-                    try {
-                        String api = "ElasticLoadBalancingV2Client/describeTargetHealth";
-                        DescribeTargetHealthResponse response = rateLimiter.doWithRateLimit(
-                                api,
-                                ImmutableSortedMap.of(
-                                        SCRAPE_REGION_LABEL, region,
-                                        SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId(),
-                                        SCRAPE_OPERATION_LABEL, api
-                                )
-                                , () -> elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()
-                                        .targetGroupArn(tg.getArn())
-                                        .build()));
-                        if (!isEmpty(response.targetHealthDescriptions())) {
-                            response.targetHealthDescriptions().stream()
-                                    .map(tH -> resourceMapper.map(tH.target().id()))
-                                    .filter(opt -> opt.isPresent() && opt.get().getType().equals(LambdaFunction))
-                                    .map(Optional::get)
-                                    .forEach(lambda -> routing.add(ResourceRelation.builder()
-                                            .from(tgToLB.get(tg))
-                                            .to(lambda)
-                                            .name("ROUTES_TO")
+        for (AccountProvider.AWSAccount accountRegion : accountProvider.getAccounts()) {
+            accountRegion.getRegions().forEach(region -> {
+                String assumeRole = accountRegion.getAssumeRole();
+                try (ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region, assumeRole)) {
+                    Map<Resource, Resource> tgToLB = targetGroupLBMapProvider.getTgToLB();
+                    tgToLB.keySet().forEach(tg -> {
+                        try {
+                            String api = "ElasticLoadBalancingV2Client/describeTargetHealth";
+                            DescribeTargetHealthResponse response = rateLimiter.doWithRateLimit(
+                                    api,
+                                    ImmutableSortedMap.of(
+                                            SCRAPE_REGION_LABEL, region,
+                                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                                            SCRAPE_OPERATION_LABEL, api
+                                    )
+                                    , () -> elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()
+                                            .targetGroupArn(tg.getArn())
                                             .build()));
+                            if (!isEmpty(response.targetHealthDescriptions())) {
+                                response.targetHealthDescriptions().stream()
+                                        .map(tH -> resourceMapper.map(tH.target().id()))
+                                        .filter(opt -> opt.isPresent() && opt.get().getType().equals(LambdaFunction))
+                                        .map(Optional::get)
+                                        .forEach(lambda -> routing.add(ResourceRelation.builder()
+                                                .from(tgToLB.get(tg))
+                                                .to(lambda)
+                                                .name("ROUTES_TO")
+                                                .build()));
+                            }
+                        } catch (Exception e) {
+                            log.error("Failed to build resource relations", e);
                         }
-                    } catch (Exception e) {
-                        log.error("Failed to build resource relations", e);
-                    }
-                });
-            }
-        });
+                    });
+                }
+            });
+        }
         return routing;
     }
 }

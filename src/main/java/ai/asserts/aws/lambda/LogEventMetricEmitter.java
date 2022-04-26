@@ -7,7 +7,7 @@ package ai.asserts.aws.lambda;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.config.LogScrapeConfig;
 import ai.asserts.aws.config.NamespaceConfig;
-import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
+import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask.FunctionLogScrapeConfig;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -32,16 +32,17 @@ public class LogEventMetricEmitter {
     private final MetricSampleBuilder sampleBuilder;
 
     public Optional<Collector.MetricFamilySamples.Sample> getSample(NamespaceConfig namespaceConfig,
-                                                                    LambdaLogMetricScrapeTask.FunctionLogScrapeConfig functionLogScrapeConfig,
+                                                                    FunctionLogScrapeConfig config,
                                                                     FilteredLogEvent filteredLogEvent) {
-        LambdaFunction lambdaFunction = functionLogScrapeConfig.getLambdaFunction();
-        LogScrapeConfig logScrapeConfig = functionLogScrapeConfig.getLogScrapeConfig();
+        LambdaFunction lambdaFunction = config.getLambdaFunction();
+        LogScrapeConfig logScrapeConfig = config.getLogScrapeConfig();
         Map<String, String> logLabels = logScrapeConfig.extractLabels(filteredLogEvent.message());
-        Set<Resource> functionResources = resourceTagHelper.getFilteredResources(lambdaFunction.getRegion(),
-                namespaceConfig);
+
+        Set<Resource> functionResources = resourceTagHelper.getFilteredResources(config.getAccount(),
+                lambdaFunction.getRegion(), namespaceConfig);
         if (logLabels.size() > 0) {
             logLabels.put(SCRAPE_ACCOUNT_ID_LABEL, lambdaFunction.getAccount());
-            logLabels.put("region", functionLogScrapeConfig.getLambdaFunction().getRegion());
+            logLabels.put("region", config.getLambdaFunction().getRegion());
             logLabels.put("d_function_name", lambdaFunction.getName());
             functionResources.stream()
                     .filter(resource -> resource.getArn().equals(lambdaFunction.getArn()))

@@ -2,15 +2,17 @@
 package ai.asserts.aws.cloudwatch.query;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.model.CWNamespace;
 import ai.asserts.aws.model.MetricStat;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +35,8 @@ import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 
 public class MetricQueryProviderTest extends EasyMockSupport {
+    private AWSAccount accountRegion;
+    private AccountProvider accountProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
     private QueryIdGenerator queryIdGenerator;
     private MetricNameUtil metricNameUtil;
@@ -52,6 +56,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        accountProvider = mock(AccountProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         queryIdGenerator = mock(QueryIdGenerator.class);
         metricNameUtil = mock(MetricNameUtil.class);
@@ -71,9 +76,11 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .metricName(metricName)
                 .build();
 
+        accountRegion = new AWSAccount("account", "role", ImmutableSet.of("region1"));
+
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder().build());
         replayAll();
-        testClass = new MetricQueryProvider(scrapeConfigProvider, queryIdGenerator, metricNameUtil,
+        testClass = new MetricQueryProvider(accountProvider, scrapeConfigProvider, queryIdGenerator, metricNameUtil,
                 awsClientProvider, resourceTagHelper, metricQueryBuilder,
                 new RateLimiter(metricCollector));
         verifyAll();
@@ -82,6 +89,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @Test
     void getMetricQueries() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
                 .namespaces(ImmutableList.of(namespaceConfig))
@@ -90,11 +98,11 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfigProvider.getStandardNamespace(_CW_namespace.name()))
                 .andReturn(Optional.of(lambda)).anyTimes();
-        expect(awsClientProvider.getCloudWatchClient("region1")).andReturn(cloudWatchClient);
+        expect(awsClientProvider.getCloudWatchClient("region1", "role")).andReturn(cloudWatchClient);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
 
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(accountRegion, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.matches(metric)).andReturn(true).anyTimes();
 
@@ -139,17 +147,18 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @Test
     void getMetricQueries_Exception() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(awsClientProvider.getCloudWatchClient("region1")).andReturn(cloudWatchClient);
+        expect(awsClientProvider.getCloudWatchClient("region1", "role")).andReturn(cloudWatchClient);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
 
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(accountRegion, "region1", namespaceConfig))
                 .andThrow(new RuntimeException());
 
         cloudWatchClient.close();

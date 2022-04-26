@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.lang.String.format;
 
 @Component
@@ -26,9 +28,10 @@ public class LabelBuilder {
     private final MetricNameUtil metricNameUtil;
     private final LambdaLabelConverter lambdaLabelConverter;
 
-    public Map<String, String> buildLabels(String region, MetricQuery metricQuery) {
+    public Map<String, String> buildLabels(String account, String region, MetricQuery metricQuery) {
         Map<String, String> labels = new TreeMap<>();
-        labels.put("region", region);
+        labels.put(SCRAPE_ACCOUNT_ID_LABEL, account);
+        labels.put(SCRAPE_REGION_LABEL, region);
         scrapeConfigProvider.getStandardNamespace(metricQuery.getMetric().namespace())
                 .ifPresent(ns -> labels.put("cw_namespace", ns.getNormalizedNamespace()));
 

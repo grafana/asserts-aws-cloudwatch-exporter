@@ -5,9 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
 import com.google.common.collect.ImmutableSet;
@@ -38,22 +38,21 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        AccountIDProvider accountIDProvider = mock(AccountIDProvider.class);
+        AWSAccount account = new AWSAccount(
+                "account", "role", ImmutableSet.of("region"));
+        AccountProvider accountProvider = mock(AccountProvider.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         ec2Client = mock(Ec2Client.class);
-        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         metricCollector = mock(BasicMetricCollector.class);
         testClass = new EC2ToEBSVolumeExporter(
-                accountIDProvider, scrapeConfigProvider, awsClientProvider, new RateLimiter(metricCollector)
+                accountProvider, awsClientProvider, new RateLimiter(metricCollector)
         );
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
-        expect(awsClientProvider.getEc2Client("region")).andReturn(ec2Client);
-        expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
+        expect(awsClientProvider.getEc2Client("region", "role")).andReturn(ec2Client);
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void update() {
         DescribeVolumesRequest req = DescribeVolumesRequest.builder().build();
         DescribeVolumesResponse resp = DescribeVolumesResponse.builder()

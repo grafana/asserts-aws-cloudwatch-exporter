@@ -5,11 +5,13 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.lambda.LambdaFunction;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.resource.Resource;
@@ -49,6 +51,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 public class LambdaCapacityExporterTest extends EasyMockSupport {
+    private AccountProvider accountProvider;
+    private AWSAccount account1;
+    private AWSAccount account2;
     private NamespaceConfig namespaceConfig;
     private AWSClientProvider awsClientProvider;
     private LambdaClient lambdaClient;
@@ -72,6 +77,9 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        account1 = new AWSAccount("account1", "role", ImmutableSet.of("region"));
+        account2 = new AWSAccount("account2", "role", ImmutableSet.of("region"));
+
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
@@ -85,11 +93,14 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
+        accountProvider = mock(AccountProvider.class);
 
         resetAll();
 
-        testClass = new LambdaCapacityExporter(scrapeConfigProvider, awsClientProvider, metricNameUtil,
+        testClass = new LambdaCapacityExporter(accountProvider,
+                scrapeConfigProvider, awsClientProvider, metricNameUtil,
                 sampleBuilder, functionScraper, resourceTagHelper, new RateLimiter(metricCollector));
+
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(metricNameUtil.getLambdaMetric("available_concurrency")).andReturn("available");
@@ -108,16 +119,16 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .memoryMB(128)
                 .timeoutSeconds(120)
                 .build();
-        fn1Labels = ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "job", "fn1",
-                "cw_namespace", "AWS/Lambda", SCRAPE_ACCOUNT_ID_LABEL, "account1"
-        );
+        fn1Labels = new ImmutableMap.Builder<String, String>()
+                .put("region", "region1")
+                .put("d_function_name", "fn1")
+                .put("job", "fn1")
+                .put("cw_namespace", "AWS/Lambda")
+                .put(SCRAPE_ACCOUNT_ID_LABEL, "account1")
+                .build();
 
-        fn1VersionLabels = new HashMap<>(ImmutableMap.of(
-                "region", "region1", "d_function_name", "fn1", "d_executed_version", "1",
-                "job", "fn1", "cw_namespace", "AWS/Lambda"
-        ));
-        fn1VersionLabels.put(SCRAPE_ACCOUNT_ID_LABEL, "account1");
+        fn1VersionLabels = new HashMap<>(fn1Labels);
+        fn1VersionLabels.put("d_executed_version", "1");
 
         fn2 = LambdaFunction.builder()
                 .account("account2")
@@ -127,28 +138,32 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .memoryMB(128)
                 .timeoutSeconds(60)
                 .build();
-        fn2Labels = ImmutableMap.of(
-                "region", "region2", "d_function_name", "fn2", "job", "fn2",
-                "cw_namespace", "AWS/Lambda", SCRAPE_ACCOUNT_ID_LABEL, "account2"
-        );
 
-        fn2ResourceLabels = new HashMap<>(ImmutableMap.of(
-                "region", "region2", "d_function_name", "fn2", "d_resource", "green",
-                "job", "fn2", "cw_namespace", "AWS/Lambda"
-        ));
-        fn2ResourceLabels.put(SCRAPE_ACCOUNT_ID_LABEL, "account2");
+        fn2Labels = new ImmutableMap.Builder<String, String>()
+                .put("region", "region2")
+                .put("d_function_name", "fn2")
+                .put("job", "fn2")
+                .put("cw_namespace", "AWS/Lambda")
+                .put(SCRAPE_ACCOUNT_ID_LABEL, "account2")
+                .build();
+
+        fn2ResourceLabels = new HashMap<>(fn2Labels);
+        fn2ResourceLabels.put("d_resource", "green");
     }
 
     @Test
     public void run() {
-        expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of(
-                "region1", ImmutableMap.of("arn1", fn1),
-                "region2", ImmutableMap.of("arn2", fn2)
-        ));
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account1, account2));
+        expect(functionScraper.getFunctions()).andReturn(
+                ImmutableMap.of(
+                        "account1", ImmutableMap.of("region1", ImmutableMap.of("arn1", fn1)),
+                        "account2", ImmutableMap.of("region2", ImmutableMap.of("arn2", fn2))
+                )
+        );
 
-        expectAccountSettings("region1");
+        expectAccountSettings("account1", "region1");
 
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(account1, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn1");
         resource.addEnvLabel(ImmutableMap.of(), metricNameUtil);
@@ -178,11 +193,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("available", fn1VersionLabels, 100.0D)).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("requested", fn1VersionLabels, 20.0D)).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("allocated", fn1VersionLabels, 10.0D)).andReturn(sample);
-        lambdaClient.close();
 
-        expectAccountSettings("region2");
+        expectAccountSettings("account2", "region2");
 
-        expect(resourceTagHelper.getFilteredResources("region2", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(account2, "region2", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn2");
         resource.addEnvLabel(ImmutableMap.of(), metricNameUtil);
@@ -212,11 +226,12 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("available", fn2ResourceLabels, 100.0D)).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("requested", fn2ResourceLabels, 30.0D)).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("allocated", fn2ResourceLabels, 20.0D)).andReturn(sample);
-        lambdaClient.close();
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples).times(5);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(familySamples);
+        lambdaClient.close();
+        expectLastCall().times(2);
 
         replayAll();
         testClass.update();
@@ -229,12 +244,15 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
     @Test
     public void run_noProvisionedCapacity() {
-        expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of(
-                "region1", ImmutableMap.of("arn1", fn1)
-        ));
-        expectAccountSettings("region1");
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account1));
+        expect(functionScraper.getFunctions()).andReturn(
+                ImmutableMap.of(
+                        "account1", ImmutableMap.of("region1", ImmutableMap.of("arn1", fn1))
+                )
+        );
+        expectAccountSettings("account1", "region1");
 
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(account1, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
         expect(resource.getArn()).andReturn("arn1");
         resource.addEnvLabel(Collections.emptyMap(), metricNameUtil);
@@ -270,11 +288,12 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
     @Test
     public void run_Exception() {
-        expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of(
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account1));
+        expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of("account1", ImmutableMap.of(
                 "region1", ImmutableMap.of("arn1", fn1)
-        ));
-        expectAccountSettings("region1");
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        )));
+        expectAccountSettings("account1", "region1");
+        expect(resourceTagHelper.getFilteredResources(account1, "region1", namespaceConfig))
                 .andThrow(new RuntimeException());
         lambdaClient.close();
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
@@ -284,8 +303,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         verifyAll();
     }
 
-    private void expectAccountSettings(String region) {
-        expect(awsClientProvider.getLambdaClient(region)).andReturn(lambdaClient);
+    private void expectAccountSettings(String account, String region) {
+        expect(awsClientProvider.getLambdaClient(region, "role")).andReturn(lambdaClient);
         expect(lambdaClient.getAccountSettings()).andReturn(GetAccountSettingsResponse.builder()
                 .accountLimit(AccountLimit.builder()
                         .concurrentExecutions(10)
@@ -294,9 +313,11 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
+                "account_id", account,
                 "region", region, "type", "concurrent_executions", "cw_namespace", "AWS/Lambda"), 10.0D
         )).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
+                "account_id", account,
                 "region", region, "type", "unreserved_concurrent_executions", "cw_namespace", "AWS/Lambda"), 20.0D
         )).andReturn(sample);
     }

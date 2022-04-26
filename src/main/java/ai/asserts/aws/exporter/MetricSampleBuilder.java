@@ -27,13 +27,13 @@ public class MetricSampleBuilder {
     private final LabelBuilder labelBuilder;
     private final ScrapeConfigProvider scrapeConfigProvider;
 
-    public List<MetricFamilySamples.Sample> buildSamples(String region, MetricQuery metricQuery,
+    public List<MetricFamilySamples.Sample> buildSamples(String account, String region, MetricQuery metricQuery,
                                                          MetricDataResult metricDataResult) {
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         String metricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
         if (metricDataResult.timestamps().size() > 0) {
             Map<String, String> labels = scrapeConfigProvider.getScrapeConfig()
-                    .additionalLabels(metricName, labelBuilder.buildLabels(region, metricQuery));
+                    .additionalLabels(metricName, labelBuilder.buildLabels(account, region, metricQuery));
             for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
                 MetricFamilySamples.Sample sample = new MetricFamilySamples.Sample(
                         metricName,

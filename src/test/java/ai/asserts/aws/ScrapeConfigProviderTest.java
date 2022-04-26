@@ -7,6 +7,7 @@ import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.MetricStat;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -205,15 +206,18 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         };
         ScrapeConfig actualConfig = testClass.getScrapeConfig();
         actualConfig.validateConfig();
-        assertEquals(scrapeConfig.toString(), actualConfig.toString());
+        ObjectWriter writer = new ObjectMapperFactory().getObjectMapper()
+                .writerWithDefaultPrettyPrinter();
+        assertEquals(writer.writeValueAsString(scrapeConfig), writer.writeValueAsString(actualConfig));
         verifyAll();
     }
 
     @Test
     void loadConfigFromAsserts() throws IOException {
         FileInputStream fis = new FileInputStream("src/test/resources/cloudwatch_scrape_config.yml");
-        ScrapeConfig scrapeConfig = new ObjectMapperFactory().getObjectMapper().readValue(fis, new TypeReference<ScrapeConfig>() {
-        });
+        ScrapeConfig scrapeConfig = new ObjectMapperFactory().getObjectMapper().readValue(fis,
+                new TypeReference<ScrapeConfig>() {
+                });
         scrapeConfig.validateConfig();
 
         HttpHeaders headers = new HttpHeaders();
@@ -234,12 +238,14 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 restTemplate) {
             @Override
             Map<String, String> getGetenv() {
-                return ImmutableMap.of("ASSERTS_HOST", "host", "ASSERTS_USER", "user",
+                return ImmutableMap.of("ASSERTS_API_SERVER_URL", "host", "ASSERTS_USER", "user",
                         "ASSERTS_PASSWORD", "key");
             }
 
         };
-        assertEquals(scrapeConfig.toString(), testClass.getScrapeConfig().toString());
+        ObjectWriter writer = new ObjectMapperFactory().getObjectMapper()
+                .writerWithDefaultPrettyPrinter();
+        assertEquals(writer.writeValueAsString(scrapeConfig), writer.writeValueAsString(testClass.getScrapeConfig()));
         verifyAll();
     }
 }

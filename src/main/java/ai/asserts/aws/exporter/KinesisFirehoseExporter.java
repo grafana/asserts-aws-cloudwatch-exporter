@@ -5,8 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -32,7 +32,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 public class KinesisFirehoseExporter extends Collector implements InitializingBean {
-    private final ScrapeConfigProvider scrapeConfigProvider;
+    private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     public final CollectorRegistry collectorRegistry;
     private final RateLimiter rateLimiter;
@@ -40,11 +40,10 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
     private final MetricSampleBuilder sampleBuilder;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
-    public KinesisFirehoseExporter(ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
-                                   CollectorRegistry collectorRegistry, ResourceMapper resourceMapper,
-                                   RateLimiter rateLimiter,
-                                   MetricSampleBuilder sampleBuilder) {
-        this.scrapeConfigProvider = scrapeConfigProvider;
+    public KinesisFirehoseExporter(
+            AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
+            ResourceMapper resourceMapper, RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder) {
+        this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.resourceMapper = resourceMapper;
@@ -65,11 +64,12 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
     public void update() {
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-        scrapeConfigProvider.getScrapeConfig().getRegions().forEach(region -> {
-            try (FirehoseClient client = awsClientProvider.getFirehoseClient(region)) {
+        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
+            try (FirehoseClient client = awsClientProvider.getFirehoseClient(region, account.getAssumeRole())) {
                 String api = "FirehoseClient/listDeliveryStreams";
                 ListDeliveryStreamsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
+                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, api
                         ), client::listDeliveryStreams);
@@ -78,6 +78,7 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
                             .map(name -> {
                                 DescribeDeliveryStreamResponse streamResp = rateLimiter.doWithRateLimit(
                                         "FirehoseClient/describeDeliveryStream", ImmutableSortedMap.of(
+                                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
                                                 SCRAPE_REGION_LABEL, region,
                                                 SCRAPE_OPERATION_LABEL, "FirehoseClient/describeDeliveryStream"
                                         ), () -> {
@@ -107,7 +108,7 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
                             .collect(Collectors.toList()));
                 }
             }
-        });
+        }));
         newFamily.add(sampleBuilder.buildFamily(samples));
         metricFamilySamples = newFamily;
     }

@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
@@ -53,6 +55,8 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
+    private AWSAccount account;
+    private AccountProvider accountProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
     private AWSClientProvider awsClientProvider;
@@ -71,6 +75,9 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        account = new AWSAccount("account", "role",
+                ImmutableSet.of("region1", "region2"));
+        accountProvider = mock(AccountProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
@@ -92,12 +99,12 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void run() throws Exception {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
-        expect(awsClientProvider.getECSClient("region1")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1", "role")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn1", "arn2")
                 .build());
@@ -105,7 +112,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
 
-        expect(awsClientProvider.getECSClient("region2")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2", "role")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn3", "arn4")
                 .build());
@@ -122,7 +129,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
         )));
         replayAll();
-        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
             @Override
             List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client,
@@ -140,12 +148,12 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void run_JacksonWriteException() throws Exception {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
-        expect(awsClientProvider.getECSClient("region1")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1", "role")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn1", "arn2")
                 .build());
@@ -153,7 +161,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
 
-        expect(awsClientProvider.getECSClient("region2")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2", "role")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn3", "arn4")
                 .build());
@@ -172,7 +180,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expectLastCall().andThrow(new IOException());
 
         replayAll();
-        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
             @Override
             List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client, Resource _cluster,
@@ -190,17 +199,17 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void run_AWSException() throws Exception {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region1", "region2"));
 
-        expect(awsClientProvider.getECSClient("region1")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1", "role")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(), eq(1));
 
-        expect(awsClientProvider.getECSClient("region2")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2", "role")).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(), eq(1));
@@ -212,7 +221,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expectLastCall().times(2);
 
         replayAll();
-        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder);
         testClass.run();
 
@@ -227,6 +237,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .region("region1")
                 .arn("arn1")
                 .name("cluster")
+                .account("account")
                 .type(ECSCluster)
                 .build();
         expect(ecsClient.listServices(ListServicesRequest.builder()
@@ -243,8 +254,9 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .andReturn(ImmutableSet.of(mockRelation));
 
         replayAll();
-        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(accountProvider,
+                scrapeConfigProvider, awsClientProvider, resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder) {
             @Override
             List<StaticConfig> buildTargetsInService(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                      Resource _service) {
@@ -269,6 +281,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .region("region1")
                 .arn("cluster-arn")
                 .name("cluster")
+                .account("account")
                 .type(ECSCluster)
                 .build();
 
@@ -276,6 +289,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .region("region1")
                 .arn("service-arn")
                 .name("service")
+                .account("account")
                 .type(ECSService)
                 .childOf(cluster)
                 .build();
@@ -311,7 +325,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         List<Set<String>> actualARNs = new ArrayList<>();
 
         replayAll();
-        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
             @Override
             List<StaticConfig> buildTaskTargets(ScrapeConfig sc, EcsClient client, Resource _cluster,
@@ -338,6 +353,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .region("region1")
                 .arn("cluster-arn")
                 .name("cluster")
+                .account("account")
                 .type(ECSCluster)
                 .build();
 
@@ -345,6 +361,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .region("region1")
                 .arn("service-arn")
                 .name("service")
+                .account("account")
                 .type(ECSService)
                 .childOf(cluster)
                 .build();
@@ -379,7 +396,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .andReturn(ImmutableList.of(mockStaticConfig));
 
         replayAll();
-        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(scrapeConfigProvider, awsClientProvider,
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder);
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),

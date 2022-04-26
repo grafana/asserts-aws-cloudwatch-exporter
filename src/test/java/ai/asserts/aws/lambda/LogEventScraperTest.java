@@ -72,6 +72,7 @@ public class LogEventScraperTest extends EasyMockSupport {
 
         expect(lambdaFunction.getName()).andReturn("function-1").anyTimes();
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
+        expect(lambdaFunction.getAccount()).andReturn("account").anyTimes();
         expect(logScrapeConfig.getLogFilterPattern()).andReturn("filterPattern");
         expect(cloudWatchLogsClient.filterLogEvents(request)).andReturn(response);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
@@ -97,6 +98,7 @@ public class LogEventScraperTest extends EasyMockSupport {
 
         expect(lambdaFunction.getName()).andReturn("function-1").anyTimes();
         expect(lambdaFunction.getRegion()).andReturn("region1").anyTimes();
+        expect(lambdaFunction.getAccount()).andReturn("account").anyTimes();
         expect(logScrapeConfig.getLogFilterPattern()).andReturn("filterPattern");
         expect(cloudWatchLogsClient.filterLogEvents(request)).andThrow(new RuntimeException());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(SortedMap.class), eq(1));

@@ -2,10 +2,12 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -45,9 +47,12 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     private LambdaFunction lambdaFunction;
     private LambdaFunctionScraper lambdaFunctionScraper;
     private Resource fnResource;
+    private AWSAccount accountRegion;
 
     @BeforeEach
     public void setup() {
+        accountRegion = new AWSAccount("account", "role", ImmutableSet.of("region1", "region2"));
+        AccountProvider accountProvider = mock(AccountProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
         lambdaClient = mock(LambdaClient.class);
         lambdaFunctionBuilder = mock(LambdaFunctionBuilder.class);
@@ -64,7 +69,9 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 .build()).anyTimes();
 
         replayAll();
-        lambdaFunctionScraper = new LambdaFunctionScraper(scrapeConfigProvider, awsClientProvider,
+        lambdaFunctionScraper = new LambdaFunctionScraper(
+                accountProvider,
+                scrapeConfigProvider, awsClientProvider,
                 resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
@@ -73,6 +80,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build()).anyTimes();
         expect(namespaceConfig.getName()).andReturn("AWS/Lambda").anyTimes();
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
     }
 
     @Test
@@ -97,11 +105,11 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 .functionName("fn4")
                 .build();
 
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region1", "role")).andReturn(lambdaClient);
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(fn1Config, fn2Config)).build());
-        expect(resourceTagHelper.getFilteredResources("region1", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(accountRegion, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource));
         expect(fnResource.getArn()).andReturn("arn1").times(2);
         expect(lambdaFunctionBuilder.buildFunction("region1", fn1Config, Optional.of(fnResource)))
@@ -111,11 +119,11 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         lambdaClient.close();
 
-        expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region2", "role")).andReturn(lambdaClient);
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
                 .functions(ImmutableList.of(fn3Config, fn4Config)).build());
-        expect(resourceTagHelper.getFilteredResources("region2", namespaceConfig))
+        expect(resourceTagHelper.getFilteredResources(accountRegion, "region2", namespaceConfig))
                 .andReturn(ImmutableSet.of(fnResource));
         expect(fnResource.getArn()).andReturn("arn3").times(2);
         expect(lambdaFunctionBuilder.buildFunction("region2", fn3Config, Optional.of(fnResource)))
@@ -127,8 +135,9 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         replayAll();
 
         assertEquals(ImmutableMap.of(
-                "region1", ImmutableMap.of("arn1", lambdaFunction, "arn2", lambdaFunction),
-                "region2", ImmutableMap.of("arn3", lambdaFunction, "arn4", lambdaFunction)
+                "account", ImmutableMap.of(
+                        "region1", ImmutableMap.of("arn1", lambdaFunction, "arn2", lambdaFunction),
+                        "region2", ImmutableMap.of("arn3", lambdaFunction, "arn4", lambdaFunction))
                 ),
                 lambdaFunctionScraper.getFunctions());
 
@@ -137,11 +146,11 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
     @Test
     public void getFunctions_Exception() {
-        expect(awsClientProvider.getLambdaClient("region1")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region1", "role")).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
         lambdaClient.close();
 
-        expect(awsClientProvider.getLambdaClient("region2")).andReturn(lambdaClient);
+        expect(awsClientProvider.getLambdaClient("region2", "role")).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(SortedMap.class), eq(1));
         expectLastCall().times(2);
@@ -149,7 +158,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         expectLastCall().times(2);
         lambdaClient.close();
         replayAll();
-        Map<String, Map<String, LambdaFunction>> functionsByRegion = lambdaFunctionScraper.getFunctions();
+        Map<String, Map<String, Map<String, LambdaFunction>>> functionsByRegion = lambdaFunctionScraper.getFunctions();
         assertTrue(functionsByRegion.isEmpty());
         verifyAll();
     }

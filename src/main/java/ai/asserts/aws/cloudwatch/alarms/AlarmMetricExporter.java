@@ -8,6 +8,7 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -18,9 +19,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -65,8 +68,9 @@ public class AlarmMetricExporter extends Collector {
     }
 
     private Optional<String> getKey(Map<String, String> labels) {
-        if (labels.containsKey("namespace") && labels.containsKey("metric_name") && labels.containsKey("alertname")) {
-            return Optional.of(labels.get("namespace") + "_" + labels.get("metric_name") + "_" + labels.get("alertname"));
+        Set<String> keyLabels = ImmutableSet.of("account_id", "namespace", "metric_name", "alertname");
+        if (keyLabels.stream().allMatch(labels::containsKey)) {
+            return Optional.of(keyLabels.stream().map(labels::get).collect(Collectors.joining("_")));
         }
         return Optional.empty();
     }
@@ -93,6 +97,7 @@ public class AlarmMetricExporter extends Collector {
     private void recordHistogram(Map<String, String> labels, Instant timestamp) {
         SortedMap<String, String> histoLabels = new TreeMap<>();
         histoLabels.put("namespace", labels.get("namespace"));
+        histoLabels.put("account_id", labels.get("account_id"));
         histoLabels.put("region", labels.get("region"));
         histoLabels.put("alertname", labels.get("alertname"));
         long diff = (now().toEpochMilli() - timestamp.toEpochMilli()) / 1000;

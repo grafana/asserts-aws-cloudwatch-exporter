@@ -5,10 +5,9 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,29 +33,32 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 @Slf4j
 @AllArgsConstructor
 public class AlarmFetcher {
-    private final AccountIDProvider accountIDProvider;
+    private final AccountProvider accountProvider;
     private final RateLimiter rateLimiter;
     private final AWSClientProvider awsClientProvider;
-    private final ScrapeConfigProvider scrapeConfigProvider;
     private final AlertsProcessor alertsProcessor;
     private final AlarmMetricConverter alarmMetricConverter;
 
-    public void sendAlarmsForRegions() {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        scrapeConfig.getRegions().forEach(region -> {
-            List<Map<String, String>> labelsList = getAlarms(region);
-            alertsProcessor.sendAlerts(labelsList);
-        });
+    public void fetchAlarms() {
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            accountRegion.getRegions().forEach(region -> {
+                String accountId = accountRegion.getAccountId();
+                String accountRole = accountRegion.getAssumeRole();
+                List<Map<String, String>> labelsList = getAlarms(accountId, accountRole, region);
+                alertsProcessor.sendAlerts(labelsList);
+            });
+        }
     }
 
-    private List<Map<String, String>> getAlarms(String region) {
+    private List<Map<String, String>> getAlarms(String accountId, String assumeRole, String region) {
         List<Map<String, String>> labelsList = new ArrayList<>();
         String[] nextToken = new String[]{null};
-        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
+        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, assumeRole)) {
             do {
                 DescribeAlarmsResponse response = rateLimiter.doWithRateLimit(
                         "CloudWatchClient/describeAlarms",
                         ImmutableSortedMap.of(
+                                SCRAPE_ACCOUNT_ID_LABEL, accountId,
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, "CloudWatchClient/describeAlarms"
                         ),
@@ -69,12 +71,10 @@ public class AlarmFetcher {
                 if (response.hasMetricAlarms()) {
                     labelsList.addAll(response.metricAlarms()
                             .stream()
-                            .map(metricAlarm -> this.processMetricAlarm(metricAlarm, region))
+                            .map(metricAlarm -> this.processMetricAlarm(metricAlarm, accountId, region))
                             .collect(Collectors.toList()));
                 }
-                if (response.hasCompositeAlarms()) {
-                    //TODO: Implement this case
-                }
+                // TODO Handle Composite Alarms
                 nextToken[0] = response.nextToken();
             } while (nextToken[0] != null);
         } catch (Exception e) {
@@ -83,7 +83,7 @@ public class AlarmFetcher {
         return labelsList;
     }
 
-    private Map<String, String> processMetricAlarm(MetricAlarm alarm, String region) {
+    private Map<String, String> processMetricAlarm(MetricAlarm alarm, String accountId, String region) {
         Map<String, String> labels = new TreeMap<>();
         labels.put("alertname", alarm.alarmName());
         labels.put(SCRAPE_REGION_LABEL, region);
@@ -92,7 +92,7 @@ public class AlarmFetcher {
         labels.put("threshold", Double.toString(alarm.threshold()));
         labels.put("namespace", alarm.namespace());
         labels.put("metric_namespace", alarm.namespace());
-        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountIDProvider.getAccountId());
+        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
         if (alarm.metricName() != null) {
             labels.put("metric_name", alarm.metricName());
         }

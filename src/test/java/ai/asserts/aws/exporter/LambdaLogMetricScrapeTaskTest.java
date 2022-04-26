@@ -2,16 +2,19 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.LogScrapeConfig;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.lambda.LambdaFunction;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import ai.asserts.aws.lambda.LogEventMetricEmitter;
 import ai.asserts.aws.lambda.LogEventScraper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     private String region;
+    private AccountProvider accountProvider;
+    private AWSAccount accountRegion;
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
     private NamespaceConfig namespaceConfig;
@@ -45,9 +50,12 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         region = "region1";
+        accountRegion = new AWSAccount("account", "role", ImmutableSet.of(region));
+
         logScrapeConfig = mock(LogScrapeConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
 
+        accountProvider = mock(AccountProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
         cloudWatchLogsClient = mock(CloudWatchLogsClient.class);
@@ -60,32 +68,30 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
 
 
-        testClass = new LambdaLogMetricScrapeTask(region);
-        testClass.setLambdaFunctionScraper(lambdaFunctionScraper);
-        testClass.setAwsClientProvider(awsClientProvider);
-        testClass.setScrapeConfigProvider(scrapeConfigProvider);
-        testClass.setLogEventScraper(logEventScraper);
-        testClass.setLogEventMetricEmitter(logEventMetricEmitter);
+        testClass = new LambdaLogMetricScrapeTask(accountProvider, awsClientProvider, scrapeConfigProvider,
+                lambdaFunctionScraper, logEventScraper, logEventMetricEmitter);
     }
 
     @Test
     void scrape_whenLambdaEnabled() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig)).anyTimes();
         expect(scrapeConfig.getLogScrapeDelaySeconds()).andReturn(1);
         expect(namespaceConfig.getLogs()).andReturn(ImmutableList.of(logScrapeConfig)).anyTimes();
-        expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of(
+        expect(lambdaFunctionScraper.getFunctions()).andReturn(ImmutableMap.of("account", ImmutableMap.of(
                 region, ImmutableMap.of("arn1", lambdaFunction))
-        ).anyTimes();
+        )).anyTimes();
         expect(lambdaFunction.getName()).andReturn("fn1").anyTimes();
         expect(logScrapeConfig.shouldScrapeLogsFor("fn1")).andReturn(true);
-        expect(awsClientProvider.getCloudWatchLogsClient(region)).andReturn(cloudWatchLogsClient);
+        expect(awsClientProvider.getCloudWatchLogsClient(region, "role")).andReturn(cloudWatchLogsClient);
         FilteredLogEvent filteredLogEvent = FilteredLogEvent.builder()
                 .message("message")
                 .build();
         expect(logEventScraper.findLogEvent(cloudWatchLogsClient, lambdaFunction, logScrapeConfig))
                 .andReturn(Optional.of(filteredLogEvent));
         expect(logEventMetricEmitter.getSample(namespaceConfig, LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
+                .account(accountRegion)
                 .lambdaFunction(lambdaFunction)
                 .logScrapeConfig(logScrapeConfig)
                 .build(), filteredLogEvent)).andReturn(Optional.of(sample));

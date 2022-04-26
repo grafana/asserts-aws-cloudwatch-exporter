@@ -7,12 +7,14 @@ import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
@@ -28,6 +30,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_INTERVAL_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
@@ -45,7 +48,9 @@ import static software.amazon.awssdk.services.cloudwatch.model.StatusCode.COMPLE
 @Slf4j
 @Setter
 @Getter
-@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(callSuper = false,
+        of = {"account", "region", "intervalSeconds", "delaySeconds"})
+@ToString(of = {"account", "region", "intervalSeconds", "delaySeconds"})
 public class MetricScrapeTask extends Collector implements MetricProvider {
     @Autowired
     private AWSClientProvider awsClientProvider;
@@ -61,16 +66,18 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private TimeWindowBuilder timeWindowBuilder;
     @Autowired
     private RateLimiter rateLimiter;
-    @EqualsAndHashCode.Include
+
+    private final String account;
+    private final String assumeRole;
     private final String region;
-    @EqualsAndHashCode.Include
     private final int intervalSeconds;
-    @EqualsAndHashCode.Include
     private final int delaySeconds;
     private long lastRunTime = -1;
     private volatile List<MetricFamilySamples> cache;
 
-    public MetricScrapeTask(String region, int intervalSeconds, int delay) {
+    public MetricScrapeTask(String account, String assumeRole, String region, int intervalSeconds, int delay) {
+        this.account = account;
+        this.assumeRole = assumeRole;
         this.region = region;
         this.intervalSeconds = intervalSeconds;
         this.delaySeconds = delay;
@@ -93,10 +100,12 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private List<MetricFamilySamples> fetchMetricsFromCW() {
         List<MetricFamilySamples> familySamples = new ArrayList<>();
 
-        log.info("BEGIN Scrape for region {} and interval {}", region, intervalSeconds);
-        Map<Integer, List<MetricQuery>> byInterval = metricQueryProvider.getMetricQueries().get(region);
+        log.info("BEGIN Scrape for account={} region={} and interval={}", account, region, intervalSeconds);
+        Map<String, Map<Integer, List<MetricQuery>>> byRegion = metricQueryProvider.getMetricQueries()
+                .getOrDefault(account, ImmutableMap.of());
+        Map<Integer, List<MetricQuery>> byInterval = byRegion.get(region);
         if (byInterval == null) {
-            log.error("No queries found for region {}", region);
+            log.error("No queries found for account = {}, region = {}", account, region);
             return Collections.emptyList();
         }
 
@@ -117,7 +126,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         Map<String, List<MetricFamilySamples.Sample>> samplesByMetric = new TreeMap<>();
 
-        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region)) {
+        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, assumeRole)) {
             batches.forEach(batch -> {
                 String nextToken = null;
                 // For now, S3 is the only one which has a different period of 1 day. All other metrics are 1m
@@ -137,6 +146,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                     GetMetricDataResponse metricData = rateLimiter.doWithRateLimit(
                             "CloudWatchClient/getMetricData",
                             ImmutableSortedMap.of(
+                                    SCRAPE_ACCOUNT_ID_LABEL, account,
                                     SCRAPE_REGION_LABEL, region,
                                     SCRAPE_OPERATION_LABEL, "getMetricData",
                                     SCRAPE_INTERVAL_LABEL, intervalSeconds + ""
@@ -157,8 +167,8 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                                 .stream().filter(metricDataResult -> metricDataResult.statusCode().equals(COMPLETE))
                                 .forEach(metricDataResult -> {
                                     MetricQuery metricQuery = queriesById.remove(metricDataResult.id());
-                                    List<MetricFamilySamples.Sample> samples = sampleBuilder.buildSamples(region,
-                                            metricQuery, metricDataResult);
+                                    List<MetricFamilySamples.Sample> samples = sampleBuilder.buildSamples(account,
+                                            region, metricQuery, metricDataResult);
 
                                     samples.forEach(sample ->
                                             samplesByMetric.computeIfAbsent(sample.name, k -> new ArrayList<>())
