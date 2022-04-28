@@ -9,8 +9,10 @@ import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import com.google.common.collect.ImmutableSortedMap;
+import io.micrometer.core.annotation.Timed;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.ComparisonOperator;
@@ -39,9 +41,13 @@ public class AlarmFetcher {
     private final AlertsProcessor alertsProcessor;
     private final AlarmMetricConverter alarmMetricConverter;
 
+    @Scheduled(fixedRateString = "${aws.alarm.fetch.task.fixedDelay:60000}",
+            initialDelayString = "${aws.alarm.fetch.task.initialDelay:5000}")
+    @Timed(description = "Time spent fetching CloudWatch alarm from all regions", histogram = true)
     public void fetchAlarms() {
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
+                log.info("Fetching alarms from account {} and region {}", accountRegion.getAccountId(), region);
                 String accountId = accountRegion.getAccountId();
                 String accountRole = accountRegion.getAssumeRole();
                 List<Map<String, String>> labelsList = getAlarms(accountId, accountRole, region);

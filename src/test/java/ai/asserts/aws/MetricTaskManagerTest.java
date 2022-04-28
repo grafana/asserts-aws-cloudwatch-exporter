@@ -1,14 +1,9 @@
 package ai.asserts.aws;
 
-import ai.asserts.aws.AccountProvider.AWSAccount;
-import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
-import ai.asserts.aws.config.NamespaceConfig;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.CollectorRegistry;
 import org.easymock.Capture;
 import org.easymock.EasyMockSupport;
@@ -25,41 +20,32 @@ import static org.easymock.EasyMock.newCapture;
 
 public class MetricTaskManagerTest extends EasyMockSupport {
     private AccountProvider accountProvider;
-    private AWSAccount awsAccount;
     private CollectorRegistry collectorRegistry;
     private MetricTaskManager testClass;
     private AutowireCapableBeanFactory beanFactory;
     private ScrapeConfigProvider scrapeConfigProvider;
-    private NamespaceConfig namespaceConfig;
     private MetricScrapeTask metricScrapeTask;
-    private ScrapeConfig scrapeConfig;
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
     private AlarmMetricExporter alarmMetricExporter;
-    private AlarmFetcher alarmFetcher;
 
     @BeforeEach
     public void setup() {
-        awsAccount = new AWSAccount("account", "role",
-                ImmutableSet.of("region1", "region2"));
         accountProvider = mock(AccountProvider.class);
         beanFactory = mock(AutowireCapableBeanFactory.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        scrapeConfig = mock(ScrapeConfig.class);
-        namespaceConfig = mock(NamespaceConfig.class);
         metricScrapeTask = mock(MetricScrapeTask.class);
         collectorRegistry = mock(CollectorRegistry.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
         alarmMetricExporter = mock(AlarmMetricExporter.class);
-        alarmFetcher = mock(AlarmFetcher.class);
 
         replayAll();
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
                 ecsServiceDiscoveryExporter,
-                taskThreadPool, alarmMetricExporter, alarmFetcher);
+                taskThreadPool, alarmMetricExporter);
         verifyAll();
         resetAll();
     }
@@ -69,7 +55,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     void afterPropertiesSet() {
         int delay = 60;
         expect(alarmMetricExporter.register(collectorRegistry)).andReturn(null);
-        alarmFetcher.fetchAlarms();
         replayAll();
         testClass.afterPropertiesSet();
         verifyAll();
@@ -79,7 +64,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     void triggerScrapes() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
                 ecsServiceDiscoveryExporter,
-                taskThreadPool, alarmMetricExporter, alarmFetcher) {
+                taskThreadPool, alarmMetricExporter) {
             @Override
             void updateScrapeTasks() {
             }
