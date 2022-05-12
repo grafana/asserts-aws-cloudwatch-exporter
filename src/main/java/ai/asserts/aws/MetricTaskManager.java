@@ -1,5 +1,6 @@
 package ai.asserts.aws;
 
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -69,22 +70,29 @@ public class MetricTaskManager implements InitializingBean {
     @VisibleForTesting
     void updateScrapeTasks() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Set<AccountProvider.AWSAccount> allAccounts = accountProvider.getAccounts();
-        allAccounts.forEach(awsAccount -> awsAccount.getRegions().forEach(region -> scrapeConfig.getNamespaces().stream()
-                .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
-                .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))
-                .forEach(interval -> {
-                    String accountId = awsAccount.getAccountId();
-                    metricScrapeTasks.computeIfAbsent(accountId, k -> new TreeMap<>())
-                            .computeIfAbsent(region, k -> new TreeMap<>())
-                            .computeIfAbsent(interval, k -> metricScrapeTask(
-                                    accountId, awsAccount.getAssumeRole(), region,
-                                    interval, scrapeConfig.getDelay()));
-                })));
+        Set<AWSAccount> allAccounts = accountProvider.getAccounts();
+        allAccounts.forEach(awsAccount -> {
+            log.info("Updating Scrape task for AWS Account {}", awsAccount);
+            awsAccount.getRegions().forEach(region -> {
+                log.info("Updating Scrape task for region {}", region);
+                scrapeConfig.getNamespaces().stream()
+                        .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
+                        .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))
+                        .forEach(interval -> {
+                            log.info("Updating Scrape task for interval {}", interval);
+                            String accountId = awsAccount.getAccountId();
+                            metricScrapeTasks.computeIfAbsent(accountId, k -> new TreeMap<>())
+                                    .computeIfAbsent(region, k -> new TreeMap<>())
+                                    .computeIfAbsent(interval, k -> metricScrapeTask(
+                                            accountId, awsAccount.getAssumeRole(), region,
+                                            interval, scrapeConfig.getDelay()));
+                        });
+            });
+        });
 
         // Remove any accounts or regions that don't have to be scraped anymore
         Set<String> accounts = allAccounts.stream()
-                .map(AccountProvider.AWSAccount::getAccountId)
+                .map(AWSAccount::getAccountId)
                 .collect(Collectors.toSet());
         metricScrapeTasks.entrySet().removeIf(entry -> !accounts.contains(entry.getKey()));
         allAccounts.forEach(account -> {

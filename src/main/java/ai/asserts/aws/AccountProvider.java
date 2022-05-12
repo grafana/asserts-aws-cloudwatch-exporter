@@ -27,7 +27,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +72,7 @@ public class AccountProvider {
 
     private Set<AWSAccount> getAccountsFromApiServer(ScrapeConfig scrapeConfig) {
         Map<String, String> envVariables = getEnvVariables();
+        Set<AWSAccount> awsAccounts = new LinkedHashSet<>();
         if (Stream.of(ASSERTS_API_SERVER_URL, ASSERTS_PASSWORD, ASSERTS_USER).allMatch(envVariables::containsKey)) {
             String user = envVariables.get(ASSERTS_USER);
             String password = envVariables.get(ASSERTS_PASSWORD);
@@ -87,16 +87,17 @@ public class AccountProvider {
                 if (response.getStatusCode().is2xxSuccessful()) {
                     ResponseDto responseDto = response.getBody();
                     if (responseDto != null && responseDto.getCloudwatchConfigs() != null) {
-                        return responseDto.getCloudwatchConfigs().stream()
+                        log.info("API Server returned AWS Accounts {}", responseDto.getCloudwatchConfigs());
+                        awsAccounts.addAll(responseDto.getCloudwatchConfigs().stream()
                                 .map(config -> new AWSAccount(config.accountID, config.assumeRoleARN, scrapeConfig.getRegions()))
-                                .collect(Collectors.toSet());
+                                .collect(Collectors.toSet()));
                     }
                 }
             } catch (RestClientException e) {
                 log.error("Call to ApiServer to fetch accounts failed", e);
             }
         }
-        return Collections.emptySet();
+        return awsAccounts;
     }
 
     @AllArgsConstructor
