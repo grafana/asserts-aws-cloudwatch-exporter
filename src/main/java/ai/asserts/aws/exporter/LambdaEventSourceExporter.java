@@ -74,6 +74,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
 
     @Override
     public void update() {
+        log.info("Updating Lambda Event Sources");
         this.metrics = getMappings();
     }
 

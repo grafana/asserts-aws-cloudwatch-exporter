@@ -48,6 +48,7 @@ public class EC2ToEBSVolumeExporter {
     }
 
     public void update() {
+        log.info("Export EBS Volumes attached to EC2 Instances");
         Set<ResourceRelation> newAttachedVolumes = new HashSet<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
             try {

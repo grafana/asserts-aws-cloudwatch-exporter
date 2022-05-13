@@ -55,6 +55,7 @@ public class ApiGatewayToLambdaBuilder {
     }
 
     public void update() {
+        log.info("Exporting ApiGateway to Lambda relationship");
         Set<ResourceRelation> newIntegrations = new HashSet<>();
         try {
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
