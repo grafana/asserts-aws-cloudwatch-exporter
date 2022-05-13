@@ -73,7 +73,7 @@ public class LBToLambdaRoutingBuilder {
                                                 .build()));
                             }
                         } catch (TargetGroupNotFoundException e) {
-                            log.warn("LoadBalancer-2-TargetGroup Cache refers to non-existent TargetGroup");
+                            log.warn("LoadBalancer-2-TargetGroup Cache refers to non-existent TargetGroup {}", tg);
                         } catch (Exception e) {
                             log.error("Failed to build resource relations", e);
                         }
