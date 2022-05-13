@@ -48,6 +48,7 @@ public class TargetGroupLBMapProvider {
     private final Map<Resource, Resource> tgToLB = new ConcurrentHashMap<>();
 
     public void update() {
+        log.info("Updating TargetGroup to LoadBalancer map");
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             String assumeRole = accountRegion.getAssumeRole();
             accountRegion.getRegions().forEach(region -> {

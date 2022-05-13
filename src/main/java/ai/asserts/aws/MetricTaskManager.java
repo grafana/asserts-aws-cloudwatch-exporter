@@ -79,7 +79,6 @@ public class MetricTaskManager implements InitializingBean {
                         .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
                         .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))
                         .forEach(interval -> {
-                            log.info("Updating Scrape task for interval {}", interval);
                             String accountId = awsAccount.getAccountId();
                             metricScrapeTasks.computeIfAbsent(accountId, k -> new TreeMap<>())
                                     .computeIfAbsent(region, k -> new TreeMap<>())
@@ -106,7 +105,7 @@ public class MetricTaskManager implements InitializingBean {
         MetricScrapeTask metricScrapeTask = newScrapeTask(account, assumeRole, region, interval, delay);
         beanFactory.autowireBean(metricScrapeTask);
         metricScrapeTask.register(collectorRegistry);
-        log.info("Setup metric scrape task for region {} and interval {}", region, interval);
+        log.info("Setup metric scrape task for account {}, region {} and interval {}", account, region, interval);
         return metricScrapeTask;
     }
 }

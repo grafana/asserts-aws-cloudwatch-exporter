@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetGroupNotFoundException;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -71,6 +72,8 @@ public class LBToLambdaRoutingBuilder {
                                                 .name("ROUTES_TO")
                                                 .build()));
                             }
+                        } catch (TargetGroupNotFoundException e) {
+                            log.warn("LoadBalancer-2-TargetGroup Cache refers to non-existent TargetGroup {}", tg);
                         } catch (Exception e) {
                             log.error("Failed to build resource relations", e);
                         }

@@ -78,6 +78,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
 
     @Override
     public void update() {
+        log.info("Updating Lambda Capacity");
         cache = getMetrics();
     }
 

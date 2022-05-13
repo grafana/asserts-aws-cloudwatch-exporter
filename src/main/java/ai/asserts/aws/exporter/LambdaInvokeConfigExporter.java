@@ -77,6 +77,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
 
     @Override
     public void update() {
+        log.info("Updating Lambda Invoke Configurations");
         cache = getInvokeConfigs();
     }
 

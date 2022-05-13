@@ -76,6 +76,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
 
     @Override
     public void update() {
+        log.info("Exporting resources");
         try {
             List<Sample> samples = new ArrayList<>();
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();

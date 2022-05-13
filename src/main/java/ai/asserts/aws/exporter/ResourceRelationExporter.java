@@ -48,6 +48,7 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
 
     @Override
     public void update() {
+        log.info("Export resource relationships");
         try {
             List<MetricFamilySamples> familySamples = new ArrayList<>();
             List<MetricFamilySamples.Sample> samples = new ArrayList<>();

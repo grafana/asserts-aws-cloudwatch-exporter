@@ -11,6 +11,7 @@ import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -30,6 +31,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
+@Slf4j
 public class KinesisAnalyticsExporter extends Collector implements InitializingBean {
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
@@ -62,6 +64,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
     }
 
     public void update() {
+        log.info("Exporting Kinesis Analytics Resources");
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
