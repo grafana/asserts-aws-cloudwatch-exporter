@@ -11,4 +11,3 @@ scrape_configs:
     honor_labels: true
     http_sd_configs:
     - url: http://%{CLOUDWATCH_EXPORTER_URL}/aws-exporter/ecs-sd-config
-      refresh_interval: 30s
