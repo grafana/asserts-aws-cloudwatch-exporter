@@ -1,0 +1,7 @@
+ARG VM_VERSION=v1.73.1
+FROM victoriametrics/vmagent:$VM_VERSION
+
+WORKDIR /
+COPY ./agent-scrape-config.yml /etc/agent-scrape-config.yml
+
+CMD ["-envflag.enable", "-promscrape.config=/etc/agent-scrape-config.yml"]
