@@ -1,0 +1,14 @@
+scrape_configs:
+  - job_name: 'agent'
+    static_configs:
+      - targets: ['localhost:8429']
+  - job_name: 'exporter'
+    honor_labels: true
+    metrics_path: /aws-exporter/actuator/prometheus
+    static_configs:
+      - targets: ['%{CLOUDWATCH_EXPORTER_URL}']
+  - job_name: 'ecs-service-discovery'
+    honor_labels: true
+    http_sd_configs:
+    - url: http://%{CLOUDWATCH_EXPORTER_URL}/aws-exporter/ecs-sd-config
+      refresh_interval: 30s
