@@ -160,7 +160,7 @@ public class ResourceTagHelper {
         Set<Resource> resources = new HashSet<>();
         String nextToken = null;
         String assumeRole = accountRegion.getAssumeRole();
-        try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region, assumeRole)) {
+        try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region, accountRegion)) {
             do {
                 GetResourcesRequest req = builder
                         .paginationToken(nextToken)
@@ -210,7 +210,7 @@ public class ResourceTagHelper {
         if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             String assumeRole = accountRegion.getAssumeRole();
-            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, assumeRole)) {
+            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, accountRegion)) {
                 DescribeTagsResponse describeTagsResponse = elbClient.describeTags(DescribeTagsRequest.builder()
                         .loadBalancerNames(resourceNames)
                         .build());
@@ -224,7 +224,7 @@ public class ResourceTagHelper {
                                 .collect(Collectors.toList())));
             }
         } else if (resourceType.equals("AWS::AutoScaling::AutoScalingGroup")) {
-            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, null)) {
+            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion)) {
                 software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse describeTagsResponse = asgClient.describeTags(software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder()
                         .build());
                 describeTagsResponse.tags()

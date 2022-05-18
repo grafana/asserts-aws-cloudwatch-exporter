@@ -69,7 +69,8 @@ public class ResourceExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        account = new AWSAccount("account", "role", ImmutableSet.of("region"));
+        account = new AWSAccount("account", "", "", "role",
+                ImmutableSet.of("region"));
         accountProvider = mock(AccountProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
@@ -94,7 +95,7 @@ public class ResourceExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("type1")).anyTimes();
         expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
-        expect(awsClientProvider.getConfigClient("region", "role")).andReturn(configClient).anyTimes();
+        expect(awsClientProvider.getConfigClient("region", account)).andReturn(configClient).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<ListDiscoveredResourcesResponse>> callbackCapture = Capture.newInstance();
 
@@ -161,7 +162,7 @@ public class ResourceExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getDiscoverResourceTypes()).andReturn(ImmutableSet.of("type1")).anyTimes();
         expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
-        expect(awsClientProvider.getConfigClient("region", "role")).andReturn(configClient).anyTimes();
+        expect(awsClientProvider.getConfigClient("region", account)).andReturn(configClient).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<ListDiscoveredResourcesResponse>> callbackCapture = Capture.newInstance();
 

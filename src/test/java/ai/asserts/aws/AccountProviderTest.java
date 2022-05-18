@@ -85,11 +85,12 @@ public class AccountProviderTest extends EasyMockSupport {
     @Test
     public void getAccounts_ApiServerCredentialsMissing() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region"));
+        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(accountIDProvider.getAccountId()).andReturn("account1");
         replayAll();
         assertEquals(
-                ImmutableSet.of(new AWSAccount("account1", null, ImmutableSet.of("region"))),
+                ImmutableSet.of(new AWSAccount("account1", null, null, null,
+                        ImmutableSet.of("region"))),
                 testClass.getAccounts()
         );
         verifyAll();
@@ -116,13 +117,14 @@ public class AccountProviderTest extends EasyMockSupport {
                 eq(new ParameterizedTypeReference<ResponseDto>() {
                 })))
                 .andReturn(ResponseEntity.ok(
-                        new ResponseDto(ImmutableList.of(new AccountConfig("account2", "role2")))));
+                        new ResponseDto(ImmutableList.of(new AccountConfig("account2",
+                                "", "", "role2")))));
 
         replayAll();
         assertEquals(
                 ImmutableSet.of(
-                        new AWSAccount("account1", null, ImmutableSet.of("region")),
-                        new AWSAccount("account2", "role2", ImmutableSet.of("region"))
+                        new AWSAccount("account1", null, null, null, ImmutableSet.of("region")),
+                        new AWSAccount("account2", "", "", "role2", ImmutableSet.of("region"))
                 ),
                 testClass.getAccounts()
         );

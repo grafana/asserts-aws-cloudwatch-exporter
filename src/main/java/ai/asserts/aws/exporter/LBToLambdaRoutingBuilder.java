@@ -45,8 +45,7 @@ public class LBToLambdaRoutingBuilder {
         Set<ResourceRelation> routing = new HashSet<>();
         for (AccountProvider.AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
-                String assumeRole = accountRegion.getAssumeRole();
-                try (ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region, assumeRole)) {
+                try (ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region, accountRegion)) {
                     Map<Resource, Resource> tgToLB = targetGroupLBMapProvider.getTgToLB();
                     tgToLB.keySet().forEach(tg -> {
                         try {

@@ -58,10 +58,10 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
         testClass = new LBToLambdaRoutingBuilder(awsClientProvider, new RateLimiter(metricCollector),
                 resourceMapper, accountProvider, targetGroupLBMapProvider);
 
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
-                new AWSAccount("account", "role", ImmutableSet.of("region"))
-        )).anyTimes();
-        expect(awsClientProvider.getELBV2Client("region", "role")).andReturn(elbV2Client).anyTimes();
+        AWSAccount awsAccount = new AWSAccount("account", "accessId", "secretKey", "role",
+                ImmutableSet.of("region"));
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).anyTimes();
+        expect(awsClientProvider.getELBV2Client("region", awsAccount)).andReturn(elbV2Client).anyTimes();
         expect(targetGroupLBMapProvider.getTgToLB()).andReturn(ImmutableMap.of(targetResource, lbRsource));
     }
 

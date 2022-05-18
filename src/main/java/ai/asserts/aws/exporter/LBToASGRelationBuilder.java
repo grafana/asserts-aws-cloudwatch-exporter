@@ -61,7 +61,7 @@ public class LBToASGRelationBuilder {
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, api
                         ),
-                        () -> awsClientProvider.getAutoScalingClient(region, accountRegion.getAssumeRole()))) {
+                        () -> awsClientProvider.getAutoScalingClient(region, accountRegion))) {
                     DescribeAutoScalingGroupsResponse resp = autoScalingClient.describeAutoScalingGroups();
                     List<AutoScalingGroup> groups = resp.autoScalingGroups();
                     if (!isEmpty(groups)) {

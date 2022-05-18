@@ -68,9 +68,8 @@ public class LambdaFunctionScraper {
                 .filter(ns -> CWNamespace.lambda.getNamespace().equals(ns.getName()))
                 .findFirst();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            String assumeRole = accountRegion.getAssumeRole();
             lambdaNSOpt.ifPresent(lambdaNS -> accountRegion.getRegions().forEach(region -> {
-                try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, assumeRole)) {
+                try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, accountRegion)) {
                     // Get all the functions
                     ListFunctionsResponse response = rateLimiter.doWithRateLimit(
                             "LambdaClient/listFunctions",

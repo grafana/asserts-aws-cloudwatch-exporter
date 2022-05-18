@@ -59,7 +59,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account", "role", ImmutableSet.of("role1"));
+        accountRegion = new AWSAccount("account", "", "", "role",
+                ImmutableSet.of("role1"));
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
@@ -90,7 +91,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         expect(namespaceConfig.getTagFilters()).andReturn(ImmutableMap.of(
                 "tag", ImmutableSortedSet.of("value1", "value2")
         ));
-        expect(awsClientProvider.getResourceTagClient("region", "role")).andReturn(apiClient);
+        expect(awsClientProvider.getResourceTagClient("region", accountRegion)).andReturn(apiClient);
 
         Tag tag1 = Tag.builder()
                 .key("tag").value("value1")
@@ -155,7 +156,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getStandardNamespace("kafka")).andReturn(Optional.of(kafka));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.hasTagFilters()).andReturn(false);
-        expect(awsClientProvider.getResourceTagClient("region", "role")).andReturn(apiClient);
+        expect(awsClientProvider.getResourceTagClient("region", accountRegion)).andReturn(apiClient);
 
         Tag tag1 = Tag.builder()
                 .key("tag").value("value1")
@@ -269,7 +270,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
         expect(resource.getTags()).andReturn(tags).anyTimes();
 
-        expect(awsClientProvider.getELBClient("region", "role")).andReturn(elbClient);
+        expect(awsClientProvider.getELBClient("region", accountRegion)).andReturn(elbClient);
         expect(elbClient.describeTags(DescribeTagsRequest.builder()
                 .loadBalancerNames("resourceName")
                 .build())).andReturn(DescribeTagsResponse.builder()

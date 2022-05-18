@@ -75,7 +75,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        account = new AWSAccount("account", "role",
+        account = new AWSAccount("account", "", "", "",
                 ImmutableSet.of("region1", "region2"));
         accountProvider = mock(AccountProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
@@ -104,7 +104,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
 
-        expect(awsClientProvider.getECSClient("region1", "role")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn1", "arn2")
                 .build());
@@ -112,7 +112,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
 
-        expect(awsClientProvider.getECSClient("region2", "role")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn3", "arn4")
                 .build());
@@ -153,7 +153,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
 
-        expect(awsClientProvider.getECSClient("region1", "role")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn1", "arn2")
                 .build());
@@ -161,7 +161,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
 
-        expect(awsClientProvider.getECSClient("region2", "role")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn3", "arn4")
                 .build());
@@ -204,12 +204,12 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
 
-        expect(awsClientProvider.getECSClient("region1", "role")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(), eq(1));
 
-        expect(awsClientProvider.getECSClient("region2", "role")).andReturn(ecsClient);
+        expect(awsClientProvider.getECSClient("region2", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(), eq(1));

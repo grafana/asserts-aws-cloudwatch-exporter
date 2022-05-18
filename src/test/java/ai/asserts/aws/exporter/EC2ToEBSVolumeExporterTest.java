@@ -39,7 +39,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         AWSAccount account = new AWSAccount(
-                "account", "role", ImmutableSet.of("region"));
+                "account", "", "", "role", ImmutableSet.of("region"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         ec2Client = mock(Ec2Client.class);
@@ -48,7 +48,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                 accountProvider, awsClientProvider, new RateLimiter(metricCollector)
         );
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
-        expect(awsClientProvider.getEc2Client("region", "role")).andReturn(ec2Client);
+        expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client);
     }
 
     @Test

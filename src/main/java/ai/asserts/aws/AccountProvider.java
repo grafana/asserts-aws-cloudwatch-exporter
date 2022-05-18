@@ -31,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -40,6 +41,7 @@ import static ai.asserts.aws.ApiServerConstants.ASSERTS_PASSWORD;
 import static ai.asserts.aws.ApiServerConstants.ASSERTS_USER;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.util.StringUtils.hasLength;
 
 @Component
 @Slf4j
@@ -60,8 +62,19 @@ public class AccountProvider {
         Set<AWSAccount> accountRegions = new LinkedHashSet<>(getAccountsFromApiServer(scrapeConfig));
         String accountId = accountIDProvider.getAccountId();
         if (accountRegions.stream().noneMatch(account -> account.getAccountId().equals(accountId))) {
-            accountRegions.add(new AWSAccount(accountId, null, scrapeConfig.getRegions()));
+            Set<String> regions = scrapeConfig.getRegions();
+            if (regions.isEmpty()) {
+                regions = new TreeSet<>();
+                regions.add("us-west-2");
+            }
+            accountRegions.add(new AWSAccount(accountId, null, null, null, regions));
         }
+
+        // Remove other AWS Accounts which don't have credentials
+        accountRegions.removeIf(account ->
+                !accountId.equals(account.getAccountId()) && !account.hasAccessCredentials());
+
+        log.info("Scraping AWS Accounts {}", accountRegions);
         return accountRegions;
     }
 
@@ -73,6 +86,10 @@ public class AccountProvider {
     private Set<AWSAccount> getAccountsFromApiServer(ScrapeConfig scrapeConfig) {
         Map<String, String> envVariables = getEnvVariables();
         Set<AWSAccount> awsAccounts = new LinkedHashSet<>();
+        Set<String> regions = new TreeSet<>(scrapeConfig.getRegions());
+        if (regions.isEmpty()) {
+            regions.add("us-west-2");
+        }
         if (Stream.of(ASSERTS_API_SERVER_URL, ASSERTS_PASSWORD, ASSERTS_USER).allMatch(envVariables::containsKey)) {
             String user = envVariables.get(ASSERTS_USER);
             String password = envVariables.get(ASSERTS_PASSWORD);
@@ -86,10 +103,11 @@ public class AccountProvider {
                         });
                 if (response.getStatusCode().is2xxSuccessful()) {
                     ResponseDto responseDto = response.getBody();
-                    if (responseDto != null && responseDto.getCloudwatchConfigs() != null) {
-                        log.info("API Server returned AWS Accounts {}", responseDto.getCloudwatchConfigs());
-                        awsAccounts.addAll(responseDto.getCloudwatchConfigs().stream()
-                                .map(config -> new AWSAccount(config.accountID, config.assumeRoleARN, scrapeConfig.getRegions()))
+                    if (responseDto != null && responseDto.getCloudWatchConfigs() != null) {
+                        log.info("API Server returned AWS Accounts {}", responseDto.getCloudWatchConfigs());
+                        awsAccounts.addAll(responseDto.getCloudWatchConfigs().stream()
+                                .map(config -> new AWSAccount(config.accountID, config.accessKey, config.secretKey,
+                                        config.assumeRoleARN, regions))
                                 .collect(Collectors.toSet()));
                     }
                 }
@@ -106,8 +124,16 @@ public class AccountProvider {
     @ToString
     public static class AWSAccount {
         private final String accountId;
+        @ToString.Exclude
+        private final String accessId;
+        @ToString.Exclude
+        private final String secretKey;
         private final String assumeRole;
         private final Set<String> regions;
+
+        public boolean hasAccessCredentials() {
+            return hasLength(accessId) && hasLength(secretKey);
+        }
     }
 
     @Getter
@@ -119,6 +145,10 @@ public class AccountProvider {
     @NoArgsConstructor
     public static class AccountConfig {
         private String accountID;
+        @ToString.Exclude
+        private String accessKey;
+        @ToString.Exclude
+        private String secretKey;
         private String assumeRoleARN;
     }
 
@@ -128,7 +158,7 @@ public class AccountProvider {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class ResponseDto {
-        private List<AccountConfig> cloudwatchConfigs;
+        private List<AccountConfig> cloudWatchConfigs;
     }
 
 

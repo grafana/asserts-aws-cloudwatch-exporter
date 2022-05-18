@@ -50,9 +50,8 @@ public class TargetGroupLBMapProvider {
     public void update() {
         log.info("Updating TargetGroup to LoadBalancer map");
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            String assumeRole = accountRegion.getAssumeRole();
             accountRegion.getRegions().forEach(region -> {
-                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region, assumeRole)) {
+                try (ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region, accountRegion)) {
                     String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
                     ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
                             SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
