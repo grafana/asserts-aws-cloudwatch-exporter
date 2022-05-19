@@ -118,13 +118,15 @@ public class AccountProviderTest extends EasyMockSupport {
                 })))
                 .andReturn(ResponseEntity.ok(
                         new ResponseDto(ImmutableList.of(new AccountConfig("account2",
-                                "", "", "role2")))));
+                                "accessKey", "secretKey", "role2"),
+                                new AccountConfig("account3",
+                                        null, null, "role3")))));
 
         replayAll();
         assertEquals(
                 ImmutableSet.of(
                         new AWSAccount("account1", null, null, null, ImmutableSet.of("region")),
-                        new AWSAccount("account2", "", "", "role2", ImmutableSet.of("region"))
+                        new AWSAccount("account2", "accessKey", "secretKey", "role2", ImmutableSet.of("region"))
                 ),
                 testClass.getAccounts()
         );
