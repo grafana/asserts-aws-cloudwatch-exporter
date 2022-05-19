@@ -2,6 +2,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
@@ -10,6 +11,7 @@ import ai.asserts.aws.cloudwatch.query.QueryBatcher;
 import ai.asserts.aws.config.MetricConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import org.easymock.EasyMockSupport;
@@ -49,6 +51,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     private Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private TimeWindowBuilder timeWindowBuilder;
+    private AWSAccount account;
     private MetricScrapeTask testClass;
 
     @BeforeEach
@@ -59,6 +62,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         region = "region1";
         interval = 60;
         delay = 0;
+        account = new AWSAccount(accountId, "", "", accountRole, ImmutableSet.of(region));
         metricQueryProvider = mock(MetricQueryProvider.class);
         queryBatcher = mock(QueryBatcher.class);
         metricCollector = mock(BasicMetricCollector.class);
@@ -70,7 +74,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         familySamples = mock(Collector.MetricFamilySamples.class);
         timeWindowBuilder = mock(TimeWindowBuilder.class);
 
-        testClass = new MetricScrapeTask(accountId, accountRole, region, interval, delay);
+        testClass = new MetricScrapeTask(account, region, interval, delay);
         testClass.setMetricQueryProvider(metricQueryProvider);
         testClass.setQueryBatcher(queryBatcher);
         testClass.setAwsClientProvider(awsClientProvider);
@@ -107,7 +111,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         expect(metricQueryProvider.getMetricQueries())
                 .andReturn(ImmutableMap.of(accountId, ImmutableMap.of(region, ImmutableMap.of(interval, queries))));
 
-        expect(awsClientProvider.getCloudWatchClient(region, accountRole)).andReturn(cloudWatchClient);
+        expect(awsClientProvider.getCloudWatchClient(region, account)).andReturn(cloudWatchClient);
 
         expect(timeWindowBuilder.getTimePeriod(region, interval)).andReturn(new Instant[]{now.minusSeconds(60), now});
 

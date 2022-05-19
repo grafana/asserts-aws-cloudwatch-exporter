@@ -59,10 +59,9 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
 
     @Test
     void updateRouting() {
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
-                new AWSAccount("123123123", "role", ImmutableSet.of("region"))
-        ));
-        expect(awsClientProvider.getAutoScalingClient("region", "role")).andReturn(autoScalingClient);
+        AWSAccount awsAccount = new AWSAccount("123123123", "accessId", "secretKey", "role", ImmutableSet.of("region"));
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
+        expect(awsClientProvider.getAutoScalingClient("region", awsAccount)).andReturn(autoScalingClient);
         expect(autoScalingClient.describeAutoScalingGroups()).andReturn(DescribeAutoScalingGroupsResponse.builder()
                 .autoScalingGroups(AutoScalingGroup.builder()
                         .autoScalingGroupARN("asg-arn")

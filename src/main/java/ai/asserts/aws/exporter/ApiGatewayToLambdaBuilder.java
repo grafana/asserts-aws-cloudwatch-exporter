@@ -60,8 +60,7 @@ public class ApiGatewayToLambdaBuilder {
         try {
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region -> {
-                    String assumeRole = accountRegion.getAssumeRole();
-                    try (ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, assumeRole)) {
+                    try (ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, accountRegion)) {
                         SortedMap<String, String> labels = new TreeMap<>();
                         String getRestApis = "ApiGatewayClient/getRestApis";
                         labels.put(SCRAPE_OPERATION_LABEL, getRestApis);

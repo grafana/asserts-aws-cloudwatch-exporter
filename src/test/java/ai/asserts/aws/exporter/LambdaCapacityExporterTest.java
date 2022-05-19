@@ -77,8 +77,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        account1 = new AWSAccount("account1", "role", ImmutableSet.of("region"));
-        account2 = new AWSAccount("account2", "role", ImmutableSet.of("region"));
+        account1 = new AWSAccount("account1", "", "", "role",
+                ImmutableSet.of("region"));
+        account2 = new AWSAccount("account2", "", "", "role",
+                ImmutableSet.of("region"));
 
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
@@ -161,7 +163,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 )
         );
 
-        expectAccountSettings("account1", "region1");
+        expectAccountSettings(account1, "region1");
 
         expect(resourceTagHelper.getFilteredResources(account1, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
@@ -194,7 +196,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("requested", fn1VersionLabels, 20.0D)).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("allocated", fn1VersionLabels, 10.0D)).andReturn(sample);
 
-        expectAccountSettings("account2", "region2");
+        expectAccountSettings(account2, "region2");
 
         expect(resourceTagHelper.getFilteredResources(account2, "region2", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
@@ -250,7 +252,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                         "account1", ImmutableMap.of("region1", ImmutableMap.of("arn1", fn1))
                 )
         );
-        expectAccountSettings("account1", "region1");
+        expectAccountSettings(account1, "region1");
 
         expect(resourceTagHelper.getFilteredResources(account1, "region1", namespaceConfig))
                 .andReturn(ImmutableSet.of(resource));
@@ -292,7 +294,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(functionScraper.getFunctions()).andReturn(ImmutableMap.of("account1", ImmutableMap.of(
                 "region1", ImmutableMap.of("arn1", fn1)
         )));
-        expectAccountSettings("account1", "region1");
+        expectAccountSettings(account1, "region1");
         expect(resourceTagHelper.getFilteredResources(account1, "region1", namespaceConfig))
                 .andThrow(new RuntimeException());
         lambdaClient.close();
@@ -303,8 +305,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         verifyAll();
     }
 
-    private void expectAccountSettings(String account, String region) {
-        expect(awsClientProvider.getLambdaClient(region, "role")).andReturn(lambdaClient);
+    private void expectAccountSettings(AWSAccount account, String region) {
+        expect(awsClientProvider.getLambdaClient(region, account)).andReturn(lambdaClient);
         expect(lambdaClient.getAccountSettings()).andReturn(GetAccountSettingsResponse.builder()
                 .accountLimit(AccountLimit.builder()
                         .concurrentExecutions(10)
@@ -313,11 +315,11 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
-                "account_id", account,
+                "account_id", account.getAccountId(),
                 "region", region, "type", "concurrent_executions", "cw_namespace", "AWS/Lambda"), 10.0D
         )).andReturn(sample);
         expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
-                "account_id", account,
+                "account_id", account.getAccountId(),
                 "region", region, "type", "unreserved_concurrent_executions", "cw_namespace", "AWS/Lambda"), 20.0D
         )).andReturn(sample);
     }

@@ -50,21 +50,21 @@ public class AlarmFetcher {
                 log.info("Fetching alarms from account {} and region {}", accountRegion.getAccountId(), region);
                 String accountId = accountRegion.getAccountId();
                 String accountRole = accountRegion.getAssumeRole();
-                List<Map<String, String>> labelsList = getAlarms(accountId, accountRole, region);
+                List<Map<String, String>> labelsList = getAlarms(accountRegion, region);
                 alertsProcessor.sendAlerts(labelsList);
             });
         }
     }
 
-    private List<Map<String, String>> getAlarms(String accountId, String assumeRole, String region) {
+    private List<Map<String, String>> getAlarms(AWSAccount account, String region) {
         List<Map<String, String>> labelsList = new ArrayList<>();
         String[] nextToken = new String[]{null};
-        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, assumeRole)) {
+        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, account)) {
             do {
                 DescribeAlarmsResponse response = rateLimiter.doWithRateLimit(
                         "CloudWatchClient/describeAlarms",
                         ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, accountId,
+                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, "CloudWatchClient/describeAlarms"
                         ),
@@ -77,7 +77,7 @@ public class AlarmFetcher {
                 if (response.hasMetricAlarms()) {
                     labelsList.addAll(response.metricAlarms()
                             .stream()
-                            .map(metricAlarm -> this.processMetricAlarm(metricAlarm, accountId, region))
+                            .map(metricAlarm -> this.processMetricAlarm(metricAlarm, account.getAccountId(), region))
                             .collect(Collectors.toList()));
                 }
                 // TODO Handle Composite Alarms

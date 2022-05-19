@@ -50,6 +50,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
     private SortedMap<String, String> labels;
+    private AWSAccount awsAccount;
 
     @BeforeEach
     public void setup() {
@@ -64,9 +65,9 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingV2Client/describeLoadBalancers"
         );
 
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
-                new AWSAccount("account", "role", ImmutableSet.of("region"))
-        )).anyTimes();
+        awsAccount = new AWSAccount("account", "", "", "role",
+                ImmutableSet.of("region"));
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).anyTimes();
     }
 
     @Test
@@ -75,7 +76,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 .loadBalancerArn("lb-arn")
                 .build();
 
-        expect(awsClientProvider.getELBV2Client("region", "role")).andReturn(lbClient);
+        expect(awsClientProvider.getELBV2Client("region", awsAccount)).andReturn(lbClient);
 
         expect(lbClient.describeLoadBalancers()).andReturn(DescribeLoadBalancersResponse.builder()
                 .loadBalancers(loadBalancer)

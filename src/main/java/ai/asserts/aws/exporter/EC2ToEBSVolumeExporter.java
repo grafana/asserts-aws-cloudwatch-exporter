@@ -52,7 +52,7 @@ public class EC2ToEBSVolumeExporter {
         Set<ResourceRelation> newAttachedVolumes = new HashSet<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
             try {
-                Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount.getAssumeRole());
+                Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount);
                 SortedMap<String, String> telemetryLabels = new TreeMap<>();
                 String api = "Ec2Client/describeVolumes";
                 telemetryLabels.put(SCRAPE_OPERATION_LABEL, api);

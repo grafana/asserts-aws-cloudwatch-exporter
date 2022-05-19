@@ -50,7 +50,8 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         region = "region1";
-        accountRegion = new AWSAccount("account", "role", ImmutableSet.of(region));
+        accountRegion = new AWSAccount("account", "", "", "role",
+                ImmutableSet.of(region));
 
         logScrapeConfig = mock(LogScrapeConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
@@ -84,7 +85,7 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         )).anyTimes();
         expect(lambdaFunction.getName()).andReturn("fn1").anyTimes();
         expect(logScrapeConfig.shouldScrapeLogsFor("fn1")).andReturn(true);
-        expect(awsClientProvider.getCloudWatchLogsClient(region, "role")).andReturn(cloudWatchLogsClient);
+        expect(awsClientProvider.getCloudWatchLogsClient(region, accountRegion)).andReturn(cloudWatchLogsClient);
         FilteredLogEvent filteredLogEvent = FilteredLogEvent.builder()
                 .message("message")
                 .build();

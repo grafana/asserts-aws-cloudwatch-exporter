@@ -5,9 +5,6 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
-import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,27 +17,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class AccountIDProviderTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private StsClient stsClient;
-    private ScrapeConfigProvider scrapeConfigProvider;
-    private ScrapeConfig scrapeConfig;
     private AccountIDProvider testClass;
 
     @BeforeEach
     public void setup() {
         awsClientProvider = mock(AWSClientProvider.class);
         stsClient = mock(StsClient.class);
-        scrapeConfig = mock(ScrapeConfig.class);
-        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        testClass = new AccountIDProvider(awsClientProvider, scrapeConfigProvider);
+        testClass = new AccountIDProvider(awsClientProvider);
     }
 
     @Test
     public void afterPropertiesSet() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
-        expect(awsClientProvider.getStsClient("region")).andReturn(stsClient);
+        expect(awsClientProvider.getStsClient("us-west-2")).andReturn(stsClient);
         expect(stsClient.getCallerIdentity()).andReturn(GetCallerIdentityResponse.builder()
                 .account("TestAccount")
                 .build());
+        stsClient.close();
         replayAll();
         testClass.afterPropertiesSet();
         assertEquals("TestAccount", testClass.getAccountId());

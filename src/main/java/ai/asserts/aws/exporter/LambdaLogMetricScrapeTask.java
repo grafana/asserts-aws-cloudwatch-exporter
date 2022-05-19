@@ -107,7 +107,7 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
             ai.asserts.aws.config.NamespaceConfig nc,
             Map<String, Map<String, LambdaFunction>> byRegion, String region) {
         String assumeRole = account.getAssumeRole();
-        try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region, assumeRole)) {
+        try (CloudWatchLogsClient cloudWatchLogsClient = awsClientProvider.getCloudWatchLogsClient(region, account)) {
             byRegion.get(region).forEach((arn, functionConfig) -> nc.getLogs()
                     .stream()
                     .filter(logScrapeConfig -> logScrapeConfig.shouldScrapeLogsFor(functionConfig.getName()))

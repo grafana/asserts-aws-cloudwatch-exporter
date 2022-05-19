@@ -50,7 +50,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         now = Instant.now();
-        awsAccount = new AWSAccount("123456789", "role", ImmutableSet.of("region"));
+        awsAccount = new AWSAccount("123456789", "", "", "", ImmutableSet.of("region"));
         accountProvider = mock(AccountProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         alertsProcessor = mock(AlertsProcessor.class);
@@ -68,7 +68,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     public void sendAlarmsForRegions() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(accountIDProvider.getAccountId()).andReturn("123456789").anyTimes();
-        expect(awsClientProvider.getCloudWatchClient("region", "role"))
+        expect(awsClientProvider.getCloudWatchClient("region", awsAccount))
                 .andReturn(cloudWatchClient).anyTimes();
 
         Capture<RateLimiter.AWSAPICall<DescribeAlarmsResponse>> callbackCapture = Capture.newInstance();

@@ -63,8 +63,8 @@ public class MetricTaskManager implements InitializingBean {
     }
 
     @VisibleForTesting
-    MetricScrapeTask newScrapeTask(String account, String assumeRole, String region, Integer interval, Integer delay) {
-        return new MetricScrapeTask(account, assumeRole, region, interval, delay);
+    MetricScrapeTask newScrapeTask(AWSAccount awsAccount, String region, Integer interval, Integer delay) {
+        return new MetricScrapeTask(awsAccount, region, interval, delay);
     }
 
     @VisibleForTesting
@@ -75,6 +75,8 @@ public class MetricTaskManager implements InitializingBean {
             log.info("Updating Scrape task for AWS Account {}", awsAccount);
             awsAccount.getRegions().forEach(region -> {
                 log.info("Updating Scrape task for region {}", region);
+                metricScrapeTasks.computeIfAbsent(awsAccount.getAccountId(), k -> new TreeMap<>())
+                        .computeIfAbsent(region, k -> new TreeMap<>());
                 scrapeConfig.getNamespaces().stream()
                         .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
                         .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))
@@ -83,7 +85,7 @@ public class MetricTaskManager implements InitializingBean {
                             metricScrapeTasks.computeIfAbsent(accountId, k -> new TreeMap<>())
                                     .computeIfAbsent(region, k -> new TreeMap<>())
                                     .computeIfAbsent(interval, k -> metricScrapeTask(
-                                            accountId, awsAccount.getAssumeRole(), region,
+                                            awsAccount, region,
                                             interval, scrapeConfig.getDelay()));
                         });
             });
@@ -100,12 +102,13 @@ public class MetricTaskManager implements InitializingBean {
         });
     }
 
-    private MetricScrapeTask metricScrapeTask(String account, String assumeRole, String region, Integer interval,
+    private MetricScrapeTask metricScrapeTask(AWSAccount awsAccount, String region, Integer interval,
                                               Integer delay) {
-        MetricScrapeTask metricScrapeTask = newScrapeTask(account, assumeRole, region, interval, delay);
+        MetricScrapeTask metricScrapeTask = newScrapeTask(awsAccount, region, interval, delay);
         beanFactory.autowireBean(metricScrapeTask);
         metricScrapeTask.register(collectorRegistry);
-        log.info("Setup metric scrape task for account {}, region {} and interval {}", account, region, interval);
+        log.info("Setup metric scrape task for account {}, region {} and interval {}", awsAccount.getAccountId(),
+                region, interval);
         return metricScrapeTask;
     }
 }

@@ -50,10 +50,11 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
         testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, new RateLimiter(metricCollector),
                 accountProvider);
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
-                new AWSAccount("account", "role", ImmutableSet.of("region"))
-        ));
-        expect(awsClientProvider.getApiGatewayClient("region", "role")).andReturn(apiGatewayClient).anyTimes();
+        AWSAccount awsAccount = new AWSAccount("account", "accessId",
+                "secretKey", "role", ImmutableSet.of("region"));
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
+        expect(awsClientProvider.getApiGatewayClient("region", awsAccount))
+                .andReturn(apiGatewayClient).anyTimes();
         expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
     }
 
