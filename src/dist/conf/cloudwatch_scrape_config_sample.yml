@@ -62,7 +62,6 @@ discoverResourceTypes:
   - AWS::ElasticLoadBalancing::LoadBalancer
   - AWS::AutoScaling::AutoScalingGroup
   - AWS::DynamoDB::Table
-  - AWS::Lambda::Function
   - AWS::ApiGateway::RestApi
   - AWS::ApiGatewayV2::Api
   - AWS::SQS::Queue
@@ -73,10 +72,7 @@ discoverResourceTypes:
   - AWS::Redshift::Cluster
 tagExportConfig:
   includeTags:
-    - "asserts-env-name"
     - "kubernetes.io/service-name"
-  envTags:
-    - "asserts-env-name"
 dimensionToLabels:
   - namespace: AWS/EC2
     dimensionName: InstanceId

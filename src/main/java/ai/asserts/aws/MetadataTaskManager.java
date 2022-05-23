@@ -16,6 +16,7 @@ import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
 import ai.asserts.aws.exporter.S3BucketExporter;
 import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
+import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
 import lombok.AllArgsConstructor;
@@ -34,6 +35,7 @@ import java.util.List;
 @Slf4j
 public class MetadataTaskManager implements InitializingBean {
     private final CollectorRegistry collectorRegistry;
+    private final LambdaFunctionScraper lambdaFunctionScraper;
     private final LambdaCapacityExporter lambdaCapacityExporter;
     private final LambdaEventSourceExporter lambdaEventSourceExporter;
     private final LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
@@ -55,6 +57,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
 
     public void afterPropertiesSet() {
+        lambdaFunctionScraper.register(collectorRegistry);
         lambdaCapacityExporter.register(collectorRegistry);
         lambdaEventSourceExporter.register(collectorRegistry);
         lambdaInvokeConfigExporter.register(collectorRegistry);
@@ -75,6 +78,7 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void updateMetadata() {
+        taskThreadPool.getExecutorService().submit(lambdaFunctionScraper::update);
         taskThreadPool.getExecutorService().submit(lambdaCapacityExporter::update);
         taskThreadPool.getExecutorService().submit(lambdaEventSourceExporter::update);
         taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
