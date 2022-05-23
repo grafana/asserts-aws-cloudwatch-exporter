@@ -4,17 +4,21 @@ package ai.asserts.aws.lambda;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import io.prometheus.client.Collector.MetricFamilySamples;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +29,7 @@ import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
@@ -38,6 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LambdaFunctionScraperTest extends EasyMockSupport {
+    private AccountProvider accountProvider;
+    private ScrapeConfigProvider scrapeConfigProvider;
     private AWSClientProvider awsClientProvider;
     private LambdaClient lambdaClient;
     private LambdaFunctionBuilder lambdaFunctionBuilder;
@@ -45,6 +52,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     private ResourceTagHelper resourceTagHelper;
     private NamespaceConfig namespaceConfig;
     private LambdaFunction lambdaFunction;
+    private MetricNameUtil metricNameUtil;
+    private MetricSampleBuilder metricSampleBuilder;
+    private Sample sample;
+    private MetricFamilySamples metricFamilySamples;
     private LambdaFunctionScraper lambdaFunctionScraper;
     private Resource fnResource;
     private AWSAccount accountRegion;
@@ -53,7 +64,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     public void setup() {
         accountRegion = new AWSAccount("account", "", "",
                 "role", ImmutableSet.of("region1", "region2"));
-        AccountProvider accountProvider = mock(AccountProvider.class);
+        accountProvider = mock(AccountProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
         lambdaClient = mock(LambdaClient.class);
         lambdaFunctionBuilder = mock(LambdaFunctionBuilder.class);
@@ -62,8 +73,11 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
         fnResource = mock(Resource.class);
-
-        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        metricSampleBuilder = mock(MetricSampleBuilder.class);
+        metricFamilySamples = mock(MetricFamilySamples.class);
+        sample = mock(Sample.class);
+        metricNameUtil = mock(MetricNameUtil.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
                 .regions(ImmutableSortedSet.of("region1", "region2"))
                 .namespaces(ImmutableList.of(namespaceConfig))
@@ -73,7 +87,8 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         lambdaFunctionScraper = new LambdaFunctionScraper(
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
-                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector));
+                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
+                metricSampleBuilder, metricNameUtil);
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -81,11 +96,55 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build()).anyTimes();
         expect(namespaceConfig.getName()).andReturn("AWS/Lambda").anyTimes();
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
+    }
+
+    @Test
+    public void updateCollect() {
+        Map<String, Map<String, Map<String, LambdaFunction>>> functions = new TreeMap<>();
+        functions.put("account_id", ImmutableMap.of("region1", ImmutableMap.of("function",
+                LambdaFunction.builder()
+                        .account("account_id")
+                        .region("region1")
+                        .name("function")
+                        .resource(fnResource)
+                        .build())));
+
+        fnResource.addTagLabels(anyObject(), eq(metricNameUtil));
+        fnResource.addEnvLabel(anyObject(), eq(metricNameUtil));
+
+        expect(metricSampleBuilder.buildSingleSample(
+                "aws_resource", new ImmutableMap.Builder<String, String>()
+                        .put("account_id", "account_id")
+                        .put("aws_resource_type", "AWS::Lambda::Function")
+                        .put("namespace", "AWS/Lambda")
+                        .put("region", "region1")
+                        .put("name", "function")
+                        .put("job", "function")
+                        .put("id", "function")
+                        .build(), 1.0D)).andReturn(sample);
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+
+        replayAll();
+
+        lambdaFunctionScraper = new LambdaFunctionScraper(
+                accountProvider,
+                scrapeConfigProvider, awsClientProvider,
+                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
+                metricSampleBuilder, metricNameUtil) {
+            @Override
+            public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
+                return functions;
+            }
+        };
+
+        lambdaFunctionScraper.update();
+        assertEquals(ImmutableList.of(metricFamilySamples), lambdaFunctionScraper.collect());
+        verifyAll();
     }
 
     @Test
     public void getFunctions() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         FunctionConfiguration fn1Config = FunctionConfiguration.builder()
                 .functionArn("arn1")
                 .functionName("fn1")
@@ -147,6 +206,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
     @Test
     public void getFunctions_Exception() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         expect(awsClientProvider.getLambdaClient("region1", accountRegion)).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
         lambdaClient.close();
