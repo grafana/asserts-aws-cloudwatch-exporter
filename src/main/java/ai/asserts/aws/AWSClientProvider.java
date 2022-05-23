@@ -36,6 +36,8 @@ import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.LambdaClientBuilder;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClientBuilder;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
@@ -232,6 +234,19 @@ public class AWSClientProvider {
 
     public FirehoseClient getFirehoseClient(String region, AWSAccount account) {
         FirehoseClientBuilder clientBuilder = FirehoseClient.builder().region(Region.of(region));
+        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+        if (credentialsOpt.isPresent()) {
+            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        }
+        if (account.getAssumeRole() != null) {
+            clientBuilder = clientBuilder.credentialsProvider(() ->
+                    getAwsSessionCredentials(region, account, credentialsOpt));
+        }
+        return clientBuilder.build();
+    }
+
+    public S3Client getS3Client(String region, AWSAccount account) {
+        S3ClientBuilder clientBuilder = S3Client.builder().region(Region.of(region));
         Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
         if (credentialsOpt.isPresent()) {
             clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
