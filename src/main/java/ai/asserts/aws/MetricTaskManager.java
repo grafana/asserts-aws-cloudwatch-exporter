@@ -4,7 +4,6 @@ import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
@@ -32,7 +31,6 @@ public class MetricTaskManager implements InitializingBean {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final CollectorRegistry collectorRegistry;
     private final AutowireCapableBeanFactory beanFactory;
-    private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskThreadPool taskThreadPool;
     private final AlarmMetricExporter alarmMetricExporter;
 
@@ -59,7 +57,6 @@ public class MetricTaskManager implements InitializingBean {
                 .flatMap(map -> map.values().stream())
                 .forEach(task -> executorService.submit(task::update));
 
-        executorService.submit(ecsServiceDiscoveryExporter);
     }
 
     @VisibleForTesting

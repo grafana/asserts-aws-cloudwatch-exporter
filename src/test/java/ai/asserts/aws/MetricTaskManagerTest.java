@@ -1,7 +1,6 @@
 package ai.asserts.aws;
 
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
-import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.CollectorRegistry;
@@ -25,7 +24,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private AutowireCapableBeanFactory beanFactory;
     private ScrapeConfigProvider scrapeConfigProvider;
     private MetricScrapeTask metricScrapeTask;
-    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
     private AlarmMetricExporter alarmMetricExporter;
@@ -37,14 +35,12 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         metricScrapeTask = mock(MetricScrapeTask.class);
         collectorRegistry = mock(CollectorRegistry.class);
-        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
         alarmMetricExporter = mock(AlarmMetricExporter.class);
 
         replayAll();
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                ecsServiceDiscoveryExporter,
                 taskThreadPool, alarmMetricExporter);
         verifyAll();
         resetAll();
@@ -63,7 +59,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                ecsServiceDiscoveryExporter,
                 taskThreadPool, alarmMetricExporter) {
             @Override
             void updateScrapeTasks() {
@@ -81,8 +76,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
         expect(executorService.submit(capture(capture2))).andReturn(null);
-
-        expect(executorService.submit(ecsServiceDiscoveryExporter)).andReturn(null);
 
         metricScrapeTask.update();
         expectLastCall().times(2);

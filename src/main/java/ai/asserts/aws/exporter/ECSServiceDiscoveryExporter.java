@@ -17,6 +17,8 @@ import ai.asserts.aws.resource.ResourceRelation;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
+import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -35,8 +37,10 @@ import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
@@ -55,7 +59,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
  */
 @Slf4j
 @Component
-public class ECSServiceDiscoveryExporter implements Runnable {
+public class ECSServiceDiscoveryExporter extends Collector implements MetricProvider {
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
@@ -64,6 +68,7 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     private final ObjectMapperFactory objectMapperFactory;
     private final RateLimiter rateLimiter;
     private final LBToECSRoutingBuilder lbToECSRoutingBuilder;
+    private final MetricSampleBuilder metricSampleBuilder;
 
     @Getter
     private volatile List<StaticConfig> targets = new ArrayList<>();
@@ -71,10 +76,13 @@ public class ECSServiceDiscoveryExporter implements Runnable {
     @Getter
     private volatile Set<ResourceRelation> routing = new HashSet<>();
 
+    private volatile List<Collector.MetricFamilySamples> resourceMetrics = new ArrayList<>();
+
     public ECSServiceDiscoveryExporter(AccountProvider accountProvider, ScrapeConfigProvider scrapeConfigProvider,
                                        AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
                                        ECSTaskUtil ecsTaskUtil, ObjectMapperFactory objectMapperFactory,
-                                       RateLimiter rateLimiter, LBToECSRoutingBuilder lbToECSRoutingBuilder) {
+                                       RateLimiter rateLimiter, LBToECSRoutingBuilder lbToECSRoutingBuilder,
+                                       MetricSampleBuilder metricSampleBuilder) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -83,11 +91,18 @@ public class ECSServiceDiscoveryExporter implements Runnable {
         this.objectMapperFactory = objectMapperFactory;
         this.rateLimiter = rateLimiter;
         this.lbToECSRoutingBuilder = lbToECSRoutingBuilder;
+        this.metricSampleBuilder = metricSampleBuilder;
     }
 
     @Override
-    public void run() {
+    public List<MetricFamilySamples> collect() {
+        return resourceMetrics;
+    }
+
+    @Override
+    public void update() {
         Set<ResourceRelation> newRouting = new HashSet<>();
+        List<Sample> resourceMetricSamples = new ArrayList<>();
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         List<StaticConfig> latestTargets = new ArrayList<>();
@@ -117,7 +132,8 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                             .filter(Optional::isPresent)
                             .map(Optional::get)
                             .forEach(cluster -> latestTargets.addAll(
-                                    buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting)));
+                                    buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting,
+                                            resourceMetricSamples)));
                 }
             } catch (Exception e) {
                 log.error("Failed to get list of ECS Clusters", e);
@@ -126,6 +142,12 @@ public class ECSServiceDiscoveryExporter implements Runnable {
 
         routing = newRouting;
         targets = latestTargets;
+
+        if (resourceMetricSamples.size() > 0) {
+            resourceMetrics = Collections.singletonList(metricSampleBuilder.buildFamily(resourceMetricSamples));
+        } else {
+            resourceMetrics = Collections.emptyList();
+        }
 
         if (scrapeConfig.isDiscoverECSTasks()) {
             try {
@@ -141,7 +163,8 @@ public class ECSServiceDiscoveryExporter implements Runnable {
 
     @VisibleForTesting
     List<StaticConfig> buildTargetsInCluster(ScrapeConfig scrapeConfig, EcsClient ecsClient,
-                                             Resource cluster, Set<ResourceRelation> newRouting) {
+                                             Resource cluster, Set<ResourceRelation> newRouting,
+                                             List<Sample> resourceMetricSamples) {
         List<StaticConfig> targets = new ArrayList<>();
         // List services just returns the service ARN. There is no need to paginate
         ListServicesRequest serviceReq = ListServicesRequest.builder()
@@ -167,6 +190,17 @@ public class ECSServiceDiscoveryExporter implements Runnable {
                             targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service));
                         }
                         services.add(service);
+
+                        Map<String, String> labels = new TreeMap<>();
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount());
+                        labels.put(SCRAPE_REGION_LABEL, cluster.getRegion());
+                        labels.put("cluster", cluster.getName());
+                        labels.put("job", service.getName());
+                        labels.put("name", service.getName());
+                        labels.put("aws_resource_type", "AWS::ECS::Service");
+
+                        resourceMetricSamples.add(metricSampleBuilder.buildSingleSample(
+                                "aws_resource", labels, 1.0D));
                     });
             newRouting.addAll(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, services));
         }

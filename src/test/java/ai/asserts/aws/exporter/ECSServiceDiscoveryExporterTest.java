@@ -20,6 +20,8 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.prometheus.client.Collector.MetricFamilySamples;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,8 +41,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
@@ -70,8 +74,11 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     private RateLimiter rateLimiter;
     private ObjectMapper objectMapper;
     private ObjectWriter objectWriter;
+    private MetricSampleBuilder metricSampleBuilder;
     private StaticConfig mockStaticConfig;
     private ResourceRelation mockRelation;
+    private Sample sample;
+    private MetricFamilySamples metricFamilySamples;
 
     @BeforeEach
     public void setup() {
@@ -92,13 +99,16 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         mockStaticConfig = mock(StaticConfig.class);
         lbToECSRoutingBuilder = mock(LBToECSRoutingBuilder.class);
         mockRelation = mock(ResourceRelation.class);
+        metricSampleBuilder = mock(MetricSampleBuilder.class);
+        sample = mock(Sample.class);
+        metricFamilySamples = mock(MetricFamilySamples.class);
 
         rateLimiter = new RateLimiter(metricCollector);
         resetAll();
     }
 
     @Test
-    public void run() throws Exception {
+    public void updateCollect() throws Exception {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
@@ -128,26 +138,35 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         objectWriter.writeValue(anyObject(File.class), eq(ImmutableList.of(
                 mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
         )));
+
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample)))
+                .andReturn(metricFamilySamples);
+
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 accountProvider, scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder) {
             @Override
             List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client,
-                                                     Resource _cluster, Set<ResourceRelation> routing) {
+                                                     Resource _cluster,
+                                                     Set<ResourceRelation> routing,
+                                                     List<Sample> samples) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(resource, _cluster);
+                samples.add(sample);
                 return ImmutableList.of(mockStaticConfig);
             }
         };
-        testClass.run();
+        testClass.update();
+        assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());
 
         verifyAll();
     }
 
     @Test
-    public void run_JacksonWriteException() throws Exception {
+    public void update_JacksonWriteException() throws Exception {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
@@ -182,23 +201,25 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 accountProvider, scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder,
+                metricSampleBuilder) {
             @Override
             List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client, Resource _cluster,
-                                                     Set<ResourceRelation> routing) {
+                                                     Set<ResourceRelation> routing,
+                                                     List<Sample> samples) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(resource, _cluster);
                 return ImmutableList.of(mockStaticConfig);
             }
         };
-        testClass.run();
+        testClass.update();
 
         verifyAll();
     }
 
     @Test
-    public void run_AWSException() throws Exception {
+    public void update_AWSException() throws Exception {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
@@ -223,8 +244,9 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 accountProvider, scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder);
-        testClass.run();
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder);
+        testClass.update();
 
         verifyAll();
     }
@@ -232,6 +254,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     @Test
     public void buildTargetsInCluster() {
         Set<ResourceRelation> newRouting = new HashSet<>();
+        List<Sample> samples = new ArrayList<>();
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true).anyTimes();
         Resource cluster = Resource.builder()
                 .region("region1")
@@ -253,10 +276,31 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, ImmutableList.of(resource, resource)))
                 .andReturn(ImmutableSet.of(mockRelation));
 
+        expect(resource.getName()).andReturn("service1").times(2);
+        expect(resource.getName()).andReturn("service2").times(2);
+
+        Map<String, String> labels1 = new TreeMap<>();
+        labels1.put("account_id", "account");
+        labels1.put("cluster", "cluster");
+        labels1.put("job", "service1");
+        labels1.put("name", "service1");
+        labels1.put("region", "region1");
+        labels1.put("aws_resource_type", "AWS::ECS::Service");
+        expect(metricSampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D)).andReturn(sample);
+
+        Map<String, String> labels2 = new TreeMap<>();
+        labels2.put("account_id", "account");
+        labels2.put("cluster", "cluster");
+        labels2.put("job", "service2");
+        labels2.put("name", "service2");
+        labels2.put("region", "region1");
+        labels2.put("aws_resource_type", "AWS::ECS::Service");
+        expect(metricSampleBuilder.buildSingleSample("aws_resource", labels2, 1.0D)).andReturn(sample);
+
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(accountProvider,
                 scrapeConfigProvider, awsClientProvider, resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
-                lbToECSRoutingBuilder) {
+                lbToECSRoutingBuilder, metricSampleBuilder) {
             @Override
             List<StaticConfig> buildTargetsInService(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                      Resource _service) {
@@ -268,7 +312,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         };
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),
-                testClass.buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting));
+                testClass.buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting, samples));
 
         assertEquals(ImmutableSet.of(mockRelation), newRouting);
 
@@ -327,7 +371,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 accountProvider, scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder) {
             @Override
             List<StaticConfig> buildTaskTargets(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                 Resource _service, Set<String> taskIds) {
@@ -398,7 +443,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 accountProvider, scrapeConfigProvider, awsClientProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder,
+                metricSampleBuilder);
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),
                 testClass.buildTaskTargets(scrapeConfig, ecsClient, cluster, service, taskArns));
