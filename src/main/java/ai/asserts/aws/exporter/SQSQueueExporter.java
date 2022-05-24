@@ -66,7 +66,7 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
     }
 
     public void update() {
-        log.info("Exporting Kinesis Firehose Resources");
+        log.info("Exporting SQS Queue Resources");
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {

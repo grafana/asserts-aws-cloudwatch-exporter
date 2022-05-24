@@ -128,7 +128,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(resourceExporter.register(collectorRegistry)).andReturn(null);
         expect(relationExporter.register(collectorRegistry)).andReturn(null);
         expect(ecsServiceDiscoveryExporter.register(collectorRegistry)).andReturn(null);
-        expect(sqsQueueExporter.register(collectorRegistry)).andReturn(null);
         expect(loadBalancerExporter.register(collectorRegistry)).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
