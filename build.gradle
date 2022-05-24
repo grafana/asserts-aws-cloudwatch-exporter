@@ -36,6 +36,7 @@ dependencies {
             "software.amazon.awssdk:cloudwatchlogs:$awsSdkVersion",
             "software.amazon.awssdk:sts:$awsSdkVersion",
             "software.amazon.awssdk:sqs:$awsSdkVersion",
+            "software.amazon.awssdk:sns:$awsSdkVersion",
             "software.amazon.awssdk:lambda:$awsSdkVersion",
             "software.amazon.awssdk:dynamodb:$awsSdkVersion",
             "software.amazon.awssdk:s3:$awsSdkVersion",
@@ -53,6 +54,7 @@ dependencies {
             "software.amazon.awssdk:secretsmanager:$awsSdkVersion",
             "software.amazon.awssdk:redshift:$awsSdkVersion",
             "software.amazon.awssdk:kinesis:$awsSdkVersion",
+            "software.amazon.awssdk:rds:$awsSdkVersion",
     )
 
     compileOnly(
