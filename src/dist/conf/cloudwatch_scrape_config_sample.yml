@@ -56,7 +56,6 @@ namespaces:
           - Sum
 discoverResourceTypes:
   - AWS::AutoScaling::AutoScalingGroup
-  - AWS::SNS::Topic
 tagExportConfig:
   includeTags:
     - "kubernetes.io/service-name"
