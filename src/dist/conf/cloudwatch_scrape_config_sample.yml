@@ -67,7 +67,6 @@ discoverResourceTypes:
   - AWS::SQS::Queue
   - AWS::SNS::Topic
   - AWS::Kinesis::Stream
-  - AWS::Redshift::Cluster
 tagExportConfig:
   includeTags:
     - "kubernetes.io/service-name"

@@ -34,6 +34,8 @@ import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2Clie
 import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2ClientBuilder;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.LambdaClientBuilder;
+import software.amazon.awssdk.services.redshift.RedshiftClient;
+import software.amazon.awssdk.services.redshift.RedshiftClientBuilder;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -247,6 +249,19 @@ public class AWSClientProvider {
 
     public S3Client getS3Client(String region, AWSAccount account) {
         S3ClientBuilder clientBuilder = S3Client.builder().region(Region.of(region));
+        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+        if (credentialsOpt.isPresent()) {
+            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        }
+        if (account.getAssumeRole() != null) {
+            clientBuilder = clientBuilder.credentialsProvider(() ->
+                    getAwsSessionCredentials(region, account, credentialsOpt));
+        }
+        return clientBuilder.build();
+    }
+
+    public RedshiftClient getRedshiftClient(String region, AWSAccount account) {
+        RedshiftClientBuilder clientBuilder = RedshiftClient.builder().region(Region.of(region));
         Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
         if (credentialsOpt.isPresent()) {
             clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
