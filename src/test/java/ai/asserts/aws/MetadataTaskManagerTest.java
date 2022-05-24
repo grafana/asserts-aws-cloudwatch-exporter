@@ -9,6 +9,7 @@ import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ApiGatewayToLambdaBuilder;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.exporter.DynamoDBExporter;
 import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.KinesisAnalyticsExporter;
@@ -71,6 +72,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private KinesisStreamExporter kinesisStreamExporter;
     private LoadBalancerExporter loadBalancerExporter;
     private RDSExporter rdsExporter;
+    private DynamoDBExporter dynamoDBExporter;
     private MetadataTaskManager testClass;
 
     @BeforeEach
@@ -103,13 +105,14 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         kinesisStreamExporter = mock(KinesisStreamExporter.class);
         loadBalancerExporter = mock(LoadBalancerExporter.class);
         rdsExporter = mock(RDSExporter.class);
+        dynamoDBExporter = mock(DynamoDBExporter.class);
         testClass = new MetadataTaskManager(
                 collectorRegistry, lambdaFunctionScraper, lambdaCapacityExporter, lambdaEventSourceExporter,
                 lambdaInvokeConfigExporter, logMetricScrapeTask, metricCollector, resourceExporter,
                 targetGroupLBMapProvider, relationExporter, lbToASGRelationBuilder, ec2ToEBSVolumeExporter,
                 apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
-                sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter);
+                sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter);
     }
 
     @Test
@@ -157,6 +160,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture17 = newCapture();
         Capture<Runnable> capture18 = newCapture();
         Capture<Runnable> capture19 = newCapture();
+        Capture<Runnable> capture20 = newCapture();
 
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(executorService.submit(capture(capture1))).andReturn(null);
@@ -178,6 +182,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(executorService.submit(capture(capture17))).andReturn(null);
         expect(executorService.submit(capture(capture18))).andReturn(null);
         expect(executorService.submit(capture(capture19))).andReturn(null);
+        expect(executorService.submit(capture(capture20))).andReturn(null);
 
         lambdaFunctionScraper.update();
         lambdaCapacityExporter.update();
@@ -200,6 +205,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         kinesisStreamExporter.update();
         loadBalancerExporter.update();
         rdsExporter.update();
+        dynamoDBExporter.update();
 
 
         replayAll();
@@ -225,6 +231,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         capture17.getValue().run();
         capture18.getValue().run();
         capture19.getValue().run();
+        capture20.getValue().run();
 
         verifyAll();
     }

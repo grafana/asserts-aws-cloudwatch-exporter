@@ -56,9 +56,6 @@ namespaces:
           - Sum
 discoverResourceTypes:
   - AWS::AutoScaling::AutoScalingGroup
-  - AWS::DynamoDB::Table
-  - AWS::ApiGateway::RestApi
-  - AWS::ApiGatewayV2::Api
   - AWS::SNS::Topic
 tagExportConfig:
   includeTags:

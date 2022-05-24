@@ -20,6 +20,8 @@ import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClientBuilder;
 import software.amazon.awssdk.services.config.ConfigClient;
 import software.amazon.awssdk.services.config.ConfigClientBuilder;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.Ec2ClientBuilder;
 import software.amazon.awssdk.services.ecs.EcsClient;
@@ -268,6 +270,19 @@ public class AWSClientProvider {
 
     public S3Client getS3Client(String region, AWSAccount account) {
         S3ClientBuilder clientBuilder = S3Client.builder().region(Region.of(region));
+        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+        if (credentialsOpt.isPresent()) {
+            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        }
+        if (account.getAssumeRole() != null) {
+            clientBuilder = clientBuilder.credentialsProvider(() ->
+                    getAwsSessionCredentials(region, account, credentialsOpt));
+        }
+        return clientBuilder.build();
+    }
+
+    public DynamoDbClient getDynamoDBClient(String region, AWSAccount account) {
+        DynamoDbClientBuilder clientBuilder = DynamoDbClient.builder().region(Region.of(region));
         Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
         if (credentialsOpt.isPresent()) {
             clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());

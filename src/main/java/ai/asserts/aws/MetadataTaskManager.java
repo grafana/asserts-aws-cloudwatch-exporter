@@ -3,6 +3,7 @@ package ai.asserts.aws;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ApiGatewayToLambdaBuilder;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.exporter.DynamoDBExporter;
 import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.KinesisAnalyticsExporter;
@@ -63,6 +64,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final KinesisStreamExporter kinesisStreamExporter;
     private final LoadBalancerExporter loadBalancerExporter;
     private final RDSExporter rdsExporter;
+    private final DynamoDBExporter dynamoDBExporter;
 
     @Getter
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
@@ -111,6 +113,7 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(kinesisStreamExporter::update);
         taskThreadPool.getExecutorService().submit(loadBalancerExporter::update);
         taskThreadPool.getExecutorService().submit(rdsExporter::update);
+        taskThreadPool.getExecutorService().submit(dynamoDBExporter::update);
 
 
         taskThreadPool.getExecutorService().submit(() ->
