@@ -54,8 +54,6 @@ namespaces:
       - name: rx_bytes
         stats:
           - Sum
-discoverResourceTypes:
-  - AWS::AutoScaling::AutoScalingGroup
 tagExportConfig:
   includeTags:
     - "kubernetes.io/service-name"

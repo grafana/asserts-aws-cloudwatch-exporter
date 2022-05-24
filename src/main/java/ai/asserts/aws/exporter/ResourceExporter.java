@@ -81,10 +81,9 @@ public class ResourceExporter extends Collector implements MetricProvider {
             List<Sample> samples = new ArrayList<>();
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             Set<String> discoverResourceTypes = scrapeConfig.getDiscoverResourceTypes();
-            if (discoverResourceTypes.size() > 0) {
+            if (!CollectionUtils.isEmpty(discoverResourceTypes)) {
                 accountProvider.getAccounts().forEach(account -> {
                     String accountId = account.getAccountId();
-                    String role = account.getAssumeRole();
                     account.getRegions().forEach(region -> {
                         log.info("Discovering resources in account {} region {}", accountId, region);
                         try (ConfigClient configClient = awsClientProvider.getConfigClient(region, account)) {
