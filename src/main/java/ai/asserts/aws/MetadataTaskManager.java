@@ -13,6 +13,7 @@ import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
+import ai.asserts.aws.exporter.LoadBalancerExporter;
 import ai.asserts.aws.exporter.RedshiftExporter;
 import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
@@ -59,6 +60,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final RedshiftExporter redshiftExporter;
     private final SQSQueueExporter sqsQueueExporter;
     private final KinesisStreamExporter kinesisStreamExporter;
+    private final LoadBalancerExporter loadBalancerExporter;
 
     @Getter
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
@@ -73,6 +75,7 @@ public class MetadataTaskManager implements InitializingBean {
         relationExporter.register(collectorRegistry);
         ecsServiceDiscoveryExporter.register(collectorRegistry);
         sqsQueueExporter.register(collectorRegistry);
+        loadBalancerExporter.register(collectorRegistry);
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         scrapeConfig.getLambdaConfig().ifPresent(nc -> {
@@ -104,6 +107,8 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(redshiftExporter::update);
         taskThreadPool.getExecutorService().submit(sqsQueueExporter::update);
         taskThreadPool.getExecutorService().submit(kinesisStreamExporter::update);
+        taskThreadPool.getExecutorService().submit(loadBalancerExporter::update);
+
 
         taskThreadPool.getExecutorService().submit(() ->
                 logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));

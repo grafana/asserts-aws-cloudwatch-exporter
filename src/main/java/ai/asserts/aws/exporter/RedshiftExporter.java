@@ -75,6 +75,7 @@ public class RedshiftExporter extends Collector implements InitializingBean {
                                 Map<String, String> labels = new TreeMap<>();
                                 labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
                                 labels.put(SCRAPE_REGION_LABEL, region);
+                                labels.put("namespace", "AWS/Redshift");
                                 labels.put("aws_resource_type", "AWS::Redshift::Cluster");
                                 labels.put("job", cluster.clusterIdentifier());
                                 labels.put("name", cluster.clusterIdentifier());

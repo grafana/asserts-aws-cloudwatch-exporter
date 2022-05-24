@@ -62,6 +62,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
     public void exporterBucketTest() {
 
         SortedMap<String, String> labels1 = new TreeMap<>();
+        labels1.put("namespace", "AWS/S3");
         labels1.put("region", "region1");
         labels1.put("name", "b1");
         labels1.put("id", "b1");
