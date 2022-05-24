@@ -64,7 +64,6 @@ discoverResourceTypes:
   - AWS::DynamoDB::Table
   - AWS::ApiGateway::RestApi
   - AWS::ApiGatewayV2::Api
-  - AWS::SQS::Queue
   - AWS::SNS::Topic
   - AWS::Kinesis::Stream
   - AWS::Redshift::Cluster

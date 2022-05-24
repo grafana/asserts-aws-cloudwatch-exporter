@@ -39,6 +39,8 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTa
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.SqsClientBuilder;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
@@ -67,6 +69,19 @@ public class AWSClientProvider {
         return SecretsManagerClient.builder()
                 .region(Region.of(region))
                 .build();
+    }
+
+    public SqsClient getSqsClient(String region, AWSAccount account) {
+        SqsClientBuilder clientBuilder = SqsClient.builder().region(Region.of(region));
+        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+        if (credentialsOpt.isPresent()) {
+            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        }
+        if (account.getAssumeRole() != null) {
+            clientBuilder = clientBuilder.credentialsProvider(() ->
+                    getAwsSessionCredentials(region, account, credentialsOpt));
+        }
+        return clientBuilder.build();
     }
 
     public AutoScalingClient getAutoScalingClient(String region, AWSAccount account) {
