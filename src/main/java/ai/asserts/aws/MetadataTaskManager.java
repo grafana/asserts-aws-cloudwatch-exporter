@@ -19,6 +19,7 @@ import ai.asserts.aws.exporter.RedshiftExporter;
 import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
 import ai.asserts.aws.exporter.S3BucketExporter;
+import ai.asserts.aws.exporter.SNSTopicExporter;
 import ai.asserts.aws.exporter.SQSQueueExporter;
 import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
@@ -63,6 +64,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final KinesisStreamExporter kinesisStreamExporter;
     private final LoadBalancerExporter loadBalancerExporter;
     private final DynamoDBExporter dynamoDBExporter;
+    private final SNSTopicExporter snsTopicExporter;
 
     @Getter
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
@@ -111,6 +113,7 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(kinesisStreamExporter::update);
         taskThreadPool.getExecutorService().submit(loadBalancerExporter::update);
         taskThreadPool.getExecutorService().submit(dynamoDBExporter::update);
+        taskThreadPool.getExecutorService().submit(snsTopicExporter::update);
 
 
         taskThreadPool.getExecutorService().submit(() ->
