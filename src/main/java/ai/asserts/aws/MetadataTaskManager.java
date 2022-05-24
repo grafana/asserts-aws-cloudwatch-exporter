@@ -1,4 +1,3 @@
-
 package ai.asserts.aws;
 
 import ai.asserts.aws.config.ScrapeConfig;
@@ -13,6 +12,7 @@ import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
+import ai.asserts.aws.exporter.RedshiftExporter;
 import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
 import ai.asserts.aws.exporter.S3BucketExporter;
@@ -55,6 +55,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final TaskThreadPool taskThreadPool;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    private final RedshiftExporter redshiftExporter;
     private final SQSQueueExporter sqsQueueExporter;
 
     @Getter
@@ -98,6 +99,7 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(kinesisFirehoseExporter::update);
         taskThreadPool.getExecutorService().submit(s3BucketExporter::update);
         taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter::update);
+        taskThreadPool.getExecutorService().submit(redshiftExporter::update);
         taskThreadPool.getExecutorService().submit(sqsQueueExporter::update);
 
         taskThreadPool.getExecutorService().submit(() ->
