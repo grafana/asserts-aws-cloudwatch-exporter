@@ -10,7 +10,12 @@ import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prometheus.client.Collector.MetricFamilySamples;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import io.prometheus.client.CollectorRegistry;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,28 +37,48 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
+    private AWSAccount account;
+    private AccountProvider accountProvider;
+    private AWSClientProvider awsClientProvider;
     private Ec2Client ec2Client;
     private BasicMetricCollector metricCollector;
+    private MetricSampleBuilder metricSampleBuilder;
+    private MetricFamilySamples metricFamilySamples;
+    private CollectorRegistry collectorRegistry;
+    private Sample sample;
     private EC2ToEBSVolumeExporter testClass;
 
     @BeforeEach
     public void setup() {
-        AWSAccount account = new AWSAccount(
+        account = new AWSAccount(
                 "account", "", "", "role", ImmutableSet.of("region"));
-        AccountProvider accountProvider = mock(AccountProvider.class);
-        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+        accountProvider = mock(AccountProvider.class);
+        awsClientProvider = mock(AWSClientProvider.class);
         ec2Client = mock(Ec2Client.class);
         metricCollector = mock(BasicMetricCollector.class);
+        metricSampleBuilder = mock(MetricSampleBuilder.class);
+        metricFamilySamples = mock(MetricFamilySamples.class);
+        sample = mock(Sample.class);
+        collectorRegistry = mock(CollectorRegistry.class);
         testClass = new EC2ToEBSVolumeExporter(
-                accountProvider, awsClientProvider, new RateLimiter(metricCollector)
+                accountProvider, awsClientProvider, metricSampleBuilder, collectorRegistry,
+                new RateLimiter(metricCollector)
         );
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
-        expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client);
+    }
+
+    @Test
+    public void afterPropertiesSet() throws Exception {
+        collectorRegistry.register(testClass);
+        replayAll();
+        testClass.afterPropertiesSet();
+        verifyAll();
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    public void update() {
+    public void updateCollect() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
+        expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client);
         DescribeVolumesRequest req = DescribeVolumesRequest.builder().build();
         DescribeVolumesResponse resp = DescribeVolumesResponse.builder()
                 .volumes(Volume.builder()
@@ -65,6 +90,20 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                 .build();
         expect(ec2Client.describeVolumes(req)).andReturn(resp);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        expect(metricSampleBuilder.buildSingleSample("aws_resource",
+                new ImmutableMap.Builder<String, String>()
+                        .put("account_id", "account")
+                        .put("region", "region")
+                        .put("aws_resource_type", "AWS::EC2::Instance")
+                        .put("job", "instance")
+                        .put("name", "instance")
+                        .put("namespace", "AWS/EC2")
+                        .build()
+                , 1.0d))
+                .andReturn(sample);
+
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+
         replayAll();
         testClass.update();
         assertEquals(ImmutableSet.of(
@@ -84,6 +123,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                         .name("ATTACHED_TO")
                         .build()
         ), testClass.getAttachedVolumes());
+        assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());
         verifyAll();
     }
 }
