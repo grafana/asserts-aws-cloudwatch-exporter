@@ -13,13 +13,14 @@ import ai.asserts.aws.resource.ResourceRelation;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import io.prometheus.client.CollectorRegistry;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup;
 import software.amazon.awssdk.services.autoscaling.model.DescribeAutoScalingGroupsResponse;
-import software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest;
 import software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse;
 
 import java.util.ArrayList;
@@ -37,13 +38,14 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Component
 @Slf4j
-public class LBToASGRelationBuilder extends Collector {
+public class LBToASGRelationBuilder extends Collector implements InitializingBean {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final RateLimiter rateLimiter;
     private final AccountProvider accountProvider;
     private final MetricSampleBuilder metricSampleBuilder;
+    private final CollectorRegistry collectorRegistry;
     @Getter
     private volatile Set<ResourceRelation> routingConfigs = new HashSet<>();
     private volatile List<MetricFamilySamples> asgResourceMetrics = new ArrayList<>();
@@ -51,13 +53,19 @@ public class LBToASGRelationBuilder extends Collector {
     public LBToASGRelationBuilder(AWSClientProvider awsClientProvider,
                                   ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider,
                                   RateLimiter rateLimiter, AccountProvider accountProvider,
-                                  MetricSampleBuilder metricSampleBuilder) {
+                                  MetricSampleBuilder metricSampleBuilder, CollectorRegistry collectorRegistry) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
         this.rateLimiter = rateLimiter;
         this.accountProvider = accountProvider;
         this.metricSampleBuilder = metricSampleBuilder;
+        this.collectorRegistry = collectorRegistry;
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        collectorRegistry.register(this);
     }
 
     @Override
@@ -72,35 +80,42 @@ public class LBToASGRelationBuilder extends Collector {
         List<Sample> samples = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
-                String api = "AutoScalingClient/describeAutoScalingGroups";
-                try (AutoScalingClient asgClient = rateLimiter.doWithRateLimit(api,
-                        ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
-                                SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, api
-                        ),
-                        () -> awsClientProvider.getAutoScalingClient(region, accountRegion))) {
-                    DescribeAutoScalingGroupsResponse resp = asgClient.describeAutoScalingGroups();
+                try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion)) {
+                    DescribeAutoScalingGroupsResponse resp = rateLimiter.doWithRateLimit(
+                            "AutoScalingClient/describeAutoScalingGroups",
+                            ImmutableSortedMap.of(
+                                    SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                                    SCRAPE_REGION_LABEL, region,
+                                    SCRAPE_OPERATION_LABEL, "AutoScalingClient/describeAutoScalingGroups"
+                            ),
+                            asgClient::describeAutoScalingGroups);
                     List<AutoScalingGroup> groups = resp.autoScalingGroups();
                     if (!isEmpty(groups)) {
-                        groups.forEach(asg -> resourceMapper.map(asg.autoScalingGroupARN()).ifPresent(asgRes -> {
-                            Map<String, String> labels = new TreeMap<>();
-                            labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
-                            labels.put(SCRAPE_REGION_LABEL, region);
-                            labels.put("namespace", "AWS/AutoScaling");
-                            labels.put("aws_resource_type", "AWS::AutoScaling::AutoScalingGroup");
-                            labels.put("job", asgRes.getName());
-                            labels.put("name", asgRes.getName());
+                        DescribeTagsResponse describeTagsResponse = rateLimiter.doWithRateLimit(
+                                "AutoScalingClient/describeTags",
+                                ImmutableSortedMap.of(
+                                        SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                                        SCRAPE_REGION_LABEL, region,
+                                        SCRAPE_OPERATION_LABEL, "AutoScalingClient/describeTags"
+                                ),
+                                asgClient::describeTags);
 
-                            DescribeTagsResponse describeTagsResponse = asgClient.describeTags(DescribeTagsRequest.builder()
-                                    .build());
-                            describeTagsResponse.tags()
-                                    .forEach(tagDescription -> {
-                                        if (tagDescription.key().contains("k8s") || tagDescription.key().contains("kubernetes")) {
-                                            labels.put("sub_type", "k8s");
-                                        }
-                                    });
-                            samples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
+                        groups.forEach(asg -> resourceMapper.map(asg.autoScalingGroupARN()).ifPresent(asgRes -> {
+                            // Only discover Non k8s ASGs. K8S ASGs will be discovered
+                            if (describeTagsResponse.tags().stream().noneMatch(tagDescription ->
+                                    asgRes.getName().equals(tagDescription.resourceId()) &&
+                                            (tagDescription.key().contains("k8s") ||
+                                                    tagDescription.key().contains("kubernetes")))) {
+                                Map<String, String> labels = new TreeMap<>();
+                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
+                                labels.put(SCRAPE_REGION_LABEL, region);
+                                labels.put("namespace", "AWS/AutoScaling");
+                                labels.put("aws_resource_type", "AWS::AutoScaling::AutoScalingGroup");
+                                labels.put("job", asgRes.getName());
+                                labels.put("id", asgRes.getId());
+                                labels.put("name", asgRes.getName());
+                                samples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
+                            }
 
                             if (!isEmpty(asg.targetGroupARNs())) {
                                 asg.targetGroupARNs().stream()
