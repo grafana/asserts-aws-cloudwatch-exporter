@@ -68,7 +68,7 @@ public class KinesisStreamExporter extends Collector implements InitializingBean
                                 SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, api
-                        ), () -> client.listStreams());
+                        ), client::listStreams);
                 if (resp.hasStreamNames()) {
                     samples.addAll(resp.streamNames().stream()
                             .map(stream -> {

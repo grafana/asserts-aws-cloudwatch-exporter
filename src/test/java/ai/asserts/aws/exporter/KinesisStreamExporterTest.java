@@ -58,7 +58,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
     }
 
     @Test
-    public void exporterBucketTest() {
+    public void exporterStreamTest() {
 
         SortedMap<String, String> labels1 = new TreeMap<>();
         labels1.put("region", "region1");
