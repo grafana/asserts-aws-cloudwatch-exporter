@@ -21,6 +21,7 @@ import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.RedshiftExporter;
 import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
+import ai.asserts.aws.exporter.SQSQueueExporter;
 import ai.asserts.aws.exporter.S3BucketExporter;
 import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
@@ -63,6 +64,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private S3BucketExporter s3BucketExporter;
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private RedshiftExporter redshiftExporter;
+    private SQSQueueExporter sqsQueueExporter;
     private MetadataTaskManager testClass;
 
     @BeforeEach
@@ -91,13 +93,13 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         s3BucketExporter = mock(S3BucketExporter.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         redshiftExporter = mock(RedshiftExporter.class);
-
+        sqsQueueExporter = mock(SQSQueueExporter.class);
         testClass = new MetadataTaskManager(
                 collectorRegistry, lambdaFunctionScraper, lambdaCapacityExporter, lambdaEventSourceExporter,
                 lambdaInvokeConfigExporter, logMetricScrapeTask, metricCollector, resourceExporter,
                 targetGroupLBMapProvider, relationExporter, lbToASGRelationBuilder, ec2ToEBSVolumeExporter,
-                apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter, s3BucketExporter, taskThreadPool,
-                scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter);
+                apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
+                s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, sqsQueueExporter, redshiftExporter);
     }
 
     @Test
@@ -110,6 +112,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(resourceExporter.register(collectorRegistry)).andReturn(null);
         expect(relationExporter.register(collectorRegistry)).andReturn(null);
         expect(ecsServiceDiscoveryExporter.register(collectorRegistry)).andReturn(null);
+        expect(sqsQueueExporter.register(collectorRegistry)).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
         expect(namespaceConfig.getLogs()).andReturn(ImmutableList.of(logScrapeConfig)).anyTimes();
@@ -157,7 +160,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(executorService.submit(capture(capture14))).andReturn(null);
         expect(executorService.submit(capture(capture15))).andReturn(null);
 
-
         lambdaFunctionScraper.update();
         lambdaCapacityExporter.update();
         lambdaEventSourceExporter.update();
@@ -175,6 +177,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         s3BucketExporter.update();
         ecsServiceDiscoveryExporter.update();
         redshiftExporter.update();
+        sqsQueueExporter.update();
 
         replayAll();
         testClass.updateMetadata();
