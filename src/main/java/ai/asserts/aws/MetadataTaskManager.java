@@ -80,7 +80,6 @@ public class MetadataTaskManager implements InitializingBean {
         metricCollector.register(collectorRegistry);
         relationExporter.register(collectorRegistry);
         ecsServiceDiscoveryExporter.register(collectorRegistry);
-        sqsQueueExporter.register(collectorRegistry);
         loadBalancerExporter.register(collectorRegistry);
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
