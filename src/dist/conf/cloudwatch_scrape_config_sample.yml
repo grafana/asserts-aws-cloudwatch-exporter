@@ -57,7 +57,6 @@ namespaces:
 discoverResourceTypes:
   - AWS::RDS::DBInstance
   - AWS::RDS::DBCluster
-  - AWS::AutoScaling::AutoScalingGroup
   - AWS::SNS::Topic
 tagExportConfig:
   includeTags:
