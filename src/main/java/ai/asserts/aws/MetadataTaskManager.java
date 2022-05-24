@@ -7,6 +7,7 @@ import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.KinesisAnalyticsExporter;
 import ai.asserts.aws.exporter.KinesisFirehoseExporter;
+import ai.asserts.aws.exporter.KinesisStreamExporter;
 import ai.asserts.aws.exporter.LBToASGRelationBuilder;
 import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
@@ -57,6 +58,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final RedshiftExporter redshiftExporter;
     private final SQSQueueExporter sqsQueueExporter;
+    private final KinesisStreamExporter kinesisStreamExporter;
 
     @Getter
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
@@ -101,6 +103,7 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter::update);
         taskThreadPool.getExecutorService().submit(redshiftExporter::update);
         taskThreadPool.getExecutorService().submit(sqsQueueExporter::update);
+        taskThreadPool.getExecutorService().submit(kinesisStreamExporter::update);
 
         taskThreadPool.getExecutorService().submit(() ->
                 logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));
