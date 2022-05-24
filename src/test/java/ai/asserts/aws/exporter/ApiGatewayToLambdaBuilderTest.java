@@ -9,8 +9,12 @@ import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.ResourceRelation;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prometheus.client.Collector.MetricFamilySamples;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import io.prometheus.client.CollectorRegistry;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,30 +40,51 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
+    private AWSAccount awsAccount;
+    private AccountIDProvider accountIDProvider;
+    private AWSClientProvider awsClientProvider;
+    private AccountProvider accountProvider;
     private ApiGatewayClient apiGatewayClient;
     private BasicMetricCollector metricCollector;
+    private MetricSampleBuilder metricSampleBuilder;
+    private MetricFamilySamples metricFamilySamples;
+    private Sample sample;
+    private CollectorRegistry collectorRegistry;
     private ApiGatewayToLambdaBuilder testClass;
 
     @BeforeEach
     public void setup() {
-        AccountIDProvider accountIDProvider = mock(AccountIDProvider.class);
-        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
-        AccountProvider accountProvider = mock(AccountProvider.class);
+        accountIDProvider = mock(AccountIDProvider.class);
+        awsClientProvider = mock(AWSClientProvider.class);
+        accountProvider = mock(AccountProvider.class);
         apiGatewayClient = mock(ApiGatewayClient.class);
         metricCollector = mock(BasicMetricCollector.class);
+        metricSampleBuilder = mock(MetricSampleBuilder.class);
+        metricFamilySamples = mock(MetricFamilySamples.class);
+        sample = mock(Sample.class);
+        collectorRegistry = mock(CollectorRegistry.class);
         testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, new RateLimiter(metricCollector),
-                accountProvider);
-        AWSAccount awsAccount = new AWSAccount("account", "accessId",
+                accountProvider, metricSampleBuilder, collectorRegistry);
+        awsAccount = new AWSAccount("account", "accessId",
                 "secretKey", "role", ImmutableSet.of("region"));
+    }
+
+    @Test
+    public void afterPropertiesSet() throws Exception {
+        collectorRegistry.register(testClass);
+        replayAll();
+        testClass.afterPropertiesSet();
+        verifyAll();
+    }
+
+    @Test
+    void updateCollect() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(awsClientProvider.getApiGatewayClient("region", awsAccount))
                 .andReturn(apiGatewayClient).anyTimes();
         expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
-    }
-
-    @Test
-    void update() {
         expect(apiGatewayClient.getRestApis()).andReturn(GetRestApisResponse.builder()
                 .items(RestApi.builder()
                         .id("rest-api-id")
@@ -89,6 +114,20 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         apiGatewayClient.close();
+
+        expect(metricSampleBuilder.buildSingleSample("aws_resource",
+                new ImmutableMap.Builder<String, String>()
+                        .put("namespace", "AWS/ApiGateway")
+                        .put("account_id", "account")
+                        .put("region", "region")
+                        .put("job", "rest-api-name")
+                        .put("id", "rest-api-id")
+                        .put("name", "rest-api-name")
+                        .put("aws_resource_type", "AWS::ApiGateway::RestApi")
+                        .build(), 1.0D)).andReturn(sample);
+
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+
         replayAll();
         testClass.update();
         assertEquals(ImmutableSet.of(
