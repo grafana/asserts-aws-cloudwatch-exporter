@@ -52,6 +52,7 @@ dependencies {
             "software.amazon.awssdk:firehose:$awsSdkVersion",
             "software.amazon.awssdk:secretsmanager:$awsSdkVersion",
             "software.amazon.awssdk:redshift:$awsSdkVersion",
+            "software.amazon.awssdk:kinesis:$awsSdkVersion",
     )
 
     compileOnly(
