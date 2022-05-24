@@ -62,7 +62,6 @@ discoverResourceTypes:
   - AWS::ApiGateway::RestApi
   - AWS::ApiGatewayV2::Api
   - AWS::SNS::Topic
-  - AWS::Kinesis::Stream
 tagExportConfig:
   includeTags:
     - "kubernetes.io/service-name"
