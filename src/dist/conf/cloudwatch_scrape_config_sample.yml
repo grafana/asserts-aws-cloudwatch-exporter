@@ -66,8 +66,6 @@ discoverResourceTypes:
   - AWS::ApiGatewayV2::Api
   - AWS::SQS::Queue
   - AWS::SNS::Topic
-  - AWS::ECS::Cluster
-  - AWS::ECS::Service
   - AWS::Kinesis::Stream
   - AWS::Redshift::Cluster
 tagExportConfig:
