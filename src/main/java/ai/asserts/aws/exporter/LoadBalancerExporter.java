@@ -69,6 +69,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                         Map<String, String> labels = new TreeMap<>();
                         labels.put(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId());
                         labels.put(SCRAPE_REGION_LABEL, region);
+                        labels.put("namespace", "AWS/ELB");
                         labels.put("aws_resource_type", "AWS::ElasticLoadBalancing::LoadBalancer");
                         labels.put("job", loadBalancerDescription.loadBalancerName());
                         labels.put("name", loadBalancerDescription.loadBalancerName());
@@ -103,7 +104,12 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                                 labels.put("job", resource.getName());
                                 labels.put("name", resource.getName());
                                 labels.put("id", resource.getId());
-                                labels.put("subtype", resource.getSubType());
+                                labels.put("type", resource.getSubType());
+                                if ("app".equals(resource.getSubType())) {
+                                    labels.put("namespace", "AWS/ApplicationELB");
+                                } else {
+                                    labels.put("namespace", "AWS/NetworkELB");
+                                }
                                 samples.add(metricSampleBuilder.buildSingleSample(
                                         "aws_resource", labels, 1.0D));
                             });

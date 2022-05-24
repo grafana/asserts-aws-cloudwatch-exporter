@@ -62,6 +62,7 @@ public class RedshiftExporterTest extends EasyMockSupport {
     public void exporterBucketTest() {
 
         SortedMap<String, String> labels1 = new TreeMap<>();
+        labels1.put("namespace", "AWS/Redshift");
         labels1.put("region", "region1");
         labels1.put("name", "cluster1");
         labels1.put("id", "cluster1");

@@ -88,6 +88,7 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
                                 resource.addTagLabels(labels, metricNameUtil);
                                 labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
                                 labels.put(SCRAPE_REGION_LABEL, resource.getRegion());
+                                labels.put("namespace", "AWS/SQS");
                                 labels.put("name", resource.getName());
                                 labels.put("topic", resource.getName());
                                 labels.put("aws_resource_type", "AWS::SQS::Queue");
