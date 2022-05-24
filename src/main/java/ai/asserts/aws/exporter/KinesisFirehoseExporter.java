@@ -98,6 +98,7 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
                                 Map<String, String> labels = new TreeMap<>();
                                 resource.addLabels(labels, "");
                                 labels.put("aws_resource_type", labels.get("type"));
+                                labels.put("namespace", "AWS/Firehose");
                                 if (StringUtils.hasLength(resource.getAccount())) {
                                     labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
                                     labels.remove("account");

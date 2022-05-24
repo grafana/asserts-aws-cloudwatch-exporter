@@ -94,6 +94,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                                 if (labels.containsKey("name")) {
                                     labels.put("job", labels.get("name"));
                                 }
+                                labels.put("namespace", "AWS/KinesisAnalytics");
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
                             .collect(Collectors.toList()));
