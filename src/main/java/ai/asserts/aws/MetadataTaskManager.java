@@ -15,6 +15,7 @@ import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
 import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
+import ai.asserts.aws.exporter.S3BucketExporter;
 import ai.asserts.aws.exporter.SQSQueueExporter;
 import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
@@ -50,6 +51,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder;
     private final KinesisAnalyticsExporter kinesisAnalyticsExporter;
     private final KinesisFirehoseExporter kinesisFirehoseExporter;
+    private final S3BucketExporter s3BucketExporter;
     private final TaskThreadPool taskThreadPool;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
@@ -94,6 +96,7 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(apiGatewayToLambdaBuilder::update);
         taskThreadPool.getExecutorService().submit(kinesisAnalyticsExporter::update);
         taskThreadPool.getExecutorService().submit(kinesisFirehoseExporter::update);
+        taskThreadPool.getExecutorService().submit(s3BucketExporter::update);
         taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter::update);
         taskThreadPool.getExecutorService().submit(sqsQueueExporter::update);
 
