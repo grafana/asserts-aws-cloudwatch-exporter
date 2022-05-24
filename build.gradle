@@ -53,6 +53,7 @@ dependencies {
             "software.amazon.awssdk:secretsmanager:$awsSdkVersion",
             "software.amazon.awssdk:redshift:$awsSdkVersion",
             "software.amazon.awssdk:kinesis:$awsSdkVersion",
+            "software.amazon.awssdk:rds:$awsSdkVersion",
     )
 
     compileOnly(
