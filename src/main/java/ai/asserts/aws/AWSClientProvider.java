@@ -38,6 +38,8 @@ import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2Clie
 import software.amazon.awssdk.services.kinesisanalyticsv2.KinesisAnalyticsV2ClientBuilder;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.LambdaClientBuilder;
+import software.amazon.awssdk.services.rds.RdsClient;
+import software.amazon.awssdk.services.rds.RdsClientBuilder;
 import software.amazon.awssdk.services.redshift.RedshiftClient;
 import software.amazon.awssdk.services.redshift.RedshiftClientBuilder;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
@@ -322,6 +324,19 @@ public class AWSClientProvider {
 
     public KinesisClient getKinesisClient(String region, AWSAccount account) {
         KinesisClientBuilder clientBuilder = KinesisClient.builder().region(Region.of(region));
+        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+        if (credentialsOpt.isPresent()) {
+            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        }
+        if (account.getAssumeRole() != null) {
+            clientBuilder = clientBuilder.credentialsProvider(() ->
+                    getAwsSessionCredentials(region, account, credentialsOpt));
+        }
+        return clientBuilder.build();
+    }
+
+    public RdsClient getRDSClient(String region, AWSAccount account) {
+        RdsClientBuilder clientBuilder = RdsClient.builder().region(Region.of(region));
         Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
         if (credentialsOpt.isPresent()) {
             clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
