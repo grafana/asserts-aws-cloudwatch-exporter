@@ -11,8 +11,12 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
 import io.micrometer.core.instrument.util.StringUtils;
+import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import io.prometheus.client.CollectorRegistry;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.apigateway.ApiGatewayClient;
 import software.amazon.awssdk.services.apigateway.model.GetMethodRequest;
@@ -22,7 +26,10 @@ import software.amazon.awssdk.services.apigateway.model.GetResourcesResponse;
 import software.amazon.awssdk.services.apigateway.model.GetRestApisResponse;
 import software.amazon.awssdk.services.apigateway.model.RestApi;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -37,26 +44,46 @@ import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 
 @Component
 @Slf4j
-public class ApiGatewayToLambdaBuilder {
+public class ApiGatewayToLambdaBuilder extends Collector
+        implements MetricProvider, InitializingBean {
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final AccountProvider accountProvider;
+    private final MetricSampleBuilder metricSampleBuilder;
+    private final CollectorRegistry collectorRegistry;
     private final Pattern LAMBDA_URI_PATTERN = Pattern.compile(
             "arn:aws:apigateway:(.+?):lambda:path/.+?/functions/arn:aws:lambda:(.+?):(.+?):function:(.+)/invocations");
 
     @Getter
     private volatile Set<ResourceRelation> lambdaIntegrations = new HashSet<>();
+    private volatile List<MetricFamilySamples> apiResourceMetrics = new ArrayList<>();
 
     public ApiGatewayToLambdaBuilder(AWSClientProvider awsClientProvider,
-                                     RateLimiter rateLimiter, AccountProvider accountProvider) {
+                                     RateLimiter rateLimiter, AccountProvider accountProvider,
+                                     MetricSampleBuilder metricSampleBuilder,
+                                     CollectorRegistry collectorRegistry) {
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
         this.accountProvider = accountProvider;
+        this.metricSampleBuilder = metricSampleBuilder;
+        this.collectorRegistry = collectorRegistry;
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        collectorRegistry.register(this);
+    }
+
+    @Override
+    public List<MetricFamilySamples> collect() {
+        return apiResourceMetrics;
     }
 
     public void update() {
         log.info("Exporting ApiGateway to Lambda relationship");
         Set<ResourceRelation> newIntegrations = new HashSet<>();
+        List<MetricFamilySamples> newMetrics = new ArrayList<>();
+        List<Sample> samples = new ArrayList<>();
         try {
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region -> {
@@ -76,9 +103,20 @@ public class ApiGatewayToLambdaBuilder {
                                                 .restApiId(restApi.id())
                                                 .build()));
                                 if (resources.hasItems()) {
-                                    resources.items().forEach(resource ->
-                                            captureIntegrations(client, newIntegrations, accountRegion.getAccountId(),
-                                                    labels, region, restApi, resource));
+                                    resources.items().forEach(resource -> {
+                                        captureIntegrations(client, newIntegrations, accountRegion.getAccountId(),
+                                                labels, region, restApi, resource);
+                                        Map<String, String> apiResourceLabels = new TreeMap<>();
+                                        apiResourceLabels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
+                                        apiResourceLabels.put(SCRAPE_REGION_LABEL, region);
+                                        apiResourceLabels.put("aws_resource_type", "AWS::ApiGateway::RestApi");
+                                        apiResourceLabels.put("namespace", "AWS/ApiGateway");
+                                        apiResourceLabels.put("name", restApi.name());
+                                        apiResourceLabels.put("id", restApi.id());
+                                        apiResourceLabels.put("job", restApi.name());
+                                        samples.add(metricSampleBuilder.buildSingleSample("aws_resource",
+                                                apiResourceLabels, 1.0d));
+                                    });
                                 }
                             });
                         }
@@ -88,7 +126,13 @@ public class ApiGatewayToLambdaBuilder {
         } catch (Exception e) {
             log.error("Failed to discover lambda integrations", e);
         }
+
+        if (samples.size() > 0) {
+            newMetrics.add(metricSampleBuilder.buildFamily(samples));
+        }
+
         lambdaIntegrations = newIntegrations;
+        apiResourceMetrics = newMetrics;
     }
 
     private void captureIntegrations(ApiGatewayClient client, Set<ResourceRelation> newIntegrations, String accountId,

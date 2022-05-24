@@ -159,7 +159,6 @@ public class ResourceTagHelper {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<Resource> resources = new HashSet<>();
         String nextToken = null;
-        String assumeRole = accountRegion.getAssumeRole();
         try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region, accountRegion)) {
             do {
                 GetResourcesRequest req = builder
@@ -209,7 +208,6 @@ public class ResourceTagHelper {
         }
         if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            String assumeRole = accountRegion.getAssumeRole();
             try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, accountRegion)) {
                 DescribeTagsResponse describeTagsResponse = elbClient.describeTags(DescribeTagsRequest.builder()
                         .loadBalancerNames(resourceNames)
