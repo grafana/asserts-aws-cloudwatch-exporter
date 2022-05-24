@@ -79,6 +79,7 @@ public class S3BucketExporter extends Collector implements InitializingBean {
                                 labels.put("job", bucket.name());
                                 labels.put("name", bucket.name());
                                 labels.put("id", bucket.name());
+                                labels.put("namespace", "AWS/S3");
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
                             .collect(Collectors.toList()));
