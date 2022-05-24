@@ -198,6 +198,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                         labels.put("job", service.getName());
                         labels.put("name", service.getName());
                         labels.put("aws_resource_type", "AWS::ECS::Service");
+                        labels.put("namespace", "AWS/ECS");
 
                         resourceMetricSamples.add(metricSampleBuilder.buildSingleSample(
                                 "aws_resource", labels, 1.0D));

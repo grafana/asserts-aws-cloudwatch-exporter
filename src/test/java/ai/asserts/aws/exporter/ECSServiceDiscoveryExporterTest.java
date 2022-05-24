@@ -286,6 +286,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         labels1.put("name", "service1");
         labels1.put("region", "region1");
         labels1.put("aws_resource_type", "AWS::ECS::Service");
+        labels1.put("namespace", "AWS/ECS");
         expect(metricSampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D)).andReturn(sample);
 
         Map<String, String> labels2 = new TreeMap<>();
@@ -295,6 +296,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         labels2.put("name", "service2");
         labels2.put("region", "region1");
         labels2.put("aws_resource_type", "AWS::ECS::Service");
+        labels2.put("namespace", "AWS/ECS");
         expect(metricSampleBuilder.buildSingleSample("aws_resource", labels2, 1.0D)).andReturn(sample);
 
         replayAll();
