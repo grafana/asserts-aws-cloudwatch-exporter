@@ -1,6 +1,7 @@
 delay: 60
 scrapeInterval: 300
 discoverECSTasks: true
+pullCWAlarms: true
 alertForwardUrl:
 tenant:
 ecsTaskScrapeConfigs:

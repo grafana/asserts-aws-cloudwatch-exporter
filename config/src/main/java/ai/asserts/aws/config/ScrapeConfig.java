@@ -97,6 +97,9 @@ public class ScrapeConfig {
     @Builder.Default
     private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
 
+    @Builder.Default
+    private boolean pullCWAlarms = true;
+
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {
             return Optional.empty();

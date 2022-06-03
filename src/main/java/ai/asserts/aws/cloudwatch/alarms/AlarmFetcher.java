@@ -8,11 +8,13 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableSortedMap;
-import io.micrometer.core.annotation.Timed;
-import lombok.AllArgsConstructor;
+import io.prometheus.client.Collector;
+import io.prometheus.client.CollectorRegistry;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.ComparisonOperator;
@@ -33,27 +35,62 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
 @Component
 @Slf4j
-@AllArgsConstructor
-public class AlarmFetcher {
+public class AlarmFetcher extends Collector implements InitializingBean {
+    public final CollectorRegistry collectorRegistry;
     private final AccountProvider accountProvider;
     private final RateLimiter rateLimiter;
     private final AWSClientProvider awsClientProvider;
-    private final AlertsProcessor alertsProcessor;
     private final AlarmMetricConverter alarmMetricConverter;
+    private final MetricSampleBuilder sampleBuilder;
+    private final ScrapeConfigProvider scrapeConfigProvider;
+    private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
-    @Scheduled(fixedRateString = "${aws.alarm.fetch.task.fixedDelay:60000}",
-            initialDelayString = "${aws.alarm.fetch.task.initialDelay:5000}")
-    @Timed(description = "Time spent fetching CloudWatch alarm from all regions", histogram = true)
-    public void fetchAlarms() {
+    public AlarmFetcher(AccountProvider accountProvider,
+                        AWSClientProvider awsClientProvider,
+                        CollectorRegistry collectorRegistry,
+                        RateLimiter rateLimiter,
+                        MetricSampleBuilder sampleBuilder,
+                        AlarmMetricConverter alarmMetricConverter,
+                        ScrapeConfigProvider scrapeConfigProvider) {
+        this.accountProvider = accountProvider;
+        this.awsClientProvider = awsClientProvider;
+        this.collectorRegistry = collectorRegistry;
+        this.rateLimiter = rateLimiter;
+        this.sampleBuilder = sampleBuilder;
+        this.alarmMetricConverter = alarmMetricConverter;
+        this.scrapeConfigProvider = scrapeConfigProvider;
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        register(collectorRegistry);
+    }
+
+    @Override
+    public List<MetricFamilySamples> collect() {
+        return metricFamilySamples;
+    }
+
+    public void update() {
+        if (!scrapeConfigProvider.getScrapeConfig().isPullCWAlarms()) {
+            return;
+        }
+        List<MetricFamilySamples> newFamily = new ArrayList<>();
+        List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
                 log.info("Fetching alarms from account {} and region {}", accountRegion.getAccountId(), region);
-                String accountId = accountRegion.getAccountId();
-                String accountRole = accountRegion.getAssumeRole();
                 List<Map<String, String>> labelsList = getAlarms(accountRegion, region);
-                alertsProcessor.sendAlerts(labelsList);
+                samples.addAll(labelsList.stream()
+                        .map(labels -> sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
+                                1.0)
+                        )
+                        .collect(Collectors.toList()));
+
             });
         }
+        newFamily.add(sampleBuilder.buildFamily(samples));
+        metricFamilySamples = newFamily;
     }
 
     private List<Map<String, String>> getAlarms(AWSAccount account, String region) {
@@ -94,7 +131,6 @@ public class AlarmFetcher {
         labels.put("alertname", alarm.alarmName());
         labels.put(SCRAPE_REGION_LABEL, region);
         labels.put("state", alarm.stateValueAsString());
-        labels.put("timestamp", alarm.stateUpdatedTimestamp().toString());
         labels.put("threshold", Double.toString(alarm.threshold()));
         labels.put("namespace", alarm.namespace());
         labels.put("metric_namespace", alarm.namespace());
@@ -135,4 +171,5 @@ public class AlarmFetcher {
         }
         return strOperator;
     }
+
 }

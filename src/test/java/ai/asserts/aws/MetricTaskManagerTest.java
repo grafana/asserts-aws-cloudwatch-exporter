@@ -1,5 +1,6 @@
 package ai.asserts.aws;
 
+import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +28,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
     private AlarmMetricExporter alarmMetricExporter;
+    private AlarmFetcher alarmFetcher;
 
     @BeforeEach
     public void setup() {
@@ -38,10 +40,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
         alarmMetricExporter = mock(AlarmMetricExporter.class);
+        alarmFetcher = mock(AlarmFetcher.class);
 
         replayAll();
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter);
+                taskThreadPool, alarmMetricExporter, alarmFetcher);
         verifyAll();
         resetAll();
     }
@@ -59,7 +62,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter) {
+                taskThreadPool, alarmMetricExporter, alarmFetcher) {
             @Override
             void updateScrapeTasks() {
             }
@@ -71,20 +74,24 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         Capture<Runnable> capture1 = newCapture();
         Capture<Runnable> capture2 = newCapture();
+        Capture<Runnable> capture3 = newCapture();
 
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
         expect(executorService.submit(capture(capture2))).andReturn(null);
+        expect(executorService.submit(capture(capture3))).andReturn(null);
 
         metricScrapeTask.update();
         expectLastCall().times(2);
 
+        alarmFetcher.update();
         replayAll();
         testClass.triggerScrapes();
 
         capture1.getValue().run();
         capture2.getValue().run();
+        capture3.getValue().run();
 
         verifyAll();
     }
