@@ -11,7 +11,6 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,7 +49,6 @@ public class AlarmFetcherTest extends EasyMockSupport {
     private CloudWatchClient cloudWatchClient;
     private AccountIDProvider accountIDProvider;
     private AlarmMetricConverter alarmMetricConverter;
-    private BasicMetricCollector basicMetricCollector;
     private MetricSampleBuilder sampleBuilder;
     private AlarmFetcher testClass;
     private Collector.MetricFamilySamples.Sample sample;
@@ -71,11 +69,10 @@ public class AlarmFetcherTest extends EasyMockSupport {
         cloudWatchClient = mock(CloudWatchClient.class);
         accountIDProvider = mock(AccountIDProvider.class);
         alarmMetricConverter = mock(AlarmMetricConverter.class);
-        basicMetricCollector = mock(BasicMetricCollector.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         testClass = new AlarmFetcher(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, basicMetricCollector, alarmMetricConverter, scrapeConfigProvider);
+                sampleBuilder, alarmMetricConverter, scrapeConfigProvider);
     }
 
     @Test
@@ -123,16 +120,9 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .put("state", "ALARM")
                 .put("threshold", "10.0")
                 .build());
-        SortedMap<String, String> labelsHisto = new TreeMap<>(new ImmutableMap.Builder<String, String>()
-                .put("account_id", "123456789")
-                .put("alertname", "alarm1")
-                .put("namespace", "AWS/RDS")
-                .put("region", "region").build());
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0D))
                 .andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
-        basicMetricCollector.recordHistogram("aws_exporter_delay_seconds",
-                labelsHisto, 0);
         cloudWatchClient.close();
         replayAll();
         testClass.update();
