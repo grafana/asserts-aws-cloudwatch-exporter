@@ -1,11 +1,12 @@
 delay: 60
 scrapeInterval: 300
 discoverECSTasks: true
+ecsTargetSDFile: /opt/asserts/ecs-scrape-targets.yml
 pullCWAlarms: true
 alertForwardUrl:
 tenant:
 ecsTaskScrapeConfigs:
-  - containerDefinitionName: aws-cloudwatch-exporter
+  - containerDefinitionName: cloudwatch-exporter
     metricPath: /aws-exporter/actuator/prometheus
 #assumeRole: arn:aws:iam::342994379019:role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig
 regions:
@@ -22,39 +23,6 @@ namespaces:
         stats:
           - Average
           - Maximum
-    logs:
-      - lambdaFunctionName: (Function.+)|(OrderProcessor)
-        logFilterPattern: "About to put message in SQS Queue"
-        regexPattern: ".*put message in SQS Queue https://sqs.us-west-2.amazonaws.com/342994379019/(.+)"
-        labels:
-          "destination_type": "SQSQueue"
-          "destination_name": "$1"
-  - name: AWS/SQS
-    metrics:
-      - name: NumberOfMessagesSent
-        stats:
-          - Sum
-  - name: LambdaInsights
-    dimensionFilters:
-      function_name: .+
-    metrics:
-      - name: memory_utilization
-        stats:
-          - Average
-          - Maximum
-      - name: used_memory_max
-        stats:
-          - Average
-          - Maximum
-      - name: cpu_total_time
-        stats:
-          - Sum
-      - name: tx_bytes
-        stats:
-          - Sum
-      - name: rx_bytes
-        stats:
-          - Sum
 tagExportConfig:
   includeTags:
     - "kubernetes.io/service-name"

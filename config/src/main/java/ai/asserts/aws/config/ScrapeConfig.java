@@ -64,7 +64,7 @@ public class ScrapeConfig {
     private AuthConfig authConfig = new AuthConfig();
 
     @Builder.Default
-    private String ecsTargetSDFile = "ecs-task-scrape-targets.yml";
+    private String ecsTargetSDFile = "/opt/asserts/ecs-scrape-targets.yml";
 
     @Builder.Default
     private Integer logScrapeDelaySeconds = 15;

@@ -23,12 +23,12 @@ import software.amazon.awssdk.services.ecs.model.KeyValuePair;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
@@ -105,6 +105,7 @@ public class ECSTaskUtil {
                 taskDefinition.containerDefinitions().forEach(cD -> {
                     Optional<String> pathFromLabel = getDockerLabel(cD, PROMETHEUS_METRIC_PATH_DOCKER_LABEL);
                     Optional<String> portFromLabel = getDockerLabel(cD, PROMETHEUS_PORT_DOCKER_LABEL);
+                    labelsBuilder.availabilityZone(task.availabilityZone());
                     if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
                         Labels labels = labelsBuilder
                                 .metricsPath(pathFromLabel.get())
@@ -160,7 +161,8 @@ public class ECSTaskUtil {
             return Collections.emptyList();
         }
 
-        return new ArrayList<>(targetsByLabel.values());
+        return targetsByLabel.values().stream()
+                .filter(config -> config.getTargets().size() > 0).collect(Collectors.toList());
     }
 
     Optional<String> getDockerLabel(ContainerDefinition container, String labelName) {

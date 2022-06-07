@@ -116,7 +116,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                             // This is for backward compatibility. We can modify model rule to instead use the
                             /// k8s_* series of labels
                             allTags.stream().filter(tag -> scrapeConfig.shouldExportTag(tag.key(), tag.value()))
-                                    .forEach(tag -> labels.put(metricNameUtil.toSnakeCase(tag.key()), tag.value()));
+                                    .forEach(tag -> labels.put(metricNameUtil.toSnakeCase("tag_" + tag.key()), tag.value()));
 
                             allTags.stream().filter(tag -> tag.key().equals("kubernetes.io/service-name"))
                                     .findFirst().ifPresent(tag -> {
