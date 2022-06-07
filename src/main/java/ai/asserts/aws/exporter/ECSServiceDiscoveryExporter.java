@@ -102,7 +102,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     public void afterPropertiesSet() throws Exception {
         ClassPathResource classPathResource = new ClassPathResource("/dummy-ecs-targets.yml");
         File out = new File(scrapeConfigProvider.getScrapeConfig().getEcsTargetSDFile());
-        String src = classPathResource.getFile().getAbsolutePath();
+        String src = classPathResource.getURI().toString();
         String dest = out.getAbsolutePath();
         try {
             FileCopyUtils.copy(classPathResource.getInputStream(), new FileOutputStream(out));
