@@ -108,7 +108,6 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(kinesisAnalyticsExporter::update);
         taskThreadPool.getExecutorService().submit(kinesisFirehoseExporter::update);
         taskThreadPool.getExecutorService().submit(s3BucketExporter::update);
-        taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter::update);
         taskThreadPool.getExecutorService().submit(redshiftExporter::update);
         taskThreadPool.getExecutorService().submit(sqsQueueExporter::update);
         taskThreadPool.getExecutorService().submit(kinesisStreamExporter::update);
@@ -121,5 +120,12 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(() ->
                 logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));
         scrapeConfigProvider.update();
+    }
+
+    @Scheduled(fixedRateString = "${aws.metadata.scrape.manager.task.fixedDelay:60000}",
+            initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
+    @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
+    public void perMinute() {
+        taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter::update);
     }
 }

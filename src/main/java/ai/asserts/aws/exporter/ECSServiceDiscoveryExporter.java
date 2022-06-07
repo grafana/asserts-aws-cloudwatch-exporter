@@ -15,6 +15,7 @@ import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -170,9 +171,10 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         if (scrapeConfig.isDiscoverECSTasks()) {
             try {
                 File resultFile = new File(scrapeConfig.getEcsTargetSDFile());
-                objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter()
-                        .writeValue(resultFile, targets);
-                log.info("Wrote ECS scrape target SD file {}", resultFile.toURI());
+                ObjectWriter objectWriter = objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter();
+                objectWriter.writeValue(resultFile, targets);
+                String targetsFileContent = objectWriter.writeValueAsString(targets);
+                log.info("Wrote ECS scrape target SD file {}\n{}\n", resultFile.toURI(), targetsFileContent);
             } catch (IOException e) {
                 log.error("Failed to write ECS SD file", e);
             }
