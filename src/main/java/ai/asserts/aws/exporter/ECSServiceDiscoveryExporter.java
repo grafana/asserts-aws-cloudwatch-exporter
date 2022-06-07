@@ -207,6 +207,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     .map(Optional::get)
                     .forEach(service -> {
                         if (scrapeConfig.isDiscoverECSTasks()) {
+                            log.info("Discovering ECS Tasks with ECS Scrape Config {}",
+                                    scrapeConfig.getECSConfigByNameAndPort());
                             targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service));
                         }
                         services.add(service);
