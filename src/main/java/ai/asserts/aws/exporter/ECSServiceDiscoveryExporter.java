@@ -298,6 +298,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         private final String container;
         @JsonProperty("ecs_task_id")
         private final String taskId;
+        @JsonProperty("availability_zone")
+        private final String availabilityZone;
         @JsonProperty("cw_namespace")
         private final String namespace = "AWS/ECS";
         @JsonProperty("asserts_site")
