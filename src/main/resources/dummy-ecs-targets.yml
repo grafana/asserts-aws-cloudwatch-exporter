@@ -1,0 +1,13 @@
+- targets:
+    - 10.8.3.188:8429
+  labels:
+    job: asserts-aws-exporter-vmagent
+    container: agent
+    __metrics_path__: /metrics
+    ecs_cluster: asserts-aws-integration
+    ecs_taskdef_name: asserts-aws-integration-agent
+    ecs_taskdef_version: 38
+    ecs_task_id: 3a2852ab2097429bab264b8d4f887445
+    availability_zone: us-west-2a
+    cw_namespace: AWS/ECS
+    asserts_site: us-west-2
