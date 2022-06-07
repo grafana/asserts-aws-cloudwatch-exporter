@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import io.prometheus.client.Collector.MetricFamilySamples;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -261,6 +262,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         Set<ResourceRelation> newRouting = new HashSet<>();
         List<Sample> samples = new ArrayList<>();
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true).anyTimes();
+        expect(scrapeConfig.getECSConfigByNameAndPort()).andReturn(ImmutableSortedMap.of()).anyTimes();
         Resource cluster = Resource.builder()
                 .region("region1")
                 .arn("arn1")
