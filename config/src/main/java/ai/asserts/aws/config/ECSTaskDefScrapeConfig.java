@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import lombok.With;
 import org.springframework.util.StringUtils;
 
@@ -19,6 +20,7 @@ import org.springframework.util.StringUtils;
 @NoArgsConstructor
 @With
 @AllArgsConstructor
+@ToString
 public class ECSTaskDefScrapeConfig {
     private String containerDefinitionName;
     private Integer containerPort;
@@ -27,6 +29,7 @@ public class ECSTaskDefScrapeConfig {
     @EqualsAndHashCode
     @Getter
     @Builder
+    @ToString
     public static class ScrapeTarget {
         private Integer containerPort;
         private String metricPath;
