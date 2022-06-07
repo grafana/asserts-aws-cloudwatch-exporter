@@ -24,7 +24,10 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.FileCopyUtils;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
@@ -59,7 +62,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
  */
 @Slf4j
 @Component
-public class ECSServiceDiscoveryExporter extends Collector implements MetricProvider {
+public class ECSServiceDiscoveryExporter extends Collector implements MetricProvider, InitializingBean {
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
@@ -92,6 +95,20 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         this.rateLimiter = rateLimiter;
         this.lbToECSRoutingBuilder = lbToECSRoutingBuilder;
         this.metricSampleBuilder = metricSampleBuilder;
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        ClassPathResource classPathResource = new ClassPathResource("/dummy-ecs-targets.yml");
+        File out = new File(scrapeConfigProvider.getScrapeConfig().getEcsTargetSDFile());
+        String src = classPathResource.getFile().getAbsolutePath();
+        String dest = out.getAbsolutePath();
+        try {
+            FileCopyUtils.copy(classPathResource.getFile(), out);
+            log.info("Copied dummy fd_config {} to {}", src, dest);
+        } catch (Exception e) {
+            log.error("Failed to copy dummy fd_config {} to {}", src, dest);
+        }
     }
 
     @Override
