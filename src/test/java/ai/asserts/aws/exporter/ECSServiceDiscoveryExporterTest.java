@@ -139,6 +139,10 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
         )));
 
+        expect(objectWriter.writeValueAsString(eq(ImmutableList.of(
+                mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
+        )))).andReturn("content");
+
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample)))
                 .andReturn(metricFamilySamples);
 
@@ -238,6 +242,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
         expect(objectMapper.writerWithDefaultPrettyPrinter()).andReturn(objectWriter);
         objectWriter.writeValue(anyObject(File.class), eq(ImmutableList.of()));
+        expect(objectWriter.writeValueAsString(eq(ImmutableList.of()))).andReturn("content");
         ecsClient.close();
         expectLastCall().times(2);
 

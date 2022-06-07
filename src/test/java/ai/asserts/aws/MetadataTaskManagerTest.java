@@ -163,7 +163,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture18 = newCapture();
         Capture<Runnable> capture19 = newCapture();
         Capture<Runnable> capture20 = newCapture();
-        Capture<Runnable> capture21 = newCapture();
+        //Capture<Runnable> capture21 = newCapture();
 
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(executorService.submit(capture(capture1))).andReturn(null);
@@ -186,7 +186,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(executorService.submit(capture(capture18))).andReturn(null);
         expect(executorService.submit(capture(capture19))).andReturn(null);
         expect(executorService.submit(capture(capture20))).andReturn(null);
-        expect(executorService.submit(capture(capture21))).andReturn(null);
+        //expect(executorService.submit(capture(capture21))).andReturn(null);
 
         lambdaFunctionScraper.update();
         lambdaCapacityExporter.update();
@@ -203,7 +203,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         kinesisFirehoseExporter.update();
         kinesisAnalyticsExporter.update();
         s3BucketExporter.update();
-        ecsServiceDiscoveryExporter.update();
+        //ecsServiceDiscoveryExporter.update();
         redshiftExporter.update();
         sqsQueueExporter.update();
         kinesisStreamExporter.update();
@@ -237,7 +237,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         capture18.getValue().run();
         capture19.getValue().run();
         capture20.getValue().run();
-        capture21.getValue().run();
+        //capture21.getValue().run();
 
         verifyAll();
     }
