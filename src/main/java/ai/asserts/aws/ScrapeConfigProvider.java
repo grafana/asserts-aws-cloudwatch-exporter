@@ -148,13 +148,17 @@ public class ScrapeConfigProvider {
                     log.error("Failed to load configuration from S3", e);
                 }
             } else {
-                log.info("Will load configuration from {}", scrapeConfigFile);
+                if (scrapeConfig.isLogVerbose()) {
+                    log.info("Will load configuration from {}", scrapeConfigFile);
+                }
                 Resource resource = resourceLoader.getResource(scrapeConfigFile);
                 scrapeConfig = objectMapper
                         .readValue(resource.getURL(), new TypeReference<ScrapeConfig>() {
                         });
             }
-            log.info("Loaded configuration {}", scrapeConfig);
+            log.info("Loaded configuration \n{}\n", objectMapper
+                    .writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(scrapeConfig));
 
             if (envVariables.containsKey("REGIONS")) {
                 scrapeConfig.setRegions(Stream.of(envVariables.get("REGIONS").split(","))

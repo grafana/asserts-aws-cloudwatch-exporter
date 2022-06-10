@@ -114,6 +114,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
+        expect(scrapeConfig.isLogVerbose()).andReturn(true);
 
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
@@ -176,6 +177,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
+        expect(scrapeConfig.isLogVerbose()).andReturn(true);
 
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
@@ -229,6 +231,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
+        expect(scrapeConfig.isLogVerbose()).andReturn(true);
 
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
