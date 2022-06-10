@@ -68,8 +68,15 @@ relabelConfigs:
     regex: (.+)
     target_label: asserts_env
     replacement: $1
-
   - source_labels: [region]
+    regex: (.+)
+    target_label: asserts_site
+    replacement: $1
+  - source_labels: [from_account]
+    regex: (.+)
+    target_label: asserts_env
+    replacement: $1
+  - source_labels: [from_region]
     regex: (.+)
     target_label: asserts_site
     replacement: $1

@@ -16,6 +16,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
@@ -65,10 +66,10 @@ public class ECSTaskUtil {
         Resource taskResource = resourceMapper.map(task.taskArn())
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskArn()));
 
+        boolean multipleContainers = !CollectionUtils.isEmpty(task.containers()) && task.containers().size() > 1;
         LabelsBuilder labelsBuilder = Labels.builder()
                 .region(cluster.getRegion())
                 .cluster(cluster.getName())
-                .job(service.getName())
                 .taskDefName(taskDefResource.getName())
                 .taskDefVersion(taskDefResource.getVersion())
                 .taskId(taskResource.getName())
@@ -106,11 +107,14 @@ public class ECSTaskUtil {
                     Optional<String> pathFromLabel = getDockerLabel(cD, PROMETHEUS_METRIC_PATH_DOCKER_LABEL);
                     Optional<String> portFromLabel = getDockerLabel(cD, PROMETHEUS_PORT_DOCKER_LABEL);
                     labelsBuilder.availabilityZone(task.availabilityZone());
+                    String jobName = multipleContainers ? service.getName() + "-" + cD.name() : service.getName();
                     if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
                         Labels labels = labelsBuilder
+                                .job(jobName)
                                 .metricsPath(pathFromLabel.get())
                                 .container(cD.name())
                                 .build();
+
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
@@ -121,16 +125,19 @@ public class ECSTaskUtil {
                             Labels labels;
                             if (byPort.get(port.containerPort()) != null) {
                                 labels = labelsBuilder
+                                        .job(jobName)
                                         .metricsPath(byPort.get(port.containerPort()).getMetricPath())
                                         .container(cD.name())
                                         .build();
                             } else if (forAnyPort != null) {
                                 labels = labelsBuilder
+                                        .job(jobName)
                                         .metricsPath(forAnyPort.getMetricPath())
                                         .container(cD.name())
                                         .build();
                             } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
                                 labels = labelsBuilder
+                                        .job(jobName)
                                         .metricsPath("/metrics")
                                         .container(cD.name())
                                         .build();
@@ -145,6 +152,7 @@ public class ECSTaskUtil {
                         });
                     } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
                         Labels labels = labelsBuilder
+                                .job(jobName)
                                 .metricsPath("/metrics")
                                 .container(cD.name())
                                 .build();
