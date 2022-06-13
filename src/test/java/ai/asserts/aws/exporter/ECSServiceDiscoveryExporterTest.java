@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import io.prometheus.client.Collector.MetricFamilySamples;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -113,6 +114,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
+        expect(scrapeConfig.isLogVerbose()).andReturn(true);
 
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
@@ -138,6 +140,10 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         objectWriter.writeValue(anyObject(File.class), eq(ImmutableList.of(
                 mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
         )));
+
+        expect(objectWriter.writeValueAsString(eq(ImmutableList.of(
+                mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
+        )))).andReturn("content");
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample)))
                 .andReturn(metricFamilySamples);
@@ -224,6 +230,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
+        expect(scrapeConfig.isLogVerbose()).andReturn(true);
 
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
@@ -238,6 +245,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
         expect(objectMapper.writerWithDefaultPrettyPrinter()).andReturn(objectWriter);
         objectWriter.writeValue(anyObject(File.class), eq(ImmutableList.of()));
+        expect(objectWriter.writeValueAsString(eq(ImmutableList.of()))).andReturn("content");
         ecsClient.close();
         expectLastCall().times(2);
 
@@ -256,6 +264,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         Set<ResourceRelation> newRouting = new HashSet<>();
         List<Sample> samples = new ArrayList<>();
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true).anyTimes();
+        expect(scrapeConfig.getECSConfigByNameAndPort()).andReturn(ImmutableSortedMap.of()).anyTimes();
         Resource cluster = Resource.builder()
                 .region("region1")
                 .arn("arn1")

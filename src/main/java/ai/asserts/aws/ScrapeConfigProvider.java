@@ -128,8 +128,8 @@ public class ScrapeConfigProvider {
             Map<String, String> envVariables = getGetenv();
             ObjectMapper objectMapper = objectMapperFactory.getObjectMapper();
             if (envVariables.containsKey(ApiServerConstants.ASSERTS_API_SERVER_URL)
-            && envVariables.containsKey(ApiServerConstants.ASSERTS_USER)
-            && envVariables.containsKey(ApiServerConstants.ASSERTS_PASSWORD)) {
+                    && envVariables.containsKey(ApiServerConstants.ASSERTS_USER)
+                    && envVariables.containsKey(ApiServerConstants.ASSERTS_PASSWORD)) {
                 scrapeConfig = getConfig(envVariables);
             } else if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
                 try {
@@ -148,13 +148,17 @@ public class ScrapeConfigProvider {
                     log.error("Failed to load configuration from S3", e);
                 }
             } else {
-                log.info("Will load configuration from {}", scrapeConfigFile);
+                if (scrapeConfig.isLogVerbose()) {
+                    log.info("Will load configuration from {}", scrapeConfigFile);
+                }
                 Resource resource = resourceLoader.getResource(scrapeConfigFile);
                 scrapeConfig = objectMapper
                         .readValue(resource.getURL(), new TypeReference<ScrapeConfig>() {
                         });
             }
-            log.info("Loaded configuration");
+            log.info("Loaded configuration \n{}\n", objectMapper
+                    .writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(scrapeConfig));
 
             if (envVariables.containsKey("REGIONS")) {
                 scrapeConfig.setRegions(Stream.of(envVariables.get("REGIONS").split(","))
