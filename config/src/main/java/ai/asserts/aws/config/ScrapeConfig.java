@@ -101,7 +101,7 @@ public class ScrapeConfig {
     private boolean pullCWAlarms = true;
 
     @Builder.Default
-    private boolean logVerbose = false;
+    private boolean logVerbose = true;
 
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {
