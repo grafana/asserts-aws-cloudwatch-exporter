@@ -21,7 +21,6 @@ import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.config.ConfigClient;
 import software.amazon.awssdk.services.config.model.ListDiscoveredResourcesRequest;
 import software.amazon.awssdk.services.config.model.ListDiscoveredResourcesResponse;
@@ -43,6 +42,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.resource.ResourceType.AutoScalingGroup;
 import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Component
 @Slf4j
@@ -81,7 +81,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
             List<Sample> samples = new ArrayList<>();
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             Set<String> discoverResourceTypes = scrapeConfig.getDiscoverResourceTypes();
-            if (!CollectionUtils.isEmpty(discoverResourceTypes)) {
+            if (!isEmpty(discoverResourceTypes)) {
                 accountProvider.getAccounts().forEach(account -> {
                     String accountId = account.getAccountId();
                     account.getRegions().forEach(region -> {
@@ -93,7 +93,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
                     });
                 });
                 List<MetricFamilySamples> latest = new ArrayList<>();
-                if (!CollectionUtils.isEmpty(samples)) {
+                if (!isEmpty(samples)) {
                     latest.add(sampleBuilder.buildFamily(samples));
                 }
                 metrics = latest;
@@ -124,7 +124,7 @@ public class ResourceExporter extends Collector implements MetricProvider {
                                 .build()));
 
 
-                if (response.hasResourceIdentifiers()) {
+                if (!isEmpty(response.resourceIdentifiers())) {
                     List<String> resourceNames = response.resourceIdentifiers().stream()
                             .map(ResourceIdentifier::resourceName)
                             .filter(StringUtils::isNotEmpty)

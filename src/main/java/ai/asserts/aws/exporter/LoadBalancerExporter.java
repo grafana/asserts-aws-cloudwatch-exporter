@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Component
 @Slf4j
@@ -78,7 +79,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                                 SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClient/describeLoadBalancers"
                         ),
                         elbClient::describeLoadBalancers);
-                if (resp.hasLoadBalancerDescriptions()) {
+                if (!isEmpty(resp.loadBalancerDescriptions())) {
                     DescribeTagsResponse describeTagsResponse = rateLimiter.doWithRateLimit(
                             "ElasticLoadBalancingClient/describeLoadBalancers",
                             ImmutableSortedMap.of(
