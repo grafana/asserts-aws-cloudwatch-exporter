@@ -1,4 +1,5 @@
 # Default values for AWS Exporter
+replicas: 1
 
 image:
   repository: asserts/aws-cloudwatch-exporter

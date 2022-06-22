@@ -9,7 +9,7 @@ spec:
   selector:
     matchLabels:
       {{- include "aws-exporter.selectorLabels" . | nindent 6 }}
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   template:
     metadata:
       labels:
