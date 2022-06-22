@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -26,6 +27,7 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
 
     private MetricSampleBuilder sampleBuilder;
     private BasicMetricCollector basicMetricCollector;
+    private AlarmMetricConverter alarmMetricConverter;
     private AlarmMetricExporter testClass;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples samples;
@@ -37,8 +39,9 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         samples = mock(Collector.MetricFamilySamples.class);
         basicMetricCollector = mock(BasicMetricCollector.class);
+        alarmMetricConverter = mock(AlarmMetricConverter.class);
         now = Instant.now();
-        testClass = new AlarmMetricExporter(sampleBuilder, basicMetricCollector) {
+        testClass = new AlarmMetricExporter(sampleBuilder, basicMetricCollector, alarmMetricConverter) {
             @Override
             Instant now() {
                 return now;
@@ -77,6 +80,8 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                 .put("alertname", "a1")
                 .put("namespace", "n1")
                 .put("region", "us-west-2").build());
+
+        alarmMetricConverter.simplifyAlarmName(anyObject(Map.class));
 
         basicMetricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, labels, now.minusSeconds(timestamp).getEpochSecond());
         replayAll();

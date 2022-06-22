@@ -82,10 +82,11 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                 log.info("Fetching alarms from account {} and region {}", accountRegion.getAccountId(), region);
                 List<Map<String, String>> labelsList = getAlarms(accountRegion, region);
                 samples.addAll(labelsList.stream()
-                        .map(labels -> sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
-                                1.0)
-                        )
-                        .collect(Collectors.toList()));
+                        .map(labels -> {
+                            alarmMetricConverter.simplifyAlarmName(labels);
+                            return sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
+                                    1.0);
+                        }).collect(Collectors.toList()));
 
             });
         }

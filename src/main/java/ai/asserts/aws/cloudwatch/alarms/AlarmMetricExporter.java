@@ -28,16 +28,18 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 public class AlarmMetricExporter extends Collector {
-
     private final MetricSampleBuilder sampleBuilder;
     private final BasicMetricCollector basicMetricCollector;
+    private final AlarmMetricConverter alarmMetricConverter;
     @Getter
-    private Map<String, Map<String, String>> alarmLabels = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, String>> alarmLabels = new ConcurrentHashMap<>();
 
     public AlarmMetricExporter(MetricSampleBuilder sampleBuilder,
-                               BasicMetricCollector basicMetricCollector) {
+                               BasicMetricCollector basicMetricCollector,
+                               AlarmMetricConverter alarmMetricConverter) {
         this.sampleBuilder = sampleBuilder;
         this.basicMetricCollector = basicMetricCollector;
+        this.alarmMetricConverter = alarmMetricConverter;
     }
 
     public void processMetric(List<Map<String, String>> labels) {
@@ -68,7 +70,7 @@ public class AlarmMetricExporter extends Collector {
     }
 
     private Optional<String> getKey(Map<String, String> labels) {
-        Set<String> keyLabels = ImmutableSet.of("account_id", "namespace", "metric_name", "alertname");
+        Set<String> keyLabels = ImmutableSet.of("account_id", "region", "namespace", "metric_name", "alertname");
         if (keyLabels.stream().allMatch(labels::containsKey)) {
             return Optional.of(keyLabels.stream().map(labels::get).collect(Collectors.joining("_")));
         }
@@ -79,17 +81,18 @@ public class AlarmMetricExporter extends Collector {
     public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> latest = new ArrayList<>();
         if (alarmLabels.size() > 0) {
-            List<MetricFamilySamples.Sample> metrics1 = new ArrayList<>();
+            List<MetricFamilySamples.Sample> metrics = new ArrayList<>();
             alarmLabels.values().forEach(labels -> {
                 if (labels.containsKey("timestamp")) {
                     Instant timestamp = Instant.parse(labels.get("timestamp"));
                     recordHistogram(labels, timestamp);
                     labels.remove("timestamp");
                 }
-                metrics1.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
+                alarmMetricConverter.simplifyAlarmName(labels);
+                metrics.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
                         1.0));
             });
-            latest.add(sampleBuilder.buildFamily(metrics1));
+            latest.add(sampleBuilder.buildFamily(metrics));
         }
         return latest;
     }
