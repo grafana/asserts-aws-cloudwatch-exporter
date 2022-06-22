@@ -120,6 +120,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .put("state", "ALARM")
                 .put("threshold", "10.0")
                 .build());
+        alarmMetricConverter.simplifyAlarmName(labels);
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0D))
                 .andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);

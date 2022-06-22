@@ -5,8 +5,8 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.ObjectMapperFactory;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.easymock.EasyMockSupport;
@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -100,5 +101,29 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
                 () -> assertEquals("value", labels.get("d_AnotherDimension"))
         );
         verifyAll();
+    }
+
+    @Test
+    public void simplifyAlarmName() {
+        Map<String, String> labels = new TreeMap<>();
+        labels.put("alarm_name",
+                "TargetTracking-table/GameScores/index/GameTitle-TopScore-index-AlarmLow-700cf83c-e41f-4349-a94a-88da343f4823");
+        labels.put("job", "GameScores");
+        labels.put("metric_name", "ReadCapacityUnits");
+
+        testClass.simplifyAlarmName(labels);
+        assertEquals("TargetTracking-table/GameScores/index/GameTitle-TopScore-index-AlarmLow-700cf83c-e41f-4349-a94a-88da343f4823",
+                labels.get("original_alarm_name"));
+        assertEquals("GameTitle-TopScore-index ReadCapacityUnits Low", labels.get("alarm_name"));
+
+
+        labels.put("alarm_name", "TargetTracking-table/Rides-AlarmLow-1547ee0e-533a-4275-ae53-276bf265ea28");
+        labels.put("job", "Rides");
+        labels.put("metric_name", "ReadCapacityUnits");
+
+        testClass.simplifyAlarmName(labels);
+        assertEquals("TargetTracking-table/Rides-AlarmLow-1547ee0e-533a-4275-ae53-276bf265ea28",
+                labels.get("original_alarm_name"));
+        assertEquals("ReadCapacityUnits Low", labels.get("alarm_name"));
     }
 }
