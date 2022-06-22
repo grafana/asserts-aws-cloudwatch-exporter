@@ -125,5 +125,12 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         assertEquals("TargetTracking-table/Rides-AlarmLow-1547ee0e-533a-4275-ae53-276bf265ea28",
                 labels.get("original_alarm_name"));
         assertEquals("ReadCapacityUnits Low", labels.get("alarm_name"));
+
+        labels.put("alarm_name","ride-bookings-ThrottledReads");
+        labels.put("job","ride-bookings");
+
+        testClass.simplifyAlarmName(labels);
+        assertEquals("ride-bookings-ThrottledReads", labels.get("original_alarm_name"));
+        assertEquals("ThrottledReads", labels.get("alarm_name"));
     }
 }
