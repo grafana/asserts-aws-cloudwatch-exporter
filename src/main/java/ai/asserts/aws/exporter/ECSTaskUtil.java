@@ -25,7 +25,7 @@ import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,7 +58,7 @@ public class ECSTaskUtil {
 
     public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
                                                  Resource cluster, Resource service, Task task) {
-        Map<Labels, StaticConfig> targetsByLabel = new HashMap<>();
+        Map<Labels, StaticConfig> targetsByLabel = new LinkedHashMap<>();
 
         String ipAddress;
         Resource taskDefResource = resourceMapper.map(task.taskDefinitionArn())
@@ -68,6 +68,7 @@ public class ECSTaskUtil {
 
         boolean multipleContainers = !CollectionUtils.isEmpty(task.containers()) && task.containers().size() > 1;
         LabelsBuilder labelsBuilder = Labels.builder()
+                .accountId(cluster.getAccount())
                 .region(cluster.getRegion())
                 .cluster(cluster.getName())
                 .taskDefName(taskDefResource.getName())

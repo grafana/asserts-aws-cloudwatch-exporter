@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.exporter.ECSTaskUtil.ENI;
@@ -222,19 +223,26 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),
                 () -> assertEquals("/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
-                () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8081", "10.20.30.40:8082"),
-                        staticConfigs.get(0).getTargets())
-        );
-        assertAll(
+
                 () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
                 () -> assertEquals("service", staticConfigs.get(1).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(1).getLabels().getTaskId()),
                 () -> assertEquals("/metrics", staticConfigs.get(1).getLabels().getMetricsPath()),
-                () -> assertEquals("model-builder", staticConfigs.get(1).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"), staticConfigs.get(1).getTargets())
+                () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
+                        .map(sc -> sc.getLabels().getContainer())
+                        .collect(Collectors.toSet())),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:8081", "10.20.30.40:8082"),
+                        staticConfigs.stream()
+                                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
+                                .map(StaticConfig::getTargets)
+                                .findFirst().get()),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"),
+                        staticConfigs.stream()
+                                .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
+                                .map(StaticConfig::getTargets)
+                                .findFirst().get())
         );
         verifyAll();
     }
@@ -301,20 +309,35 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),
-                () -> assertEquals("/prometheus/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
-                () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8081", "10.20.30.40:8082"),
-                        staticConfigs.get(0).getTargets())
-        );
-        assertAll(
+
                 () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
                 () -> assertEquals("service", staticConfigs.get(1).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(1).getLabels().getTaskId()),
-                () -> assertEquals("/metrics", staticConfigs.get(1).getLabels().getMetricsPath()),
-                () -> assertEquals("model-builder", staticConfigs.get(1).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"), staticConfigs.get(1).getTargets())
+                () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
+                        .map(sc -> sc.getLabels().getContainer())
+                        .collect(Collectors.toSet())),
+                () -> assertEquals("/prometheus/metrics",
+                        staticConfigs.stream()
+                                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
+                                .map(sc -> sc.getLabels().getMetricsPath())
+                                .findFirst().get()),
+                () -> assertEquals("/metrics",
+                        staticConfigs.stream()
+                                .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
+                                .map(sc -> sc.getLabels().getMetricsPath())
+                                .findFirst().get()),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:8081", "10.20.30.40:8082"),
+                        staticConfigs.stream()
+                                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
+                                .map(StaticConfig::getTargets)
+                                .findFirst().get()),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"),
+                        staticConfigs.stream()
+                                .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
+                                .map(StaticConfig::getTargets)
+                                .findFirst().get())
         );
         verifyAll();
     }
@@ -375,37 +398,48 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 .build())
                         .build());
         assertEquals(3, staticConfigs.size());
+
+        Optional<StaticConfig> apiServer_8081 = staticConfigs.stream()
+                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
+                .filter(sc -> sc.getTargets().contains("10.20.30.40:8081"))
+                .findFirst();
+
+        Optional<StaticConfig> apiServer_8082 = staticConfigs.stream()
+                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
+                .filter(sc -> sc.getTargets().contains("10.20.30.40:8082"))
+                .findFirst();
+
+        Optional<StaticConfig> modelBuilder = staticConfigs.stream()
+                .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
+                .filter(sc -> sc.getTargets().contains("10.20.30.40:8080"))
+                .findFirst();
+
         assertAll(
-                () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
-                () -> assertEquals("service", staticConfigs.get(0).getLabels().getJob()),
-                () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
-                () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),
-                () -> assertEquals("/prometheus/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
-                () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8081"),
-                        staticConfigs.get(0).getTargets())
+                () -> assertTrue(apiServer_8081.isPresent()),
+                () -> assertEquals("cluster", apiServer_8081.get().getLabels().getCluster()),
+                () -> assertEquals("service", apiServer_8081.get().getLabels().getJob()),
+                () -> assertEquals("task-def", apiServer_8081.get().getLabels().getTaskDefName()),
+                () -> assertEquals("5", apiServer_8081.get().getLabels().getTaskDefVersion()),
+                () -> assertEquals("task-id", apiServer_8081.get().getLabels().getTaskId()),
+                () -> assertEquals("/prometheus/metrics", apiServer_8081.get().getLabels().getMetricsPath())
         );
         assertAll(
-                () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
-                () -> assertEquals("service", staticConfigs.get(1).getLabels().getJob()),
-                () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
-                () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfigs.get(1).getLabels().getTaskId()),
-                () -> assertEquals("/metrics", staticConfigs.get(1).getLabels().getMetricsPath()),
-                () -> assertEquals("api-server", staticConfigs.get(1).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8082"),
-                        staticConfigs.get(1).getTargets())
+                () -> assertTrue(apiServer_8082.isPresent()),
+                () -> assertEquals("cluster", apiServer_8082.get().getLabels().getCluster()),
+                () -> assertEquals("service", apiServer_8082.get().getLabels().getJob()),
+                () -> assertEquals("task-def", apiServer_8082.get().getLabels().getTaskDefName()),
+                () -> assertEquals("5", apiServer_8082.get().getLabels().getTaskDefVersion()),
+                () -> assertEquals("task-id", apiServer_8082.get().getLabels().getTaskId()),
+                () -> assertEquals("/metrics", apiServer_8082.get().getLabels().getMetricsPath())
         );
         assertAll(
-                () -> assertEquals("cluster", staticConfigs.get(2).getLabels().getCluster()),
-                () -> assertEquals("service", staticConfigs.get(2).getLabels().getJob()),
-                () -> assertEquals("task-def", staticConfigs.get(2).getLabels().getTaskDefName()),
-                () -> assertEquals("5", staticConfigs.get(2).getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfigs.get(2).getLabels().getTaskId()),
-                () -> assertEquals("/metrics", staticConfigs.get(2).getLabels().getMetricsPath()),
-                () -> assertEquals("model-builder", staticConfigs.get(2).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"), staticConfigs.get(2).getTargets())
+                () -> assertTrue(modelBuilder.isPresent()),
+                () -> assertEquals("cluster", modelBuilder.get().getLabels().getCluster()),
+                () -> assertEquals("service", modelBuilder.get().getLabels().getJob()),
+                () -> assertEquals("task-def", modelBuilder.get().getLabels().getTaskDefName()),
+                () -> assertEquals("5", modelBuilder.get().getLabels().getTaskDefVersion()),
+                () -> assertEquals("task-id", modelBuilder.get().getLabels().getTaskId()),
+                () -> assertEquals("/metrics", modelBuilder.get().getLabels().getMetricsPath())
         );
         verifyAll();
     }
