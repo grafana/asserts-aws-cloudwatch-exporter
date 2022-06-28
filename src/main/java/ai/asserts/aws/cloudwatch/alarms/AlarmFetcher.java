@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static io.micrometer.core.instrument.util.StringUtils.isEmpty;
 
 @Component
 @Slf4j
@@ -43,6 +44,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     private final AlarmMetricConverter alarmMetricConverter;
     private final MetricSampleBuilder sampleBuilder;
     private final ScrapeConfigProvider scrapeConfigProvider;
+    private final AlertsProcessor alertsProcessor;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public AlarmFetcher(AccountProvider accountProvider,
@@ -51,7 +53,8 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                         RateLimiter rateLimiter,
                         MetricSampleBuilder sampleBuilder,
                         AlarmMetricConverter alarmMetricConverter,
-                        ScrapeConfigProvider scrapeConfigProvider) {
+                        ScrapeConfigProvider scrapeConfigProvider,
+                        AlertsProcessor alertsProcessor) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -59,6 +62,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
         this.sampleBuilder = sampleBuilder;
         this.alarmMetricConverter = alarmMetricConverter;
         this.scrapeConfigProvider = scrapeConfigProvider;
+        this.alertsProcessor = alertsProcessor;
     }
 
     @Override
@@ -75,23 +79,28 @@ public class AlarmFetcher extends Collector implements InitializingBean {
         if (!scrapeConfigProvider.getScrapeConfig().isPullCWAlarms()) {
             return;
         }
+        boolean exposeAsMetric = isEmpty(scrapeConfigProvider.getScrapeConfig().getAlertForwardUrl());
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
                 log.info("Fetching alarms from account {} and region {}", accountRegion.getAccountId(), region);
                 List<Map<String, String>> labelsList = getAlarms(accountRegion, region);
-                samples.addAll(labelsList.stream()
-                        .map(labels -> {
-                            alarmMetricConverter.simplifyAlarmName(labels);
-                            return sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
-                                    1.0);
-                        }).collect(Collectors.toList()));
-
+                labelsList.forEach(alarmMetricConverter::simplifyAlarmName);
+                if (exposeAsMetric) {
+                    samples.addAll(labelsList.stream()
+                            .map(labels -> sampleBuilder.buildSingleSample(
+                                    "aws_cloudwatch_alarm", labels, 1.0))
+                            .collect(Collectors.toList()));
+                } else {
+                    alertsProcessor.sendAlerts(labelsList);
+                }
             });
         }
-        newFamily.add(sampleBuilder.buildFamily(samples));
-        metricFamilySamples = newFamily;
+        if (exposeAsMetric) {
+            newFamily.add(sampleBuilder.buildFamily(samples));
+            metricFamilySamples = newFamily;
+        }
     }
 
     private List<Map<String, String>> getAlarms(AWSAccount account, String region) {
@@ -129,7 +138,6 @@ public class AlarmFetcher extends Collector implements InitializingBean {
 
     private Map<String, String> processMetricAlarm(MetricAlarm alarm, String accountId, String region) {
         Map<String, String> labels = new TreeMap<>();
-        labels.put("alertname", alarm.alarmName());
         labels.put(SCRAPE_REGION_LABEL, region);
         labels.put("state", alarm.stateValueAsString());
         labels.put("threshold", Double.toString(alarm.threshold()));
@@ -146,6 +154,8 @@ public class AlarmFetcher extends Collector implements InitializingBean {
         if (alarm.hasDimensions()) {
             alarm.dimensions().forEach(dimension -> labels.put("d_" + dimension.name(), dimension.value()));
         }
+        labels.put("alertname", alarm.alarmName());
+        labels.put("timestamp", alarm.stateUpdatedTimestamp().toString());
         return labels;
     }
 

@@ -23,10 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.ComparisonOperator;
-import software.amazon.awssdk.services.cloudwatch.model.DescribeAlarmsRequest;
 import software.amazon.awssdk.services.cloudwatch.model.DescribeAlarmsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.MetricAlarm;
-import software.amazon.awssdk.services.cloudwatch.model.StateValue;
 
 import java.time.Instant;
 import java.util.SortedMap;
@@ -50,6 +48,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     private AccountIDProvider accountIDProvider;
     private AlarmMetricConverter alarmMetricConverter;
     private MetricSampleBuilder sampleBuilder;
+    private AlertsProcessor alertsProcessor;
     private AlarmFetcher testClass;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
@@ -71,15 +70,17 @@ public class AlarmFetcherTest extends EasyMockSupport {
         alarmMetricConverter = mock(AlarmMetricConverter.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
+        alertsProcessor = mock(AlertsProcessor.class);
         testClass = new AlarmFetcher(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, alarmMetricConverter, scrapeConfigProvider);
+                sampleBuilder, alarmMetricConverter, scrapeConfigProvider, alertsProcessor);
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    public void sendAlarmsForRegions() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+    public void sendAlarmsForRegions_exposeAsMetric() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPullCWAlarms()).andReturn(true);
+        expect(scrapeConfig.getAlertForwardUrl()).andReturn(null).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(accountIDProvider.getAccountId()).andReturn("123456789").anyTimes();
         expect(awsClientProvider.getCloudWatchClient("region", awsAccount))
@@ -102,10 +103,58 @@ public class AlarmFetcherTest extends EasyMockSupport {
         expect(alarmMetricConverter.extractMetricAndEntityLabels(alarm))
                 .andReturn(ImmutableMap.of("label1", "value1"));
 
-        DescribeAlarmsRequest request = DescribeAlarmsRequest.builder()
-                .stateValue(StateValue.ALARM)
-                .nextToken(null)
+        expect(rateLimiter.doWithRateLimit(eq("CloudWatchClient/describeAlarms"),
+                anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
+        SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
+                .put("account_id", "123456789")
+                .put("label1", "value1")
+                .put("alertname", "alarm1")
+                .put("namespace", "AWS/RDS")
+                .put("metric_namespace", "AWS/RDS")
+                .put("metric_operator", ">")
+                .put("region", "region")
+                .put("state", "ALARM")
+                .put("threshold", "10.0")
+                .put("timestamp", now.toString())
+                .build());
+        alarmMetricConverter.simplifyAlarmName(labels);
+        expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0D))
+                .andReturn(sample);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
+        cloudWatchClient.close();
+        replayAll();
+        testClass.update();
+        assertEquals(ImmutableList.of(familySamples), testClass.collect());
+
+        verifyAll();
+    }
+
+    @Test
+    public void sendAlarmsForRegions_forwardAlerts() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isPullCWAlarms()).andReturn(true);
+        expect(scrapeConfig.getAlertForwardUrl()).andReturn("url").anyTimes();
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
+        expect(accountIDProvider.getAccountId()).andReturn("123456789").anyTimes();
+        expect(awsClientProvider.getCloudWatchClient("region", awsAccount))
+                .andReturn(cloudWatchClient).anyTimes();
+
+        Capture<RateLimiter.AWSAPICall<DescribeAlarmsResponse>> callbackCapture = Capture.newInstance();
+
+        MetricAlarm alarm = MetricAlarm.builder()
+                .alarmName("alarm1")
+                .stateValue("ALARM")
+                .stateUpdatedTimestamp(now)
+                .threshold(10.0)
+                .comparisonOperator(ComparisonOperator.GREATER_THAN_THRESHOLD)
+                .namespace("AWS/RDS")
                 .build();
+        DescribeAlarmsResponse response = DescribeAlarmsResponse.builder()
+                .metricAlarms(ImmutableList.of(alarm))
+                .build();
+
+        expect(alarmMetricConverter.extractMetricAndEntityLabels(alarm))
+                .andReturn(ImmutableMap.of("label1", "value1"));
 
         expect(rateLimiter.doWithRateLimit(eq("CloudWatchClient/describeAlarms"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
@@ -119,15 +168,14 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .put("region", "region")
                 .put("state", "ALARM")
                 .put("threshold", "10.0")
+                .put("timestamp", now.toString())
                 .build());
         alarmMetricConverter.simplifyAlarmName(labels);
-        expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0D))
-                .andReturn(sample);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
+        alertsProcessor.sendAlerts(ImmutableList.of(labels));
         cloudWatchClient.close();
         replayAll();
         testClass.update();
-        assertEquals(ImmutableList.of(familySamples), testClass.collect());
+        assertEquals(ImmutableList.of(), testClass.collect());
 
         verifyAll();
     }
