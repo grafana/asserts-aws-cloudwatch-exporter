@@ -95,13 +95,11 @@ public class ScrapeConfigProvider {
 
     private ScrapeConfig getConfig(Map<String, String> envVariables) {
         String host = envVariables.get(ApiServerConstants.ASSERTS_API_SERVER_URL);
-        String user = envVariables.get(ApiServerConstants.ASSERTS_USER);
-        String key = envVariables.get(ApiServerConstants.ASSERTS_PASSWORD);
         String url = host + "/api-server/v1/config/aws-exporter";
-        log.info("Will load configuration from server [{}] with credentials of user [{}]", host, user);
+        log.info("Will load configuration from server [{}]", host);
         ResponseEntity<ScrapeConfig> response = restTemplate.exchange(url,
                 HttpMethod.GET,
-                createAuthHeader(user, key),
+                createAssertsAuthHeader(),
                 new ParameterizedTypeReference<ScrapeConfig>() {
                 });
         if (response.getStatusCode().is2xxSuccessful()) {
@@ -110,8 +108,11 @@ public class ScrapeConfigProvider {
         return NOOP_CONFIG;
     }
 
-    @VisibleForTesting
-    HttpEntity<?> createAuthHeader(String username, String password) {
+    public HttpEntity<String> createAssertsAuthHeader() {
+        Map<String, String> envVariables = getGetenv();
+        String username = envVariables.get(ApiServerConstants.ASSERTS_USER);
+        log.info("Using credentials of user {}", username);
+        String password = envVariables.get(ApiServerConstants.ASSERTS_PASSWORD);
         if (StringUtils.hasText(username) && StringUtils.hasText(password)) {
             HttpHeaders headers = new HttpHeaders();
             headers.setBasicAuth(username, password);
