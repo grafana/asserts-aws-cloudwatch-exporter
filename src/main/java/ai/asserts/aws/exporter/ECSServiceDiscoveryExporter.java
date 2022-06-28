@@ -330,5 +330,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         private final String namespace = "AWS/ECS";
         @JsonProperty("asserts_site")
         private final String region;
+        @JsonProperty("asserts_env")
+        private final String accountId;
     }
 }
