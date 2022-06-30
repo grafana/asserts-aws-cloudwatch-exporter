@@ -113,8 +113,6 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .build())
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
-        apiGatewayClient.close();
-
         expect(metricSampleBuilder.buildSingleSample("aws_resource",
                 new ImmutableMap.Builder<String, String>()
                         .put("namespace", "AWS/ApiGateway")

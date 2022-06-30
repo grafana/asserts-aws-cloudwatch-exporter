@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.AWSClientProvider;
+import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
@@ -15,22 +15,22 @@ import software.amazon.awssdk.services.sts.model.GetCallerIdentityResponse;
 @Component
 @Slf4j
 public class AccountIDProvider implements InitializingBean {
-    private final AWSClientProvider awsClientProvider;
 
     @Getter
     private String accountId = "unknown";
 
-    public AccountIDProvider(AWSClientProvider awsClientProvider) {
-        this.awsClientProvider = awsClientProvider;
-    }
-
     @Override
     public void afterPropertiesSet() {
-        try (StsClient stsClient = awsClientProvider.getStsClient("us-west-2")) {
+        try (StsClient stsClient = getStsClient()) {
             GetCallerIdentityResponse callerIdentity = stsClient.getCallerIdentity();
             accountId = callerIdentity.account();
         } catch (Exception e) {
             log.error("getCallerIdentity failed", e);
         }
+    }
+
+    @VisibleForTesting
+    StsClient getStsClient() {
+        return StsClient.builder().build();
     }
 }

@@ -68,7 +68,8 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try (FirehoseClient client = awsClientProvider.getFirehoseClient(region, account)) {
+            try {
+                FirehoseClient client = awsClientProvider.getFirehoseClient(region, account);
                 String api = "FirehoseClient/listDeliveryStreams";
                 ListDeliveryStreamsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
@@ -111,6 +112,8 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
                             })
                             .collect(Collectors.toList()));
                 }
+            } catch (Exception e) {
+                log.error("Error " + account, e);
             }
         }));
         newFamily.add(sampleBuilder.buildFamily(samples));

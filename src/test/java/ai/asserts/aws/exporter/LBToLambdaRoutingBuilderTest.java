@@ -81,8 +81,6 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
         expect(lambdaResource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
 
         metricCollector.recordLatency(anyString(), anyObject(SortedMap.class), anyLong());
-        elbV2Client.close();
-
         replayAll();
         assertEquals(
                 ImmutableSet.of(ResourceRelation.builder()

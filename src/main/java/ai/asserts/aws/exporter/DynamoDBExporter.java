@@ -61,7 +61,8 @@ public class DynamoDBExporter extends Collector implements InitializingBean {
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try (DynamoDbClient client = awsClientProvider.getDynamoDBClient(region, account)) {
+            try {
+                DynamoDbClient client = awsClientProvider.getDynamoDBClient(region, account);
                 String api = "DynamoDbClient/listTables";
                 ListTablesResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
@@ -84,6 +85,8 @@ public class DynamoDBExporter extends Collector implements InitializingBean {
                             })
                             .collect(Collectors.toList()));
                 }
+            } catch (Exception e) {
+                log.error("Error : " + account, e);
             }
         }));
         newFamily.add(sampleBuilder.buildFamily(samples));

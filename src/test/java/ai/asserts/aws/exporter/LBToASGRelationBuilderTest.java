@@ -114,8 +114,6 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         expect(targetGroupLBMapProvider.getTgToLB()).andReturn(ImmutableMap.of(tgResource, lbResource)).anyTimes();
 
 
-        autoScalingClient.close();
-
         replayAll();
         testClass.updateRouting();
         assertEquals(ImmutableSet.of(

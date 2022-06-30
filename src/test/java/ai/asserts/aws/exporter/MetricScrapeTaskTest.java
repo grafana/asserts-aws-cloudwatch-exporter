@@ -172,8 +172,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         expect(sampleBuilder.buildSamples(accountId, region, queries.get(1), mdr2))
                 .andReturn(ImmutableList.of(sample));
 
-        cloudWatchClient.close();
-
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
 
         replayAll();

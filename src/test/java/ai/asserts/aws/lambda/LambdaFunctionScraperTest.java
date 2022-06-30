@@ -177,8 +177,6 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         expect(lambdaFunctionBuilder.buildFunction("region1", fn2Config, Optional.empty()))
                 .andReturn(lambdaFunction);
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
-        lambdaClient.close();
-
         expect(awsClientProvider.getLambdaClient("region2", accountRegion)).andReturn(lambdaClient);
 
         expect(lambdaClient.listFunctions()).andReturn(ListFunctionsResponse.builder()
@@ -191,7 +189,6 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         expect(lambdaFunctionBuilder.buildFunction("region2", fn4Config, Optional.empty()))
                 .andReturn(lambdaFunction);
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
-        lambdaClient.close();
         replayAll();
 
         assertEquals(ImmutableMap.of(
@@ -209,15 +206,12 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         expect(awsClientProvider.getLambdaClient("region1", accountRegion)).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
-        lambdaClient.close();
-
         expect(awsClientProvider.getLambdaClient("region2", accountRegion)).andReturn(lambdaClient);
         expect(lambdaClient.listFunctions()).andThrow(new RuntimeException());
         metricCollector.recordCounterValue(eq(SCRAPE_ERROR_COUNT_METRIC), anyObject(SortedMap.class), eq(1));
         expectLastCall().times(2);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expectLastCall().times(2);
-        lambdaClient.close();
         replayAll();
         Map<String, Map<String, Map<String, LambdaFunction>>> functionsByRegion = lambdaFunctionScraper.getFunctions();
         assertTrue(functionsByRegion.isEmpty());

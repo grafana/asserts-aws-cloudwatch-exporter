@@ -108,7 +108,12 @@ public class ECSTaskUtil {
                     Optional<String> pathFromLabel = getDockerLabel(cD, PROMETHEUS_METRIC_PATH_DOCKER_LABEL);
                     Optional<String> portFromLabel = getDockerLabel(cD, PROMETHEUS_PORT_DOCKER_LABEL);
                     labelsBuilder.availabilityZone(task.availabilityZone());
-                    String jobName = multipleContainers ? service.getName() + "-" + cD.name() : service.getName();
+                    String jobName;
+                    if (multipleContainers && !service.getName().equals(cD.name())) {
+                        jobName = service.getName() + "-" + cD.name();
+                    } else {
+                        jobName = service.getName();
+                    }
                     if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
                         Labels labels = labelsBuilder
                                 .job(jobName)
