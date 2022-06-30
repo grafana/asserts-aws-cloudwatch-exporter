@@ -137,14 +137,13 @@ public class ScrapeConfigProvider {
                     String bucket = envVariables.get("CONFIG_S3_BUCKET");
                     String key = envVariables.get("CONFIG_S3_KEY");
                     log.info("Will load configuration from S3 Bucket [{}] and Key [{}]", bucket, key);
-                    try (S3Client s3Client = getS3Client()) {
-                        ResponseBytes<GetObjectResponse> objectAsBytes = s3Client.getObjectAsBytes(GetObjectRequest.builder()
-                                .bucket(bucket)
-                                .key(key)
-                                .build());
-                        scrapeConfig = objectMapper.readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
-                        });
-                    }
+                    S3Client s3Client = getS3Client();
+                    ResponseBytes<GetObjectResponse> objectAsBytes = s3Client.getObjectAsBytes(GetObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .build());
+                    scrapeConfig = objectMapper.readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
+                    });
                 } catch (Exception e) {
                     log.error("Failed to load configuration from S3", e);
                 }

@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.AWSClientProvider;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,20 +14,22 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AccountIDProviderTest extends EasyMockSupport {
-    private AWSClientProvider awsClientProvider;
     private StsClient stsClient;
     private AccountIDProvider testClass;
 
     @BeforeEach
     public void setup() {
-        awsClientProvider = mock(AWSClientProvider.class);
         stsClient = mock(StsClient.class);
-        testClass = new AccountIDProvider(awsClientProvider);
+        testClass = new AccountIDProvider() {
+            @Override
+            StsClient getStsClient() {
+                return stsClient;
+            }
+        };
     }
 
     @Test
     public void afterPropertiesSet() {
-        expect(awsClientProvider.getStsClient("us-west-2")).andReturn(stsClient);
         expect(stsClient.getCallerIdentity()).andReturn(GetCallerIdentityResponse.builder()
                 .account("TestAccount")
                 .build());

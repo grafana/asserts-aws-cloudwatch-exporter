@@ -80,7 +80,8 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         List<Sample> samples = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
-                try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion)) {
+                try {
+                    AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion);
                     DescribeAutoScalingGroupsResponse resp = rateLimiter.doWithRateLimit(
                             "AutoScalingClient/describeAutoScalingGroups",
                             ImmutableSortedMap.of(
@@ -133,7 +134,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                         }));
                     }
                 } catch (Exception e) {
-                    log.error("Failed to build LB to ASG relationship", e);
+                    log.error("Failed to build LB to ASG relationship for " + accountRegion, e);
                 }
             });
         }

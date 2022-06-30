@@ -159,7 +159,8 @@ public class ResourceTagHelper {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<Resource> resources = new HashSet<>();
         String nextToken = null;
-        try (ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region, accountRegion)) {
+        try {
+            ResourceGroupsTaggingApiClient client = awsClientProvider.getResourceTagClient(region, accountRegion);
             do {
                 GetResourcesRequest req = builder
                         .paginationToken(nextToken)
@@ -208,7 +209,8 @@ public class ResourceTagHelper {
         }
         if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, accountRegion)) {
+            try {
+                ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, accountRegion);
                 DescribeTagsResponse describeTagsResponse = elbClient.describeTags(DescribeTagsRequest.builder()
                         .loadBalancerNames(resourceNames)
                         .build());
@@ -220,24 +222,25 @@ public class ResourceTagHelper {
                                         .build())
                                 .filter(t -> scrapeConfig.shouldExportTag(t.key(), t.value()))
                                 .collect(Collectors.toList())));
+            } catch (Exception e) {
+                log.error("Failed to get LoadBalancer tags", e);
             }
         } else if (resourceType.equals("AWS::AutoScaling::AutoScalingGroup")) {
-            try (AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion)) {
-                software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse describeTagsResponse = asgClient.describeTags(software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder()
-                        .build());
-                describeTagsResponse.tags()
-                        .forEach(tagDescription -> {
-                            if (tagDescription.key().contains("k8s") || tagDescription.key().contains("kubernetes")) {
-                                resourceByName.computeIfAbsent(tagDescription.resourceId(), k -> Resource.builder()
-                                        .name(tagDescription.resourceId())
-                                        .type(AutoScalingGroup)
-                                        .subType("k8s")
-                                        .region(region)
-                                        .account(accountRegion.getAccountId())
-                                        .build());
-                            }
-                        });
-            }
+            AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion);
+            software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse dTG = asgClient.describeTags(
+                    software.amazon.awssdk.services.autoscaling.model.DescribeTagsRequest.builder().build());
+            dTG.tags()
+                    .forEach(tagDescription -> {
+                        if (tagDescription.key().contains("k8s") || tagDescription.key().contains("kubernetes")) {
+                            resourceByName.computeIfAbsent(tagDescription.resourceId(), k -> Resource.builder()
+                                    .name(tagDescription.resourceId())
+                                    .type(AutoScalingGroup)
+                                    .subType("k8s")
+                                    .region(region)
+                                    .account(accountRegion.getAccountId())
+                                    .build());
+                        }
+                    });
         }
 
         resources.forEach(resource -> {

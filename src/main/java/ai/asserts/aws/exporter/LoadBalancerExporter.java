@@ -70,7 +70,8 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
             log.info("Exporting Load Balancer resource metrics for {}-{}", awsAccount.getAccountId(), region);
-            try (ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, awsAccount)) {
+            try {
+                ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, awsAccount);
                 DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(
                         "ElasticLoadBalancingClient/describeLoadBalancers",
                         ImmutableSortedMap.of(
@@ -140,7 +141,8 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                 log.error("Failed to discover classic load balancers", e);
             }
 
-            try (ElasticLoadBalancingV2Client elbClient = awsClientProvider.getELBV2Client(region, awsAccount)) {
+            try {
+                ElasticLoadBalancingV2Client elbClient = awsClientProvider.getELBV2Client(region, awsAccount);
                 software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeLoadBalancersResponse resp =
                         rateLimiter.doWithRateLimit("ElasticLoadBalancingClient/describeLoadBalancers",
                                 ImmutableSortedMap.of(

@@ -86,9 +86,12 @@ public class ResourceExporter extends Collector implements MetricProvider {
                     String accountId = account.getAccountId();
                     account.getRegions().forEach(region -> {
                         log.info("Discovering resources in account {} region {}", accountId, region);
-                        try (ConfigClient configClient = awsClientProvider.getConfigClient(region, account)) {
+                        try {
+                            ConfigClient configClient = awsClientProvider.getConfigClient(region, account);
                             discoverResourceTypes.forEach(resourceType ->
                                     samples.addAll(getResources(account, region, configClient, resourceType)));
+                        } catch (Exception e) {
+                            log.error("Error " + accountId, e);
                         }
                     });
                 });

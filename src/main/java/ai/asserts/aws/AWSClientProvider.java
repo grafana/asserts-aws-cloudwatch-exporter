@@ -1,14 +1,20 @@
 package ai.asserts.aws;
 
 import ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.exporter.AccountIDProvider;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.SdkClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.apigateway.ApiGatewayClient;
 import software.amazon.awssdk.services.apigateway.ApiGatewayClientBuilder;
@@ -61,291 +67,523 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.springframework.util.StringUtils.hasLength;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Component
-@AllArgsConstructor
+@Slf4j
 public class AWSClientProvider {
+    private final AccountIDProvider accountIDProvider;
     private final Map<AccountRegion, AWSSessionConfig> credentialCache = new ConcurrentHashMap<>();
+    private final Cache<ClientCacheKey, SdkClient> clientCache;
+
+    public AWSClientProvider(AccountIDProvider accountIDProvider) {
+        this.accountIDProvider = accountIDProvider;
+        Map<String, String> env = System.getenv();
+        this.clientCache = CacheBuilder.newBuilder()
+                .expireAfterAccess(Long.parseLong(env.getOrDefault("AWS_SDK_CLIENT_CACHE_TTL", "30")), MINUTES)
+                .removalListener(removalNotification -> {
+                    try {
+                        SdkClient sdkClient = (SdkClient) removalNotification.getValue();
+                        sdkClient.close();
+                    } catch (Exception e) {
+                        log.error("Failed to close client", e);
+                    }
+                })
+                .build();
+    }
 
     public StsClient getStsClient(String region) {
-        return StsClient.builder()
-                .region(Region.of(region))
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(StsClient.class)
                 .build();
+        StsClient client = (StsClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            client = StsClient.builder()
+                    .region(Region.of(region))
+                    .build();
+            clientCache.put(clientCacheKey, client);
+        }
+        return client;
     }
 
     public SecretsManagerClient getSecretsManagerClient(String region) {
-        return SecretsManagerClient.builder()
-                .region(Region.of(region))
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(SecretsManagerClient.class)
                 .build();
+        SecretsManagerClient client = (SecretsManagerClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            client = SecretsManagerClient.builder()
+                    .region(Region.of(region))
+                    .build();
+            clientCache.put(clientCacheKey, client);
+        }
+        return client;
     }
 
     public SqsClient getSqsClient(String region, AWSAccount account) {
-        SqsClientBuilder clientBuilder = SqsClient.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(SqsClient.class)
+                .build();
+        SqsClient client = (SqsClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            SqsClientBuilder clientBuilder = SqsClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public SnsClient getSnsClient(String region, AWSAccount account) {
-        SnsClientBuilder clientBuilder = SnsClient.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(SnsClient.class)
+                .build();
+        SnsClient client = (SnsClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            SnsClientBuilder clientBuilder = SnsClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public AutoScalingClient getAutoScalingClient(String region, AWSAccount account) {
-        AutoScalingClientBuilder clientBuilder = AutoScalingClient.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(AutoScalingClient.class)
+                .build();
+        AutoScalingClient client = (AutoScalingClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            AutoScalingClientBuilder clientBuilder = AutoScalingClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public ApiGatewayClient getApiGatewayClient(String region, AWSAccount account) {
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        ApiGatewayClientBuilder clientBuilder = ApiGatewayClient.builder().region(Region.of(region));
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(ApiGatewayClient.class)
+                .build();
+        ApiGatewayClient client = (ApiGatewayClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            ApiGatewayClientBuilder clientBuilder = ApiGatewayClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public ElasticLoadBalancingV2Client getELBV2Client(String region, AWSAccount account) {
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        ElasticLoadBalancingV2ClientBuilder clientBuilder = ElasticLoadBalancingV2Client.builder().region(Region.of(region));
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(ElasticLoadBalancingV2Client.class)
+                .build();
+        ElasticLoadBalancingV2Client client = (ElasticLoadBalancingV2Client) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            ElasticLoadBalancingV2ClientBuilder clientBuilder = ElasticLoadBalancingV2Client.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public ElasticLoadBalancingClient getELBClient(String region, AWSAccount account) {
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        ElasticLoadBalancingClientBuilder clientBuilder = ElasticLoadBalancingClient.builder().region(Region.of(region));
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(ElasticLoadBalancingClient.class)
+                .build();
+        ElasticLoadBalancingClient client = (ElasticLoadBalancingClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            ElasticLoadBalancingClientBuilder clientBuilder = ElasticLoadBalancingClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public CloudWatchClient getCloudWatchClient(String region, AWSAccount account) {
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        CloudWatchClientBuilder clientBuilder = CloudWatchClient.builder().region(Region.of(region));
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(CloudWatchClient.class)
+                .build();
+        CloudWatchClient client = (CloudWatchClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            CloudWatchClientBuilder clientBuilder = CloudWatchClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public CloudWatchLogsClient getCloudWatchLogsClient(String region, AWSAccount account) {
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        CloudWatchLogsClientBuilder clientBuilder = CloudWatchLogsClient.builder().region(Region.of(region));
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(CloudWatchLogsClient.class)
+                .build();
+        CloudWatchLogsClient client = (CloudWatchLogsClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            CloudWatchLogsClientBuilder clientBuilder = CloudWatchLogsClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public LambdaClient getLambdaClient(String region, AWSAccount account) {
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        LambdaClientBuilder clientBuilder = LambdaClient.builder().region(Region.of(region));
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(LambdaClient.class)
+                .build();
+        LambdaClient client = (LambdaClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            LambdaClientBuilder clientBuilder = LambdaClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public ResourceGroupsTaggingApiClient getResourceTagClient(String region, AWSAccount account) {
-        ResourceGroupsTaggingApiClientBuilder clientBuilder = ResourceGroupsTaggingApiClient.builder()
-                .region(Region.of(region));
-
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(ResourceGroupsTaggingApiClient.class)
+                .build();
+        ResourceGroupsTaggingApiClient client = (ResourceGroupsTaggingApiClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            ResourceGroupsTaggingApiClientBuilder clientBuilder = ResourceGroupsTaggingApiClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public EcsClient getECSClient(String region, AWSAccount account) {
-        EcsClientBuilder clientBuilder = EcsClient.builder()
-                .region(Region.of(region));
-
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(EcsClient.class)
+                .build();
+        EcsClient client = (EcsClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            EcsClientBuilder clientBuilder = EcsClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public ConfigClient getConfigClient(String region, AWSAccount account) {
-        ConfigClientBuilder clientBuilder = ConfigClient.builder()
-                .region(Region.of(region));
-
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(ConfigClient.class)
+                .build();
+        ConfigClient client = (ConfigClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            ConfigClientBuilder clientBuilder = ConfigClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public Ec2Client getEc2Client(String region, AWSAccount account) {
-        Ec2ClientBuilder clientBuilder = Ec2Client.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(Ec2Client.class)
+                .build();
+        Ec2Client client = (Ec2Client) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            Ec2ClientBuilder clientBuilder = Ec2Client.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public KinesisAnalyticsV2Client getKAClient(String region, AWSAccount account) {
-        KinesisAnalyticsV2ClientBuilder clientBuilder = KinesisAnalyticsV2Client.builder()
-                .region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(KinesisAnalyticsV2Client.class)
+                .build();
+        KinesisAnalyticsV2Client client = (KinesisAnalyticsV2Client) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            KinesisAnalyticsV2ClientBuilder clientBuilder = KinesisAnalyticsV2Client.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public FirehoseClient getFirehoseClient(String region, AWSAccount account) {
-        FirehoseClientBuilder clientBuilder = FirehoseClient.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(FirehoseClient.class)
+                .build();
+        FirehoseClient client = (FirehoseClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            FirehoseClientBuilder clientBuilder = FirehoseClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public S3Client getS3Client(String region, AWSAccount account) {
-        S3ClientBuilder clientBuilder = S3Client.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(S3Client.class)
+                .build();
+        S3Client client = (S3Client) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            S3ClientBuilder clientBuilder = S3Client.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public DynamoDbClient getDynamoDBClient(String region, AWSAccount account) {
-        DynamoDbClientBuilder clientBuilder = DynamoDbClient.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(DynamoDbClient.class)
+                .build();
+        DynamoDbClient client = (DynamoDbClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            DynamoDbClientBuilder clientBuilder = DynamoDbClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public RedshiftClient getRedshiftClient(String region, AWSAccount account) {
-        RedshiftClientBuilder clientBuilder = RedshiftClient.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(RedshiftClient.class)
+                .build();
+        RedshiftClient client = (RedshiftClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            RedshiftClientBuilder clientBuilder = RedshiftClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public KinesisClient getKinesisClient(String region, AWSAccount account) {
-        KinesisClientBuilder clientBuilder = KinesisClient.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(KinesisClient.class)
+                .build();
+        KinesisClient client = (KinesisClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            KinesisClientBuilder clientBuilder = KinesisClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     public RdsClient getRDSClient(String region, AWSAccount account) {
-        RdsClientBuilder clientBuilder = RdsClient.builder().region(Region.of(region));
-        Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-        if (credentialsOpt.isPresent()) {
-            clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(RdsClient.class)
+                .build();
+        RdsClient client = (RdsClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            RdsClientBuilder clientBuilder = RdsClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
         }
-        if (account.getAssumeRole() != null) {
-            clientBuilder = clientBuilder.credentialsProvider(() ->
-                    getAwsSessionCredentials(region, account, credentialsOpt));
-        }
-        return clientBuilder.build();
+        return client;
     }
 
     private AwsSessionCredentials getAwsSessionCredentials(String region, AWSAccount account,
@@ -381,6 +619,16 @@ public class AWSClientProvider {
                     .create(AwsBasicCredentials.create(authConfig.getAccessId(), authConfig.getSecretKey())));
         }
         return Optional.empty();
+    }
+
+    @EqualsAndHashCode
+    @Getter
+    @AllArgsConstructor
+    @Builder
+    public static class ClientCacheKey {
+        private final String accountId;
+        private final String region;
+        private final Class clientType;
     }
 
     @EqualsAndHashCode

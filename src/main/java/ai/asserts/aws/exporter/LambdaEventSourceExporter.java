@@ -87,7 +87,8 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         lambdaConfig.ifPresent(namespaceConfig -> {
             for (AccountProvider.AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region -> {
-                    try (LambdaClient client = awsClientProvider.getLambdaClient(region, accountRegion)) {
+                    try {
+                        LambdaClient client = awsClientProvider.getLambdaClient(region, accountRegion);
                         // Get all event source mappings
                         log.info("Discovering Lambda event source mappings for region={}", region);
                         String nextToken = null;

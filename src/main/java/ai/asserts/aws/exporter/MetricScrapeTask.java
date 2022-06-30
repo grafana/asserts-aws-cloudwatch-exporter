@@ -125,7 +125,8 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         Map<String, List<MetricFamilySamples.Sample>> samplesByMetric = new TreeMap<>();
 
-        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, account)) {
+        try {
+            CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, account);
             batches.forEach(batch -> {
                 String nextToken = null;
                 // For now, S3 is the only one which has a different period of 1 day. All other metrics are 1m

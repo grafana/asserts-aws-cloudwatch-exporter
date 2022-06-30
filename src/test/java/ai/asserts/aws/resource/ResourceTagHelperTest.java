@@ -144,7 +144,6 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         tagUtil.setEnvTag(resource);
 
         expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
-        apiClient.close();
         replayAll();
         assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources(accountRegion, "region", namespaceConfig));
         verifyAll();
@@ -202,7 +201,6 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         tagUtil.setEnvTag(resource);
 
         expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
-        apiClient.close();
         replayAll();
         assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources(accountRegion, "region", namespaceConfig));
         verifyAll();
@@ -279,8 +277,6 @@ public class ResourceTagHelperTest extends EasyMockSupport {
                         .tags(lbTag)
                         .build())
                 .build());
-
-        elbClient.close();
 
         resource.setTags(ImmutableList.of(lbTagConverted, resourceTag));
 

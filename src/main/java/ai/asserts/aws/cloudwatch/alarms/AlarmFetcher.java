@@ -97,7 +97,8 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     private List<Map<String, String>> getAlarms(AWSAccount account, String region) {
         List<Map<String, String>> labelsList = new ArrayList<>();
         String[] nextToken = new String[]{null};
-        try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, account)) {
+        try {
+            CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, account);
             do {
                 DescribeAlarmsResponse response = rateLimiter.doWithRateLimit(
                         "CloudWatchClient/describeAlarms",

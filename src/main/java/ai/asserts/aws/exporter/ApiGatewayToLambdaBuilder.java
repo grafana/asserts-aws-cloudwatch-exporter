@@ -87,7 +87,8 @@ public class ApiGatewayToLambdaBuilder extends Collector
         try {
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region -> {
-                    try (ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, accountRegion)) {
+                    try {
+                        ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, accountRegion);
                         SortedMap<String, String> labels = new TreeMap<>();
                         String getRestApis = "ApiGatewayClient/getRestApis";
                         labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
@@ -120,6 +121,8 @@ public class ApiGatewayToLambdaBuilder extends Collector
                                 }
                             });
                         }
+                    } catch (Exception e) {
+                        log.error("Failed to discover lambda integrations for " + accountRegion, e);
                     }
                 });
             }

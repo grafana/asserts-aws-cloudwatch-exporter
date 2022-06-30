@@ -144,9 +144,6 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         expect(metricSampleBuilder.buildSingleSample("prefix_invoke_config", failure, 1.0D))
                 .andReturn(sample);
 
-        lambdaClient.close();
-
-
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(new Collector.MetricFamilySamples(

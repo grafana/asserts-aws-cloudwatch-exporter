@@ -188,7 +188,6 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .bucket("bucket")
                 .key("key")
                 .build())).andReturn(ResponseBytes.fromInputStream(GetObjectResponse.builder().build(), fis));
-        s3Client.close();
         replayAll();
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),

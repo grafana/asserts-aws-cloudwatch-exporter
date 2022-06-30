@@ -65,7 +65,8 @@ public class RDSExporter extends Collector implements InitializingBean {
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try (RdsClient client = awsClientProvider.getRDSClient(region, account)) {
+            try {
+                RdsClient client = awsClientProvider.getRDSClient(region, account);
                 AtomicReference<String> nextToken = new AtomicReference<>();
                 do {
                     String api = "RdsClient/describeDBClusters";
@@ -119,8 +120,9 @@ public class RDSExporter extends Collector implements InitializingBean {
                     }
                     nextToken.set(resp.marker());
                 } while (nextToken.get() != null);
+            } catch (Exception e) {
+                log.error("Error" + account, e);
             }
-
         }));
         newFamily.add(sampleBuilder.buildFamily(samples));
         metricFamilySamples = newFamily;

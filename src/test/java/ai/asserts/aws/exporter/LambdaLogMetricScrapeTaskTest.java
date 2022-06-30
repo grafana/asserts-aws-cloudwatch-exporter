@@ -96,7 +96,6 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 .lambdaFunction(lambdaFunction)
                 .logScrapeConfig(logScrapeConfig)
                 .build(), filteredLogEvent)).andReturn(Optional.of(sample));
-        cloudWatchLogsClient.close();
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(

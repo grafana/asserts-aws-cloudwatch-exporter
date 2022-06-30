@@ -106,7 +106,6 @@ public class RDSExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("aws_resource", labels2, 1.0D))
                 .andReturn(sample2);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample1, sample2))).andReturn(familySamples);
-        rdsClient.close();
         expectLastCall();
         replayAll();
         testClass.update();

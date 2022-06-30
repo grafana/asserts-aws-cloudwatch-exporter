@@ -120,8 +120,6 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
         expect(resourceMapper.map("fn1_arn")).andReturn(Optional.of(fnResource)).times(2);
         expect(resourceMapper.map("queue_arn")).andReturn(Optional.of(sourceResource));
-        lambdaClient.close();
-
         expect(metricNameUtil.getMetricPrefix("AWS/Lambda")).andReturn("aws_lambda").anyTimes();
 
         expect(resourceTagHelper.getFilteredResources(accountRegion, "region1", namespaceConfig))
@@ -161,7 +159,6 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         ListEventSourceMappingsRequest request = ListEventSourceMappingsRequest.builder()
                 .build();
         expect(lambdaClient.listEventSourceMappings(request)).andThrow(new RuntimeException());
-        lambdaClient.close();
         metricCollector.recordCounterValue(anyString(), anyObject(), anyInt());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         replayAll();

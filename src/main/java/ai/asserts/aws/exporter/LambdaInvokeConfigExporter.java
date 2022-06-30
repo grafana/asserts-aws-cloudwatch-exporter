@@ -94,7 +94,8 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                 if (byAccountByRegion.containsKey(account)) {
                     Map<String, Map<String, LambdaFunction>> byRegion = byAccountByRegion.get(account);
                     byRegion.forEach((region, byARN) -> byARN.forEach((arn, fnConfig) -> {
-                        try (LambdaClient client = awsClientProvider.getLambdaClient(region, accountRegion)) {
+                        try {
+                            LambdaClient client = awsClientProvider.getLambdaClient(region, accountRegion);
                             ListFunctionEventInvokeConfigsRequest request = ListFunctionEventInvokeConfigsRequest.builder()
                                     .functionName(fnConfig.getName())
                                     .build();
