@@ -84,7 +84,8 @@ public class MetricQueryProvider {
             String account = accountRegion.getAccountId();
             String assumeRole = accountRegion.getAssumeRole();
             accountRegion.getRegions().forEach(region -> scrapeConfig.getNamespaces().forEach(ns -> {
-                try (CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, accountRegion)) {
+                try {
+                    CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, accountRegion);
                     Set<Resource> tagFilteredResources = resourceTagHelper.getFilteredResources(accountRegion, region, ns);
                     if (!ns.hasTagFilters() || tagFilteredResources.size() > 0) {
 

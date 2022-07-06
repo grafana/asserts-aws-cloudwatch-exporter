@@ -68,7 +68,8 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try (KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region, account)) {
+            try {
+                KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region, account);
                 String api = "KinesisAnalyticsV2Client/listApplications";
                 ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
@@ -99,6 +100,8 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                             })
                             .collect(Collectors.toList()));
                 }
+            } catch (Exception e) {
+                log.error("Error " + account, e);
             }
         }));
         newFamily.add(sampleBuilder.buildFamily(samples));

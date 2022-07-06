@@ -61,7 +61,8 @@ public class S3BucketExporter extends Collector implements InitializingBean {
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try (S3Client client = awsClientProvider.getS3Client(region, account)) {
+            try {
+                S3Client client = awsClientProvider.getS3Client(region, account);
                 String api = "S3Client/listBuckets";
                 ListBucketsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
@@ -84,6 +85,8 @@ public class S3BucketExporter extends Collector implements InitializingBean {
                             })
                             .collect(Collectors.toList()));
                 }
+            } catch (Exception e) {
+                log.error("Error " + account, e);
             }
         }));
         newFamily.add(sampleBuilder.buildFamily(samples));

@@ -101,7 +101,8 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                 Map<String, Map<String, LambdaFunction>> byRegion = byAccountByRegion.get(account);
                 byRegion.forEach((region, functions) -> {
                     log.info(" - Getting Lambda account and provisioned concurrency for region {}", region);
-                    try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, accountRegion)) {
+                    try {
+                        LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, accountRegion);
                         GetAccountSettingsResponse accountSettings = rateLimiter.doWithRateLimit(
                                 "LambdaClient/getAccountSettings",
                                 ImmutableSortedMap.of(

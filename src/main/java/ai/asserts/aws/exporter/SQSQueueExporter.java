@@ -70,8 +70,9 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try (SqsClient client = awsClientProvider.getSqsClient(region, account)) {
-                String api = "FirehoseClient/listDeliveryStreams";
+            try {
+                SqsClient client = awsClientProvider.getSqsClient(region, account);
+                String api = "SQSClient/listQueues";
                 ListQueuesResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
                                 SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
@@ -104,6 +105,8 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
                             })
                             .collect(Collectors.toList()));
                 }
+            } catch (Exception e) {
+                log.error("Failed to discover queues", e);
             }
         }));
         newFamily.add(sampleBuilder.buildFamily(samples));

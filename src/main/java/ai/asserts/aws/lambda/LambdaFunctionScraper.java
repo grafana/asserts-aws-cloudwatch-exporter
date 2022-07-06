@@ -120,7 +120,8 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
                 .findFirst();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             lambdaNSOpt.ifPresent(lambdaNS -> accountRegion.getRegions().forEach(region -> {
-                try (LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, accountRegion)) {
+                try {
+                    LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, accountRegion);
                     // Get all the functions
                     ListFunctionsResponse response = rateLimiter.doWithRateLimit(
                             "LambdaClient/listFunctions",

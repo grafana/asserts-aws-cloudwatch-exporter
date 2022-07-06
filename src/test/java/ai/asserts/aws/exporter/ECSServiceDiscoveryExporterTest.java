@@ -131,8 +131,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
         expect(resourceMapper.map("arn3")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn4")).andReturn(Optional.of(resource));
-        ecsClient.close();
-        expectLastCall().times(2);
+        expectLastCall();
 
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
         expect(objectMapper.writerWithDefaultPrettyPrinter()).andReturn(objectWriter);
@@ -193,8 +192,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
         expect(resourceMapper.map("arn3")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn4")).andReturn(Optional.of(resource));
-        ecsClient.close();
-        expectLastCall().times(2);
+        expectLastCall();
 
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
         expect(objectMapper.writerWithDefaultPrettyPrinter()).andReturn(objectWriter);
@@ -246,8 +244,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(objectMapper.writerWithDefaultPrettyPrinter()).andReturn(objectWriter);
         objectWriter.writeValue(anyObject(File.class), eq(ImmutableList.of()));
         expect(objectWriter.writeValueAsString(eq(ImmutableList.of()))).andReturn("content");
-        ecsClient.close();
-        expectLastCall().times(2);
+        expectLastCall();
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(

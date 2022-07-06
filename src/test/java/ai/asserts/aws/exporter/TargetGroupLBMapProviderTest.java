@@ -97,8 +97,6 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
             }
         };
 
-        lbClient.close();
-
         replayAll();
         testClass.update();
         assertEquals(1, sideEffect.get());

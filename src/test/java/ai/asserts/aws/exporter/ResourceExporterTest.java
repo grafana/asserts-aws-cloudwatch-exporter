@@ -145,8 +145,6 @@ public class ResourceExporterTest extends EasyMockSupport {
                 .andReturn(sample);
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(metricFamilySamples);
-        configClient.close();
-
         replayAll();
         testClass.update();
 
@@ -176,8 +174,6 @@ public class ResourceExporterTest extends EasyMockSupport {
 
         expect(rateLimiter.doWithRateLimit(eq("ConfigClient/listDiscoveredResources"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
-
-        configClient.close();
 
         replayAll();
         testClass.update();

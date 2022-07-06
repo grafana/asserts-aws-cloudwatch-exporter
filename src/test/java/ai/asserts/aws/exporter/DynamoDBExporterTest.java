@@ -81,7 +81,6 @@ public class DynamoDBExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
-        dynamoDbClient.close();
         expectLastCall();
         replayAll();
         testClass.update();

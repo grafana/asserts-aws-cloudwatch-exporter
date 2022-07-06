@@ -65,7 +65,8 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try (SnsClient client = awsClientProvider.getSnsClient(region, account)) {
+            try {
+                SnsClient client = awsClientProvider.getSnsClient(region, account);
                 String api = "SnsClient/listTopics";
                 ListTopicsResponse resp = rateLimiter.doWithRateLimit(
                         api, ImmutableSortedMap.of(
@@ -90,6 +91,8 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
                             })
                             .collect(Collectors.toList()));
                 }
+            } catch (Exception e) {
+                log.error("Failed to update", e);
             }
         }));
         newFamily.add(sampleBuilder.buildFamily(samples));

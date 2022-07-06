@@ -121,7 +121,6 @@ public class AlarmFetcherTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0D))
                 .andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
-        cloudWatchClient.close();
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());
