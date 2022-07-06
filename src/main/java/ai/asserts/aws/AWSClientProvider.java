@@ -94,22 +94,6 @@ public class AWSClientProvider {
                 .build();
     }
 
-    public StsClient getStsClient(String region) {
-        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
-                .region(region)
-                .accountId(accountIDProvider.getAccountId())
-                .clientType(StsClient.class)
-                .build();
-        StsClient client = (StsClient) clientCache.getIfPresent(clientCacheKey);
-        if (client == null) {
-            client = StsClient.builder()
-                    .region(Region.of(region))
-                    .build();
-            clientCache.put(clientCacheKey, client);
-        }
-        return client;
-    }
-
     public SecretsManagerClient getSecretsManagerClient(String region) {
         ClientCacheKey clientCacheKey = ClientCacheKey.builder()
                 .region(region)
@@ -628,7 +612,7 @@ public class AWSClientProvider {
     public static class ClientCacheKey {
         private final String accountId;
         private final String region;
-        private final Class clientType;
+        private final Class<?> clientType;
     }
 
     @EqualsAndHashCode

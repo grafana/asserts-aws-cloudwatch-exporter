@@ -18,8 +18,10 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTa
 
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
 
+import static ai.asserts.aws.MetricNameUtil.ASSERTS_ERROR_TYPE;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 
@@ -55,7 +57,9 @@ public class RateLimiter {
         } finally {
             tick = System.currentTimeMillis() - tick;
             if (error) {
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, labels, 1);
+                SortedMap<String, String> errorLabels = new TreeMap<>(labels);
+                errorLabels.put(ASSERTS_ERROR_TYPE, "aws_api_error");
+                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
             }
             metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, labels, tick);
             theSemaphore.release();
