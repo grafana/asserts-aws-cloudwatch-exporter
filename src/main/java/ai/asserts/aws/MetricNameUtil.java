@@ -17,6 +17,7 @@ public class MetricNameUtil {
     private final ScrapeConfigProvider scrapeConfigProvider;
     public static final String SCRAPE_LATENCY_METRIC = "aws_exporter_milliseconds";
     public static final String STREAM_LATENCY_METRIC = "aws_metric_delivery_latency_milliseconds";
+    public static final String ASSERTS_ERROR_TYPE = "asserts_error_type";
     public static final String SCRAPE_ERROR_COUNT_METRIC = "aws_exporter_error_total";
     public static final String SCRAPE_OPERATION_LABEL = "operation";
     public static final String SCRAPE_REGION_LABEL = "region";

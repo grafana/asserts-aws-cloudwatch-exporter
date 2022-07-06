@@ -9,12 +9,14 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static ai.asserts.aws.MetricNameUtil.ASSERTS_ERROR_TYPE;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static org.easymock.EasyMock.anyLong;
@@ -67,12 +69,14 @@ public class RateLimiterTest extends EasyMockSupport {
     }
 
     @Test
-    public void doWithRateLimit_WithError() throws Exception {
+    public void doWithRateLimit_WithError() {
         ExecutorService service = Executors.newFixedThreadPool(3);
 
+        SortedMap<String, String> errorLabels = new TreeMap<>(labels);
+        errorLabels.put(ASSERTS_ERROR_TYPE, "aws_api_error");
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), eq(labels), anyLong());
         expectLastCall().times(2);
-        metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, labels, 1);
+        metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
 
         replayAll();
 
