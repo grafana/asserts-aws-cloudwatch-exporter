@@ -171,7 +171,6 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .build());
         alarmMetricConverter.simplifyAlarmName(labels);
         alertsProcessor.sendAlerts(ImmutableList.of(labels));
-        cloudWatchClient.close();
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(), testClass.collect());
