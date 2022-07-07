@@ -4,12 +4,11 @@ scrapeInterval: 300
 discoverECSTasks: true
 ecsTargetSDFile: /opt/asserts/ecs-scrape-targets.yml
 pullCWAlarms: true
-alertForwardUrl:
-tenant:
+alertForwardUrl: https://assertion-detector.dev.asserts.ai/assertion-detector/v4/prometheus-alerts
+tenant: chief
 ecsTaskScrapeConfigs:
   - containerDefinitionName: cloudwatch-exporter
     metricPath: /aws-exporter/actuator/prometheus
-#assumeRole: arn:aws:iam::342994379019:role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig
 regions:
   - us-west-2
 namespaces:

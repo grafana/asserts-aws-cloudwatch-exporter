@@ -54,27 +54,27 @@ public class AlarmMetricExporter extends Collector {
 
     private void addMetric(Map<String, String> labels) {
         Optional<String> key = getKey(labels);
-        if (key.isPresent()) {
-            log.info("Adding alert - {}", labels.get("alertname"));
+        key.ifPresent(keyValue -> {
+            log.info("Adding alert - {}", keyValue);
             labels.remove("state");
-            alarmLabels.put(key.get(), labels);
-        }
+            alarmLabels.put(keyValue, labels);
+        });
     }
 
     private void removeMetric(Map<String, String> labels) {
         Optional<String> key = getKey(labels);
-        if (key.isPresent()) {
-            alarmLabels.remove(key.get());
-            log.info("Stopping alert - {}", labels.get("alertname"));
-        }
+        key.ifPresent(keyValue -> {
+            log.info("Stopping alert - {}", keyValue);
+            alarmLabels.remove(keyValue);
+        });
     }
 
     private Optional<String> getKey(Map<String, String> labels) {
-        Set<String> keyLabels = ImmutableSet.of("account_id", "region", "namespace", "metric_name", "alertname");
-        if (keyLabels.stream().allMatch(labels::containsKey)) {
-            return Optional.of(keyLabels.stream().map(labels::get).collect(Collectors.joining("_")));
-        }
-        return Optional.empty();
+        Set<String> keyLabels = ImmutableSet.of("account_id", "region", "namespace", "metric_name", "alarm_name", "original_alarm_name");
+        return Optional.of(keyLabels.stream()
+                .filter(labels::containsKey)
+                .map(labels::get)
+                .collect(Collectors.joining("_")));
     }
 
     @Override
@@ -83,12 +83,12 @@ public class AlarmMetricExporter extends Collector {
         if (alarmLabels.size() > 0) {
             List<MetricFamilySamples.Sample> metrics = new ArrayList<>();
             alarmLabels.values().forEach(labels -> {
+                alarmMetricConverter.simplifyAlarmName(labels);
                 if (labels.containsKey("timestamp")) {
                     Instant timestamp = Instant.parse(labels.get("timestamp"));
                     recordHistogram(labels, timestamp);
                     labels.remove("timestamp");
                 }
-                alarmMetricConverter.simplifyAlarmName(labels);
                 metrics.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
                         1.0));
             });
@@ -102,7 +102,10 @@ public class AlarmMetricExporter extends Collector {
         histoLabels.put("namespace", labels.get("namespace"));
         histoLabels.put("account_id", labels.get("account_id"));
         histoLabels.put("region", labels.get("region"));
-        histoLabels.put("alertname", labels.get("alertname"));
+        histoLabels.put("alarm_name", labels.get("alarm_name"));
+        if (labels.containsKey("original_alarm_name")) {
+            histoLabels.put("original_alarm_name", labels.get("original_alarm_name"));
+        }
         long diff = (now().toEpochMilli() - timestamp.toEpochMilli()) / 1000;
         this.basicMetricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histoLabels, diff);
     }

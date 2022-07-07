@@ -7,7 +7,9 @@ package ai.asserts.aws.cloudwatch.alarms;
 import ai.asserts.aws.ScrapeConfigProvider;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.RestClientException;
@@ -20,32 +22,42 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.util.StringUtils.hasLength;
+
 @Component
 @Slf4j
 @AllArgsConstructor
 public class AlertsProcessor {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RestTemplate restTemplate;
-    private final  AlarmMetricExporter alarmMetricExporter;
+    private final AlarmMetricExporter alarmMetricExporter;
 
     public void sendAlerts(List<Map<String, String>> labelsList) {
         String forwardUrl = scrapeConfigProvider.getScrapeConfig().getAlertForwardUrl();
         String tenant = scrapeConfigProvider.getScrapeConfig().getTenant();
-        if (forwardUrl != null && forwardUrl.length() > 0 && tenant != null && tenant.length() > 0) {
-            List<PrometheusAlert> alertList = labelsList.stream().map(this::createAlert).collect(Collectors.toList());
-            PrometheusAlerts alerts = new PrometheusAlerts().withAlerts(alertList);
-            if (!CollectionUtils.isEmpty(alerts.getAlerts())) {
-                HttpEntity<PrometheusAlerts> request = new HttpEntity<>(alerts);
-                try {
-                    String urlToSend = String.format("%s?tenant=%s", forwardUrl, tenant);
-                    log.info("Sending alert to - {}", urlToSend);
-                    restTemplate.postForObject(urlToSend, request, Object.class);
-                } catch (RestClientException e) {
-                    log.error("Error sending alerts - {}" , Arrays.toString(e.getStackTrace()));
+        if (!CollectionUtils.isEmpty(labelsList)) {
+            if (hasLength(forwardUrl)) {
+                List<PrometheusAlert> alertList = labelsList.stream()
+                        .map(this::createAlert)
+                        .collect(Collectors.toList());
+                PrometheusAlerts alerts = new PrometheusAlerts().withAlerts(alertList);
+                if (hasLength(tenant) && !CollectionUtils.isEmpty(alerts.getAlerts())) {
+                    HttpEntity<PrometheusAlerts> request = new HttpEntity<>(alerts,
+                            scrapeConfigProvider.createAssertsAuthHeader().getHeaders());
+                    try {
+                        String url = String.format("%s?tenant=%s", forwardUrl, tenant);
+                        log.info("Forwarding CloudWatch alarms as alerts to - {}", url);
+                        ResponseEntity<String> responseEntity = restTemplate.exchange(url, POST, request, new ParameterizedTypeReference<String>() {
+                        });
+                        log.info("Got response code {} and response {}", responseEntity.getStatusCode(), responseEntity.getBody());
+                    } catch (RestClientException e) {
+                        log.error("Error sending alerts - {}", Arrays.toString(e.getStackTrace()));
+                    }
                 }
+            } else {
+                alarmMetricExporter.processMetric(labelsList);
             }
-        } else if(!CollectionUtils.isEmpty(labelsList)) {
-            alarmMetricExporter.processMetric(labelsList);
         }
     }
 

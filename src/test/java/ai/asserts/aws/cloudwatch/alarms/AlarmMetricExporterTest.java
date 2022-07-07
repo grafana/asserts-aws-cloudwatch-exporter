@@ -70,14 +70,14 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                 new ImmutableMap.Builder<String, String>()
                         .put("account_id", "account")
                         .put("metric_name", "m1")
-                        .put("alertname", "a1")
+                        .put("alarm_name", "a1")
                         .put("namespace", "n1")
                         .put("region", "us-west-2")
                         .build(), 1.0)).andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples);
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("account_id", "account")
-                .put("alertname", "a1")
+                .put("alarm_name", "a1")
                 .put("namespace", "n1")
                 .put("region", "us-west-2").build());
 
@@ -97,7 +97,7 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                 .put("account_id", "account")
                 .put("namespace", "n1")
                 .put("metric_name", "m1")
-                .put("alertname", "a1")
+                .put("alarm_name", "a1")
                 .put("timestamp", "2022-02-07T09:56:46Z")
                 .put("region", "us-west-2").build());
         testClass.processMetric(ImmutableList.of(labels));

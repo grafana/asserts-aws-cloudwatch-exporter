@@ -4,15 +4,18 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.easymock.Capture;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
@@ -23,6 +26,8 @@ import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.springframework.http.HttpMethod.POST;
 
 public class AlertsProcessorTest extends EasyMockSupport {
 
@@ -52,32 +57,37 @@ public class AlertsProcessorTest extends EasyMockSupport {
                 .put("asserts_source", "cloudwatch.alarms")
                 .build());
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).times(2);
-        expect(scrapeConfig.getAlertForwardUrl()).andReturn("http://localhost:8040/assertion-detector/v4/prometheus-alerts");
+        expect(scrapeConfig.getAlertForwardUrl()).andReturn("url");
         expect(scrapeConfig.getTenant()).andReturn("tenant");
+
+        HttpEntity<String> mockEntity = mock(HttpEntity.class);
+        HttpHeaders mockHeaders = new HttpHeaders();
+        expect(mockEntity.getHeaders()).andReturn(mockHeaders);
+        expect(scrapeConfigProvider.createAssertsAuthHeader()).andReturn(mockEntity);
+
         Capture<HttpEntity<PrometheusAlerts>> callbackCapture = Capture.newInstance();
-        Capture<String> callbackCapture1 = Capture.newInstance();
-        String url = "url1?tenant=tenant";
-        expect(restTemplate.postForObject(capture(callbackCapture1), capture(callbackCapture), eq(Object.class))).andReturn("");
+
+        expect(restTemplate.exchange(eq("url?tenant=tenant"),
+                eq(POST), capture(callbackCapture), eq(new ParameterizedTypeReference<String>() {
+                })))
+                .andReturn(ResponseEntity.ok("200"));
         replayAll();
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("state", "ALARM")
                 .put("timestamp", now.toString())
                 .build());
         testClass.sendAlerts(ImmutableList.of(labels));
-        assertEquals(1, callbackCapture.getValue().getBody().getAlerts().size());
-        assertEquals(PrometheusAlertStatus.firing, callbackCapture.getValue().getBody().getAlerts().get(0).getStatus());
-        assertEquals(labels1, callbackCapture.getValue().getBody().getAlerts().get(0).getLabels());
+        assertEquals(mockHeaders, callbackCapture.getValue().getHeaders());
+        PrometheusAlerts body = callbackCapture.getValue().getBody();
+        assertNotNull(body);
+        assertEquals(1, body.getAlerts().size());
+        assertEquals(PrometheusAlertStatus.firing, body.getAlerts().get(0).getStatus());
+        assertEquals(labels1, body.getAlerts().get(0).getLabels());
         verifyAll();
     }
 
     @Test
     public void sendAlerts_metrics() {
-        SortedMap<String, String> labels1 = new TreeMap<>(new ImmutableMap.Builder<String, String>()
-                .put("alertgroup", "cloudwatch")
-                .put("asserts_alert_category", "error")
-                .put("asserts_severity", "critical")
-                .put("asserts_source", "cloudwatch.alarms")
-                .build());
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("state", "ALARM")
                 .put("timestamp", now.toString())
