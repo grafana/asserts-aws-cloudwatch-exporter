@@ -47,7 +47,7 @@ public class AlertsProcessor {
                             scrapeConfigProvider.createAssertsAuthHeader().getHeaders());
                     try {
                         String url = String.format("%s?tenant=%s", forwardUrl, tenant);
-                        log.info("Forwarding CloudWatch alarms as alert to - {}", url);
+                        log.info("Forwarding CloudWatch alarms as alerts to - {}", url);
                         ResponseEntity<String> responseEntity = restTemplate.exchange(url, POST, request, new ParameterizedTypeReference<String>() {
                         });
                         log.info("Got response code {} and response {}", responseEntity.getStatusCode(), responseEntity.getBody());

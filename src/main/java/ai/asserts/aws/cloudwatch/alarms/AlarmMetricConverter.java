@@ -57,7 +57,6 @@ public class AlarmMetricConverter {
                         }
                         if (alarmStateChange.getDetail().getAlarmName() != null) {
                             labels.put("alarm_name", alarmStateChange.getDetail().getAlarmName());
-                            labels.put("alertname", alarmStateChange.getDetail().getAlarmName());
                         }
                         if (alarmStateChange.getDetail().getState() != null
                                 && alarmStateChange.getDetail().getState().getValue() != null) {
@@ -109,6 +108,9 @@ public class AlarmMetricConverter {
             if (!alarmName.equals(originalAlarmName)) {
                 labels.put("original_alarm_name", originalAlarmName);
                 labels.put("alarm_name", alarmName.trim());
+                labels.put("alertname", alarmName.trim());
+            } else {
+                labels.put("alertname", alarmName.trim());
             }
         }
     }

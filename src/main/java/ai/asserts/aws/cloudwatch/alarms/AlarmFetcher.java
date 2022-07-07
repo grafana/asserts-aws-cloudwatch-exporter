@@ -155,7 +155,6 @@ public class AlarmFetcher extends Collector implements InitializingBean {
         if (alarm.hasDimensions()) {
             alarm.dimensions().forEach(dimension -> labels.put("d_" + dimension.name(), dimension.value()));
         }
-        labels.put("alertname", alarm.alarmName());
         labels.put("timestamp", alarm.stateUpdatedTimestamp().toString());
         return labels;
     }
