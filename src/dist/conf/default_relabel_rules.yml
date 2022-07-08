@@ -44,3 +44,19 @@
   regex: aws_exporter.+;(.+)
   target_label: asserts_request_context
   replacement: $1
+
+# EC2 AutoScaling Group Entity-Alert attachment lookup labels
+- source_labels: [ __name__, namespace, d_AutoScalingGroupName]
+  regex: .+;AWS/EC2;.+
+  target_label: namespace
+  replacement: AWS/AutoScalingGroup
+
+- source_labels: [ __name__, namespace, d_AutoScalingGroupName]
+  regex: .+;AWS/EC2;(.+)
+  target_label: asserts_entity_type
+  replacement: NodeGroup
+
+- source_labels: [ __name__, namespace, d_AutoScalingGroupName]
+  regex: .+;AWS/EC2;(.+)
+  target_label: job
+  replacement: $1

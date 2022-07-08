@@ -39,7 +39,6 @@ import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
 import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -57,6 +56,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static java.nio.file.Files.newOutputStream;
 
 /**
  * Exports the Service Discovery file with the list of task instances running in ECS across clusters and services
@@ -83,11 +83,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
     private volatile List<Collector.MetricFamilySamples> resourceMetrics = new ArrayList<>();
 
-    public ECSServiceDiscoveryExporter(AccountProvider accountProvider, ScrapeConfigProvider scrapeConfigProvider,
-                                       AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
-                                       ECSTaskUtil ecsTaskUtil, ObjectMapperFactory objectMapperFactory,
-                                       RateLimiter rateLimiter, LBToECSRoutingBuilder lbToECSRoutingBuilder,
-                                       MetricSampleBuilder metricSampleBuilder) {
+    public ECSServiceDiscoveryExporter(AccountProvider accountProvider, ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider, ResourceMapper resourceMapper, ECSTaskUtil ecsTaskUtil, ObjectMapperFactory objectMapperFactory, RateLimiter rateLimiter, LBToECSRoutingBuilder lbToECSRoutingBuilder, MetricSampleBuilder metricSampleBuilder) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -106,7 +102,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         String src = classPathResource.getURI().toString();
         String dest = out.getAbsolutePath();
         try {
-            FileCopyUtils.copy(classPathResource.getInputStream(), new FileOutputStream(out));
+            FileCopyUtils.copy(classPathResource.getInputStream(), newOutputStream(out.toPath()));
             log.info("Copied dummy fd_config {} to {}", src, dest);
         } catch (Exception e) {
             log.error("Failed to copy dummy fd_config {} to {}", src, dest);
@@ -126,34 +122,15 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         List<StaticConfig> latestTargets = new ArrayList<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
-            ImmutableSortedMap<String, String> TELEMETRY_LABELS = ImmutableSortedMap.of(
-                    SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                    SCRAPE_REGION_LABEL, region,
-                    SCRAPE_OPERATION_LABEL, "listClusters",
-                    SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace());
+            ImmutableSortedMap<String, String> TELEMETRY_LABELS = ImmutableSortedMap.of(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(), SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, "listClusters", SCRAPE_NAMESPACE_LABEL, CWNamespace.ecs_svc.getNormalizedNamespace());
             SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
             try {
                 EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount);
                 // List clusters just returns the cluster ARN. There is no need to paginate
-                ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(
-                        "EcsClient/listClusters",
-                        ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                                SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, "listClusters",
-                                SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
-                        ),
-                        ecsClient::listClusters);
+                ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit("EcsClient/listClusters", ImmutableSortedMap.of(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(), SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, "listClusters", SCRAPE_NAMESPACE_LABEL, "AWS/ECS"), ecsClient::listClusters);
                 labels.put(SCRAPE_REGION_LABEL, region);
                 if (listClustersResponse.hasClusterArns()) {
-                    listClustersResponse.clusterArns()
-                            .stream()
-                            .map(resourceMapper::map)
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .forEach(cluster -> latestTargets.addAll(
-                                    buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting,
-                                            resourceMetricSamples)));
+                    listClustersResponse.clusterArns().stream().map(resourceMapper::map).filter(Optional::isPresent).map(Optional::get).forEach(cluster -> latestTargets.addAll(buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting, resourceMetricSamples)));
                 }
             } catch (Exception e) {
                 log.error("Failed to get list of ECS Clusters", e);
@@ -187,74 +164,44 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     }
 
     @VisibleForTesting
-    List<StaticConfig> buildTargetsInCluster(ScrapeConfig scrapeConfig, EcsClient ecsClient,
-                                             Resource cluster, Set<ResourceRelation> newRouting,
-                                             List<Sample> resourceMetricSamples) {
+    List<StaticConfig> buildTargetsInCluster(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster, Set<ResourceRelation> newRouting, List<Sample> resourceMetricSamples) {
         List<StaticConfig> targets = new ArrayList<>();
         // List services just returns the service ARN. There is no need to paginate
-        ListServicesRequest serviceReq = ListServicesRequest.builder()
-                .cluster(cluster.getName())
-                .build();
-        ListServicesResponse serviceResp = rateLimiter.doWithRateLimit("EcsClient/listServices",
-                ImmutableSortedMap.of(
-                        SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
-                        SCRAPE_REGION_LABEL, cluster.getRegion(),
-                        SCRAPE_OPERATION_LABEL, "listServices",
-                        SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
-                ),
-                () -> ecsClient.listServices(serviceReq));
+        ListServicesRequest serviceReq = ListServicesRequest.builder().cluster(cluster.getName()).build();
+        ListServicesResponse serviceResp = rateLimiter.doWithRateLimit("EcsClient/listServices", ImmutableSortedMap.of(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(), SCRAPE_REGION_LABEL, cluster.getRegion(), SCRAPE_OPERATION_LABEL, "listServices", SCRAPE_NAMESPACE_LABEL, "AWS/ECS"), () -> ecsClient.listServices(serviceReq));
         if (serviceResp.hasServiceArns()) {
             List<Resource> services = new ArrayList<>();
-            serviceResp.serviceArns()
-                    .stream()
-                    .map(resourceMapper::map)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .forEach(service -> {
-                        if (scrapeConfig.isDiscoverECSTasks()) {
-                            log.info("Discovering ECS Tasks with ECS Scrape Config {}",
-                                    scrapeConfig.getECSConfigByNameAndPort());
-                            targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service));
-                        }
-                        services.add(service);
+            serviceResp.serviceArns().stream().map(resourceMapper::map).filter(Optional::isPresent).map(Optional::get).forEach(service -> {
+                if (scrapeConfig.isDiscoverECSTasks()) {
+                    log.info("Discovering ECS Tasks with ECS Scrape Config {}", scrapeConfig.getECSConfigByNameAndPort());
+                    targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service));
+                }
+                services.add(service);
 
-                        Map<String, String> labels = new TreeMap<>();
-                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount());
-                        labels.put(SCRAPE_REGION_LABEL, cluster.getRegion());
-                        labels.put("cluster", cluster.getName());
-                        labels.put("job", service.getName());
-                        labels.put("name", service.getName());
-                        labels.put("aws_resource_type", "AWS::ECS::Service");
-                        labels.put("namespace", "AWS/ECS");
+                Map<String, String> labels = new TreeMap<>();
+                labels.put(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount());
+                labels.put(SCRAPE_REGION_LABEL, cluster.getRegion());
+                labels.put("cluster", cluster.getName());
+                labels.put("job", service.getName());
+                labels.put("name", service.getName());
+                labels.put("aws_resource_type", "AWS::ECS::Service");
+                labels.put("namespace", "AWS/ECS");
 
-                        resourceMetricSamples.add(metricSampleBuilder.buildSingleSample(
-                                "aws_resource", labels, 1.0D));
-                    });
+                resourceMetricSamples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
+            });
             newRouting.addAll(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, services));
         }
         return targets;
     }
 
     @VisibleForTesting
-    List<StaticConfig> buildTargetsInService(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
-                                             Resource service) {
+    List<StaticConfig> buildTargetsInService(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster, Resource service) {
         List<StaticConfig> scrapeTargets = new ArrayList<>();
         Set<String> taskIds = new TreeSet<>();
         String nextToken = null;
         do {
-            ListTasksRequest request = ListTasksRequest.builder()
-                    .cluster(cluster.getName())
-                    .serviceName(service.getName())
-                    .nextToken(nextToken)
-                    .build();
-            ListTasksResponse tasksResp = rateLimiter.doWithRateLimit("EcsClient/listTasks",
-                    ImmutableSortedMap.of(
-                            SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
-                            SCRAPE_REGION_LABEL, cluster.getRegion(),
-                            SCRAPE_OPERATION_LABEL, "listTasks",
-                            SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
-                    ),
-                    () -> ecsClient.listTasks(request));
+            ListTasksRequest request = ListTasksRequest.builder().cluster(cluster.getName()).serviceName(service.getName()).nextToken(nextToken).build();
+            ListTasksResponse tasksResp = rateLimiter.doWithRateLimit("EcsClient/listTasks", ImmutableSortedMap.of(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(), SCRAPE_REGION_LABEL, cluster.getRegion(), SCRAPE_OPERATION_LABEL, "listTasks", SCRAPE_NAMESPACE_LABEL, "AWS/ECS"), () -> ecsClient.listTasks(request));
 
             nextToken = tasksResp.nextToken();
             if (tasksResp.hasTaskArns()) {
@@ -276,26 +223,12 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     }
 
     @VisibleForTesting
-    List<StaticConfig> buildTaskTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
-                                        Resource service, Set<String> taskARNs) {
+    List<StaticConfig> buildTaskTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster, Resource service, Set<String> taskARNs) {
         List<StaticConfig> configs = new ArrayList<>();
-        DescribeTasksRequest request = DescribeTasksRequest.builder()
-                .cluster(cluster.getName())
-                .tasks(taskARNs)
-                .build();
-        DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit("EcsClient/describeTasks",
-                ImmutableSortedMap.of(
-                        SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
-                        SCRAPE_REGION_LABEL, cluster.getRegion(),
-                        SCRAPE_OPERATION_LABEL, "describeTasks",
-                        SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
-                ),
-                () -> ecsClient.describeTasks(request));
+        DescribeTasksRequest request = DescribeTasksRequest.builder().cluster(cluster.getName()).tasks(taskARNs).build();
+        DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit("EcsClient/describeTasks", ImmutableSortedMap.of(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(), SCRAPE_REGION_LABEL, cluster.getRegion(), SCRAPE_OPERATION_LABEL, "describeTasks", SCRAPE_NAMESPACE_LABEL, "AWS/ECS"), () -> ecsClient.describeTasks(request));
         if (taskResponse.hasTasks()) {
-            configs.addAll(taskResponse.tasks().stream()
-                    .filter(ecsTaskUtil::hasAllInfo)
-                    .flatMap(task -> ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task).stream())
-                    .collect(Collectors.toList()));
+            configs.addAll(taskResponse.tasks().stream().filter(ecsTaskUtil::hasAllInfo).flatMap(task -> ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task).stream()).collect(Collectors.toList()));
         }
         return configs;
     }
@@ -329,9 +262,13 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         private final String availabilityZone;
         @JsonProperty("namespace")
         private final String namespace = "AWS/ECS";
-        @JsonProperty("asserts_site")
+        @JsonProperty("region")
         private final String region;
-        @JsonProperty("asserts_env")
+        @JsonProperty("account_id")
         private final String accountId;
+        @JsonProperty("asserts_env")
+        private final String env;
+        @JsonProperty("asserts_site")
+        private final String site;
     }
 }

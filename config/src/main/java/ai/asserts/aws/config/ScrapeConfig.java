@@ -101,6 +101,9 @@ public class ScrapeConfig {
     private boolean pullCWAlarms = true;
 
     @Builder.Default
+    private boolean cwAlarmAsMetric = true;
+
+    @Builder.Default
     private boolean logVerbose = false;
 
     public Optional<NamespaceConfig> getLambdaConfig() {
@@ -148,9 +151,9 @@ public class ScrapeConfig {
             dimensionToLabels.stream()
                     .filter(d -> alarmDimensions.containsKey(d.getDimensionName()))
                     .findFirst().ifPresent(dimensionToLabel -> {
-                mapTypeAndName(alarmDimensions, labels, dimensionToLabel);
-                labels.put("namespace", dimensionToLabel.getNamespace());
-            });
+                        mapTypeAndName(alarmDimensions, labels, dimensionToLabel);
+                        labels.put("namespace", dimensionToLabel.getNamespace());
+                    });
         }
 
         return labels;

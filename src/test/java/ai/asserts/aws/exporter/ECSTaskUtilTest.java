@@ -119,6 +119,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         TaskDefinition taskDefinition = TaskDefinition.builder()
                 .containerDefinitions(ContainerDefinition.builder()
                         .name("model-builder")
+                        .image("image")
                         .dockerLabels(ImmutableMap.of(
                                 PROMETHEUS_METRIC_PATH_DOCKER_LABEL, "/metric/path",
                                 PROMETHEUS_PORT_DOCKER_LABEL, "8080"
@@ -175,6 +176,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .containerDefinitions(
                         ContainerDefinition.builder()
                                 .name("model-builder")
+                                .image("image")
                                 .portMappings(PortMapping.builder()
                                         .hostPort(52341)
                                         .containerPort(8080)
@@ -182,6 +184,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 .build(),
                         ContainerDefinition.builder()
                                 .name("api-server")
+                                .image("image")
                                 .portMappings(
                                         PortMapping.builder()
                                                 .hostPort(52342)
@@ -262,6 +265,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .containerDefinitions(
                         ContainerDefinition.builder()
                                 .name("model-builder")
+                                .image("image")
                                 .portMappings(PortMapping.builder()
                                         .hostPort(52341)
                                         .containerPort(8080)
@@ -269,6 +273,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 .build(),
                         ContainerDefinition.builder()
                                 .name("api-server")
+                                .image("image")
                                 .portMappings(
                                         PortMapping.builder()
                                                 .hostPort(52342)
@@ -357,12 +362,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .containerDefinitions(
                         ContainerDefinition.builder()
                                 .name("model-builder")
+                                .image("image")
                                 .portMappings(PortMapping.builder()
                                         .hostPort(52341)
                                         .containerPort(8080)
                                         .build())
                                 .build(),
                         ContainerDefinition.builder()
+                                .image("image")
                                 .name("api-server")
                                 .portMappings(
                                         PortMapping.builder()
@@ -458,6 +465,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .containerDefinitions(
                         ContainerDefinition.builder()
                                 .name("model-builder")
+                                .image("image")
                                 .portMappings(PortMapping.builder()
                                         .hostPort(52341)
                                         .containerPort(8080)
@@ -465,6 +473,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 .build(),
                         ContainerDefinition.builder()
                                 .name("api-server")
+                                .image("image")
                                 .portMappings(
                                         PortMapping.builder()
                                                 .hostPort(52342)
