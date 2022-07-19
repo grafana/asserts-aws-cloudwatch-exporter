@@ -152,7 +152,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         StaticConfig staticConfig = staticConfigs.get(0);
         assertAll(
                 () -> assertEquals("cluster", staticConfig.getLabels().getCluster()),
-                () -> assertEquals("service", staticConfig.getLabels().getJob()),
+                () -> assertEquals("model-builder", staticConfig.getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfig.getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfig.getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfig.getLabels().getTaskId()),
@@ -221,18 +221,19 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         assertEquals(2, staticConfigs.size());
         assertAll(
                 () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
-                () -> assertEquals("service", staticConfigs.get(0).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),
                 () -> assertEquals("/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
 
                 () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
-                () -> assertEquals("service", staticConfigs.get(1).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(1).getLabels().getTaskId()),
                 () -> assertEquals("/metrics", staticConfigs.get(1).getLabels().getMetricsPath()),
+                () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
+                        .map(sc -> sc.getLabels().getJob())
+                        .collect(Collectors.toSet())),
                 () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
                         .map(sc -> sc.getLabels().getContainer())
                         .collect(Collectors.toSet())),
@@ -310,16 +311,17 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         assertEquals(2, staticConfigs.size());
         assertAll(
                 () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
-                () -> assertEquals("service", staticConfigs.get(0).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),
 
                 () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
-                () -> assertEquals("service", staticConfigs.get(1).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(1).getLabels().getTaskId()),
+                () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
+                        .map(sc -> sc.getLabels().getJob())
+                        .collect(Collectors.toSet())),
                 () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
                         .map(sc -> sc.getLabels().getContainer())
                         .collect(Collectors.toSet())),
@@ -424,7 +426,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         assertAll(
                 () -> assertTrue(apiServer_8081.isPresent()),
                 () -> assertEquals("cluster", apiServer_8081.get().getLabels().getCluster()),
-                () -> assertEquals("service", apiServer_8081.get().getLabels().getJob()),
+                () -> assertEquals("api-server", apiServer_8081.get().getLabels().getJob()),
                 () -> assertEquals("task-def", apiServer_8081.get().getLabels().getTaskDefName()),
                 () -> assertEquals("5", apiServer_8081.get().getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", apiServer_8081.get().getLabels().getTaskId()),
@@ -433,7 +435,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         assertAll(
                 () -> assertTrue(apiServer_8082.isPresent()),
                 () -> assertEquals("cluster", apiServer_8082.get().getLabels().getCluster()),
-                () -> assertEquals("service", apiServer_8082.get().getLabels().getJob()),
+                () -> assertEquals("api-server", apiServer_8082.get().getLabels().getJob()),
                 () -> assertEquals("task-def", apiServer_8082.get().getLabels().getTaskDefName()),
                 () -> assertEquals("5", apiServer_8082.get().getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", apiServer_8082.get().getLabels().getTaskId()),
@@ -442,7 +444,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         assertAll(
                 () -> assertTrue(modelBuilder.isPresent()),
                 () -> assertEquals("cluster", modelBuilder.get().getLabels().getCluster()),
-                () -> assertEquals("service", modelBuilder.get().getLabels().getJob()),
+                () -> assertEquals("model-builder", modelBuilder.get().getLabels().getJob()),
                 () -> assertEquals("task-def", modelBuilder.get().getLabels().getTaskDefName()),
                 () -> assertEquals("5", modelBuilder.get().getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", modelBuilder.get().getLabels().getTaskId()),
@@ -510,7 +512,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         assertEquals(1, staticConfigs.size());
         assertAll(
                 () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
-                () -> assertEquals("service", staticConfigs.get(0).getLabels().getJob()),
+                () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
                 () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),

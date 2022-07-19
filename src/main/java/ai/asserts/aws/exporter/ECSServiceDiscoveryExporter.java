@@ -187,7 +187,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                 labels.put("aws_resource_type", "AWS::ECS::Service");
                 labels.put("namespace", "AWS/ECS");
 
-                resourceMetricSamples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
+                // resourceMetricSamples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
             });
             newRouting.addAll(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, services));
         }
@@ -247,8 +247,9 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     public static class Labels {
         @JsonProperty("__metrics_path__")
         private final String metricsPath;
+        private final String workload;
         private final String job;
-        @JsonProperty("ecs_cluster")
+        @JsonProperty("cluster")
         private final String cluster;
         @JsonProperty("ecs_taskdef_name")
         private final String taskDefName;
@@ -256,7 +257,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         private final String taskDefVersion;
         @JsonProperty
         private final String container;
-        @JsonProperty("ecs_task_id")
+        @JsonProperty("pod")
         private final String taskId;
         @JsonProperty("availability_zone")
         private final String availabilityZone;

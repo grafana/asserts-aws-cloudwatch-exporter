@@ -16,7 +16,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
@@ -66,7 +65,6 @@ public class ECSTaskUtil {
         Resource taskResource = resourceMapper.map(task.taskArn())
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskArn()));
 
-        boolean multipleContainers = !CollectionUtils.isEmpty(task.containers()) && task.containers().size() > 1;
         LabelsBuilder labelsNoneBuilder = Labels.builder()
                 .availabilityZone(task.availabilityZone())
                 .accountId(cluster.getAccount())
@@ -75,6 +73,7 @@ public class ECSTaskUtil {
                 .site(cluster.getRegion())
                 .metricsPath("/container-stats/actuator/prometheus");
         LabelsBuilder labelsBuilder = Labels.builder()
+                .workload(service.getName())
                 .accountId(cluster.getAccount())
                 .region(cluster.getRegion())
                 .cluster(cluster.getName())
@@ -117,17 +116,14 @@ public class ECSTaskUtil {
                     Optional<String> pathFromLabel = getDockerLabel(cD, PROMETHEUS_METRIC_PATH_DOCKER_LABEL);
                     Optional<String> portFromLabel = getDockerLabel(cD, PROMETHEUS_PORT_DOCKER_LABEL);
                     labelsBuilder.availabilityZone(task.availabilityZone());
-                    String jobName;
-                    if (multipleContainers && !service.getName().equals(cD.name())) {
-                        jobName = service.getName() + "-" + cD.name();
-                    } else {
-                        jobName = service.getName();
-                    }
+                    String jobName = cD.name();
                     if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
                         Labels labels;
 
                         if (isAssertsECSSidecar(cD)) {
-                            labels = labelsNoneBuilder.build();
+                            labels = labelsNoneBuilder
+                                    .job(jobName)
+                                    .build();
                         } else {
                             labels = labelsBuilder
                                     .job(jobName)
@@ -144,7 +140,9 @@ public class ECSTaskUtil {
                         cD.portMappings().forEach(port -> {
                             Labels labels;
                             if (isAssertsECSSidecar(cD)) {
-                                labels = labelsNoneBuilder.build();
+                                labels = labelsNoneBuilder
+                                        .job(jobName)
+                                        .build();
                             } else {
                                 if (byPort.get(port.containerPort()) != null) {
                                     labels = labelsBuilder
@@ -177,7 +175,9 @@ public class ECSTaskUtil {
                     } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
                         Labels labels;
                         if (isAssertsECSSidecar(cD)) {
-                            labels = labelsNoneBuilder.build();
+                            labels = labelsNoneBuilder
+                                    .job(jobName)
+                                    .build();
                         } else {
                             labels = labelsBuilder
                                     .job(jobName)
