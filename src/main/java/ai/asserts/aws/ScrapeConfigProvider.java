@@ -36,6 +36,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static ai.asserts.aws.ApiServerConstants.ASSERTS_API_SERVER_URL;
+
 @Component
 @Slf4j
 public class ScrapeConfigProvider {
@@ -93,10 +95,9 @@ public class ScrapeConfigProvider {
         }
     }
 
-    private ScrapeConfig getConfig(Map<String, String> envVariables) {
-        String host = envVariables.get(ApiServerConstants.ASSERTS_API_SERVER_URL);
-        String url = host + "/api-server/v1/config/aws-exporter";
-        log.info("Will load configuration from server [{}]", host);
+    private ScrapeConfig getConfigFromServer() {
+        String url = getApiServerUrl();
+        log.info("Will load configuration from [{}]", url);
         ResponseEntity<ScrapeConfig> response = restTemplate.exchange(url,
                 HttpMethod.GET,
                 createAssertsAuthHeader(),
@@ -106,6 +107,14 @@ public class ScrapeConfigProvider {
             return response.getBody();
         }
         return NOOP_CONFIG;
+    }
+
+    private String getApiServerUrl() {
+        return getGetenv().get(ASSERTS_API_SERVER_URL) + "/api-server/v1/config/aws-exporter";
+    }
+
+    public String getAlertForwardUrl() {
+        return getGetenv().get(ASSERTS_API_SERVER_URL) + "/assertion-detector/external-alerts/prometheus";
     }
 
     public HttpEntity<String> createAssertsAuthHeader() {
@@ -128,10 +137,8 @@ public class ScrapeConfigProvider {
         try {
             Map<String, String> envVariables = getGetenv();
             ObjectMapper objectMapper = objectMapperFactory.getObjectMapper();
-            if (envVariables.containsKey(ApiServerConstants.ASSERTS_API_SERVER_URL)
-                    && envVariables.containsKey(ApiServerConstants.ASSERTS_USER)
-                    && envVariables.containsKey(ApiServerConstants.ASSERTS_PASSWORD)) {
-                scrapeConfig = getConfig(envVariables);
+            if (assertsEndpointConfigured(envVariables)) {
+                scrapeConfig = getConfigFromServer();
             } else if (envVariables.containsKey("CONFIG_S3_BUCKET") && envVariables.containsKey("CONFIG_S3_KEY")) {
                 try {
                     String bucket = envVariables.get("CONFIG_S3_BUCKET");
@@ -192,6 +199,12 @@ public class ScrapeConfigProvider {
             log.error("Failed to load aws exporter configuration", e);
             return NOOP_CONFIG;
         }
+    }
+
+    private boolean assertsEndpointConfigured(Map<String, String> envVariables) {
+        return envVariables.containsKey(ASSERTS_API_SERVER_URL)
+                && envVariables.containsKey(ApiServerConstants.ASSERTS_USER)
+                && envVariables.containsKey(ApiServerConstants.ASSERTS_PASSWORD);
     }
 
     @VisibleForTesting
