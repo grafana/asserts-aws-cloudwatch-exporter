@@ -65,16 +65,6 @@ public class ECSTaskUtil {
         Resource taskResource = resourceMapper.map(task.taskArn())
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskArn()));
 
-        LabelsBuilder statsSidecarLabels = Labels.builder()
-                .availabilityZone(task.availabilityZone())
-                .accountId(cluster.getAccount())
-                .region(cluster.getRegion())
-                .env(cluster.getAccount())
-                .site(cluster.getRegion())
-                .taskDefName(taskDefResource.getName())
-                .taskDefVersion(taskDefResource.getVersion())
-                .taskId(taskResource.getName())
-                .metricsPath("/container-stats/actuator/prometheus");
         LabelsBuilder labelsBuilder = Labels.builder()
                 .workload(service.getName())
                 .accountId(cluster.getAccount())
@@ -121,19 +111,11 @@ public class ECSTaskUtil {
                     labelsBuilder.availabilityZone(task.availabilityZone());
                     String jobName = cD.name();
                     if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
-                        Labels labels;
-
-                        if (isAssertsECSSidecar(cD)) {
-                            labels = statsSidecarLabels
-                                    .job(jobName)
-                                    .build();
-                        } else {
-                            labels = labelsBuilder
-                                    .job(jobName)
-                                    .metricsPath(pathFromLabel.get())
-                                    .container(cD.name())
-                                    .build();
-                        }
+                        Labels labels = labelsBuilder
+                                .job(jobName)
+                                .metricsPath(pathFromLabel.get())
+                                .container(cD.name())
+                                .build();
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
@@ -142,32 +124,26 @@ public class ECSTaskUtil {
                         ECSTaskDefScrapeConfig forAnyPort = byPort.get(-1);
                         cD.portMappings().forEach(port -> {
                             Labels labels;
-                            if (isAssertsECSSidecar(cD)) {
-                                labels = statsSidecarLabels
+                            if (byPort.get(port.containerPort()) != null) {
+                                labels = labelsBuilder
                                         .job(jobName)
+                                        .metricsPath(byPort.get(port.containerPort()).getMetricPath())
+                                        .container(cD.name())
+                                        .build();
+                            } else if (forAnyPort != null) {
+                                labels = labelsBuilder
+                                        .job(jobName)
+                                        .metricsPath(forAnyPort.getMetricPath())
+                                        .container(cD.name())
+                                        .build();
+                            } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
+                                labels = labelsBuilder
+                                        .job(jobName)
+                                        .metricsPath("/metrics")
+                                        .container(cD.name())
                                         .build();
                             } else {
-                                if (byPort.get(port.containerPort()) != null) {
-                                    labels = labelsBuilder
-                                            .job(jobName)
-                                            .metricsPath(byPort.get(port.containerPort()).getMetricPath())
-                                            .container(cD.name())
-                                            .build();
-                                } else if (forAnyPort != null) {
-                                    labels = labelsBuilder
-                                            .job(jobName)
-                                            .metricsPath(forAnyPort.getMetricPath())
-                                            .container(cD.name())
-                                            .build();
-                                } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
-                                    labels = labelsBuilder
-                                            .job(jobName)
-                                            .metricsPath("/metrics")
-                                            .container(cD.name())
-                                            .build();
-                                } else {
-                                    labels = null;
-                                }
+                                labels = null;
                             }
                             if (labels != null) {
                                 StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
@@ -176,18 +152,11 @@ public class ECSTaskUtil {
                             }
                         });
                     } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
-                        Labels labels;
-                        if (isAssertsECSSidecar(cD)) {
-                            labels = statsSidecarLabels
-                                    .job(jobName)
-                                    .build();
-                        } else {
-                            labels = labelsBuilder
-                                    .job(jobName)
-                                    .metricsPath("/metrics")
-                                    .container(cD.name())
-                                    .build();
-                        }
+                        Labels labels = labelsBuilder
+                                .job(jobName)
+                                .metricsPath("/metrics")
+                                .container(cD.name())
+                                .build();
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         cD.portMappings().forEach(port ->
@@ -203,10 +172,6 @@ public class ECSTaskUtil {
 
         return targetsByLabel.values().stream()
                 .filter(config -> config.getTargets().size() > 0).collect(Collectors.toList());
-    }
-
-    private boolean isAssertsECSSidecar(ContainerDefinition cD) {
-        return cD.image().contains("asserts") && cD.image().contains("docker") && cD.image().contains("ecs");
     }
 
     Optional<String> getDockerLabel(ContainerDefinition container, String labelName) {
