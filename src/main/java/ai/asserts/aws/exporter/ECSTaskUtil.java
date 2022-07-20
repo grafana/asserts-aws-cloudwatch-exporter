@@ -65,12 +65,15 @@ public class ECSTaskUtil {
         Resource taskResource = resourceMapper.map(task.taskArn())
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskArn()));
 
-        LabelsBuilder labelsNoneBuilder = Labels.builder()
+        LabelsBuilder statsSidecarLabels = Labels.builder()
                 .availabilityZone(task.availabilityZone())
                 .accountId(cluster.getAccount())
                 .region(cluster.getRegion())
                 .env(cluster.getAccount())
                 .site(cluster.getRegion())
+                .taskDefName(taskDefResource.getName())
+                .taskDefVersion(taskDefResource.getVersion())
+                .taskId(taskResource.getName())
                 .metricsPath("/container-stats/actuator/prometheus");
         LabelsBuilder labelsBuilder = Labels.builder()
                 .workload(service.getName())
@@ -121,7 +124,7 @@ public class ECSTaskUtil {
                         Labels labels;
 
                         if (isAssertsECSSidecar(cD)) {
-                            labels = labelsNoneBuilder
+                            labels = statsSidecarLabels
                                     .job(jobName)
                                     .build();
                         } else {
@@ -140,7 +143,7 @@ public class ECSTaskUtil {
                         cD.portMappings().forEach(port -> {
                             Labels labels;
                             if (isAssertsECSSidecar(cD)) {
-                                labels = labelsNoneBuilder
+                                labels = statsSidecarLabels
                                         .job(jobName)
                                         .build();
                             } else {
@@ -175,7 +178,7 @@ public class ECSTaskUtil {
                     } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
                         Labels labels;
                         if (isAssertsECSSidecar(cD)) {
-                            labels = labelsNoneBuilder
+                            labels = statsSidecarLabels
                                     .job(jobName)
                                     .build();
                         } else {
