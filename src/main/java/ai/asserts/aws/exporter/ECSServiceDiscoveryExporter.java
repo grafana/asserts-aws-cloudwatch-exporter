@@ -44,7 +44,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
@@ -177,17 +176,6 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service));
                 }
                 services.add(service);
-
-                Map<String, String> labels = new TreeMap<>();
-                labels.put(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount());
-                labels.put(SCRAPE_REGION_LABEL, cluster.getRegion());
-                labels.put("cluster", cluster.getName());
-                labels.put("job", service.getName());
-                labels.put("name", service.getName());
-                labels.put("aws_resource_type", "AWS::ECS::Service");
-                labels.put("namespace", "AWS/ECS");
-
-                // resourceMetricSamples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
             });
             newRouting.addAll(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, services));
         }
