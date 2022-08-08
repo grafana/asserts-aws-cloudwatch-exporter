@@ -176,7 +176,6 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service));
                 }
                 services.add(service);
-                // resourceMetricSamples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
             });
             newRouting.addAll(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, services));
         }

@@ -42,10 +42,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
@@ -281,29 +279,6 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         expect(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, ImmutableList.of(resource, resource)))
                 .andReturn(ImmutableSet.of(mockRelation));
-
-        expect(resource.getName()).andReturn("service1").times(2);
-        expect(resource.getName()).andReturn("service2").times(2);
-
-        Map<String, String> labels1 = new TreeMap<>();
-        labels1.put("account_id", "account");
-        labels1.put("cluster", "cluster");
-        labels1.put("job", "service1");
-        labels1.put("name", "service1");
-        labels1.put("region", "region1");
-        labels1.put("aws_resource_type", "AWS::ECS::Service");
-        labels1.put("namespace", "AWS/ECS");
-        // expect(metricSampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D)).andReturn(sample);
-
-        Map<String, String> labels2 = new TreeMap<>();
-        labels2.put("account_id", "account");
-        labels2.put("cluster", "cluster");
-        labels2.put("job", "service2");
-        labels2.put("name", "service2");
-        labels2.put("region", "region1");
-        labels2.put("aws_resource_type", "AWS::ECS::Service");
-        labels2.put("namespace", "AWS/ECS");
-        // expect(metricSampleBuilder.buildSingleSample("aws_resource", labels2, 1.0D)).andReturn(sample);
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(accountProvider,
