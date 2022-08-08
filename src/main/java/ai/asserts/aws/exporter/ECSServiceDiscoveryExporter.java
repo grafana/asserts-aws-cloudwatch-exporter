@@ -257,7 +257,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         private final String taskDefVersion;
         @JsonProperty
         private final String container;
-        @JsonProperty("pod")
+        @JsonProperty("ecs_task_id")
         private final String taskId;
         @JsonProperty("availability_zone")
         private final String availabilityZone;
