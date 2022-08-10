@@ -56,6 +56,7 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     private AWSAccount account;
@@ -275,10 +276,39 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                         .build());
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
+
+        expect(ecsClient.listTasks(ListTasksRequest.builder()
+                .cluster(cluster.getName())
+                .build()))
+                .andReturn(ListTasksResponse.builder()
+                        .taskArns("taskArn1")
+                        .build());
+
+        expect(resourceMapper.map("taskArn1")).andReturn(Optional.of(Resource.builder()
+                .account("account")
+                .region("region")
+                .name("task1")
+                .childOf(Resource.builder()
+                        .name("cluster")
+                        .build())
+                .build()));
+
+        // List tasks in service
+        metricCollector.recordLatency(anyString(), anyObject(), anyLong());
+
+        // For listTasks
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
 
         expect(lbToECSRoutingBuilder.getRoutings(ecsClient, cluster, ImmutableList.of(resource, resource)))
                 .andReturn(ImmutableSet.of(mockRelation));
+
+        expect(mockStaticConfig.getLabels()).andReturn(ECSServiceDiscoveryExporter.Labels.builder()
+                .accountId("account")
+                .region("region")
+                .cluster("cluster")
+                .taskId("workload-task2")
+                .workload("workload")
+                .build()).anyTimes();
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(accountProvider,
@@ -292,9 +322,19 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 assertEquals(cluster, _cluster);
                 return ImmutableList.of(mockStaticConfig);
             }
+
+            @Override
+            List<StaticConfig> buildTaskTargets(ScrapeConfig sc, EcsClient client, Resource _cluster,
+                                                Optional<Resource> service, Set<String> taskARNs) {
+                assertEquals(scrapeConfig, sc);
+                assertEquals(ecsClient, client);
+                assertFalse(service.isPresent());
+                assertEquals(ImmutableSet.of("taskArn1"), taskARNs);
+                return ImmutableList.of(mockStaticConfig);
+            }
         };
         assertEquals(
-                ImmutableList.of(mockStaticConfig, mockStaticConfig),
+                ImmutableList.of(mockStaticConfig, mockStaticConfig, mockStaticConfig),
                 testClass.buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting, samples));
 
         assertEquals(ImmutableSet.of(mockRelation), newRouting);
@@ -358,11 +398,11 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 lbToECSRoutingBuilder, metricSampleBuilder) {
             @Override
             List<StaticConfig> buildTaskTargets(ScrapeConfig sc, EcsClient client, Resource _cluster,
-                                                Resource _service, Set<String> taskIds) {
+                                                Optional<Resource> _service, Set<String> taskIds) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(cluster, _cluster);
-                assertEquals(service, _service);
+                assertEquals(Optional.of(service), _service);
                 actualARNs.add(taskIds);
                 return ImmutableList.of(mockStaticConfig);
             }
@@ -417,10 +457,10 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(ecsTaskUtil.hasAllInfo(task1)).andReturn(true);
         expect(ecsTaskUtil.hasAllInfo(task2)).andReturn(true);
 
-        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task1))
+        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, Optional.of(service), task1))
                 .andReturn(ImmutableList.of(mockStaticConfig));
 
-        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task2))
+        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, Optional.of(service), task2))
                 .andReturn(ImmutableList.of(mockStaticConfig));
 
         replayAll();
@@ -430,7 +470,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 metricSampleBuilder);
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),
-                testClass.buildTaskTargets(scrapeConfig, ecsClient, cluster, service, taskArns));
+                testClass.buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.of(service), taskArns));
 
         verifyAll();
     }
