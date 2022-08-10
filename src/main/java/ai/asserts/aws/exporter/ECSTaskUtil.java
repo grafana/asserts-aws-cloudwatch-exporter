@@ -55,8 +55,9 @@ public class ECSTaskUtil {
                 .anyMatch(detail -> detail.name().equals(PRIVATE_IPv4ADDRESS));
     }
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
-                                                 Resource cluster, Resource service, Task task) {
+                                                 Resource cluster, Optional<Resource> service, Task task) {
         Map<Labels, StaticConfig> targetsByLabel = new LinkedHashMap<>();
 
         String ipAddress;
@@ -65,17 +66,32 @@ public class ECSTaskUtil {
         Resource taskResource = resourceMapper.map(task.taskArn())
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskArn()));
 
-        LabelsBuilder labelsBuilder = Labels.builder()
-                .workload(service.getName())
-                .accountId(cluster.getAccount())
-                .region(cluster.getRegion())
-                .cluster(cluster.getName())
-                .env(cluster.getAccount())
-                .site(cluster.getRegion())
-                .taskDefName(taskDefResource.getName())
-                .taskDefVersion(taskDefResource.getVersion())
-                .taskId(taskResource.getName())
-                .metricsPath("/metrics");
+        LabelsBuilder labelsBuilder;
+        if (service.isPresent()) {
+            labelsBuilder = Labels.builder()
+                    .workload(service.get().getName())
+                    .taskId(service.get().getName() + "-" + taskResource.getName())
+                    .accountId(cluster.getAccount())
+                    .region(cluster.getRegion())
+                    .cluster(cluster.getName())
+                    .env(cluster.getAccount())
+                    .site(cluster.getRegion())
+                    .taskDefName(taskDefResource.getName())
+                    .taskDefVersion(taskDefResource.getVersion())
+                    .metricsPath("/metrics");
+        } else {
+            labelsBuilder = Labels.builder()
+                    .workload(taskDefResource.getName())
+                    .taskId(taskDefResource.getName() + "-" + taskResource.getName())
+                    .accountId(cluster.getAccount())
+                    .region(cluster.getRegion())
+                    .cluster(cluster.getName())
+                    .env(cluster.getAccount())
+                    .site(cluster.getRegion())
+                    .taskDefName(taskDefResource.getName())
+                    .taskDefVersion(taskDefResource.getVersion())
+                    .metricsPath("/metrics");
+        }
 
         Optional<KeyValuePair> ipAddressOpt = task.attachments().stream()
                 .filter(attachment -> attachment.type().equals(ENI) && attachment.hasDetails())

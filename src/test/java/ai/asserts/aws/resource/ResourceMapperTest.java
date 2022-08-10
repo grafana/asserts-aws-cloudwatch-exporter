@@ -216,6 +216,12 @@ public class ResourceMapperTest {
                         .region("us-west-2")
                         .account("342994379019")
                         .name("34c11488dc56429fb67e2996b5ceaa74")
+                        .childOf(Resource.builder()
+                                .type(ECSCluster)
+                                .account("342994379019")
+                                .region("us-west-2")
+                                .name("ecs-sample-app")
+                                .build())
                         .build()),
                 testClass.map(arn)
         );
@@ -223,7 +229,9 @@ public class ResourceMapperTest {
 
     @Test
     public void map_LoadBalancer() {
-        String arn = "arn:aws:elasticloadbalancing:us-west-2:342994379019:loadbalancer/app/k8s-assertsinternal-dabf78ac56/ffc311c1118b747a";
+        String arn =
+                "arn:aws:elasticloadbalancing:us-west-2:342994379019:loadbalancer/app/k8s-assertsinternal-dabf78ac56" +
+                        "/ffc311c1118b747a";
         assertEquals(
                 Optional.of(Resource.builder()
                         .type(LoadBalancer).arn(arn)
@@ -253,7 +261,9 @@ public class ResourceMapperTest {
 
     @Test
     public void map_TargetGroup() {
-        String arn = "arn:aws:elasticloadbalancing:us-west-2:342994379019:targetgroup/auction-bid-service-tg/f2f15d26b40e68f2";
+        String arn =
+                "arn:aws:elasticloadbalancing:us-west-2:342994379019:targetgroup/auction-bid-service-tg" +
+                        "/f2f15d26b40e68f2";
         assertEquals(
                 Optional.of(Resource.builder()
                         .type(TargetGroup).arn(arn)
@@ -268,7 +278,9 @@ public class ResourceMapperTest {
 
     @Test
     public void map_AutoScalingGroup() {
-        String arn = "arn:aws:autoscaling:us-west-2:342994379019:autoScalingGroup:ffc311c1118b747a:autoScalingGroupName/groupName";
+        String arn =
+                "arn:aws:autoscaling:us-west-2:342994379019:autoScalingGroup:ffc311c1118b747a:autoScalingGroupName" +
+                        "/groupName";
         assertEquals(
                 Optional.of(Resource.builder()
                         .type(AutoScalingGroup).arn(arn)
@@ -357,12 +369,15 @@ public class ResourceMapperTest {
 
     @Test
     public void map_Alarm() {
-        String arn = "arn:aws:cloudwatch:us-west-2:342994379019:alarm:TargetTracking-table/GameScores/index/GameTitle-TopScore-index-ProvisionedCapacityLow-fc66d6b6-6a14-4303-9dd5-70a4714d8cd0";
+        String arn =
+                "arn:aws:cloudwatch:us-west-2:342994379019:alarm:TargetTracking-table/GameScores/index/GameTitle" +
+                        "-TopScore-index-ProvisionedCapacityLow-fc66d6b6-6a14-4303-9dd5-70a4714d8cd0";
         assertEquals(Optional.of(Resource.builder()
                         .type(Alarm).arn(arn)
                         .region("us-west-2")
                         .account("342994379019")
-                        .name("TargetTracking-table/GameScores/index/GameTitle-TopScore-index-ProvisionedCapacityLow-fc66d6b6-6a14-4303-9dd5-70a4714d8cd0")
+                        .name("TargetTracking-table/GameScores/index/GameTitle-TopScore-index-ProvisionedCapacityLow" +
+                                "-fc66d6b6-6a14-4303-9dd5-70a4714d8cd0")
                         .build()),
                 testClass.map(arn)
         );

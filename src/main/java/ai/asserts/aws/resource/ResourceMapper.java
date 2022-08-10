@@ -15,31 +15,43 @@ import static ai.asserts.aws.resource.ResourceType.*;
 public class ResourceMapper {
     public static final Pattern SQS_QUEUE_ARN_PATTERN = Pattern.compile("arn:aws:sqs:(.+?):(.+?):(.+)");
     public static final Pattern SQS_URL = Pattern.compile("https://sqs.(.+?).amazonaws.com/(.+)/(.+)");
-    public static final Pattern DYNAMODB_TABLE_ARN_PATTERN = Pattern.compile("arn:aws:dynamodb:(.*?):(.*?):table/(.+?)(/.+)?");
+    public static final Pattern DYNAMODB_TABLE_ARN_PATTERN =
+            Pattern.compile("arn:aws:dynamodb:(.*?):(.*?):table/(.+?)(/.+)?");
     public static final Pattern LAMBDA_ARN_PATTERN = Pattern.compile("arn:aws:lambda:(.*?):(.*?):function:(.+?)(:.+)?");
     public static final Pattern S3_ARN_PATTERN = Pattern.compile("arn:aws:s3:(.*?):(.*?):(.+?)");
     public static final Pattern SNS_ARN_PATTERN = Pattern.compile("arn:aws:sns:(.+?):(.+?):(.+)");
     public static final Pattern EVENTBUS_ARN_PATTERN = Pattern.compile("arn:aws:events:(.+?):(.+?):event-bus/(.+)");
     public static final Pattern ECS_CLUSTER_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):cluster/(.+)");
     public static final Pattern ECS_SERVICE_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):service/(.+?)/(.+)");
-    public static final Pattern ECS_TASK_DEFINITION_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task-definition/(.+)");
-    public static final Pattern ECS_TASK_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task/.+?/(.+)");
+    public static final Pattern ECS_TASK_DEFINITION_PATTERN =
+            Pattern.compile("arn:aws:ecs:(.+?):(.+?):task-definition/(.+)");
+    public static final Pattern ECS_TASK_PATTERN = Pattern.compile("arn:aws:ecs:(.+?):(.+?):task/(.+?)/(.+)");
 
     /**
-     * See https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/load-balancer-authentication-access-control.html
+     * See https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/load-balancer-authentication-access
+     * -control.html
      */
-    public static final Pattern LB_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/((.+?)/)?(.+?)(/(.+))?");
-    public static final Pattern ASG_PATTERN = Pattern.compile("arn:aws:autoscaling:(.+?):(.+?):autoScalingGroup:(.+?):autoScalingGroupName/(.+)");
-    public static final Pattern APIGATEWAY_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+)");
-    public static final Pattern APIGATEWAY_STAGE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/stages/(.+)");
-    public static final Pattern APIGATEWAY_RESOURCE_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)");
-    public static final Pattern APIGATEWAY_METHOD_PATTERN = Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)/methods/(.+)");
-    public static final Pattern TARGET_GROUP_PATTERN = Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):targetgroup/(.+?)/(.+)");
+    public static final Pattern LB_PATTERN =
+            Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):loadbalancer/((.+?)/)?(.+?)(/(.+))?");
+    public static final Pattern ASG_PATTERN =
+            Pattern.compile("arn:aws:autoscaling:(.+?):(.+?):autoScalingGroup:(.+?):autoScalingGroupName/(.+)");
+    public static final Pattern APIGATEWAY_PATTERN =
+            Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+)");
+    public static final Pattern APIGATEWAY_STAGE_PATTERN =
+            Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/stages/(.+)");
+    public static final Pattern APIGATEWAY_RESOURCE_PATTERN =
+            Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)");
+    public static final Pattern APIGATEWAY_METHOD_PATTERN =
+            Pattern.compile("arn:.+?:apigateway:(.+?):(.*?):/(restapis|apis)/(.+?)/resources/(.+)/methods/(.+)");
+    public static final Pattern TARGET_GROUP_PATTERN =
+            Pattern.compile("arn:aws:elasticloadbalancing:(.+?):(.+?):targetgroup/(.+?)/(.+)");
     public static final Pattern ALARM_PATTERN = Pattern.compile("arn:aws:cloudwatch:(.+?):(.+?):alarm:(.+)");
     public static final Pattern EC2_PATTERN = Pattern.compile("arn:aws:ec2:(.+?):(.+?):instance/(.+)");
     public static final Pattern KINESIS_PATTERN = Pattern.compile("arn:aws:kinesis:(.+?):(.+?):stream/(.+)");
-    public static final Pattern KINESIS_ANALYTICS_PATTERN = Pattern.compile("arn:aws:kinesisanalytics:(.+?):(.+?):application/(.+)");
-    public static final Pattern KINESIS_FIREHOSE_PATTERN = Pattern.compile("arn:aws:firehose:(.+?):(.+?):deliverystream/(.+)");
+    public static final Pattern KINESIS_ANALYTICS_PATTERN =
+            Pattern.compile("arn:aws:kinesisanalytics:(.+?):(.+?):application/(.+)");
+    public static final Pattern KINESIS_FIREHOSE_PATTERN =
+            Pattern.compile("arn:aws:firehose:(.+?):(.+?):deliverystream/(.+)");
     public static final Pattern REDSHIFT_PATTERN = Pattern.compile("arn:aws:redshift:(.+?):(.+?):cluster/(.+)");
 
     private final List<Mapper> mappers = new ImmutableList.Builder<Mapper>()
@@ -286,7 +298,13 @@ public class ResourceMapper {
                                 .arn(arn)
                                 .region(matcher.group(1))
                                 .account(matcher.group(2))
-                                .name(matcher.group(3))
+                                .name(matcher.group(4))
+                                .childOf(Resource.builder()
+                                        .account(matcher.group(2))
+                                        .region(matcher.group(1))
+                                        .type(ECSCluster)
+                                        .name(matcher.group(3))
+                                        .build())
                                 .build());
                     }
                 }

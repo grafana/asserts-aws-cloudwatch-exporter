@@ -136,7 +136,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                service, Task.builder()
+                Optional.of(service), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -155,7 +155,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("model-builder", staticConfig.getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfig.getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfig.getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfig.getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", staticConfig.getLabels().getTaskId()),
                 () -> assertEquals("/metric/path", staticConfig.getLabels().getMetricsPath()),
                 () -> assertEquals("model-builder", staticConfig.getLabels().getContainer()),
                 () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"), staticConfig.getTargets())
@@ -206,7 +206,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                service, Task.builder()
+                Optional.of(service), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -223,13 +223,13 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getTaskId()),
                 () -> assertEquals("/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
 
                 () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
                 () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfigs.get(1).getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", staticConfigs.get(1).getLabels().getTaskId()),
                 () -> assertEquals("/metrics", staticConfigs.get(1).getLabels().getMetricsPath()),
                 () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
                         .map(sc -> sc.getLabels().getJob())
@@ -296,7 +296,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                service, Task.builder()
+                Optional.of(service), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -313,12 +313,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getTaskId()),
 
                 () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
                 () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfigs.get(1).getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", staticConfigs.get(1).getLabels().getTaskId()),
                 () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
                         .map(sc -> sc.getLabels().getJob())
                         .collect(Collectors.toSet())),
@@ -394,7 +394,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                service, Task.builder()
+                Optional.of(service), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -429,7 +429,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("api-server", apiServer_8081.get().getLabels().getJob()),
                 () -> assertEquals("task-def", apiServer_8081.get().getLabels().getTaskDefName()),
                 () -> assertEquals("5", apiServer_8081.get().getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", apiServer_8081.get().getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", apiServer_8081.get().getLabels().getTaskId()),
                 () -> assertEquals("/prometheus/metrics", apiServer_8081.get().getLabels().getMetricsPath())
         );
         assertAll(
@@ -438,7 +438,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("api-server", apiServer_8082.get().getLabels().getJob()),
                 () -> assertEquals("task-def", apiServer_8082.get().getLabels().getTaskDefName()),
                 () -> assertEquals("5", apiServer_8082.get().getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", apiServer_8082.get().getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", apiServer_8082.get().getLabels().getTaskId()),
                 () -> assertEquals("/metrics", apiServer_8082.get().getLabels().getMetricsPath())
         );
         assertAll(
@@ -447,7 +447,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("model-builder", modelBuilder.get().getLabels().getJob()),
                 () -> assertEquals("task-def", modelBuilder.get().getLabels().getTaskDefName()),
                 () -> assertEquals("5", modelBuilder.get().getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", modelBuilder.get().getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", modelBuilder.get().getLabels().getTaskId()),
                 () -> assertEquals("/metrics", modelBuilder.get().getLabels().getMetricsPath())
         );
         verifyAll();
@@ -497,7 +497,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                service, Task.builder()
+                Optional.of(service), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -515,7 +515,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
-                () -> assertEquals("task-id", staticConfigs.get(0).getLabels().getTaskId()),
+                () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getTaskId()),
                 () -> assertEquals("/prometheus/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
                 () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getContainer()),
                 () -> assertEquals(ImmutableSet.of("10.20.30.40:8081"),
