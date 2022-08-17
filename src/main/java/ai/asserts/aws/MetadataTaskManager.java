@@ -17,7 +17,6 @@ import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.LoadBalancerExporter;
 import ai.asserts.aws.exporter.RDSExporter;
 import ai.asserts.aws.exporter.RedshiftExporter;
-import ai.asserts.aws.exporter.ResourceExporter;
 import ai.asserts.aws.exporter.ResourceRelationExporter;
 import ai.asserts.aws.exporter.S3BucketExporter;
 import ai.asserts.aws.exporter.SNSTopicExporter;
@@ -48,7 +47,6 @@ public class MetadataTaskManager implements InitializingBean {
     private final LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
     private final LambdaLogMetricScrapeTask lambdaLogScrapeTask;
     private final BasicMetricCollector metricCollector;
-    private final ResourceExporter resourceExporter;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final ResourceRelationExporter relationExporter;
     private final LBToASGRelationBuilder lbToASGRelationBuilder;
@@ -76,7 +74,6 @@ public class MetadataTaskManager implements InitializingBean {
         lambdaCapacityExporter.register(collectorRegistry);
         lambdaEventSourceExporter.register(collectorRegistry);
         lambdaInvokeConfigExporter.register(collectorRegistry);
-        resourceExporter.register(collectorRegistry);
         metricCollector.register(collectorRegistry);
         relationExporter.register(collectorRegistry);
         ecsServiceDiscoveryExporter.register(collectorRegistry);
@@ -99,7 +96,6 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(lambdaCapacityExporter::update);
         taskThreadPool.getExecutorService().submit(lambdaEventSourceExporter::update);
         taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
-        taskThreadPool.getExecutorService().submit(resourceExporter::update);
         taskThreadPool.getExecutorService().submit(targetGroupLBMapProvider::update);
         taskThreadPool.getExecutorService().submit(lbToASGRelationBuilder::updateRouting);
         taskThreadPool.getExecutorService().submit(relationExporter::update);

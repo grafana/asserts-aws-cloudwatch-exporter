@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
 import com.google.common.collect.ImmutableSortedMap;
@@ -22,8 +23,10 @@ import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup;
 import software.amazon.awssdk.services.autoscaling.model.DescribeAutoScalingGroupsResponse;
 import software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +49,8 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
     private final AccountProvider accountProvider;
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
+
+    private final TagUtil tagUtil;
     @Getter
     private volatile Set<ResourceRelation> routingConfigs = new HashSet<>();
     private volatile List<MetricFamilySamples> asgResourceMetrics = new ArrayList<>();
@@ -53,7 +58,8 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
     public LBToASGRelationBuilder(AWSClientProvider awsClientProvider,
                                   ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider,
                                   RateLimiter rateLimiter, AccountProvider accountProvider,
-                                  MetricSampleBuilder metricSampleBuilder, CollectorRegistry collectorRegistry) {
+                                  MetricSampleBuilder metricSampleBuilder, CollectorRegistry collectorRegistry,
+                                  TagUtil tagUtil) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
@@ -61,6 +67,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         this.accountProvider = accountProvider;
         this.metricSampleBuilder = metricSampleBuilder;
         this.collectorRegistry = collectorRegistry;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -101,12 +108,23 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                                 ),
                                 asgClient::describeTags);
 
+                        Map<String, List<Tag>>
+                                tagLabelsByName = new TreeMap<>();
+
+                        describeTagsResponse.tags()
+                                .stream()
+                                .filter(td -> "auto-scaling-group".equals(td.resourceType()))
+                                .forEach(td -> tagLabelsByName.computeIfAbsent(td.resourceId(), k -> new ArrayList<>())
+                                        .add(Tag
+                                                .builder().key(td.key()).value(td.value()).build()));
+
                         groups.forEach(asg -> resourceMapper.map(asg.autoScalingGroupARN()).ifPresent(asgRes -> {
-                            // Only discover Non k8s ASGs. K8S ASGs will be discovered
-                            if (describeTagsResponse.tags().stream().noneMatch(tagDescription ->
-                                    asgRes.getName().equals(tagDescription.resourceId()) &&
-                                            (tagDescription.key().contains("k8s") ||
-                                                    tagDescription.key().contains("kubernetes")))) {
+                            // Only discover Non k8s ASGs. K8S ASGs will be discovered through other means
+                            Map<String, String> tagLabels =
+                                    tagUtil.tagLabels(tagLabelsByName.getOrDefault(asg.autoScalingGroupName(),
+                                            Collections.emptyList()));
+
+                            if (tagLabels.keySet().stream().noneMatch(key -> key.contains("k8s"))) {
                                 Map<String, String> labels = new TreeMap<>();
                                 labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
                                 labels.put(SCRAPE_REGION_LABEL, region);
@@ -115,7 +133,9 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                                 labels.put("job", asgRes.getName());
                                 labels.put("id", asgRes.getId());
                                 labels.put("name", asgRes.getName());
-                                samples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
+                                labels.putAll(tagLabels);
+                                samples.add(
+                                        metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
                             }
 
                             if (!isEmpty(asg.targetGroupARNs())) {

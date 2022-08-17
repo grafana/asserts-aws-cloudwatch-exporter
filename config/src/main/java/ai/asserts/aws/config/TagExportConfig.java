@@ -23,7 +23,6 @@ public class TagExportConfig {
     private Set<String> excludeTags = new HashSet<>();
     private Set<String> includePatterns = new HashSet<>();
     private Set<String> includeTags = new HashSet<>();
-    private Set<String> envTags = new HashSet<>();
     @EqualsAndHashCode.Exclude
     private Set<Pattern> _exclude = new HashSet<>();
     @EqualsAndHashCode.Exclude

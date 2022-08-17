@@ -7,7 +7,11 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -17,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.ListStreamsResponse;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -39,6 +44,8 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private KinesisClient kinesisClient;
+    private ResourceTagHelper resourceTagHelper;
+    private TagUtil tagUtil;
     private KinesisStreamExporter testClass;
 
     @BeforeEach
@@ -53,8 +60,11 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
         rateLimiter = mock(RateLimiter.class);
         collectorRegistry = mock(CollectorRegistry.class);
         kinesisClient = mock(KinesisClient.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
+        tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
-        testClass = new KinesisStreamExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter, sampleBuilder);
+        testClass = new KinesisStreamExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
+                sampleBuilder, resourceTagHelper, tagUtil);
     }
 
     @Test
@@ -66,6 +76,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
         labels1.put("id", "stream1");
         labels1.put("job", "stream1");
         labels1.put("namespace", "AWS/Kinesis");
+        labels1.put("tag_k", "v");
         labels1.put(SCRAPE_ACCOUNT_ID_LABEL, "account1");
         labels1.put("aws_resource_type", "AWS::Kinesis::Stream");
         ListStreamsResponse response = ListStreamsResponse
@@ -77,6 +88,12 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
         expect(rateLimiter.doWithRateLimit(eq("KinesisClient/listStreams"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         expect(awsClientProvider.getKinesisClient("region1", accountRegion)).andReturn(kinesisClient);
+        ImmutableList<Tag> tags = ImmutableList.of(Tag.builder().build());
+        expect(resourceTagHelper.getResourcesWithTag(accountRegion, "region1", "kinesis:stream",
+                ImmutableList.of("stream1"))).andReturn(ImmutableMap.of("stream1", Resource.builder()
+                .tags(tags)
+                .build()));
+        expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);

@@ -7,7 +7,11 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -15,6 +19,7 @@ import org.easymock.Capture;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
@@ -40,6 +45,8 @@ public class S3BucketExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private S3Client s3Client;
+    private ResourceTagHelper resourceTagHelper;
+    private TagUtil tagUtil;
     private S3BucketExporter testClass;
 
     @BeforeEach
@@ -54,8 +61,11 @@ public class S3BucketExporterTest extends EasyMockSupport {
         rateLimiter = mock(RateLimiter.class);
         collectorRegistry = mock(CollectorRegistry.class);
         s3Client = mock(S3Client.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
+        tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
-        testClass = new S3BucketExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter, sampleBuilder);
+        testClass = new S3BucketExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
+                sampleBuilder, resourceTagHelper, tagUtil);
     }
 
     @Test
@@ -67,6 +77,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
         labels1.put("name", "b1");
         labels1.put("id", "b1");
         labels1.put("job", "b1");
+        labels1.put("tag_k", "v");
         labels1.put(SCRAPE_ACCOUNT_ID_LABEL, "account1");
         labels1.put("aws_resource_type", "AWS::S3::Bucket");
         ListBucketsResponse response = ListBucketsResponse
@@ -78,6 +89,13 @@ public class S3BucketExporterTest extends EasyMockSupport {
         expect(rateLimiter.doWithRateLimit(eq("S3Client/listBuckets"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         expect(awsClientProvider.getS3Client("region1", accountRegion)).andReturn(s3Client);
+        ImmutableList<Tag> tags = ImmutableList.of(Tag.builder().key("k").value("v").build());
+        expect(resourceTagHelper.getResourcesWithTag(accountRegion, "region1", "s3:bucket", ImmutableList.of(
+                "b1")))
+                .andReturn(ImmutableMap.of("b1", Resource.builder()
+                        .tags(tags)
+                        .build()));
+        expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);

@@ -7,9 +7,12 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import io.micrometer.core.instrument.util.StringUtils;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -51,6 +54,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
     private final AccountProvider accountProvider;
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
+    private final MetricNameUtil metricNameUtil;
     private final Pattern LAMBDA_URI_PATTERN = Pattern.compile(
             "arn:aws:apigateway:(.+?):lambda:path/.+?/functions/arn:aws:lambda:(.+?):(.+?):function:(.+)/invocations");
 
@@ -61,12 +65,13 @@ public class ApiGatewayToLambdaBuilder extends Collector
     public ApiGatewayToLambdaBuilder(AWSClientProvider awsClientProvider,
                                      RateLimiter rateLimiter, AccountProvider accountProvider,
                                      MetricSampleBuilder metricSampleBuilder,
-                                     CollectorRegistry collectorRegistry) {
+                                     CollectorRegistry collectorRegistry, MetricNameUtil metricNameUtil) {
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
         this.accountProvider = accountProvider;
         this.metricSampleBuilder = metricSampleBuilder;
         this.collectorRegistry = collectorRegistry;
+        this.metricNameUtil = metricNameUtil;
     }
 
     @Override
@@ -94,7 +99,8 @@ public class ApiGatewayToLambdaBuilder extends Collector
                         labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
                         labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
                         labels.put(SCRAPE_REGION_LABEL, region);
-                        GetRestApisResponse restApis = rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
+                        GetRestApisResponse restApis =
+                                rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
                         if (restApis.hasItems()) {
                             restApis.items().forEach(restApi -> {
                                 String getResources = "getResources";
@@ -115,6 +121,8 @@ public class ApiGatewayToLambdaBuilder extends Collector
                                         apiResourceLabels.put("name", restApi.name());
                                         apiResourceLabels.put("id", restApi.id());
                                         apiResourceLabels.put("job", restApi.name());
+                                        restApi.tags().forEach((key, value) -> apiResourceLabels.put(
+                                                "tag_" + metricNameUtil.toSnakeCase(key), value));
                                         samples.add(metricSampleBuilder.buildSingleSample("aws_resource",
                                                 apiResourceLabels, 1.0d));
                                     });

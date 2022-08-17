@@ -58,6 +58,13 @@ public class ECSTaskUtil {
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
                                                  Resource cluster, Optional<Resource> service, Task task) {
+        return buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task, Collections.emptyMap());
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
+                                                 Resource cluster, Optional<Resource> service, Task task,
+                                                 Map<String, String> tagLabels) {
         Map<Labels, StaticConfig> targetsByLabel = new LinkedHashMap<>();
 
         String ipAddress;
@@ -132,6 +139,8 @@ public class ECSTaskUtil {
                                 .metricsPath(pathFromLabel.get())
                                 .container(cD.name())
                                 .build();
+                        labels.populateMapEntries();
+                        labels.putAll(tagLabels);
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
@@ -161,7 +170,10 @@ public class ECSTaskUtil {
                             } else {
                                 labels = null;
                             }
+
                             if (labels != null) {
+                                labels.populateMapEntries();
+                                labels.putAll(tagLabels);
                                 StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                         labels, k -> StaticConfig.builder().labels(labels).build());
                                 staticConfig.getTargets().add(format("%s:%d", ipAddress, port.containerPort()));
@@ -173,6 +185,8 @@ public class ECSTaskUtil {
                                 .metricsPath("/metrics")
                                 .container(cD.name())
                                 .build();
+                        labels.populateMapEntries();
+                        labels.putAll(tagLabels);
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         cD.portMappings().forEach(port ->

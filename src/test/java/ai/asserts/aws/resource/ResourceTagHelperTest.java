@@ -120,7 +120,6 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
-        tagUtil.setEnvTag(resource);
 
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .paginationToken("token1")
@@ -141,11 +140,11 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
-        tagUtil.setEnvTag(resource);
 
         expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
         replayAll();
-        assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources(accountRegion, "region", namespaceConfig));
+        assertEquals(ImmutableSet.of(resource),
+                testClass.getFilteredResources(accountRegion, "region", namespaceConfig));
         verifyAll();
     }
 
@@ -181,7 +180,6 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag1));
-        tagUtil.setEnvTag(resource);
 
         expect(apiClient.getResources(GetResourcesRequest.builder()
                 .paginationToken("token1")
@@ -198,11 +196,11 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
         expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
         resource.setTags(ImmutableList.of(tag2));
-        tagUtil.setEnvTag(resource);
 
         expect(resource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
         replayAll();
-        assertEquals(ImmutableSet.of(resource), testClass.getFilteredResources(accountRegion, "region", namespaceConfig));
+        assertEquals(ImmutableSet.of(resource),
+                testClass.getFilteredResources(accountRegion, "region", namespaceConfig));
         verifyAll();
     }
 
@@ -232,7 +230,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
                 new RateLimiter(metricCollector), tagUtil) {
             @Override
-            public Set<Resource> getResourcesWithTag(AWSAccount _passedValue, String region, SortedMap<String, String> labels,
+            public Set<Resource> getResourcesWithTag(AWSAccount _passedValue, String region, SortedMap<String,
+                    String> labels,
                                                      GetResourcesRequest.Builder builder) {
                 assertEquals(accountRegion, _passedValue);
                 assertEquals("region", region);
@@ -258,9 +257,10 @@ public class ResourceTagHelperTest extends EasyMockSupport {
                 .build();
         ImmutableList<Tag> tags = ImmutableList.of(resourceTag);
 
-        software.amazon.awssdk.services.elasticloadbalancing.model.Tag lbTag = software.amazon.awssdk.services.elasticloadbalancing.model.Tag.builder()
-                .key("tag2").value("value2")
-                .build();
+        software.amazon.awssdk.services.elasticloadbalancing.model.Tag lbTag =
+                software.amazon.awssdk.services.elasticloadbalancing.model.Tag.builder()
+                        .key("tag2").value("value2")
+                        .build();
 
         Tag lbTagConverted = Tag.builder()
                 .key("tag2").value("value2")
@@ -288,7 +288,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
                 new RateLimiter(metricCollector), tagUtil) {
             @Override
-            public Set<Resource> getResourcesWithTag(AWSAccount _passed, String region, SortedMap<String, String> labels,
+            public Set<Resource> getResourcesWithTag(AWSAccount _passed, String region,
+                                                     SortedMap<String, String> labels,
                                                      GetResourcesRequest.Builder builder) {
                 assertEquals(accountRegion, _passed);
                 assertEquals("region", region);

@@ -60,6 +60,13 @@ public class Resource {
     @Setter
     private Optional<Tag> envTag;
 
+    public String getIdOrName() {
+        if (id != null) {
+            return id;
+        }
+        return name;
+    }
+
     public boolean matches(Metric metric) {
         List<List<Dimension>> toBeMatched = metricDimensions();
         return metric.hasDimensions() && toBeMatched.stream().anyMatch(list -> metric.dimensions().containsAll(list));

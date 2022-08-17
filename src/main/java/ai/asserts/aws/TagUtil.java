@@ -22,15 +22,6 @@ public class TagUtil {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final MetricNameUtil metricNameUtil;
 
-    public void setEnvTag(Resource resource) {
-        Set<String> envTags = scrapeConfigProvider.getScrapeConfig().getTagExportConfig().getEnvTags();
-        if (!CollectionUtils.isEmpty(resource.getTags()) && !CollectionUtils.isEmpty(envTags)) {
-            resource.setEnvTag(resource.getTags().stream()
-                    .filter(tag -> envTags.contains(tag.key()))
-                    .findFirst());
-        }
-    }
-
     public Map<String, String> tagLabels(List<Tag> tags) {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Map<String, String> labels = new TreeMap<>();

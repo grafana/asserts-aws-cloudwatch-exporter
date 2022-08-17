@@ -7,7 +7,10 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -40,17 +43,22 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
     private final RateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
+    private final ResourceTagHelper resourceTagHelper;
+    private final TagUtil tagUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public KinesisFirehoseExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            ResourceMapper resourceMapper, RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder) {
+            ResourceMapper resourceMapper, RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder,
+            ResourceTagHelper resourceTagHelper, TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
+        this.resourceTagHelper = resourceTagHelper;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -78,6 +86,8 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
                                 SCRAPE_OPERATION_LABEL, api
                         ), client::listDeliveryStreams);
                 if (resp.hasDeliveryStreamNames()) {
+                    Map<String, Resource> byName = resourceTagHelper.getResourcesWithTag(account, region,
+                            "firehose:deliverystream", resp.deliveryStreamNames());
                     samples.addAll(resp.deliveryStreamNames().stream()
                             .map(name -> {
                                 DescribeDeliveryStreamResponse streamResp = rateLimiter.doWithRateLimit(
@@ -107,6 +117,9 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
                                 labels.remove("type");
                                 if (labels.containsKey("name")) {
                                     labels.put("job", labels.get("name"));
+                                }
+                                if (byName.containsKey(resource.getName())) {
+                                    labels.putAll(tagUtil.tagLabels(byName.get(resource.getName()).getTags()));
                                 }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
