@@ -7,9 +7,12 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -17,6 +20,7 @@ import org.easymock.Capture;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.ListTopicsResponse;
 import software.amazon.awssdk.services.sns.model.Topic;
@@ -44,6 +48,8 @@ public class SNSTopicExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private SnsClient snsClient;
+    private ResourceTagHelper resourceTagHelper;
+    private TagUtil tagUtil;
     private SNSTopicExporter testClass;
 
     @BeforeEach
@@ -59,9 +65,11 @@ public class SNSTopicExporterTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         snsClient = mock(SnsClient.class);
         resourceMapper = mock(ResourceMapper.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
+        tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new SNSTopicExporter(accountProvider, awsClientProvider, collectorRegistry,
-                rateLimiter, sampleBuilder, resourceMapper);
+                rateLimiter, sampleBuilder, resourceMapper, resourceTagHelper, tagUtil);
     }
 
     @Test
@@ -72,6 +80,7 @@ public class SNSTopicExporterTest extends EasyMockSupport {
         labels1.put("name", "b1");
         labels1.put("job", "b1");
         labels1.put(SCRAPE_ACCOUNT_ID_LABEL, "account1");
+        labels1.put("tag_k", "v");
         labels1.put("aws_resource_type", "AWS::SNS::Topic");
         ListTopicsResponse response = ListTopicsResponse
                 .builder()
@@ -86,7 +95,13 @@ public class SNSTopicExporterTest extends EasyMockSupport {
                 .account("account1")
                 .region("region1")
                 .name("b1")
-                .build()));
+                .build())).times(2);
+        ImmutableList<Tag> tags = ImmutableList.of(Tag.builder().key("k").value("v").build());
+        expect(resourceTagHelper.getResourcesWithTag(accountRegion, "region1", "sns:topic", ImmutableList.of("b1")))
+                .andReturn(ImmutableMap.of("b1", Resource.builder()
+                        .tags(tags)
+                        .build()));
+        expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);

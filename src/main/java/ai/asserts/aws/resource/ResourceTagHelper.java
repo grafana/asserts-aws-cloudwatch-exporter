@@ -35,7 +35,6 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.TagFilter;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -106,7 +105,8 @@ public class ResourceTagHelper {
 
     }
 
-    public Set<Resource> getFilteredResources(AWSAccount accountRegion, String region, NamespaceConfig namespaceConfig) {
+    public Set<Resource> getFilteredResources(AWSAccount accountRegion, String region,
+                                              NamespaceConfig namespaceConfig) {
         return resourceCache.getUnchecked(Key.builder()
                 .accountRegion(accountRegion)
                 .region(region)
@@ -177,7 +177,6 @@ public class ResourceTagHelper {
                                 resource.setTags(resourceTagMapping.tags().stream()
                                         .filter(t -> scrapeConfig.shouldExportTag(t.key(), t.value()))
                                         .collect(Collectors.toList()));
-                                tagUtil.setEnvTag(resource);
                                 resources.add(resource);
                             }));
                 }
@@ -196,17 +195,13 @@ public class ResourceTagHelper {
             return resourceByName;
         }
         resourceNames = resourceNames.stream().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
-        Set<Resource> resources = new HashSet<>();
-        Set<String> tagServiceNames = configServiceToServiceNames.getOrDefault(resourceType, Collections.emptySet());
         Map<String, List<Tag>> classLBTagsByName = new TreeMap<>();
-        if (!CollectionUtils.isEmpty(tagServiceNames)) {
-            resources.addAll(getResourcesWithTag(accountRegion, region,
-                    ImmutableSortedMap.of(
-                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
-                            SCRAPE_REGION_LABEL, region,
-                            SCRAPE_OPERATION_LABEL, "ConfigClient/listDiscoveredResources"
-                    ), GetResourcesRequest.builder().resourceTypeFilters(tagServiceNames)));
-        }
+        Set<Resource> resources = new HashSet<>(getResourcesWithTag(accountRegion, region,
+                ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, "ConfigClient/listDiscoveredResources"
+                ), GetResourcesRequest.builder().resourceTypeFilters(resourceType)));
         if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             try {

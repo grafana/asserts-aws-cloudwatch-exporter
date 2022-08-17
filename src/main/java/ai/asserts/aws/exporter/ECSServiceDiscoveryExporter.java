@@ -6,16 +6,20 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -41,8 +45,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
@@ -74,6 +80,10 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     private final LBToECSRoutingBuilder lbToECSRoutingBuilder;
     private final MetricSampleBuilder metricSampleBuilder;
 
+    private final ResourceTagHelper resourceTagHelper;
+
+    private final TagUtil tagUtil;
+
     @Getter
     private volatile List<StaticConfig> targets = new ArrayList<>();
 
@@ -86,7 +96,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                                        AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
                                        ECSTaskUtil ecsTaskUtil, ObjectMapperFactory objectMapperFactory,
                                        RateLimiter rateLimiter, LBToECSRoutingBuilder lbToECSRoutingBuilder,
-                                       MetricSampleBuilder metricSampleBuilder) {
+                                       MetricSampleBuilder metricSampleBuilder,
+                                       ResourceTagHelper resourceTagHelper, TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -96,6 +107,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         this.rateLimiter = rateLimiter;
         this.lbToECSRoutingBuilder = lbToECSRoutingBuilder;
         this.metricSampleBuilder = metricSampleBuilder;
+        this.resourceTagHelper = resourceTagHelper;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -199,6 +212,17 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                             SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
                     () -> ecsClient.listServices(serviceReq));
             if (serviceResp.hasServiceArns()) {
+                // Get tags
+                AWSAccount awsAccount = new AWSAccount(cluster.getAccount(), null, null,
+                        null, ImmutableSet.of(cluster.getRegion()));
+                Map<String, Resource> tagsByName =
+                        resourceTagHelper.getResourcesWithTag(awsAccount, cluster.getRegion(), "ecs:service",
+                                serviceResp.serviceArns().stream()
+                                        .map(resourceMapper::map)
+                                        .filter(Optional::isPresent)
+                                        .map(opt -> opt.get().getName())
+                                        .collect(Collectors.toList()));
+
                 List<Resource> services = new ArrayList<>();
                 serviceResp.serviceArns().stream().map(resourceMapper::map).filter(Optional::isPresent)
                         .map(Optional::get)
@@ -206,7 +230,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                             if (scrapeConfig.isDiscoverECSTasks()) {
                                 log.info("Discovering ECS Tasks with ECS Scrape Config {}",
                                         scrapeConfig.getECSConfigByNameAndPort());
-                                targets.addAll(buildTargetsInService(scrapeConfig, ecsClient, cluster, service));
+                                targets.addAll(
+                                        buildTargetsInService(scrapeConfig, ecsClient, cluster, service, tagsByName));
                             }
                             services.add(service);
                         });
@@ -247,7 +272,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                 }
                 if (tasksWithoutService.size() > 0) {
                     targets.addAll(buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.empty(),
-                            new TreeSet<>(tasksWithoutService)));
+                            new TreeSet<>(tasksWithoutService), Collections.emptyMap()));
                 }
             }
             nextToken = tasksResponse.nextToken();
@@ -258,10 +283,14 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
     @VisibleForTesting
     List<StaticConfig> buildTargetsInService(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
-                                             Resource service) {
+                                             Resource service, Map<String, Resource> resourceWithTags) {
         List<StaticConfig> scrapeTargets = new ArrayList<>();
         Set<String> taskARNs = new TreeSet<>();
         String nextToken = null;
+        Map<String, String> tagLabels = new TreeMap<>();
+        if (resourceWithTags.containsKey(service.getName())) {
+            tagLabels.putAll(tagUtil.tagLabels(resourceWithTags.get(service.getName()).getTags()));
+        }
         do {
             ListTasksRequest request = ListTasksRequest.builder()
                     .cluster(cluster.getName())
@@ -278,16 +307,17 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     taskARNs.add(taskArn);
                     if (taskARNs.size() == 100) {
                         scrapeTargets.addAll(buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.of(service),
-                                taskARNs));
+                                taskARNs, tagLabels));
                         taskARNs = new TreeSet<>();
                     }
                 }
             }
         } while (nextToken != null);
 
-        // Either the first batch was lass than 100 or this is the last batch
+        // Either the first batch was less than 100 or this is the last batch
         if (taskARNs.size() > 0) {
-            scrapeTargets.addAll(buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.of(service), taskARNs));
+            scrapeTargets.addAll(buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.of(service), taskARNs,
+                    tagLabels));
         }
         return scrapeTargets;
     }
@@ -295,7 +325,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @VisibleForTesting
     List<StaticConfig> buildTaskTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
-                                        Optional<Resource> service, Set<String> taskARNs) {
+                                        Optional<Resource> service, Set<String> taskARNs,
+                                        Map<String, String> tagLabels) {
         List<StaticConfig> configs = new ArrayList<>();
         DescribeTasksRequest request =
                 DescribeTasksRequest.builder().cluster(cluster.getName()).tasks(taskARNs).build();
@@ -308,7 +339,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     .filter(ecsTaskUtil::hasAllInfo)
                     .flatMap(task ->
                             ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service,
-                                    task).stream())
+                                    task, tagLabels).stream())
                     .collect(Collectors.toList()));
         }
         return configs;
@@ -323,9 +354,9 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
     @Getter
     @Builder
-    @EqualsAndHashCode
+    @EqualsAndHashCode(callSuper = true)
     @ToString
-    public static class Labels {
+    public static class Labels extends TreeMap<String, String> {
         @JsonProperty("__metrics_path__")
         private final String metricsPath;
         private final String workload;
@@ -352,5 +383,44 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         private final String env;
         @JsonProperty("asserts_site")
         private final String site;
+
+        public void populateMapEntries() {
+            if (metricsPath != null) {
+                put("__metrics_path__", metricsPath);
+            }
+            if (workload != null) {
+                put("workload", workload);
+            }
+            if (job != null) {
+                put("job", job);
+            }
+            if (cluster != null) {
+                put("cluster", cluster);
+            }
+            if (taskDefName != null) {
+                put("ecs_taskdef_name", taskDefName);
+            }
+            if (taskDefVersion != null) {
+                put("ecs_taskdef_version", taskDefVersion);
+            }
+            if (container != null) {
+                put("container", container);
+            }
+            if (taskId != null) {
+                put("pod", taskId);
+            }
+            if (availabilityZone != null) {
+                put("availability_zone", availabilityZone);
+            }
+            put("namespace", "AWS/ECS");
+            put("region", region);
+            put("account_id", accountId);
+            if (env != null) {
+                put("asserts_env", env);
+            }
+            if (site != null) {
+                put("site", site);
+            }
+        }
     }
 }

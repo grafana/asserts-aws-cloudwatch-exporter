@@ -7,7 +7,10 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -16,6 +19,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.ListTopicsResponse;
+import software.amazon.awssdk.services.sns.model.Topic;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,17 +41,22 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final ResourceMapper resourceMapper;
+    private final ResourceTagHelper resourceTagHelper;
+    private final TagUtil tagUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public SNSTopicExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceMapper resourceMapper) {
+            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceMapper resourceMapper,
+            ResourceTagHelper resourceTagHelper, TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
         this.resourceMapper = resourceMapper;
+        this.resourceTagHelper = resourceTagHelper;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -75,6 +84,13 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
                                 SCRAPE_OPERATION_LABEL, api
                         ), client::listTopics);
                 if (resp.hasTopics()) {
+                    Map<String, Resource> byName = resourceTagHelper.getResourcesWithTag(account, region, "sns:topic",
+                            resp.topics().stream()
+                                    .map(Topic::topicArn)
+                                    .map(resourceMapper::map)
+                                    .filter(Optional::isPresent)
+                                    .map(opt -> opt.get().getName())
+                                    .collect(Collectors.toList()));
                     samples.addAll(resp.topics().stream()
                             .map(topic -> resourceMapper.map(topic.topicArn()))
                             .filter(Optional::isPresent)
@@ -87,6 +103,9 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
                                 labels.put("job", topicResource.getName());
                                 labels.put("name", topicResource.getName());
                                 labels.put("namespace", "AWS/SNS");
+                                if (byName.containsKey(topicResource.getName())) {
+                                    labels.putAll(tagUtil.tagLabels(byName.get(topicResource.getName()).getTags()));
+                                }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
                             .collect(Collectors.toList()));

@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -24,6 +25,8 @@ import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup;
 import software.amazon.awssdk.services.autoscaling.model.DescribeAutoScalingGroupsResponse;
 import software.amazon.awssdk.services.autoscaling.model.DescribeTagsResponse;
+import software.amazon.awssdk.services.autoscaling.model.TagDescription;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -52,6 +55,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
     private MetricFamilySamples metricFamilySamples;
     private Sample sample;
     private CollectorRegistry collectorRegistry;
+    private TagUtil tagUtil;
     private LBToASGRelationBuilder testClass;
 
     @BeforeEach
@@ -69,9 +73,10 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         metricFamilySamples = mock(MetricFamilySamples.class);
         sample = mock(Sample.class);
+        tagUtil = mock(TagUtil.class);
         testClass = new LBToASGRelationBuilder(awsClientProvider, resourceMapper,
                 targetGroupLBMapProvider, new RateLimiter(metricCollector),
-                accountProvider, metricSampleBuilder, collectorRegistry);
+                accountProvider, metricSampleBuilder, collectorRegistry, tagUtil);
     }
 
     @Test
@@ -83,11 +88,16 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
                 .autoScalingGroups(AutoScalingGroup.builder()
                         .autoScalingGroupARN("asg-arn")
                         .targetGroupARNs("tg-arn")
+                        .autoScalingGroupName("group")
                         .build())
                 .build());
 
         expect(autoScalingClient.describeTags()).andReturn(DescribeTagsResponse.builder()
-                .tags(Collections.emptyList())
+                .tags(ImmutableList.of(TagDescription.builder()
+                        .key("k").value("v")
+                        .resourceType("auto-scaling-group")
+                        .resourceId("group")
+                        .build()))
                 .build());
 
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
@@ -95,6 +105,10 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
 
         expect(asgResource.getName()).andReturn("asg-name").times(2);
         expect(asgResource.getId()).andReturn("asg-id");
+
+        expect(tagUtil.tagLabels(ImmutableList.of(Tag.builder()
+                .key("k").value("v")
+                .build()))).andReturn(ImmutableMap.of("tag_k", "v"));
 
         expect(metricSampleBuilder.buildSingleSample("aws_resource",
                 new ImmutableMap.Builder<String, String>()
@@ -105,6 +119,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
                         .put("job", "asg-name")
                         .put("name", "asg-name")
                         .put("id", "asg-id")
+                        .put("tag_k", "v")
                         .build(), 1.0D)).andReturn(sample);
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);

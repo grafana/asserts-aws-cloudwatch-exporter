@@ -9,6 +9,7 @@ import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
@@ -22,6 +23,7 @@ import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsRe
 import software.amazon.awssdk.services.elasticloadbalancing.model.DescribeTagsResponse;
 import software.amazon.awssdk.services.elasticloadbalancing.model.LoadBalancerDescription;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.LoadBalancer;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
@@ -47,12 +49,14 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
     private final MetricNameUtil metricNameUtil;
     private final RateLimiter rateLimiter;
 
+    private final TagUtil tagUtil;
+
     private volatile List<Collector.MetricFamilySamples> resourceMetrics;
 
     public LoadBalancerExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                 MetricSampleBuilder metricSampleBuilder, ResourceMapper resourceMapper,
                                 ScrapeConfigProvider scrapeConfigProvider, MetricNameUtil metricNameUtil,
-                                RateLimiter rateLimiter) {
+                                RateLimiter rateLimiter, TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricSampleBuilder = metricSampleBuilder;
@@ -60,6 +64,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.metricNameUtil = metricNameUtil;
         this.rateLimiter = rateLimiter;
+        this.tagUtil = tagUtil;
         this.resourceMetrics = new ArrayList<>();
     }
 
@@ -82,7 +87,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                         elbClient::describeLoadBalancers);
                 if (!isEmpty(resp.loadBalancerDescriptions())) {
                     DescribeTagsResponse describeTagsResponse = rateLimiter.doWithRateLimit(
-                            "ElasticLoadBalancingClient/describeLoadBalancers",
+                            "ElasticLoadBalancingClient/describeTags",
                             ImmutableSortedMap.of(
                                     SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
                                     SCRAPE_REGION_LABEL, region,
@@ -118,20 +123,23 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                             // This is for backward compatibility. We can modify model rule to instead use the
                             /// k8s_* series of labels
                             allTags.stream().filter(tag -> scrapeConfig.shouldExportTag(tag.key(), tag.value()))
-                                    .forEach(tag -> labels.put(metricNameUtil.toSnakeCase("tag_" + tag.key()), tag.value()));
+                                    .forEach(tag -> labels.put(metricNameUtil.toSnakeCase("tag_" + tag.key()),
+                                            tag.value()));
 
                             allTags.stream().filter(tag -> tag.key().equals("kubernetes.io/service-name"))
                                     .findFirst().ifPresent(tag -> {
-                                String[] parts = tag.value().split("/");
-                                labels.put("k8s_namespace", parts[0]);
-                                labels.put("k8s_service", parts[1]);
-                            });
+                                        String[] parts = tag.value().split("/");
+                                        labels.put("k8s_namespace", parts[0]);
+                                        labels.put("k8s_service", parts[1]);
+                                    });
 
                             allTags.stream().filter(tag -> tag.key().startsWith("kubernetes.io/cluster"))
                                     .findFirst().ifPresent(tag -> {
-                                String[] parts = tag.key().split("/");
-                                labels.put("k8s_cluster", parts[2]);
-                            });
+                                        String[] parts = tag.key().split("/");
+                                        labels.put("k8s_cluster", parts[2]);
+                                    });
+
+                            labels.putAll(tagUtil.tagLabels(allTags));
                         }
                         samples.add(metricSampleBuilder.buildSingleSample(
                                 "aws_resource", labels, 1.0D));
@@ -152,6 +160,25 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                                 ),
                                 elbClient::describeLoadBalancers);
                 if (resp.hasLoadBalancers()) {
+                    software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsResponse
+                            tagsResponse = elbClient.describeTags(
+                            software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsRequest.builder()
+                                    .resourceArns(resp.loadBalancers().stream()
+                                            .map(LoadBalancer::loadBalancerArn)
+                                            .collect(Collectors.toList()))
+                                    .build());
+
+                    Map<String, List<Tag>> tagsByIdOrName = new TreeMap<>();
+
+                    tagsResponse.tagDescriptions().forEach(td -> resourceMapper.map(td.resourceArn()).ifPresent(res -> {
+                        List<Tag> tags = tagsByIdOrName.computeIfAbsent(res.getIdOrName(), k -> new ArrayList<>());
+                        tags.addAll(td.tags().stream()
+                                .map(t -> Tag.builder()
+                                        .key(t.key())
+                                        .value(t.value()).build())
+                                .collect(Collectors.toList()));
+                    }));
+
                     resp.loadBalancers().stream()
                             .map(loadBalancer -> resourceMapper.map(loadBalancer.loadBalancerArn()))
                             .filter(Optional::isPresent)
@@ -170,6 +197,11 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                                 } else {
                                     labels.put("namespace", "AWS/NetworkELB");
                                 }
+
+                                if (tagsByIdOrName.containsKey(resource.getIdOrName())) {
+                                    labels.putAll(tagUtil.tagLabels(tagsByIdOrName.get(resource.getIdOrName())));
+                                }
+
                                 samples.add(metricSampleBuilder.buildSingleSample(
                                         "aws_resource", labels, 1.0D));
                             });

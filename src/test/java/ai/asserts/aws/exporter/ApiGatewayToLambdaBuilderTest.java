@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.ResourceRelation;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import software.amazon.awssdk.services.apigateway.model.Integration;
 import software.amazon.awssdk.services.apigateway.model.Method;
 import software.amazon.awssdk.services.apigateway.model.Resource;
 import software.amazon.awssdk.services.apigateway.model.RestApi;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.SortedMap;
 
@@ -52,6 +54,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
     private MetricFamilySamples metricFamilySamples;
     private Sample sample;
     private CollectorRegistry collectorRegistry;
+    private MetricNameUtil metricNameUtil;
     private ApiGatewayToLambdaBuilder testClass;
 
     @BeforeEach
@@ -65,8 +68,9 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
         metricFamilySamples = mock(MetricFamilySamples.class);
         sample = mock(Sample.class);
         collectorRegistry = mock(CollectorRegistry.class);
+        metricNameUtil = mock(MetricNameUtil.class);
         testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, new RateLimiter(metricCollector),
-                accountProvider, metricSampleBuilder, collectorRegistry);
+                accountProvider, metricSampleBuilder, collectorRegistry, metricNameUtil);
         awsAccount = new AWSAccount("account", "accessId",
                 "secretKey", "role", ImmutableSet.of("region"));
     }
@@ -89,6 +93,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                 .items(RestApi.builder()
                         .id("rest-api-id")
                         .name("rest-api-name")
+                        .tags(ImmutableMap.of("FooBar", "v"))
                         .build())
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
@@ -113,6 +118,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .build())
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        expect(metricNameUtil.toSnakeCase("FooBar")).andReturn("foo_bar");
         expect(metricSampleBuilder.buildSingleSample("aws_resource",
                 new ImmutableMap.Builder<String, String>()
                         .put("namespace", "AWS/ApiGateway")
@@ -122,6 +128,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .put("id", "rest-api-id")
                         .put("name", "rest-api-name")
                         .put("aws_resource_type", "AWS::ApiGateway::RestApi")
+                        .put("tag_foo_bar", "v")
                         .build(), 1.0D)).andReturn(sample);
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);

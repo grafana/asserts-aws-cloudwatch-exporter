@@ -7,7 +7,11 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -17,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.ListTablesResponse;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -39,6 +44,9 @@ public class DynamoDBExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private DynamoDbClient dynamoDbClient;
+
+    private ResourceTagHelper resourceTagHelper;
+    private TagUtil tagUtil;
     private DynamoDBExporter testClass;
 
     @BeforeEach
@@ -53,9 +61,11 @@ public class DynamoDBExporterTest extends EasyMockSupport {
         rateLimiter = mock(RateLimiter.class);
         collectorRegistry = mock(CollectorRegistry.class);
         dynamoDbClient = mock(DynamoDbClient.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
+        tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new DynamoDBExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder);
+                sampleBuilder, resourceTagHelper, tagUtil);
     }
 
     @Test
@@ -69,6 +79,7 @@ public class DynamoDBExporterTest extends EasyMockSupport {
         labels1.put("job", "b1");
         labels1.put(SCRAPE_ACCOUNT_ID_LABEL, "account1");
         labels1.put("aws_resource_type", "AWS::DynamoDB::Table");
+        labels1.put("tag_k", "v");
         ListTablesResponse response = ListTablesResponse
                 .builder()
                 .tableNames("b1")
@@ -78,6 +89,13 @@ public class DynamoDBExporterTest extends EasyMockSupport {
         expect(rateLimiter.doWithRateLimit(eq("DynamoDbClient/listTables"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         expect(awsClientProvider.getDynamoDBClient("region1", accountRegion)).andReturn(dynamoDbClient);
+        Tag tag = Tag.builder().key("k").value("v").build();
+        expect(resourceTagHelper.getResourcesWithTag(accountRegion, "region1", "dynamodb:table",
+                ImmutableList.of("b1")))
+                .andReturn(ImmutableMap.of("b1", Resource.builder()
+                        .tags(ImmutableList.of(tag))
+                        .build()));
+        expect(tagUtil.tagLabels(ImmutableList.of(tag))).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(sample);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);

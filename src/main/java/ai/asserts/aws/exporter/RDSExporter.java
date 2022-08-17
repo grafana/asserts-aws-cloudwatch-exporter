@@ -7,6 +7,9 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -14,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.rds.RdsClient;
+import software.amazon.awssdk.services.rds.model.DBCluster;
+import software.amazon.awssdk.services.rds.model.DBInstance;
 import software.amazon.awssdk.services.rds.model.DescribeDbClustersRequest;
 import software.amazon.awssdk.services.rds.model.DescribeDbClustersResponse;
 import software.amazon.awssdk.services.rds.model.DescribeDbInstancesRequest;
@@ -38,16 +43,21 @@ public class RDSExporter extends Collector implements InitializingBean {
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
+    private final ResourceTagHelper resourceTagHelper;
+    private final TagUtil tagUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public RDSExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder) {
+            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceTagHelper resourceTagHelper,
+            TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
+        this.resourceTagHelper = resourceTagHelper;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -78,6 +88,10 @@ public class RDSExporter extends Collector implements InitializingBean {
                             ), () -> client.describeDBClusters(DescribeDbClustersRequest.builder()
                                     .marker(nextToken.get()).build()));
                     if (resp.hasDbClusters()) {
+                        Map<String, Resource> byName =
+                                resourceTagHelper.getResourcesWithTag(account, region, "rds:cluster",
+                                        resp.dbClusters().stream().map(DBCluster::dbClusterIdentifier)
+                                                .collect(Collectors.toList()));
                         samples.addAll(resp.dbClusters().stream()
                                 .map(cluster -> {
                                     Map<String, String> labels = new TreeMap<>();
@@ -88,12 +102,17 @@ public class RDSExporter extends Collector implements InitializingBean {
                                     labels.put("name", cluster.dbClusterIdentifier());
                                     labels.put("id", cluster.dbClusterIdentifier());
                                     labels.put("namespace", "AWS/RDS");
+                                    if (byName.containsKey(cluster.dbClusterIdentifier())) {
+                                        labels.putAll(
+                                                tagUtil.tagLabels(byName.get(cluster.dbClusterIdentifier()).getTags()));
+                                    }
                                     return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                                 })
                                 .collect(Collectors.toList()));
                     }
                     nextToken.set(resp.marker());
                 } while (nextToken.get() != null);
+
                 do {
                     String api = "RdsClient/describeDBInstances";
                     DescribeDbInstancesResponse resp = rateLimiter.doWithRateLimit(
@@ -104,6 +123,10 @@ public class RDSExporter extends Collector implements InitializingBean {
                             ), () -> client.describeDBInstances(DescribeDbInstancesRequest.builder()
                                     .marker(nextToken.get()).build()));
                     if (resp.hasDbInstances()) {
+                        Map<String, Resource> byName =
+                                resourceTagHelper.getResourcesWithTag(account, region, "rds:db",
+                                        resp.dbInstances().stream().map(DBInstance::dbInstanceIdentifier)
+                                                .collect(Collectors.toList()));
                         samples.addAll(resp.dbInstances().stream()
                                 .map(dbInstance -> {
                                     Map<String, String> labels = new TreeMap<>();
@@ -114,6 +137,10 @@ public class RDSExporter extends Collector implements InitializingBean {
                                     labels.put("name", dbInstance.dbInstanceIdentifier());
                                     labels.put("id", dbInstance.dbInstanceIdentifier());
                                     labels.put("namespace", "AWS/RDS");
+                                    if (byName.containsKey(dbInstance.dbInstanceIdentifier())) {
+                                        labels.putAll(tagUtil.tagLabels(
+                                                byName.get(dbInstance.dbInstanceIdentifier()).getTags()));
+                                    }
                                     return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                                 })
                                 .collect(Collectors.toList()));

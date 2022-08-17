@@ -7,6 +7,9 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -15,10 +18,12 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.ListStreamsResponse;
+import software.amazon.awssdk.services.sns.model.Topic;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -34,16 +39,21 @@ public class KinesisStreamExporter extends Collector implements InitializingBean
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
+    private final ResourceTagHelper resourceTagHelper;
+    private final TagUtil tagUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public KinesisStreamExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder) {
+            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceTagHelper resourceTagHelper,
+            TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
+        this.resourceTagHelper = resourceTagHelper;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -71,6 +81,8 @@ public class KinesisStreamExporter extends Collector implements InitializingBean
                                 SCRAPE_OPERATION_LABEL, api
                         ), client::listStreams);
                 if (resp.hasStreamNames()) {
+                    Map<String, Resource> byName = resourceTagHelper.getResourcesWithTag(account, region,
+                            "kinesis:stream", resp.streamNames());
                     samples.addAll(resp.streamNames().stream()
                             .map(stream -> {
                                 Map<String, String> labels = new TreeMap<>();
@@ -81,6 +93,9 @@ public class KinesisStreamExporter extends Collector implements InitializingBean
                                 labels.put("job", stream);
                                 labels.put("name", stream);
                                 labels.put("id", stream);
+                                if (byName.containsKey(stream)) {
+                                    labels.putAll(tagUtil.tagLabels(byName.get(stream).getTags()));
+                                }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
                             .collect(Collectors.toList()));

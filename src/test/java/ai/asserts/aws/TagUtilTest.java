@@ -64,24 +64,24 @@ public class TagUtilTest extends EasyMockSupport {
         verifyAll();
     }
 
-    @Test
-    void getEnvTag() {
-        TagExportConfig tagExportConfig = new TagExportConfig();
-        tagExportConfig.setIncludeTags(ImmutableSet.of("asserts-env-name"));
-        tagExportConfig.setEnvTags(ImmutableSet.of("asserts-env-name"));
-
-        Tag envTag = Tag.builder()
-                .key("asserts-env-name")
-                .value("value")
-                .build();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
-        expect(resource.getTags()).andReturn(ImmutableList.of(envTag)).anyTimes();
-        resource.setEnvTag(Optional.of(envTag));
-
-        replayAll();
-        testClass.setEnvTag(resource);
-
-        verifyAll();
-    }
+//    @Test
+//    void getEnvTag() {
+//        TagExportConfig tagExportConfig = new TagExportConfig();
+//        tagExportConfig.setIncludeTags(ImmutableSet.of("asserts-env-name"));
+//        tagExportConfig.setEnvTags(ImmutableSet.of("asserts-env-name"));
+//
+//        Tag envTag = Tag.builder()
+//                .key("asserts-env-name")
+//                .value("value")
+//                .build();
+//        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+//        expect(scrapeConfig.getTagExportConfig()).andReturn(tagExportConfig).anyTimes();
+//        expect(resource.getTags()).andReturn(ImmutableList.of(envTag)).anyTimes();
+//        resource.setEnvTag(Optional.of(envTag));
+//
+//        replayAll();
+//        testClass.setEnvTag(resource);
+//
+//        verifyAll();
+//    }
 }

@@ -7,6 +7,9 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -34,16 +37,23 @@ public class DynamoDBExporter extends Collector implements InitializingBean {
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
+
+    private final ResourceTagHelper resourceTagHelper;
+
+    private final TagUtil tagUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public DynamoDBExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder) {
+            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceTagHelper resourceTagHelper,
+            TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
+        this.resourceTagHelper = resourceTagHelper;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -71,6 +81,9 @@ public class DynamoDBExporter extends Collector implements InitializingBean {
                                 SCRAPE_OPERATION_LABEL, api
                         ), client::listTables);
                 if (resp.hasTableNames()) {
+                    Map<String, Resource> resourcesWithTag = resourceTagHelper.getResourcesWithTag(account, region,
+                            "dynamodb:table", resp.tableNames());
+
                     samples.addAll(resp.tableNames().stream()
                             .map(tableName -> {
                                 Map<String, String> labels = new TreeMap<>();
@@ -81,10 +94,16 @@ public class DynamoDBExporter extends Collector implements InitializingBean {
                                 labels.put("name", tableName);
                                 labels.put("id", tableName);
                                 labels.put("namespace", "AWS/DynamoDB");
+                                if (resourcesWithTag.containsKey(tableName)) {
+                                    labels.putAll(tagUtil.tagLabels(resourcesWithTag.get(tableName).getTags()));
+                                }
+
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
                             .collect(Collectors.toList()));
                 }
+
+
             } catch (Exception e) {
                 log.error("Error : " + account, e);
             }

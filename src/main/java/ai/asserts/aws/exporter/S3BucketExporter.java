@@ -7,6 +7,9 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -14,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
 
 import java.util.ArrayList;
@@ -34,16 +38,23 @@ public class S3BucketExporter extends Collector implements InitializingBean {
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
+
+    private final ResourceTagHelper resourceTagHelper;
+
+    private final TagUtil tagUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public S3BucketExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder) {
+            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceTagHelper resourceTagHelper,
+            TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
+        this.resourceTagHelper = resourceTagHelper;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -71,6 +82,9 @@ public class S3BucketExporter extends Collector implements InitializingBean {
                                 SCRAPE_OPERATION_LABEL, api
                         ), client::listBuckets);
                 if (resp.hasBuckets()) {
+                    Map<String, Resource> byName =
+                            resourceTagHelper.getResourcesWithTag(account, region, "s3:bucket",
+                                    resp.buckets().stream().map(Bucket::name).collect(Collectors.toList()));
                     samples.addAll(resp.buckets().stream()
                             .map(bucket -> {
                                 Map<String, String> labels = new TreeMap<>();
@@ -81,6 +95,9 @@ public class S3BucketExporter extends Collector implements InitializingBean {
                                 labels.put("name", bucket.name());
                                 labels.put("id", bucket.name());
                                 labels.put("namespace", "AWS/S3");
+                                if (byName.containsKey(bucket.name())) {
+                                    labels.putAll(tagUtil.tagLabels(byName.get(bucket.name()).getTags()));
+                                }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
                             .collect(Collectors.toList()));

@@ -7,7 +7,11 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -20,6 +24,7 @@ import software.amazon.awssdk.services.rds.model.DBCluster;
 import software.amazon.awssdk.services.rds.model.DBInstance;
 import software.amazon.awssdk.services.rds.model.DescribeDbClustersResponse;
 import software.amazon.awssdk.services.rds.model.DescribeDbInstancesResponse;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -43,6 +48,8 @@ public class RDSExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples.Sample sample2;
     private Collector.MetricFamilySamples familySamples;
     private RdsClient rdsClient;
+    private ResourceTagHelper resourceTagHelper;
+    private TagUtil tagUtil;
     private RDSExporter testClass;
 
     @BeforeEach
@@ -58,8 +65,11 @@ public class RDSExporterTest extends EasyMockSupport {
         rateLimiter = mock(RateLimiter.class);
         collectorRegistry = mock(CollectorRegistry.class);
         rdsClient = mock(RdsClient.class);
+        resourceTagHelper = mock(ResourceTagHelper.class);
+        tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
-        testClass = new RDSExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter, sampleBuilder);
+        testClass = new RDSExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter, sampleBuilder,
+                resourceTagHelper, tagUtil);
     }
 
     @Test
@@ -71,6 +81,7 @@ public class RDSExporterTest extends EasyMockSupport {
         labels1.put("name", "cluster1");
         labels1.put("id", "cluster1");
         labels1.put("job", "cluster1");
+        labels1.put("tag_k", "v");
         labels1.put(SCRAPE_ACCOUNT_ID_LABEL, "account1");
         labels1.put("aws_resource_type", "AWS::RDS::DBCluster");
 
@@ -80,6 +91,7 @@ public class RDSExporterTest extends EasyMockSupport {
         labels2.put("name", "db1");
         labels2.put("id", "db1");
         labels2.put("job", "db1");
+        labels2.put("tag_k", "v");
         labels2.put(SCRAPE_ACCOUNT_ID_LABEL, "account1");
         labels2.put("aws_resource_type", "AWS::RDS::DBInstance");
 
@@ -100,6 +112,18 @@ public class RDSExporterTest extends EasyMockSupport {
                 anyObject(SortedMap.class), capture(callbackCapture1))).andReturn(responseCluster);
         expect(rateLimiter.doWithRateLimit(eq("RdsClient/describeDBInstances"),
                 anyObject(SortedMap.class), capture(callbackCapture2))).andReturn(responseInstance);
+        ImmutableList<Tag> tags = ImmutableList.of(Tag.builder().key("k").value("v").build());
+        expect(resourceTagHelper.getResourcesWithTag(accountRegion, "region1", "rds:cluster", ImmutableList.of(
+                "cluster1")))
+                .andReturn(ImmutableMap.of("cluster1", Resource.builder()
+                        .tags(tags)
+                        .build()));
+        expect(resourceTagHelper.getResourcesWithTag(accountRegion, "region1", "rds:db", ImmutableList.of(
+                "db1")))
+                .andReturn(ImmutableMap.of("db1", Resource.builder()
+                        .tags(tags)
+                        .build()));
+        expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v")).times(2);
         expect(awsClientProvider.getRDSClient("region1", accountRegion)).andReturn(rdsClient);
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(sample1);

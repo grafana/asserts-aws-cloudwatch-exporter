@@ -8,7 +8,10 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -40,12 +43,16 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
     private final MetricNameUtil metricNameUtil;
+
+    private final ResourceTagHelper resourceTagHelper;
+
+    private final TagUtil tagUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public SQSQueueExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
             ResourceMapper resourceMapper, RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder,
-            MetricNameUtil metricNameUtil) {
+            MetricNameUtil metricNameUtil, ResourceTagHelper resourceTagHelper, TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -53,6 +60,8 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
         this.metricNameUtil = metricNameUtil;
+        this.resourceTagHelper = resourceTagHelper;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -80,6 +89,12 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
                                 SCRAPE_OPERATION_LABEL, api
                         ), client::listQueues);
                 if (resp.hasQueueUrls()) {
+                    Map<String, Resource> byName = resourceTagHelper.getResourcesWithTag(account, region, "sqs:queue",
+                            resp.queueUrls().stream()
+                                    .map(resourceMapper::map)
+                                    .filter(Optional::isPresent)
+                                    .map(opt -> opt.get().getName())
+                                    .collect(Collectors.toList()));
                     samples.addAll(resp.queueUrls().stream()
                             .map(resourceMapper::map)
                             .filter(Optional::isPresent)
@@ -100,6 +115,9 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
                                 labels.remove("type");
                                 if (labels.containsKey("name")) {
                                     labels.put("job", labels.get("name"));
+                                }
+                                if (byName.containsKey(resource.getName())) {
+                                    labels.putAll(tagUtil.tagLabels(byName.get(resource.getName()).getTags()));
                                 }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })

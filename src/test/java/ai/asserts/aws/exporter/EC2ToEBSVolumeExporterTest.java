@@ -8,8 +8,10 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
+import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -20,10 +22,15 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.DescribeTagsRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeTagsResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
+import software.amazon.awssdk.services.ec2.model.ResourceType;
+import software.amazon.awssdk.services.ec2.model.TagDescription;
 import software.amazon.awssdk.services.ec2.model.Volume;
 import software.amazon.awssdk.services.ec2.model.VolumeAttachment;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.SortedMap;
 
@@ -48,6 +55,8 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     private Sample sample;
     private EC2ToEBSVolumeExporter testClass;
 
+    private TagUtil tagUtil;
+
     @BeforeEach
     public void setup() {
         account = new AWSAccount(
@@ -60,9 +69,11 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         metricFamilySamples = mock(MetricFamilySamples.class);
         sample = mock(Sample.class);
         collectorRegistry = mock(CollectorRegistry.class);
+        tagUtil = mock(TagUtil.class);
         testClass = new EC2ToEBSVolumeExporter(
                 accountProvider, awsClientProvider, metricSampleBuilder, collectorRegistry,
-                new RateLimiter(metricCollector)
+                new RateLimiter(metricCollector), tagUtil
+
         );
     }
 
@@ -98,9 +109,23 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                         .put("job", "instance")
                         .put("name", "instance")
                         .put("namespace", "AWS/EC2")
+                        .put("tag_k", "v")
                         .build()
                 , 1.0d))
                 .andReturn(sample);
+
+        expect(ec2Client.describeTags(DescribeTagsRequest.builder().build()))
+                .andReturn(DescribeTagsResponse.builder()
+                        .tags(TagDescription.builder()
+                                .resourceId("instance")
+                                .resourceType(ResourceType.INSTANCE)
+                                .key("k").value("v")
+                                .build())
+                        .build());
+        expect(tagUtil.tagLabels(ImmutableList.of(Tag.builder().key("k").value("v").build()))).andReturn(
+                ImmutableMap.of("tag_k", "v")
+        );
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
 
