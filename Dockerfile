@@ -1,6 +1,4 @@
 # Stage 1 - Build
-ARG VM_VERSION=v1.69.0
-FROM victoriametrics/vmagent:$VM_VERSION as vmagent
 FROM gradle:jdk8 as builder
 RUN gradle --version && java -version
 RUN apt-get install git && git --version
@@ -26,7 +24,7 @@ RUN gradle bootJar --no-daemon
 
 
 # Stage 2 - Create a size optimized Image for our Service with only what we need to run
-FROM openjdk:8-jre-slim
+FROM amazoncorretto:8-al2-jdk
 EXPOSE 8010
 # EXPOSE 8095
 WORKDIR /opt/demo_app
@@ -35,7 +33,6 @@ COPY --from=builder /home/gradle/app/src/dist/conf/default_relabel_rules.yml ./d
 COPY --from=builder /home/gradle/app/build/libs/* ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.xml ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.properties ./
-COPY --from=vmagent /vmagent-prod /bin/vmagent
 # COPY jmx_prometheus_javaagent-0.16.1.jar ./
 # COPY httpserver_config.yml ./
 CMD ["/bin/sh", "-c", "java -jar app-*.jar --spring.config.location=application.properties"]
