@@ -1,5 +1,5 @@
-ARG VM_VERSION=v1.73.1
-FROM victoriametrics/vmagent:$VM_VERSION
+ARG VM_VERSION=v1.80.1
+FROM asserts/vmagent:$VM_VERSION
 
 WORKDIR /
 COPY ./agent-scrape-config.yml /etc/agent-scrape-config.yml
