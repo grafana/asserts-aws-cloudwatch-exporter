@@ -126,6 +126,12 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                         .build())
                 .build();
         expect(ec2Client.describeInstances(request)).andReturn(response);
+        ImmutableList<Tag> tags = ImmutableList.of(
+                Tag.builder().key("k").value("v").build(),
+                Tag.builder().key("Name").value("instance-name").build());
+        expect(tagUtil.tagLabels(tags)).andReturn(
+                ImmutableMap.of("tag_k", "v")
+        );
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
 
         DescribeVolumesRequest req = DescribeVolumesRequest.builder().build();
@@ -154,26 +160,6 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                 , 1.0d))
                 .andReturn(sample);
 
-        expect(ec2Client.describeTags(DescribeTagsRequest.builder().build()))
-                .andReturn(DescribeTagsResponse.builder()
-                        .tags(TagDescription.builder()
-                                        .resourceId("instance-id")
-                                        .resourceType(INSTANCE)
-                                        .key("k").value("v")
-                                        .build(),
-                                TagDescription.builder()
-                                        .resourceId("instance-id")
-                                        .resourceType(INSTANCE)
-                                        .key("Name").value("instance-name")
-                                        .build())
-                        .build());
-        ImmutableList<Tag> tags = ImmutableList.of(
-                Tag.builder().key("k").value("v").build(),
-                Tag.builder().key("Name").value("instance-name").build());
-        expect(tagUtil.tagLabels(tags)).andReturn(
-                ImmutableMap.of("tag_k", "v")
-        );
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
 

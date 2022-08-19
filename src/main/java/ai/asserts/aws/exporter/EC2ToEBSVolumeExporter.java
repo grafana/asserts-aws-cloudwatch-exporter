@@ -17,12 +17,9 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
-import software.amazon.awssdk.services.ec2.model.DescribeTagsRequest;
-import software.amazon.awssdk.services.ec2.model.DescribeTagsResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
 import software.amazon.awssdk.services.ec2.model.Reservation;
@@ -44,7 +41,6 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.resource.ResourceType.EBSVolume;
 import static ai.asserts.aws.resource.ResourceType.EC2Instance;
 import static org.springframework.util.CollectionUtils.isEmpty;
-import static software.amazon.awssdk.services.ec2.model.ResourceType.INSTANCE;
 
 @Slf4j
 @Component
@@ -89,13 +85,10 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
         Set<ResourceRelation> newAttachedVolumes = new HashSet<>();
         //Set<Resource> ec2Instances = new HashSet<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
-            Set<Resource> instancesInRegion = new HashSet<>();
             try {
                 Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount);
                 SortedMap<String, String> telemetryLabels = new TreeMap<>();
-                String api;
                 String accountId = awsAccount.getAccountId();
-
 
                 telemetryLabels.put(SCRAPE_REGION_LABEL, region);
                 telemetryLabels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
@@ -154,7 +147,6 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                                             .type(EC2Instance)
                                             .name(volumeAttachment.instanceId())
                                             .build();
-                                    instancesInRegion.add(ec2Instance);
                                     return ResourceRelation.builder()
                                             .from(Resource.builder()
                                                     .account(accountId)
@@ -170,34 +162,6 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                     }
                     nextToken.set(resp.nextToken());
                 } while (nextToken.get() != null);
-
-                nextToken.set(null);
-                Map<String, List<Tag>> byName = new TreeMap<>();
-                do {
-                    api = "Ec2Client/describeTags";
-                    telemetryLabels.put(SCRAPE_OPERATION_LABEL, api);
-                    DescribeTagsResponse response = rateLimiter.doWithRateLimit(api, telemetryLabels,
-                            () -> ec2Client.describeTags(DescribeTagsRequest.builder()
-                                    .nextToken(nextToken.get())
-                                    .build()));
-                    if (response.hasTags()) {
-                        response.tags().stream()
-                                .filter(tagDescription -> INSTANCE.name().equals(tagDescription.resourceType().name()))
-                                .forEach(tagDescription -> byName.computeIfAbsent(tagDescription.resourceId(),
-                                                k -> new ArrayList<>())
-                                        .add(Tag.builder()
-                                                .key(tagDescription.key())
-                                                .value(tagDescription.value())
-                                                .build()));
-                    }
-                    nextToken.set(response.nextToken());
-                } while (nextToken.get() != null);
-
-                instancesInRegion.forEach(instance -> {
-                    if (byName.containsKey(instance.getName())) {
-                        instance.setTags(byName.get(instance.getName()));
-                    }
-                });
             } catch (Exception e) {
                 log.error("Failed to fetch ec2 ebs volumes relation", e);
             }
