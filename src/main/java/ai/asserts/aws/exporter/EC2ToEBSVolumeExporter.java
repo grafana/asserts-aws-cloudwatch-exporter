@@ -19,10 +19,13 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeTagsRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeTagsResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
+import software.amazon.awssdk.services.ec2.model.Reservation;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
@@ -40,6 +43,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.resource.ResourceType.EBSVolume;
 import static ai.asserts.aws.resource.ResourceType.EC2Instance;
+import static org.springframework.util.CollectionUtils.isEmpty;
 import static software.amazon.awssdk.services.ec2.model.ResourceType.INSTANCE;
 
 @Slf4j
@@ -53,14 +57,13 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
 
     private final TagUtil tagUtil;
 
-
     @Getter
     private volatile Set<ResourceRelation> attachedVolumes = new HashSet<>();
     private volatile List<MetricFamilySamples> resourceMetrics = new ArrayList<>();
 
-    public EC2ToEBSVolumeExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
-                                  MetricSampleBuilder metricSampleBuilder, CollectorRegistry collectorRegistry,
-                                  RateLimiter rateLimiter, TagUtil tagUtil) {
+    public EC2ToEBSVolumeExporter(AccountProvider accountProvider,
+                                  AWSClientProvider awsClientProvider, MetricSampleBuilder metricSampleBuilder,
+                                  CollectorRegistry collectorRegistry, RateLimiter rateLimiter, TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricSampleBuilder = metricSampleBuilder;
@@ -84,26 +87,64 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
         List<Sample> samples = new ArrayList<>();
         List<MetricFamilySamples> newMetrics = new ArrayList<>();
         Set<ResourceRelation> newAttachedVolumes = new HashSet<>();
-        Set<Resource> ec2Instances = new HashSet<>();
+        //Set<Resource> ec2Instances = new HashSet<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
             Set<Resource> instancesInRegion = new HashSet<>();
             try {
                 Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount);
                 SortedMap<String, String> telemetryLabels = new TreeMap<>();
-                String api = "Ec2Client/describeVolumes";
+                String api;
                 String accountId = awsAccount.getAccountId();
 
-                telemetryLabels.put(SCRAPE_OPERATION_LABEL, api);
+
                 telemetryLabels.put(SCRAPE_REGION_LABEL, region);
                 telemetryLabels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
 
                 AtomicReference<String> nextToken = new AtomicReference<>();
+
+                // Get the EC2 Instances
+                telemetryLabels.put(SCRAPE_OPERATION_LABEL, "Ec2Client/describeInstances");
                 do {
-                    DescribeVolumesResponse resp = rateLimiter.doWithRateLimit(api, telemetryLabels,
-                            () -> ec2Client.describeVolumes(DescribeVolumesRequest.builder()
+                    DescribeInstancesResponse response = rateLimiter.doWithRateLimit(
+                            "Ec2Client/describeInstances", telemetryLabels,
+                            () -> ec2Client.describeInstances(DescribeInstancesRequest.builder()
                                     .nextToken(nextToken.get())
                                     .build()));
-                    if (!CollectionUtils.isEmpty(resp.volumes())) {
+                    nextToken.set(response.nextToken());
+                    if (response.hasReservations()) {
+                        response.reservations().stream()
+                                .filter(Reservation::hasInstances)
+                                .flatMap(reservation -> reservation.instances().stream())
+                                .filter(instance -> !isEmpty(instance.tags()) && instance.tags().stream()
+                                        .noneMatch(t -> t.key().contains("k8s") || t.key().contains("kubernetes")))
+                                .forEach(instance -> {
+                                    Map<String, String> labels = new TreeMap<>();
+                                    labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
+                                    labels.put(SCRAPE_REGION_LABEL, region);
+                                    labels.put("aws_resource_type", "AWS::EC2::Instance");
+                                    labels.put("namespace", "AWS/EC2");
+                                    labels.put("instance_id", instance.instanceId());
+                                    labels.put("nodename", instance.privateDnsName());
+                                    labels.put("instance", instance.privateIpAddress());
+                                    labels.put("instance_type", instance.instanceTypeAsString());
+
+                                    labels.putAll(tagUtil.tagLabels(instance.tags().stream()
+                                            .map(t -> Tag.builder().key(t.key()).value(t.value()).build())
+                                            .collect(Collectors.toList())));
+                                    samples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0d));
+                                });
+                    }
+                } while (nextToken.get() != null);
+
+                nextToken.set(null);
+                do {
+                    telemetryLabels.put(SCRAPE_OPERATION_LABEL, "Ec2Client/describeVolumes");
+                    DescribeVolumesResponse resp =
+                            rateLimiter.doWithRateLimit("Ec2Client/describeVolumes", telemetryLabels,
+                                    () -> ec2Client.describeVolumes(DescribeVolumesRequest.builder()
+                                            .nextToken(nextToken.get())
+                                            .build()));
+                    if (!isEmpty(resp.volumes())) {
                         newAttachedVolumes.addAll(resp.volumes().stream()
                                 .flatMap(volume -> volume.attachments().stream())
                                 .map(volumeAttachment -> {
@@ -157,24 +198,10 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                         instance.setTags(byName.get(instance.getName()));
                     }
                 });
-
-                ec2Instances.addAll(instancesInRegion);
             } catch (Exception e) {
                 log.error("Failed to fetch ec2 ebs volumes relation", e);
             }
         }));
-
-        ec2Instances.forEach(instance -> {
-            Map<String, String> labels = new TreeMap<>();
-            labels.put(SCRAPE_ACCOUNT_ID_LABEL, instance.getAccount());
-            labels.put(SCRAPE_REGION_LABEL, instance.getRegion());
-            labels.put("aws_resource_type", "AWS::EC2::Instance");
-            labels.put("namespace", "AWS/EC2");
-            labels.put("name", instance.getName());
-            labels.put("job", instance.getName());
-            labels.putAll(tagUtil.tagLabels(instance.getTags()));
-            samples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0d));
-        });
 
         if (samples.size() > 0) {
             newMetrics.add(metricSampleBuilder.buildFamily(samples));

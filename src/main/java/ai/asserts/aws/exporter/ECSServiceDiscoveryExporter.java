@@ -419,7 +419,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                 put("asserts_env", env);
             }
             if (site != null) {
-                put("site", site);
+                put("asserts_site", site);
             }
         }
     }
