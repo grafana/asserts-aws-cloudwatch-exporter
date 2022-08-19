@@ -29,6 +29,7 @@ tagExportConfig:
 dimensionToLabels:
   - namespace: AWS/EC2
     dimensionName: InstanceId
+    mapToLabel: instance_id
   - namespace: AWS/AutoScaling
     dimensionName: AutoScalingGroupName
     mapToLabel: label_ec2_amazonaws_com_aws_autoscaling_group_name
