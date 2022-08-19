@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.redshift.RedshiftClient;
 import software.amazon.awssdk.services.redshift.model.DescribeClustersResponse;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,16 +36,18 @@ public class RedshiftExporter extends Collector implements InitializingBean {
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
+    private final TagUtil tagUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public RedshiftExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder) {
+            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TagUtil tagUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
+        this.tagUtil = tagUtil;
     }
 
     @Override
@@ -81,6 +85,11 @@ public class RedshiftExporter extends Collector implements InitializingBean {
                                 labels.put("job", cluster.clusterIdentifier());
                                 labels.put("name", cluster.clusterIdentifier());
                                 labels.put("id", cluster.clusterIdentifier());
+                                labels.putAll(tagUtil.tagLabels(cluster.tags()
+                                        .stream()
+                                        .map(t -> Tag.builder().key(t.key()).value(t.value()).build())
+                                        .collect(Collectors.toList())
+                                ));
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
                             .collect(Collectors.toList()));
