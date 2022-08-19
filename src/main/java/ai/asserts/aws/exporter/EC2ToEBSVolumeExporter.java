@@ -124,7 +124,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                                     labels.put("aws_resource_type", "AWS::EC2::Instance");
                                     labels.put("namespace", "AWS/EC2");
                                     labels.put("instance_id", instance.instanceId());
-                                    labels.put("nodename", instance.privateDnsName());
+                                    labels.put("node", instance.privateDnsName());
                                     labels.put("instance", instance.privateIpAddress());
                                     labels.put("instance_type", instance.instanceTypeAsString());
 

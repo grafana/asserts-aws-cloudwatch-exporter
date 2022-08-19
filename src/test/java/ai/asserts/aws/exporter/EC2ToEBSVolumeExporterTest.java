@@ -146,7 +146,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                         .put("aws_resource_type", "AWS::EC2::Instance")
                         .put("instance_id", "instance-id")
                         .put("instance_type","M1_LARGE")
-                        .put("nodename", "dns-name")
+                        .put("node", "dns-name")
                         .put("instance", "1.2.3.4")
                         .put("namespace", "AWS/EC2")
                         .put("tag_k", "v")
