@@ -25,6 +25,9 @@ RUN gradle bootJar --no-daemon
 
 # Stage 2 - Create a size optimized Image for our Service with only what we need to run
 FROM amazoncorretto:8-al2-jdk
+RUN yum update -y openssl
+RUN yum update -y openssl-libs
+RUN yum update -y gnupg2
 EXPOSE 8010
 # EXPOSE 8095
 WORKDIR /opt/demo_app
