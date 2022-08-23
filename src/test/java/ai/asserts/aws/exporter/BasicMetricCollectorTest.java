@@ -41,6 +41,8 @@ public class BasicMetricCollectorTest extends EasyMockSupport {
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
 
+        expect(scrapeConfig.keepMetric("metric", labels1)).andReturn(true).anyTimes();
+        expect(scrapeConfig.keepMetric("metric", labels2)).andReturn(true);
         expect(scrapeConfig.additionalLabels("metric", labels1)).andReturn(labels1).times(2);
         expect(scrapeConfig.additionalLabels("metric", labels2)).andReturn(labels2);
         replayAll();
@@ -94,10 +96,23 @@ public class BasicMetricCollectorTest extends EasyMockSupport {
     }
 
     @Test
+    void collect_gauge_dropMetric() {
+        SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
+
+        expect(scrapeConfig.keepMetric("metric", labels1)).andReturn(false);
+        replayAll();
+        metricCollector.recordGaugeValue("metric", labels1, 1.0D);
+        List<Collector.MetricFamilySamples> collect1 = metricCollector.collect();
+        assertEquals(0, collect1.size());
+    }
+
+    @Test
     void collect_counter() {
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
 
+        expect(scrapeConfig.keepMetric("metric", labels1)).andReturn(true).anyTimes();
+        expect(scrapeConfig.keepMetric("metric", labels2)).andReturn(true);
         expect(scrapeConfig.additionalLabels("metric", labels1)).andReturn(labels1).times(2);
         expect(scrapeConfig.additionalLabels("metric", labels2)).andReturn(labels2);
         replayAll();
@@ -153,10 +168,23 @@ public class BasicMetricCollectorTest extends EasyMockSupport {
     }
 
     @Test
+    void collect_counter_dropMetric() {
+        SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
+
+        expect(scrapeConfig.keepMetric("metric", labels1)).andReturn(false);
+        replayAll();
+        metricCollector.recordCounterValue("metric", labels1, 1);
+        List<Collector.MetricFamilySamples> collect1 = metricCollector.collect();
+        assertEquals(0, collect1.size());
+    }
+
+    @Test
     void collect_latency() {
         SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         SortedMap<String, String> labels2 = ImmutableSortedMap.of("label1", "value11", "label2", "value22");
 
+        expect(scrapeConfig.keepMetric("metric", labels1)).andReturn(true).anyTimes();
+        expect(scrapeConfig.keepMetric("metric", labels2)).andReturn(true);
         expect(scrapeConfig.additionalLabels("metric", labels1)).andReturn(labels1).times(2);
         expect(scrapeConfig.additionalLabels("metric", labels2)).andReturn(labels2);
         replayAll();
@@ -237,5 +265,16 @@ public class BasicMetricCollectorTest extends EasyMockSupport {
                 () -> assertTrue(collect3.get(0).samples.contains(sample3_count)),
                 () -> assertTrue(collect3.get(1).samples.contains(sample3_sum))
         );
+    }
+
+    @Test
+    void collect_latency_dropMetric() {
+        SortedMap<String, String> labels1 = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
+
+        expect(scrapeConfig.keepMetric("metric", labels1)).andReturn(false);
+        replayAll();
+        metricCollector.recordLatency("metric", labels1, 1.0D);
+        List<Collector.MetricFamilySamples> collect1 = metricCollector.collect();
+        assertEquals(0, collect1.size());
     }
 }
