@@ -12,16 +12,13 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RelabelConfigTest {
     @Test
     public void buildReplacements() {
         RelabelConfig config = new RelabelConfig();
-
-//        - source_labels: [__name__, d_operation, d_operation_type]
-//          regex: aws_dynamodb_.+;(.+);(.+)
-//          target_label: asserts_request_context
-//          replacement: $1-$2
         config.setLabels(ImmutableList.of("__name__", "d_operation", "d_operation_type"));
         config.setRegex("aws_dynamodb_.+;(.+);(.+)");
         config.setTarget("asserts_request_context");
@@ -57,5 +54,24 @@ public class RelabelConfigTest {
 
         Map<String, String> expected = new TreeMap<>(labels);
         assertEquals(expected, config.addReplacements("aws_dynamodb_successful_request_latency", labels));
+    }
+
+    @Test
+    public void dropMetric() {
+        RelabelConfig config = new RelabelConfig();
+        config.setLabels(ImmutableList.of("__name__", "d_operation", "d_operation_type"));
+        config.setRegex("aws_dynamodb_.+;(.+);(.+)");
+        config.setTarget("asserts_request_context");
+        config.setAction("drop-metric");
+        config.validate();
+
+        Map<String, String> labels = new TreeMap<>();
+        labels.put("d_operation", "get");
+        labels.put("d_operation_type", "read");
+
+        assertTrue(config.matches("aws_dynamodb_successful_request_latency", labels));
+
+        config.setLabels(ImmutableList.of("__name__", "some_label"));
+        assertFalse(config.matches("aws_dynamodb_successful_request_latency", labels));
     }
 }

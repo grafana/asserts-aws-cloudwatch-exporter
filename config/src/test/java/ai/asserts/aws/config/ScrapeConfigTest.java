@@ -115,7 +115,7 @@ public class ScrapeConfigTest extends EasyMockSupport {
                 .relabelConfigs(ImmutableList.of(relabelConfig))
                 .build();
 
-
+        expect(relabelConfig.actionReplace()).andReturn(true).anyTimes();
         expect(relabelConfig.addReplacements("metric", labels))
                 .andReturn(ImmutableMap.of("label", "value", "label2", "value2"));
 

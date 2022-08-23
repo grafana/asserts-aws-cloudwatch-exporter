@@ -53,27 +53,26 @@ public class RelabelConfig {
     }
 
     public void validate() {
+        ImmutableSet<String> allowedActions = ImmutableSet.of("replace", "drop-metric");
         if (!StringUtils.hasLength(regex)) {
             throw new RuntimeException("regex not specified in " + this);
-        } else if (!StringUtils.hasLength(target)) {
+        } else if (!allowedActions.contains(action)) {
+            log.error("{}: Invalid value for 'action': {}, allowed values are {}", this, action, allowedActions);
+        } else if (action.equals("replace") && !StringUtils.hasLength(target)) {
             throw new RuntimeException("target_label not specified in " + this);
-        } else if (!StringUtils.hasLength(replacement)) {
+        } else if (action.equals("replace") && !StringUtils.hasLength(replacement)) {
             throw new RuntimeException("replacement not specified in " + this);
         } else if (CollectionUtils.isEmpty(labels) || labels.stream().anyMatch(l -> !StringUtils.hasLength(l))) {
             throw new RuntimeException("labels not specified or has empty value " + this);
         }
         compiledExp = Pattern.compile(regex);
-        ImmutableSet<String> allowedActions = ImmutableSet.of("replace", "drop-metric");
-        if (!allowedActions.contains(action)) {
-            log.error("{}: Invalid value for 'action': {}, allowed values are {}", this, action, allowedActions);
-        }
     }
 
     public Map<String, String> addReplacements(String metricName, Map<String, String> labelValues) {
         Map<String, String> input = new TreeMap<>(labelValues);
         input.put("__name__", metricName);
 
-        if (labels.stream().allMatch(labelValues::containsKey)) {
+        if (labels.stream().allMatch(input::containsKey)) {
             String source = labels.stream().map(label -> input.getOrDefault(label, ""))
                     .collect(Collectors.joining(";"));
             Matcher matcher = compiledExp.matcher(source);
@@ -98,13 +97,12 @@ public class RelabelConfig {
         Map<String, String> input = new TreeMap<>(labelValues);
         input.put("__name__", metricName);
 
-        if (labels.stream().anyMatch(key -> !labelValues.containsKey(key))) {
-            return false;
+        if (labels.stream().allMatch(input::containsKey)) {
+            String source = labels.stream()
+                    .map(label -> input.getOrDefault(label, ""))
+                    .collect(Collectors.joining(";"));
+            return compiledExp.matcher(source).matches();
         }
-
-        String source = labels.stream().map(label -> input.getOrDefault(label, ""))
-                .collect(Collectors.joining(";"));
-        Matcher matcher = compiledExp.matcher(source);
-        return matcher.matches();
+        return false;
     }
 }
