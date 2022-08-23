@@ -130,6 +130,44 @@ public class ScrapeConfigTest extends EasyMockSupport {
     }
 
     @Test
+    void keepMetric() {
+        RelabelConfig relabelConfig = mock(RelabelConfig.class);
+
+        Map<String, String> labels = new TreeMap<>(ImmutableMap.of(
+                "label", "value"));
+
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .relabelConfigs(ImmutableList.of(relabelConfig))
+                .build();
+
+        expect(relabelConfig.actionDropMetric()).andReturn(true).anyTimes();
+        expect(relabelConfig.matches("metric", labels)).andReturn(false);
+        replayAll();
+
+        assertTrue(scrapeConfig.keepMetric("metric", labels));
+        verifyAll();
+    }
+
+    @Test
+    void keepMetric_False() {
+        RelabelConfig relabelConfig = mock(RelabelConfig.class);
+
+        Map<String, String> labels = new TreeMap<>(ImmutableMap.of(
+                "label", "value"));
+
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .relabelConfigs(ImmutableList.of(relabelConfig))
+                .build();
+
+        expect(relabelConfig.actionDropMetric()).andReturn(true).anyTimes();
+        expect(relabelConfig.matches("metric", labels)).andReturn(true);
+        replayAll();
+
+        assertFalse(scrapeConfig.keepMetric("metric", labels));
+        verifyAll();
+    }
+
+    @Test
     void getECSScrapeConfigByNameAndPort() {
         ECSTaskDefScrapeConfig withoutPort = new ECSTaskDefScrapeConfig()
                 .withContainerDefinitionName("container")
