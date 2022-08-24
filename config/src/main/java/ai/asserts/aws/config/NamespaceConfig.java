@@ -2,6 +2,7 @@
 package ai.asserts.aws.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -28,6 +29,7 @@ import static java.lang.String.format;
 @AllArgsConstructor
 @Builder
 @ToString
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class NamespaceConfig {
     @JsonIgnore
     @ToString.Exclude

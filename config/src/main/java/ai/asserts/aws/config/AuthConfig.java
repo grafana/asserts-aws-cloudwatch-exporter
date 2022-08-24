@@ -5,6 +5,7 @@
 package ai.asserts.aws.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -24,6 +25,7 @@ import static ai.asserts.aws.config.AuthConfig.AuthType.NoAuth;
 @ToString
 @SuperBuilder
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class AuthConfig {
     @Builder.Default
     private AuthType type = NoAuth;
