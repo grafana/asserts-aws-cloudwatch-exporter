@@ -9,9 +9,8 @@ import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels;
-import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels.LabelsBuilder;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
+import ai.asserts.aws.exporter.Labels.LabelsBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
@@ -28,6 +27,8 @@ import software.amazon.awssdk.services.ec2.model.DescribeSubnetsResponse;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
+import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
+import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
@@ -91,22 +92,7 @@ public class ECSTaskUtil {
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskArn()));
 
         LabelsBuilder labelsBuilder;
-        taskSubnetMap.computeIfAbsent(taskResource.getName(), k -> task.attachments().stream()
-                .filter(attachment -> attachment.type().equals("ElasticNetworkInterface"))
-                .findFirst()
-                .flatMap(attachment -> attachment.details().stream()
-                        .filter(kv -> kv.name().equals("subnetId")).findFirst())
-                .map(kv -> {
-                    AtomicReference<String> vpcId = new AtomicReference<>("");
-                    AtomicReference<String> subnetId = new AtomicReference<>("");
-                    subnetId.set(kv.value());
-                    vpcId.set(subnetIdMap.computeIfAbsent(subnetId.get(), kk ->
-                            getVpcId(taskDefResource, taskResource, subnetId)));
-                    return SubnetDetails.builder()
-                            .vpcId(vpcId.get())
-                            .subnetId(subnetId.get())
-                            .build();
-                }).orElse(null));
+        taskSubnetMap.computeIfAbsent(taskResource.getName(), k -> getSubnetDetails(task, taskResource));
         if (service.isPresent()) {
             labelsBuilder = Labels.builder()
                     .workload(service.get().getName())
@@ -241,11 +227,65 @@ public class ECSTaskUtil {
                 .filter(config -> config.getTargets().size() > 0).collect(Collectors.toList());
     }
 
-    private String getVpcId(Resource taskDefResource, Resource taskResource, AtomicReference<String> subnetId) {
+    public SubnetDetails getSubnetDetails(Resource taskResource) {
+        EcsClient ecsClient = awsClientProvider.getECSClient(taskResource.getRegion(), AWSAccount.builder()
+                .accountId(taskResource.getAccount())
+                .build());
+        DescribeTasksResponse response = rateLimiter.doWithRateLimit("EcsClient/describeTasks",
+                ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, taskResource.getAccount(),
+                        SCRAPE_REGION_LABEL, taskResource.getRegion(),
+                        SCRAPE_OPERATION_LABEL, "EcsClient/describeTasks"),
+                () -> ecsClient.describeTasks(DescribeTasksRequest.builder()
+                        .cluster(taskResource.getChildOf().getName())
+                        .tasks(taskResource.getArn())
+                        .build()));
+        if (response.hasTasks()) {
+            return response.tasks().get(0).attachments().stream()
+                    .filter(attachment -> attachment.type().equals("ElasticNetworkInterface"))
+                    .findFirst()
+                    .flatMap(attachment -> attachment.details().stream()
+                            .filter(kv -> kv.name().equals("subnetId")).findFirst())
+                    .map(kv -> {
+                        AtomicReference<String> vpcId = new AtomicReference<>("");
+                        AtomicReference<String> subnetId = new AtomicReference<>("");
+                        subnetId.set(kv.value());
+                        vpcId.set(subnetIdMap.computeIfAbsent(subnetId.get(), kk ->
+                                getVpcId(taskResource, subnetId)));
+                        return SubnetDetails.builder()
+                                .vpcId(vpcId.get())
+                                .subnetId(subnetId.get())
+                                .build();
+                    }).orElse(null);
+        }
+        log.warn("Failed to find description for {}", taskResource);
+        return null;
+    }
+
+    private SubnetDetails getSubnetDetails(Task task, Resource taskResource) {
+        return task.attachments().stream()
+                .filter(attachment -> attachment.type().equals("ElasticNetworkInterface"))
+                .findFirst()
+                .flatMap(attachment -> attachment.details().stream()
+                        .filter(kv -> kv.name().equals("subnetId")).findFirst())
+                .map(kv -> {
+                    AtomicReference<String> vpcId = new AtomicReference<>("");
+                    AtomicReference<String> subnetId = new AtomicReference<>("");
+                    subnetId.set(kv.value());
+                    vpcId.set(subnetIdMap.computeIfAbsent(subnetId.get(), kk ->
+                            getVpcId(taskResource, subnetId)));
+                    return SubnetDetails.builder()
+                            .vpcId(vpcId.get())
+                            .subnetId(subnetId.get())
+                            .build();
+                }).orElse(null);
+    }
+
+    private String getVpcId(Resource taskResource, AtomicReference<String> subnetId) {
         AtomicReference<String> id = new AtomicReference<>("");
-        Ec2Client ec2Client = awsClientProvider.getEc2Client(taskDefResource.getRegion(),
+        Ec2Client ec2Client = awsClientProvider.getEc2Client(taskResource.getRegion(),
                 AWSAccount.builder()
-                        .accountId(taskDefResource.getAccount())
+                        .accountId(taskResource.getAccount())
                         .build());
         DescribeSubnetsResponse r = rateLimiter.doWithRateLimit("EC2Client/describeSubnets",
                 ImmutableSortedMap.of(

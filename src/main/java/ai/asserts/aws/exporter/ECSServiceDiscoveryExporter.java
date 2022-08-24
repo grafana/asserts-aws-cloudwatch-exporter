@@ -12,10 +12,12 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.exporter.ECSTaskUtil.SubnetDetails;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
 import ai.asserts.aws.resource.ResourceTagHelper;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
@@ -23,15 +25,19 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
+import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.FileCopyUtils;
+import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
@@ -43,6 +49,7 @@ import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -53,13 +60,13 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
-import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
 import static java.lang.String.format;
 import static java.nio.file.Files.newOutputStream;
 
@@ -70,6 +77,8 @@ import static java.nio.file.Files.newOutputStream;
 @Slf4j
 @Component
 public class ECSServiceDiscoveryExporter extends Collector implements MetricProvider, InitializingBean {
+    public static final String ECS_CONTAINER_METADATA_URI_V4 = "ECS_CONTAINER_METADATA_URI_V4";
+    private final RestTemplate restTemplate;
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
@@ -83,6 +92,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     private final ResourceTagHelper resourceTagHelper;
 
     private final TagUtil tagUtil;
+    private final AtomicReference<SubnetDetails> subnetDetails = new AtomicReference<>(null);
 
     @Getter
     private volatile List<StaticConfig> targets = new ArrayList<>();
@@ -92,12 +102,14 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
     private volatile List<Collector.MetricFamilySamples> resourceMetrics = new ArrayList<>();
 
-    public ECSServiceDiscoveryExporter(AccountProvider accountProvider, ScrapeConfigProvider scrapeConfigProvider,
+    public ECSServiceDiscoveryExporter(RestTemplate restTemplate, AccountProvider accountProvider,
+                                       ScrapeConfigProvider scrapeConfigProvider,
                                        AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
                                        ECSTaskUtil ecsTaskUtil, ObjectMapperFactory objectMapperFactory,
                                        RateLimiter rateLimiter, LBToECSRoutingBuilder lbToECSRoutingBuilder,
                                        MetricSampleBuilder metricSampleBuilder,
                                        ResourceTagHelper resourceTagHelper, TagUtil tagUtil) {
+        this.restTemplate = restTemplate;
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -137,6 +149,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         List<StaticConfig> latestTargets = new ArrayList<>();
+        discoverSelfSubnet();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
             ImmutableSortedMap<String, String> TELEMETRY_LABELS =
                     ImmutableSortedMap.of(
@@ -169,6 +182,10 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
         routing = newRouting;
         targets = latestTargets.stream()
+                .filter(config -> subnetDetails.get() != null && subnetDetails.get().getVpcId()
+                        .equals(config.getLabels().getVpcId()))
+                .filter(config -> !scrapeConfig.isDiscoverOnlySubnetTasks() || subnetDetails.get().getSubnetId()
+                        .equals(config.getLabels().getSubnetId()))
                 .filter(config -> scrapeConfig.keepMetric("up", config.getLabels()))
                 .collect(Collectors.toList());
 
@@ -243,10 +260,9 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         } while (nextToken != null);
 
         Set<String> capturedTasks = targets.stream().map(StaticConfig::getLabels)
-                .map(labels -> format("%s-%s-%s-%s", labels.accountId, labels.region, labels.cluster,
-                        labels.getTaskId().substring(labels.workload.length() + 1)))
+                .map(labels -> format("%s-%s-%s-%s", labels.getAccountId(), labels.getRegion(), labels.getCluster(),
+                        labels.getTaskId().substring(labels.getWorkload().length() + 1)))
                 .collect(Collectors.toCollection(TreeSet::new));
-
 
         // Tasks without service
         do {
@@ -347,6 +363,34 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         return configs;
     }
 
+
+    @VisibleForTesting
+    String getMetaDataURI() {
+        return System.getenv(ECS_CONTAINER_METADATA_URI_V4);
+    }
+
+    private void discoverSelfSubnet() {
+        if (this.subnetDetails.get() == null) {
+            String containerMetaURI = getMetaDataURI();
+            log.info("Container stats scrape task got URI {}", containerMetaURI);
+            if (containerMetaURI != null) {
+                try {
+                    String taskMetaDataURL = containerMetaURI + "/task";
+                    URI uri = URI.create(taskMetaDataURL);
+                    TaskMetaData taskMetaData = restTemplate.getForObject(uri, TaskMetaData.class);
+                    if (taskMetaData != null) {
+                        resourceMapper.map(taskMetaData.getTaskARN()).ifPresent(taskResource ->
+                                subnetDetails.set(ecsTaskUtil.getSubnetDetails(taskResource)));
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to discover self task details", e);
+                }
+            } else {
+                log.warn("Env variables ['ECS_CONTAINER_METADATA_URI_V4','ECS_CONTAINER_METADATA_URI'] not found");
+            }
+        }
+    }
+
     @Builder
     @Getter
     public static class StaticConfig {
@@ -355,83 +399,13 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     }
 
     @Getter
-    @Builder
-    @EqualsAndHashCode(callSuper = true)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @EqualsAndHashCode
     @ToString
-    public static class Labels extends TreeMap<String, String> {
-        @JsonProperty("__metrics_path__")
-        private final String metricsPath;
-        private final String workload;
-        private final String job;
-        @JsonProperty("cluster")
-        private final String cluster;
-        @JsonProperty("ecs_taskdef_name")
-        private final String taskDefName;
-        @JsonProperty("ecs_taskdef_version")
-        private final String taskDefVersion;
-        @JsonProperty
-        private final String container;
-        @JsonProperty("pod")
-        private final String taskId;
-
-        private final String vpcId;
-        private final String subnetId;
-        @JsonProperty("availability_zone")
-        private final String availabilityZone;
-        @JsonProperty("namespace")
-        private final String namespace = "AWS/ECS";
-        @JsonProperty("region")
-        private final String region;
-        @JsonProperty("account_id")
-        private final String accountId;
-        @JsonProperty("asserts_env")
-        private final String env;
-        @JsonProperty("asserts_site")
-        private final String site;
-
-        public void populateMapEntries() {
-            if (metricsPath != null) {
-                put("__metrics_path__", metricsPath);
-            }
-            if (workload != null) {
-                put("workload", workload);
-            }
-            if (job != null) {
-                put("job", job);
-            }
-            if (cluster != null) {
-                put("cluster", cluster);
-            }
-            if (taskDefName != null) {
-                put("ecs_taskdef_name", taskDefName);
-            }
-            if (taskDefVersion != null) {
-                put("ecs_taskdef_version", taskDefVersion);
-            }
-            if (container != null) {
-                put("container", container);
-            }
-            if (taskId != null) {
-                put("pod", taskId);
-            }
-            if (isNotEmpty(vpcId)) {
-                put("vpc_id", vpcId);
-            }
-            if (isNotEmpty(subnetId)) {
-                put("subnet_id", subnetId);
-            }
-            if (availabilityZone != null) {
-                put("availability_zone", availabilityZone);
-            }
-            put("namespace", "AWS/ECS");
-            put("region", region);
-            put("account_id", accountId);
-            if (env != null) {
-                put("asserts_env", env);
-            }
-            if (site != null) {
-                put("asserts_site", site);
-            }
-        }
+    @SuperBuilder
+    @NoArgsConstructor
+    public static class TaskMetaData {
+        @JsonProperty("TaskARN")
+        private String taskARN;
     }
 }

@@ -12,8 +12,9 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.TaskMetaData;
+import ai.asserts.aws.exporter.ECSTaskUtil.SubnetDetails;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -30,6 +31,7 @@ import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
@@ -65,6 +67,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
+    private RestTemplate restTemplate;
     private AWSAccount account;
     private AccountProvider accountProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
@@ -93,6 +96,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        restTemplate = mock(RestTemplate.class);
         account = new AWSAccount("account", "", "", "",
                 ImmutableSet.of("region1", "region2"));
         accountProvider = mock(AccountProvider.class);
@@ -130,7 +134,17 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(true).times(3);
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(false);
-
+        expect(restTemplate.getForObject(anyObject(), anyObject())).andReturn(TaskMetaData.builder()
+                .taskARN("self-task-arn")
+                .build());
+        expect(resourceMapper.map("self-task-arn")).andReturn(Optional.of(resource));
+        expect(ecsTaskUtil.getSubnetDetails(resource)).andReturn(SubnetDetails.builder()
+                .subnetId("subnet-id")
+                .vpcId("vpc-id")
+                .build());
+        expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(false).anyTimes();
+        expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
+        expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();
 
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
@@ -165,9 +179,14 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
-                accountProvider, scrapeConfigProvider, awsClientProvider,
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
                 lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil) {
+            @Override
+            String getMetaDataURI() {
+                return "http://localhost";
+            }
+
             @Override
             List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client,
                                                      Resource _cluster,
@@ -196,6 +215,18 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(true).times(3);
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(false);
 
+        expect(restTemplate.getForObject(anyObject(), anyObject())).andReturn(TaskMetaData.builder()
+                .taskARN("self-task-arn")
+                .build());
+        expect(resourceMapper.map("self-task-arn")).andReturn(Optional.of(resource));
+        expect(ecsTaskUtil.getSubnetDetails(resource)).andReturn(SubnetDetails.builder()
+                .subnetId("subnet-id")
+                .vpcId("vpc-id")
+                .build());
+        expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(false).anyTimes();
+        expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
+        expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();
+
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
                 .clusterArns("arn1", "arn2")
@@ -223,9 +254,13 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
-                accountProvider, scrapeConfigProvider, awsClientProvider,
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder,
                 metricSampleBuilder, resourceTagHelper, tagUtil) {
+            String getMetaDataURI() {
+                return "http://localhost";
+            }
+
             @Override
             List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                      Set<ResourceRelation> routing,
@@ -249,6 +284,18 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isLogVerbose()).andReturn(true);
 
+        expect(restTemplate.getForObject(anyObject(), anyObject())).andReturn(TaskMetaData.builder()
+                .taskARN("self-task-arn")
+                .build());
+        expect(resourceMapper.map("self-task-arn")).andReturn(Optional.of(resource));
+        expect(ecsTaskUtil.getSubnetDetails(resource)).andReturn(SubnetDetails.builder()
+                .subnetId("subnet-id")
+                .vpcId("vpc-id")
+                .build());
+        expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(true).anyTimes();
+        expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
+        expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();
+
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andThrow(new RuntimeException());
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
@@ -267,9 +314,13 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
-                accountProvider, scrapeConfigProvider, awsClientProvider,
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
-                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil);
+                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil) {
+            String getMetaDataURI() {
+                return "http://localhost";
+            }
+        };
         testClass.update();
 
         verifyAll();
@@ -337,9 +388,13 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .build()).anyTimes();
 
         replayAll();
-        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(accountProvider,
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(restTemplate, accountProvider,
                 scrapeConfigProvider, awsClientProvider, resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
                 lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil) {
+            String getMetaDataURI() {
+                return "http://localhost";
+            }
+
             @Override
             List<StaticConfig> buildTargetsInService(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                      Resource _service, Map<String, Resource> tagsByName) {
@@ -420,9 +475,13 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
-                accountProvider, scrapeConfigProvider, awsClientProvider,
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
                 lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil) {
+            String getMetaDataURI() {
+                return "http://localhost";
+            }
+
             @Override
             List<StaticConfig> buildTaskTargets(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                 Optional<Resource> _service, Set<String> taskIds,
@@ -495,9 +554,13 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
-                accountProvider, scrapeConfigProvider, awsClientProvider,
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
                 resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter, lbToECSRoutingBuilder,
-                metricSampleBuilder, resourceTagHelper, tagUtil);
+                metricSampleBuilder, resourceTagHelper, tagUtil) {
+            String getMetaDataURI() {
+                return "http://localhost";
+            }
+        };
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),
                 testClass.buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.of(service), taskArns,

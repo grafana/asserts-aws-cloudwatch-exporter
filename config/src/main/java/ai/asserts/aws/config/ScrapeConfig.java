@@ -78,6 +78,9 @@ public class ScrapeConfig {
     private boolean discoverAllECSTasksByDefault = true;
 
     @Builder.Default
+    private boolean discoverOnlySubnetTasks = false;
+
+    @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
 
     @Builder.Default
