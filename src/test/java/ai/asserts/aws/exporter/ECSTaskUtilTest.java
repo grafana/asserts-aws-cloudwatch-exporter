@@ -51,8 +51,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ECSTaskUtilTest extends EasyMockSupport {
-    private AWSClientProvider awsClientProvider;
-    private Ec2Client ec2Client;
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
     private EcsClient ecsClient;
@@ -71,17 +69,17 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         ecsClient = mock(EcsClient.class);
         scrapeConfig = mock(ScrapeConfig.class);
         taskDefScrapeConfig = mock(ECSTaskDefScrapeConfig.class);
-        awsClientProvider = mock(AWSClientProvider.class);
-        ec2Client = mock(Ec2Client.class);
+        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+        Ec2Client ec2Client = mock(Ec2Client.class);
         testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector));
 
         expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
         expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
-                        .subnetIds("subnet-id")
+                .subnetIds("subnet-id")
                 .build())).andReturn(DescribeSubnetsResponse.builder()
-                        .subnets(Subnet.builder()
-                                .vpcId("vpc-id")
-                                .build())
+                .subnets(Subnet.builder()
+                        .vpcId("vpc-id")
+                        .build())
                 .build()).anyTimes();
 
         cluster = Resource.builder()
