@@ -181,10 +181,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
         routing = newRouting;
         targets = latestTargets.stream()
-                .filter(config -> subnetDetails.get() != null && subnetDetails.get().getVpcId()
-                        .equals(config.getLabels().getVpcId()))
-                .filter(config -> !scrapeConfig.isDiscoverOnlySubnetTasks() || subnetDetails.get().getSubnetId()
-                        .equals(config.getLabels().getSubnetId()))
+                .filter(config -> shouldScrapeTargets(scrapeConfig, config))
                 .filter(config -> scrapeConfig.keepMetric("up", config.getLabels()))
                 .collect(Collectors.toList());
 
@@ -209,6 +206,15 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                 log.error("Failed to write ECS SD file", e);
             }
         }
+    }
+
+    private boolean shouldScrapeTargets(ScrapeConfig scrapeConfig, StaticConfig config) {
+        boolean vpcOK = scrapeConfig.isDiscoverECSTasksAcrossVPCs() ||
+                (subnetDetails.get() != null && subnetDetails.get().getVpcId().equals(config.getLabels().getVpcId()));
+        boolean subnetOK = !scrapeConfig.isDiscoverOnlySubnetTasks() ||
+                (subnetDetails.get() != null && subnetDetails.get().getSubnetId()
+                        .equals(config.getLabels().getSubnetId()));
+        return vpcOK && subnetOK;
     }
 
     @VisibleForTesting
