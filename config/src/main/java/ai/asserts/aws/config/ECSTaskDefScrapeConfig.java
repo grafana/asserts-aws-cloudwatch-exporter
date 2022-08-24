@@ -5,6 +5,7 @@
 package ai.asserts.aws.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -21,6 +22,7 @@ import org.springframework.util.StringUtils;
 @With
 @AllArgsConstructor
 @ToString
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ECSTaskDefScrapeConfig {
     private String containerDefinitionName;
     private Integer containerPort;

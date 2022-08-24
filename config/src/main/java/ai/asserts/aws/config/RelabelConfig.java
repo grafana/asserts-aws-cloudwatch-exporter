@@ -5,6 +5,7 @@
 package ai.asserts.aws.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import lombok.EqualsAndHashCode;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 @EqualsAndHashCode
 @ToString
 @Slf4j
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RelabelConfig {
     @JsonProperty("source_labels")
     private List<String> labels;

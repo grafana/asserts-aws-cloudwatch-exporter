@@ -3,6 +3,7 @@ package ai.asserts.aws.config;
 
 import ai.asserts.aws.model.MetricStat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -26,6 +27,7 @@ import java.util.Set;
 @Builder
 @EqualsAndHashCode
 @ToString
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class MetricConfig {
     @JsonIgnore
     @ToString.Exclude
