@@ -379,8 +379,10 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     URI uri = URI.create(taskMetaDataURL);
                     TaskMetaData taskMetaData = restTemplate.getForObject(uri, TaskMetaData.class);
                     if (taskMetaData != null) {
-                        resourceMapper.map(taskMetaData.getTaskARN()).ifPresent(taskResource ->
-                                subnetDetails.set(ecsTaskUtil.getSubnetDetails(taskResource)));
+                        resourceMapper.map(taskMetaData.getTaskARN()).ifPresent(taskResource -> {
+                            subnetDetails.set(ecsTaskUtil.getSubnetDetails(taskResource));
+                            log.info("Discovered self subnet as {}", subnetDetails);
+                        });
                     }
                 } catch (Exception e) {
                     log.error("Failed to discover self task details", e);
