@@ -197,9 +197,7 @@ public class ScrapeConfig {
     }
 
     public boolean keepMetric(String metricName, Map<String, String> inputLabels) {
-        return relabelConfigs.stream()
-                .filter(RelabelConfig::actionDropMetric)
-                .noneMatch(c -> c.matches(metricName, inputLabels));
+        return relabelConfigs.stream().noneMatch(c -> c.dropMetric(metricName, inputLabels));
     }
 
     public Map<String, String> additionalLabels(String metricName, Map<String, String> inputLabels) {

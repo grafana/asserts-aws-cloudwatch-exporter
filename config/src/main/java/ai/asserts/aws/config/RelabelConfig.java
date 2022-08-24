@@ -40,16 +40,12 @@ public class RelabelConfig {
     private String replacement;
 
     /**
-     * Can be `drop-metric` or `replace`
+     * Can be `drop-metric`, `keep-metric` or `replace`
      */
     private String action = "replace";
 
     public boolean actionReplace() {
         return "replace".equals(action);
-    }
-
-    public boolean actionDropMetric() {
-        return "drop-metric".equals(action);
     }
 
     public void validate() {
@@ -93,7 +89,11 @@ public class RelabelConfig {
         return labelValues;
     }
 
-    public boolean matches(String metricName, Map<String, String> labelValues) {
+    public boolean dropMetric(String metricName, Map<String, String> labelValues) {
+        return "drop-metric".equals(action) && matches(metricName, labelValues);
+    }
+
+    private boolean matches(String metricName, Map<String, String> labelValues) {
         Map<String, String> input = new TreeMap<>(labelValues);
         input.put("__name__", metricName);
 

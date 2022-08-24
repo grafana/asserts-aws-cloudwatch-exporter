@@ -69,9 +69,9 @@ public class RelabelConfigTest {
         labels.put("d_operation", "get");
         labels.put("d_operation_type", "read");
 
-        assertTrue(config.matches("aws_dynamodb_successful_request_latency", labels));
+        assertTrue(config.dropMetric("aws_dynamodb_successful_request_latency", labels));
 
         config.setLabels(ImmutableList.of("__name__", "some_label"));
-        assertFalse(config.matches("aws_dynamodb_successful_request_latency", labels));
+        assertFalse(config.dropMetric("aws_dynamodb_successful_request_latency", labels));
     }
 }

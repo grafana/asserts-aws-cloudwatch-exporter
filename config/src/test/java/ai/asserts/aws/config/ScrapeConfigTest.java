@@ -140,8 +140,7 @@ public class ScrapeConfigTest extends EasyMockSupport {
                 .relabelConfigs(ImmutableList.of(relabelConfig))
                 .build();
 
-        expect(relabelConfig.actionDropMetric()).andReturn(true).anyTimes();
-        expect(relabelConfig.matches("metric", labels)).andReturn(false);
+        expect(relabelConfig.dropMetric("metric", labels)).andReturn(false);
         replayAll();
 
         assertTrue(scrapeConfig.keepMetric("metric", labels));
@@ -159,8 +158,7 @@ public class ScrapeConfigTest extends EasyMockSupport {
                 .relabelConfigs(ImmutableList.of(relabelConfig))
                 .build();
 
-        expect(relabelConfig.actionDropMetric()).andReturn(true).anyTimes();
-        expect(relabelConfig.matches("metric", labels)).andReturn(true);
+        expect(relabelConfig.dropMetric("metric", labels)).andReturn(true);
         replayAll();
 
         assertFalse(scrapeConfig.keepMetric("metric", labels));
