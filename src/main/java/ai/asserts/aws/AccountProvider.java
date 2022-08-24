@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -56,6 +57,7 @@ public class AccountProvider {
     @Getter
     @EqualsAndHashCode
     @ToString
+    @SuperBuilder
     public static class AWSAccount {
         private final String accountId;
         @ToString.Exclude

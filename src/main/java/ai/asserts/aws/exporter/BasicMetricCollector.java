@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
+import com.google.common.util.concurrent.AtomicDouble;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import io.prometheus.client.Histogram;
@@ -75,56 +77,68 @@ public class BasicMetricCollector extends Collector {
     }
 
     public void recordGaugeValue(String metricName, SortedMap<String, String> inputLabels, Double value) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
-        gaugeValues.put(Key.builder()
-                .metricName(metricName)
-                .labelNames(new ArrayList<>(labels.keySet()))
-                .labelValues(new ArrayList<>(labels.values()))
-                .build(), value);
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
+            Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
+            gaugeValues.put(Key.builder()
+                    .metricName(metricName)
+                    .labelNames(new ArrayList<>(labels.keySet()))
+                    .labelValues(new ArrayList<>(labels.values()))
+                    .build(), value);
+        }
     }
 
     public void recordCounterValue(String metricName, SortedMap<String, String> inputLabels, int value) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
-        Key key = Key.builder()
-                .metricName(metricName)
-                .labelNames(new ArrayList<>(labels.keySet()))
-                .labelValues(new ArrayList<>(labels.values()))
-                .build();
-        counters.computeIfAbsent(key, k -> {
-            log.info("Creating counter {}{}", key.metricName, labels);
-            return new AtomicLong();
-        }).addAndGet(value);
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
+            Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
+            Key key = Key.builder()
+                    .metricName(metricName)
+                    .labelNames(new ArrayList<>(labels.keySet()))
+                    .labelValues(new ArrayList<>(labels.values()))
+                    .build();
+            counters.computeIfAbsent(key, k -> {
+                log.info("Creating counter {}{}", key.metricName, labels);
+                return new AtomicLong();
+            }).addAndGet(value);
+        }
     }
 
-    public void recordLatency(String metricName, SortedMap<String, String> inputLabels, long value) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
-        Key key = Key.builder()
-                .metricName(metricName)
-                .labelNames(new ArrayList<>(labels.keySet()))
-                .labelValues(new ArrayList<>(labels.values()))
-                .build();
-        latencyCounters.computeIfAbsent(key, k -> {
-            log.info("Creating latency count counter {}{}", key.metricName + "_count", labels);
-            log.info("Creating latency total counter {}{}", key.metricName + "_sum", labels);
-            return new LatencyCounter();
-        }).increment(value);
+    public void recordLatency(String metricName, SortedMap<String, String> inputLabels, double value) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
+            Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
+            Key key = Key.builder()
+                    .metricName(metricName)
+                    .labelNames(new ArrayList<>(labels.keySet()))
+                    .labelValues(new ArrayList<>(labels.values()))
+                    .build();
+            latencyCounters.computeIfAbsent(key, k -> {
+                log.info("Creating latency count counter {}{}", key.metricName + "_count", labels);
+                log.info("Creating latency total counter {}{}", key.metricName + "_sum", labels);
+                return new LatencyCounter();
+            }).increment(value);
+        }
     }
 
     public void recordHistogram(String metricName, SortedMap<String, String> inputLabels, long value) {
-        Map<String, String> labels = scrapeConfigProvider.getScrapeConfig().additionalLabels(metricName, inputLabels);
-        Key key = Key.builder()
-                .metricName(metricName)
-                .labelNames(new ArrayList<>(labels.keySet()))
-                .labelValues(new ArrayList<>(labels.values()))
-                .build();
-        histograms.computeIfAbsent(key, k -> {
-            log.info("Creating histogram {}{}", key.metricName + "_count", labels);
-            return Histogram.build()
-                    .name(key.metricName)
-                    .labelNames(key.labelNames.toArray(new String[0]))
-                    .help("Histogram metric for " + key.metricName)
-                    .create();
-        }).labels(key.labelValues.toArray(new String[0])).observe(value);
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
+            Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
+            Key key = Key.builder()
+                    .metricName(metricName)
+                    .labelNames(new ArrayList<>(labels.keySet()))
+                    .labelValues(new ArrayList<>(labels.values()))
+                    .build();
+            histograms.computeIfAbsent(key, k -> {
+                log.info("Creating histogram {}{}", key.metricName + "_count", labels);
+                return Histogram.build()
+                        .name(key.metricName)
+                        .labelNames(key.labelNames.toArray(new String[0]))
+                        .help("Histogram metric for " + key.metricName)
+                        .create();
+            }).labels(key.labelValues.toArray(new String[0])).observe(value);
+        }
     }
 
 
@@ -139,10 +153,10 @@ public class BasicMetricCollector extends Collector {
     }
 
     public static class LatencyCounter {
-        private final AtomicLong valueTotal = new AtomicLong(0);
+        private final AtomicDouble valueTotal = new AtomicDouble(0);
         private final AtomicInteger count = new AtomicInteger(0);
 
-        public void increment(Long value) {
+        public void increment(Double value) {
             valueTotal.addAndGet(value);
             count.incrementAndGet();
         }

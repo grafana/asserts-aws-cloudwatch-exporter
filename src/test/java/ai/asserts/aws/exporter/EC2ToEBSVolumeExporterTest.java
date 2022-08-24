@@ -8,9 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
 import com.google.common.collect.ImmutableList;
@@ -25,14 +23,11 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
-import software.amazon.awssdk.services.ec2.model.DescribeTagsRequest;
-import software.amazon.awssdk.services.ec2.model.DescribeTagsResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceType;
 import software.amazon.awssdk.services.ec2.model.Reservation;
-import software.amazon.awssdk.services.ec2.model.TagDescription;
 import software.amazon.awssdk.services.ec2.model.Volume;
 import software.amazon.awssdk.services.ec2.model.VolumeAttachment;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
@@ -47,7 +42,6 @@ import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static software.amazon.awssdk.services.ec2.model.ResourceType.INSTANCE;
 
 public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     private AWSAccount account;
@@ -98,19 +92,23 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         DescribeInstancesResponse response = DescribeInstancesResponse.builder()
                 .reservations(Reservation.builder()
                         .instances(Instance.builder()
-                                .privateDnsName("dns-name")
-                                .privateIpAddress("1.2.3.4")
-                                .instanceId("instance-id")
-                                .instanceType(InstanceType.M1_LARGE)
-                                .instanceType(InstanceType.M1_LARGE.name())
-                                .tags(software.amazon.awssdk.services.ec2.model.Tag.builder()
-                                        .key("k").value("v")
-                                                .build(),
-                                        software.amazon.awssdk.services.ec2.model.Tag.builder()
-                                                .key("Name").value("instance-name")
-                                                .build())
-                                .build(),
+                                        .vpcId("vpc-id")
+                                        .subnetId("subnet-id")
+                                        .privateDnsName("dns-name")
+                                        .privateIpAddress("1.2.3.4")
+                                        .instanceId("instance-id")
+                                        .instanceType(InstanceType.M1_LARGE)
+                                        .instanceType(InstanceType.M1_LARGE.name())
+                                        .tags(software.amazon.awssdk.services.ec2.model.Tag.builder()
+                                                        .key("k").value("v")
+                                                        .build(),
+                                                software.amazon.awssdk.services.ec2.model.Tag.builder()
+                                                        .key("Name").value("instance-name")
+                                                        .build())
+                                        .build(),
                                 Instance.builder()
+                                        .vpcId("vpc-id")
+                                        .subnetId("subnet-id")
                                         .privateDnsName("dns-name2")
                                         .privateIpAddress("1.2.3.5")
                                         .instanceId("instance-id2")
@@ -148,10 +146,12 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         expect(metricSampleBuilder.buildSingleSample("aws_resource",
                 new ImmutableMap.Builder<String, String>()
                         .put("account_id", "account")
+                        .put("vpc_id", "vpc-id")
+                        .put("subnet_id", "subnet-id")
                         .put("region", "region")
                         .put("aws_resource_type", "AWS::EC2::Instance")
                         .put("instance_id", "instance-id")
-                        .put("instance_type","M1_LARGE")
+                        .put("instance_type", "M1_LARGE")
                         .put("node", "dns-name")
                         .put("instance", "1.2.3.4")
                         .put("namespace", "AWS/EC2")

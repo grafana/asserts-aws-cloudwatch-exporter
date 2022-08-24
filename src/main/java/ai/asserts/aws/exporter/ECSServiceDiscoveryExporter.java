@@ -45,7 +45,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +59,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
 import static java.lang.String.format;
 import static java.nio.file.Files.newOutputStream;
 
@@ -371,6 +371,9 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         private final String container;
         @JsonProperty("pod")
         private final String taskId;
+
+        private final String vpcId;
+        private final String subnetId;
         @JsonProperty("availability_zone")
         private final String availabilityZone;
         @JsonProperty("namespace")
@@ -408,6 +411,12 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
             }
             if (taskId != null) {
                 put("pod", taskId);
+            }
+            if (isNotEmpty(vpcId)) {
+                put("vpc_id", vpcId);
+            }
+            if (isNotEmpty(subnetId)) {
+                put("subnet_id", subnetId);
             }
             if (availabilityZone != null) {
                 put("availability_zone", availabilityZone);

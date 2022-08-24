@@ -115,7 +115,7 @@ public class ScrapeConfigTest extends EasyMockSupport {
                 .relabelConfigs(ImmutableList.of(relabelConfig))
                 .build();
 
-
+        expect(relabelConfig.actionReplace()).andReturn(true).anyTimes();
         expect(relabelConfig.addReplacements("metric", labels))
                 .andReturn(ImmutableMap.of("label", "value", "label2", "value2"));
 
@@ -126,6 +126,42 @@ public class ScrapeConfigTest extends EasyMockSupport {
                 "label", "value",
                 "label2", "value2"
         ), finalLabels);
+        verifyAll();
+    }
+
+    @Test
+    void keepMetric() {
+        RelabelConfig relabelConfig = mock(RelabelConfig.class);
+
+        Map<String, String> labels = new TreeMap<>(ImmutableMap.of(
+                "label", "value"));
+
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .relabelConfigs(ImmutableList.of(relabelConfig))
+                .build();
+
+        expect(relabelConfig.dropMetric("metric", labels)).andReturn(false);
+        replayAll();
+
+        assertTrue(scrapeConfig.keepMetric("metric", labels));
+        verifyAll();
+    }
+
+    @Test
+    void keepMetric_False() {
+        RelabelConfig relabelConfig = mock(RelabelConfig.class);
+
+        Map<String, String> labels = new TreeMap<>(ImmutableMap.of(
+                "label", "value"));
+
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .relabelConfigs(ImmutableList.of(relabelConfig))
+                .build();
+
+        expect(relabelConfig.dropMetric("metric", labels)).andReturn(true);
+        replayAll();
+
+        assertFalse(scrapeConfig.keepMetric("metric", labels));
         verifyAll();
     }
 

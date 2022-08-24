@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -15,6 +16,10 @@ import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.DescribeSubnetsRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeSubnetsResponse;
+import software.amazon.awssdk.services.ec2.model.Subnet;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.Attachment;
 import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
@@ -34,8 +39,10 @@ import static ai.asserts.aws.exporter.ECSTaskUtil.ENI;
 import static ai.asserts.aws.exporter.ECSTaskUtil.PRIVATE_IPv4ADDRESS;
 import static ai.asserts.aws.exporter.ECSTaskUtil.PROMETHEUS_METRIC_PATH_DOCKER_LABEL;
 import static ai.asserts.aws.exporter.ECSTaskUtil.PROMETHEUS_PORT_DOCKER_LABEL;
+import static ai.asserts.aws.exporter.ECSTaskUtil.SUBNET_ID;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -44,6 +51,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ECSTaskUtilTest extends EasyMockSupport {
+    private AWSClientProvider awsClientProvider;
+    private Ec2Client ec2Client;
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
     private EcsClient ecsClient;
@@ -62,7 +71,18 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         ecsClient = mock(EcsClient.class);
         scrapeConfig = mock(ScrapeConfig.class);
         taskDefScrapeConfig = mock(ECSTaskDefScrapeConfig.class);
-        testClass = new ECSTaskUtil(resourceMapper, new RateLimiter(metricCollector));
+        awsClientProvider = mock(AWSClientProvider.class);
+        ec2Client = mock(Ec2Client.class);
+        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector));
+
+        expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
+        expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
+                        .subnetIds("subnet-id")
+                .build())).andReturn(DescribeSubnetsResponse.builder()
+                        .subnets(Subnet.builder()
+                                .vpcId("vpc-id")
+                                .build())
+                .build()).anyTimes();
 
         cluster = Resource.builder()
                 .name("cluster")
@@ -127,6 +147,9 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                         .build())
                 .build();
 
+        // For Describe Subnets call
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
+
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
@@ -143,9 +166,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                         .attachments(Attachment.builder()
                                 .type(ENI)
                                 .details(KeyValuePair.builder()
-                                        .name(PRIVATE_IPv4ADDRESS)
-                                        .value("10.20.30.40")
-                                        .build())
+                                                .name(PRIVATE_IPv4ADDRESS)
+                                                .value("10.20.30.40")
+                                                .build(),
+                                        KeyValuePair.builder()
+                                                .name(SUBNET_ID)
+                                                .value("subnet-id")
+                                                .build()
+                                )
                                 .build())
                         .build());
         assertEquals(1, staticConfigs.size());
@@ -158,6 +186,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("service-task-id", staticConfig.getLabels().getTaskId()),
                 () -> assertEquals("/metric/path", staticConfig.getLabels().getMetricsPath()),
                 () -> assertEquals("model-builder", staticConfig.getLabels().getContainer()),
+                () -> assertEquals("vpc-id", staticConfig.getLabels().getVpcId()),
                 () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"), staticConfig.getTargets())
         );
         verifyAll();
@@ -197,6 +226,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 ).build()
                 ).build();
 
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
+
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
@@ -213,9 +244,13 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                         .attachments(Attachment.builder()
                                 .type(ENI)
                                 .details(KeyValuePair.builder()
-                                        .name(PRIVATE_IPv4ADDRESS)
-                                        .value("10.20.30.40")
-                                        .build())
+                                                .name(PRIVATE_IPv4ADDRESS)
+                                                .value("10.20.30.40")
+                                                .build(),
+                                        KeyValuePair.builder()
+                                                .name(SUBNET_ID)
+                                                .value("subnet-id")
+                                                .build())
                                 .build())
                         .build());
         assertEquals(2, staticConfigs.size());
@@ -225,12 +260,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
                 () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getTaskId()),
                 () -> assertEquals("/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
+                () -> assertEquals("vpc-id", staticConfigs.get(0).getLabels().getVpcId()),
 
                 () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
                 () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
                 () -> assertEquals("service-task-id", staticConfigs.get(1).getLabels().getTaskId()),
                 () -> assertEquals("/metrics", staticConfigs.get(1).getLabels().getMetricsPath()),
+                () -> assertEquals("vpc-id", staticConfigs.get(0).getLabels().getVpcId()),
                 () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
                         .map(sc -> sc.getLabels().getJob())
                         .collect(Collectors.toSet())),
@@ -287,6 +324,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 ).build()
                 ).build();
 
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
+
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
@@ -303,9 +342,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                         .attachments(Attachment.builder()
                                 .type(ENI)
                                 .details(KeyValuePair.builder()
-                                        .name(PRIVATE_IPv4ADDRESS)
-                                        .value("10.20.30.40")
-                                        .build())
+                                                .name(PRIVATE_IPv4ADDRESS)
+                                                .value("10.20.30.40")
+                                                .build(),
+                                        KeyValuePair.builder()
+                                                .name(SUBNET_ID)
+                                                .value("subnet-id")
+                                                .build()
+                                )
                                 .build())
                         .build());
         assertEquals(2, staticConfigs.size());
@@ -314,11 +358,13 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
                 () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getTaskId()),
+                () -> assertEquals("vpc-id", staticConfigs.get(0).getLabels().getVpcId()),
 
                 () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
                 () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
                 () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
                 () -> assertEquals("service-task-id", staticConfigs.get(1).getLabels().getTaskId()),
+                () -> assertEquals("vpc-id", staticConfigs.get(0).getLabels().getVpcId()),
                 () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
                         .map(sc -> sc.getLabels().getJob())
                         .collect(Collectors.toSet())),
@@ -385,6 +431,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 ).build()
                 ).build();
 
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
+
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
@@ -401,9 +449,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                         .attachments(Attachment.builder()
                                 .type(ENI)
                                 .details(KeyValuePair.builder()
-                                        .name(PRIVATE_IPv4ADDRESS)
-                                        .value("10.20.30.40")
-                                        .build())
+                                                .name(PRIVATE_IPv4ADDRESS)
+                                                .value("10.20.30.40")
+                                                .build(),
+                                        KeyValuePair.builder()
+                                                .name(SUBNET_ID)
+                                                .value("subnet-id")
+                                                .build()
+                                )
                                 .build())
                         .build());
         assertEquals(3, staticConfigs.size());
@@ -488,6 +541,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 ).build()
                 ).build();
 
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
+
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                 .taskDefinition("task-def-arn")
                 .build())).andReturn(DescribeTaskDefinitionResponse.builder()
@@ -504,9 +559,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                         .attachments(Attachment.builder()
                                 .type(ENI)
                                 .details(KeyValuePair.builder()
-                                        .name(PRIVATE_IPv4ADDRESS)
-                                        .value("10.20.30.40")
-                                        .build())
+                                                .name(PRIVATE_IPv4ADDRESS)
+                                                .value("10.20.30.40")
+                                                .build(),
+                                        KeyValuePair.builder()
+                                                .name(SUBNET_ID)
+                                                .value("subnet-id")
+                                                .build()
+                                )
                                 .build())
                         .build());
         assertEquals(1, staticConfigs.size());

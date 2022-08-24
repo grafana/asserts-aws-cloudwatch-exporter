@@ -159,7 +159,8 @@ public class ScrapeConfig {
         return labels;
     }
 
-    private void mapTypeAndName(Map<String, String> alarmDimensions, SortedMap<String, String> labels, DimensionToLabel dimensionToLabel) {
+    private void mapTypeAndName(Map<String, String> alarmDimensions, SortedMap<String, String> labels,
+                                DimensionToLabel dimensionToLabel) {
         String toLabel = dimensionToLabel.getMapToLabel();
         String dimensionName = dimensionToLabel.getDimensionName();
         labels.put(toLabel, alarmDimensions.get(dimensionName));
@@ -195,9 +196,15 @@ public class ScrapeConfig {
         authConfig.validate();
     }
 
+    public boolean keepMetric(String metricName, Map<String, String> inputLabels) {
+        return relabelConfigs.stream().noneMatch(c -> c.dropMetric(metricName, inputLabels));
+    }
+
     public Map<String, String> additionalLabels(String metricName, Map<String, String> inputLabels) {
         Map<String, String> labels = new TreeMap<>(inputLabels);
-        for (RelabelConfig config : relabelConfigs) {
+        for (RelabelConfig config : relabelConfigs.stream()
+                .filter(RelabelConfig::actionReplace)
+                .collect(Collectors.toList())) {
             labels = config.addReplacements(metricName, labels);
         }
         return labels;
