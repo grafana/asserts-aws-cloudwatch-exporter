@@ -16,6 +16,10 @@ import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
+import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -52,6 +56,7 @@ public class ECSTaskUtil {
     private final RateLimiter rateLimiter;
 
     private final Map<String, String> subnetIdMap = new ConcurrentHashMap<>();
+    private final Map<String, SubnetDetails> taskSubnetMap = new ConcurrentHashMap<>();
     public static final String ENI = "ElasticNetworkInterface";
     public static final String PRIVATE_IPv4ADDRESS = "privateIPv4Address";
     public static final String SUBNET_ID = "subnetId";
@@ -86,40 +91,28 @@ public class ECSTaskUtil {
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskArn()));
 
         LabelsBuilder labelsBuilder;
-        AtomicReference<String> vpcId = new AtomicReference<>("");
-        AtomicReference<String> subnetId = new AtomicReference<>("");
-        task.attachments().stream()
+        taskSubnetMap.computeIfAbsent(taskResource.getName(), k -> task.attachments().stream()
                 .filter(attachment -> attachment.type().equals("ElasticNetworkInterface"))
                 .findFirst()
                 .flatMap(attachment -> attachment.details().stream()
                         .filter(kv -> kv.name().equals("subnetId")).findFirst())
-                .ifPresent(kv -> {
+                .map(kv -> {
+                    AtomicReference<String> vpcId = new AtomicReference<>("");
+                    AtomicReference<String> subnetId = new AtomicReference<>("");
                     subnetId.set(kv.value());
-                    vpcId.set(subnetIdMap.computeIfAbsent(subnetId.get(), k -> {
-                        AtomicReference<String> id = new AtomicReference<>("");
-                        Ec2Client ec2Client = awsClientProvider.getEc2Client(taskDefResource.getRegion(),
-                                AWSAccount.builder()
-                                        .accountId(taskDefResource.getAccount())
-                                        .build());
-                        DescribeSubnetsResponse r = rateLimiter.doWithRateLimit("EC2Client/describeSubnets",
-                                ImmutableSortedMap.of(
-                                        SCRAPE_ACCOUNT_ID_LABEL, taskResource.getAccount(),
-                                        SCRAPE_REGION_LABEL, taskResource.getRegion(),
-                                        SCRAPE_OPERATION_LABEL, "EC2Client/describeSubnets"
-                                ),
-                                () -> ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
-                                        .subnetIds(subnetId.get())
-                                        .build()));
-                        r.subnets().stream().findFirst().ifPresent(subnet -> id.set(subnet.vpcId()));
-                        return id.get();
-                    }));
-                });
+                    vpcId.set(subnetIdMap.computeIfAbsent(subnetId.get(), kk ->
+                            getVpcId(taskDefResource, taskResource, subnetId)));
+                    return SubnetDetails.builder()
+                            .vpcId(vpcId.get())
+                            .subnetId(subnetId.get())
+                            .build();
+                }).orElse(null));
         if (service.isPresent()) {
             labelsBuilder = Labels.builder()
                     .workload(service.get().getName())
                     .taskId(service.get().getName() + "-" + taskResource.getName())
-                    .vpcId(vpcId.get())
-                    .subnetId(subnetId.get())
+                    .vpcId(taskSubnetMap.get(taskResource.getName()).getVpcId())
+                    .subnetId(taskSubnetMap.get(taskResource.getName()).getVpcId())
                     .accountId(cluster.getAccount())
                     .region(cluster.getRegion())
                     .cluster(cluster.getName())
@@ -132,8 +125,8 @@ public class ECSTaskUtil {
             labelsBuilder = Labels.builder()
                     .workload(taskDefResource.getName())
                     .taskId(taskDefResource.getName() + "-" + taskResource.getName())
-                    .vpcId(vpcId.get())
-                    .subnetId(subnetId.get())
+                    .vpcId(taskSubnetMap.get(taskResource.getName()).getVpcId())
+                    .subnetId(taskSubnetMap.get(taskResource.getName()).getVpcId())
                     .accountId(cluster.getAccount())
                     .region(cluster.getRegion())
                     .cluster(cluster.getName())
@@ -248,10 +241,38 @@ public class ECSTaskUtil {
                 .filter(config -> config.getTargets().size() > 0).collect(Collectors.toList());
     }
 
+    private String getVpcId(Resource taskDefResource, Resource taskResource, AtomicReference<String> subnetId) {
+        AtomicReference<String> id = new AtomicReference<>("");
+        Ec2Client ec2Client = awsClientProvider.getEc2Client(taskDefResource.getRegion(),
+                AWSAccount.builder()
+                        .accountId(taskDefResource.getAccount())
+                        .build());
+        DescribeSubnetsResponse r = rateLimiter.doWithRateLimit("EC2Client/describeSubnets",
+                ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, taskResource.getAccount(),
+                        SCRAPE_REGION_LABEL, taskResource.getRegion(),
+                        SCRAPE_OPERATION_LABEL, "EC2Client/describeSubnets"
+                ),
+                () -> ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
+                        .subnetIds(subnetId.get())
+                        .build()));
+        r.subnets().stream().findFirst().ifPresent(subnet -> id.set(subnet.vpcId()));
+        return id.get();
+    }
+
     Optional<String> getDockerLabel(ContainerDefinition container, String labelName) {
         return container.dockerLabels().entrySet().stream()
                 .filter(entry -> entry.getKey().equals(labelName))
                 .map(Map.Entry::getValue)
                 .findFirst();
+    }
+
+    @EqualsAndHashCode
+    @ToString
+    @SuperBuilder
+    @Getter
+    public static class SubnetDetails {
+        private String subnetId;
+        private String vpcId;
     }
 }
