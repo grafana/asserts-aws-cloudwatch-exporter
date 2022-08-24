@@ -142,6 +142,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .subnetId("subnet-id")
                 .vpcId("vpc-id")
                 .build());
+        expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
         expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(false).anyTimes();
         expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
         expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();
@@ -223,6 +224,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .subnetId("subnet-id")
                 .vpcId("vpc-id")
                 .build());
+        expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
         expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(false).anyTimes();
         expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
         expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();
