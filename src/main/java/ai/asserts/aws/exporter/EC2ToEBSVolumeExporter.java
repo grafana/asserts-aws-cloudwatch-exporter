@@ -120,6 +120,8 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                                     labels.put("node", instance.privateDnsName());
                                     labels.put("instance", instance.privateIpAddress());
                                     labels.put("instance_type", instance.instanceTypeAsString());
+                                    labels.put("vpc_id", instance.vpcId());
+                                    labels.put("subnet_id", instance.subnetId());
 
                                     labels.putAll(tagUtil.tagLabels(instance.tags().stream()
                                             .map(t -> Tag.builder().key(t.key()).value(t.value()).build())
