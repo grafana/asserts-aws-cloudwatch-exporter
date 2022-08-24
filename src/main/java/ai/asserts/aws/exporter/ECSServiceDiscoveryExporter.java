@@ -168,7 +168,9 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         }));
 
         routing = newRouting;
-        targets = latestTargets;
+        targets = latestTargets.stream()
+                .filter(config -> scrapeConfig.keepMetric("up", config.getLabels()))
+                .collect(Collectors.toList());
 
         if (resourceMetricSamples.size() > 0) {
             resourceMetrics = Collections.singletonList(metricSampleBuilder.buildFamily(resourceMetricSamples));

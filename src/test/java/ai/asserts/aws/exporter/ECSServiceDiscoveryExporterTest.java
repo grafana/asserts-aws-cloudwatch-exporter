@@ -12,6 +12,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.Labels;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -81,6 +82,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     private ObjectWriter objectWriter;
     private MetricSampleBuilder metricSampleBuilder;
     private StaticConfig mockStaticConfig;
+    private Labels mockLabels;
     private ResourceRelation mockRelation;
     private Sample sample;
     private MetricFamilySamples metricFamilySamples;
@@ -113,7 +115,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         metricFamilySamples = mock(MetricFamilySamples.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         tagUtil = mock(TagUtil.class);
-
+        mockLabels = mock(Labels.class);
         rateLimiter = new RateLimiter(metricCollector);
         resetAll();
     }
@@ -125,6 +127,10 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isLogVerbose()).andReturn(true);
+        expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
+        expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(true).times(3);
+        expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(false);
+
 
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
@@ -147,11 +153,11 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(objectMapper.writerWithDefaultPrettyPrinter()).andReturn(objectWriter);
 
         objectWriter.writeValue(anyObject(File.class), eq(ImmutableList.of(
-                mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
+                mockStaticConfig, mockStaticConfig, mockStaticConfig
         )));
 
         expect(objectWriter.writeValueAsString(eq(ImmutableList.of(
-                mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
+                mockStaticConfig, mockStaticConfig, mockStaticConfig
         )))).andReturn("content");
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample)))
@@ -186,6 +192,9 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
+        expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
+        expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(true).times(3);
+        expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(false);
 
         expect(awsClientProvider.getECSClient("region1", account)).andReturn(ecsClient);
         expect(ecsClient.listClusters()).andReturn(ListClustersResponse.builder()
@@ -208,7 +217,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(objectMapper.writerWithDefaultPrettyPrinter()).andReturn(objectWriter);
 
         objectWriter.writeValue(anyObject(File.class), eq(ImmutableList.of(
-                mockStaticConfig, mockStaticConfig, mockStaticConfig, mockStaticConfig
+                mockStaticConfig, mockStaticConfig, mockStaticConfig
         )));
         expectLastCall().andThrow(new IOException());
 
@@ -319,7 +328,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(resourceTagHelper.getResourcesWithTag(anyObject(AWSAccount.class), eq("region1"), eq("ecs:service"),
                 eq(ImmutableList.of("s1", "s2")))).andReturn(ImmutableMap.of("s1", resource, "s2", resource));
 
-        expect(mockStaticConfig.getLabels()).andReturn(ECSServiceDiscoveryExporter.Labels.builder()
+        expect(mockStaticConfig.getLabels()).andReturn(Labels.builder()
                 .accountId("account")
                 .region("region")
                 .cluster("cluster")
