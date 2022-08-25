@@ -154,7 +154,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-
+        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
                 Optional.of(service), Task.builder()
@@ -232,7 +232,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-
+        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
                 Optional.of(service), Task.builder()
@@ -330,7 +330,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-
+        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
                 Optional.of(service), Task.builder()
@@ -438,6 +438,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
+        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
                 Optional.of(service), Task.builder()
@@ -547,7 +548,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-
+        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
                 Optional.of(service), Task.builder()
