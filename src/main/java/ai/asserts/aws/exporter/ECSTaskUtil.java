@@ -164,6 +164,8 @@ public class ECSTaskUtil {
                                 .build();
                         labels.populateMapEntries();
                         labels.putAll(tagLabels);
+                        Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);
+                        labels.putAll(afterRelabeling);
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
@@ -197,6 +199,8 @@ public class ECSTaskUtil {
                             if (labels != null) {
                                 labels.populateMapEntries();
                                 labels.putAll(tagLabels);
+                                Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);
+                                labels.putAll(afterRelabeling);
                                 StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                         labels, k -> StaticConfig.builder().labels(labels).build());
                                 staticConfig.getTargets().add(format("%s:%d", ipAddress, port.containerPort()));
@@ -210,6 +214,8 @@ public class ECSTaskUtil {
                                 .build();
                         labels.populateMapEntries();
                         labels.putAll(tagLabels);
+                        Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);
+                        labels.putAll(afterRelabeling);
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         cD.portMappings().forEach(port ->
