@@ -46,20 +46,23 @@ public class RelabelConfig {
      */
     private String action = "replace";
 
+    private String metricName;
+
     public boolean actionReplace() {
         return "replace".equals(action);
     }
 
     public void validate() {
-        ImmutableSet<String> allowedActions = ImmutableSet.of("replace", "drop-metric");
+        ImmutableSet<String> allowedActions = ImmutableSet.of("replace", "drop-metric", "keep-metric");
         if (!StringUtils.hasLength(regex)) {
             throw new RuntimeException("regex not specified in " + this);
-        } else if (!allowedActions.contains(action)) {
-            log.error("{}: Invalid value for 'action': {}, allowed values are {}", this, action, allowedActions);
+
         } else if (action.equals("replace") && !StringUtils.hasLength(target)) {
             throw new RuntimeException("target_label not specified in " + this);
         } else if (action.equals("replace") && !StringUtils.hasLength(replacement)) {
             throw new RuntimeException("replacement not specified in " + this);
+        } else if (action.equals("keep-metric") && !StringUtils.hasLength(metricName)) {
+            throw new RuntimeException("metricName not specified in " + this);
         } else if (CollectionUtils.isEmpty(labels) || labels.stream().anyMatch(l -> !StringUtils.hasLength(l))) {
             throw new RuntimeException("labels not specified or has empty value " + this);
         }
@@ -92,7 +95,10 @@ public class RelabelConfig {
     }
 
     public boolean dropMetric(String metricName, Map<String, String> labelValues) {
-        return "drop-metric".equals(action) && matches(metricName, labelValues);
+        boolean matches = matches(metricName, labelValues);
+        boolean explicitDrop = "drop-metric".equals(action) && matches;
+        boolean dontKeep = "keep-metric".equals(action) && this.metricName.equals(metricName) && !matches;
+        return explicitDrop || dontKeep;
     }
 
     private boolean matches(String metricName, Map<String, String> labelValues) {
