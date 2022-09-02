@@ -74,4 +74,27 @@ public class RelabelConfigTest {
         config.setLabels(ImmutableList.of("__name__", "some_label"));
         assertFalse(config.dropMetric("aws_dynamodb_successful_request_latency", labels));
     }
+
+    @Test
+    public void keepMetric() {
+        RelabelConfig config = new RelabelConfig();
+        config.setLabels(ImmutableList.of("__name__", "d_operation", "d_operation_type"));
+        config.setRegex("aws_dynamodb_.+;get;(.+)");
+        config.setTarget("asserts_request_context");
+        config.setAction("keep-metric");
+        config.setMetricName("aws_dynamodb_successful_request_latency");
+        config.validate();
+
+        Map<String, String> labels = new TreeMap<>();
+        labels.put("d_operation", "get");
+        labels.put("d_operation_type", "read");
+
+        assertFalse(config.dropMetric("aws_dynamodb_successful_request_latency", labels));
+
+        labels.put("d_operation", "put");
+        assertTrue(config.dropMetric("aws_dynamodb_successful_request_latency", labels));
+
+        // Keep metrics for which keep condition should not be applied
+        assertFalse(config.dropMetric("some_other_metric", labels));
+    }
 }
