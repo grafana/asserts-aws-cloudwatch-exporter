@@ -19,6 +19,7 @@ import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.lambda.LambdaClient;
@@ -93,7 +94,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         String memoryLimit = metricNameUtil.getLambdaMetric("memory_limit_mb");
         String accountLimitMetric = metricNameUtil.getLambdaMetric("account_limit");
 
-        Map<String, List<MetricFamilySamples.Sample>> samples = new TreeMap<>();
+        Map<String, List<Sample>> samples = new TreeMap<>();
         Map<String, Map<String, Map<String, LambdaFunction>>> byAccountByRegion = functionScraper.getFunctions();
         optional.ifPresent(lambdaConfig -> {
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
@@ -113,35 +114,41 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                                 ),
                                 lambdaClient::getAccountSettings);
 
-                        MetricFamilySamples.Sample sample = sampleBuilder.buildSingleSample(accountLimitMetric,
+                        Optional<Sample> sampleOpt = sampleBuilder.buildSingleSample(accountLimitMetric,
                                 ImmutableMap.of(
                                         SCRAPE_ACCOUNT_ID_LABEL, account,
                                         "region", region, "cw_namespace", lambda.getNormalizedNamespace(),
                                         "type", "concurrent_executions"
                                 ), accountSettings.accountLimit().concurrentExecutions() * 1.0D);
-                        samples.computeIfAbsent(accountLimitMetric, k -> new ArrayList<>()).add(sample);
+                        sampleOpt.ifPresent(sample -> samples.computeIfAbsent(accountLimitMetric,
+                                k -> new ArrayList<>()).add(sample));
 
-                        MetricFamilySamples.Sample sample1 = sampleBuilder.buildSingleSample(accountLimitMetric, ImmutableMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, account,
-                                "region", region, "cw_namespace", lambda.getNormalizedNamespace(),
-                                "type", "unreserved_concurrent_executions"
-                        ), accountSettings.accountLimit().unreservedConcurrentExecutions() * 1.0D);
-                        samples.computeIfAbsent(accountLimitMetric, k -> new ArrayList<>()).add(sample1);
+                        Optional<Sample> sample1Opt =
+                                sampleBuilder.buildSingleSample(accountLimitMetric, ImmutableMap.of(
+                                        SCRAPE_ACCOUNT_ID_LABEL, account,
+                                        "region", region, "cw_namespace", lambda.getNormalizedNamespace(),
+                                        "type", "unreserved_concurrent_executions"
+                                ), accountSettings.accountLimit().unreservedConcurrentExecutions() * 1.0D);
+                        sample1Opt.ifPresent(sample ->
+                                samples.computeIfAbsent(accountLimitMetric, k -> new ArrayList<>()).add(sample));
 
-                        Set<Resource> fnResources = resourceTagHelper.getFilteredResources(accountRegion, region, lambdaConfig);
+                        Set<Resource> fnResources =
+                                resourceTagHelper.getFilteredResources(accountRegion, region, lambdaConfig);
                         functions.forEach((functionArn, lambdaFunction) -> {
-                            GetFunctionConcurrencyResponse fCResponse = rateLimiter.doWithRateLimit("LambdaClient/getFunctionConcurrency",
-                                    ImmutableSortedMap.of(
-                                            SCRAPE_ACCOUNT_ID_LABEL, account,
-                                            SCRAPE_REGION_LABEL, region,
-                                            SCRAPE_OPERATION_LABEL, "getFunctionConcurrency",
-                                            SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
-                                    ), () -> lambdaClient.getFunctionConcurrency(GetFunctionConcurrencyRequest.builder()
-                                            .functionName(lambdaFunction.getArn())
-                                            .build()));
+                            GetFunctionConcurrencyResponse fCResponse =
+                                    rateLimiter.doWithRateLimit("LambdaClient/getFunctionConcurrency",
+                                            ImmutableSortedMap.of(
+                                                    SCRAPE_ACCOUNT_ID_LABEL, account,
+                                                    SCRAPE_REGION_LABEL, region,
+                                                    SCRAPE_OPERATION_LABEL, "getFunctionConcurrency",
+                                                    SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
+                                            ), () -> lambdaClient.getFunctionConcurrency(
+                                                    GetFunctionConcurrencyRequest.builder()
+                                                            .functionName(lambdaFunction.getArn())
+                                                            .build()));
 
                             if (fCResponse.reservedConcurrentExecutions() != null) {
-                                MetricFamilySamples.Sample reserved = sampleBuilder.buildSingleSample(reservedMetric,
+                                Optional<Sample> reserved = sampleBuilder.buildSingleSample(reservedMetric,
                                         new ImmutableMap.Builder<String, String>()
                                                 .put("region", region)
                                                 .put("cw_namespace", lambda.getNormalizedNamespace())
@@ -150,7 +157,8 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                                                 .put(SCRAPE_ACCOUNT_ID_LABEL, lambdaFunction.getAccount())
                                                 .build()
                                         , fCResponse.reservedConcurrentExecutions().doubleValue());
-                                samples.computeIfAbsent(reservedMetric, k -> new ArrayList<>()).add(reserved);
+                                reserved.ifPresent(sample -> samples.computeIfAbsent(reservedMetric,
+                                        k -> new ArrayList<>()).add(sample));
                             }
 
                             Optional<Resource> fnResourceOpt = fnResources.stream()
@@ -168,11 +176,12 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
 
                             // Export timeout
                             double timeout = lambdaFunction.getTimeoutSeconds() * 1.0D;
-                            samples.computeIfAbsent(timeoutMetric, k -> new ArrayList<>())
-                                    .add(sampleBuilder.buildSingleSample(timeoutMetric, labels, timeout));
+                            sampleBuilder.buildSingleSample(timeoutMetric, labels, timeout).ifPresent(sample ->
+                                    samples.computeIfAbsent(timeoutMetric, k -> new ArrayList<>()).add(sample));
 
-                            samples.computeIfAbsent(memoryLimit, k -> new ArrayList<>())
-                                    .add(sampleBuilder.buildSingleSample(memoryLimit, labels, lambdaFunction.getMemoryMB() * 1.0D));
+                            sampleBuilder.buildSingleSample(memoryLimit, labels,
+                                    lambdaFunction.getMemoryMB() * 1.0D).ifPresent(sample ->
+                                    samples.computeIfAbsent(memoryLimit, k -> new ArrayList<>()).add(sample));
 
 
                             ListProvisionedConcurrencyConfigsRequest request = ListProvisionedConcurrencyConfigsRequest
@@ -200,19 +209,22 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                                     labels.put(level, parts[parts.length - 1]);
 
                                     Integer available = config.availableProvisionedConcurrentExecutions();
-                                    samples.computeIfAbsent(availableMetric, k -> new ArrayList<>())
-                                            .add(sampleBuilder.buildSingleSample(
-                                                    availableMetric, labels, available.doubleValue()));
+                                    sampleBuilder.buildSingleSample(
+                                            availableMetric, labels, available.doubleValue()).ifPresent(sample ->
+                                            samples.computeIfAbsent(availableMetric, k -> new ArrayList<>())
+                                                    .add(sample));
 
                                     Integer requested = config.requestedProvisionedConcurrentExecutions();
-                                    samples.computeIfAbsent(requestedMetric, k -> new ArrayList<>())
-                                            .add(sampleBuilder.buildSingleSample(
-                                                    requestedMetric, labels, requested.doubleValue()));
+                                    sampleBuilder.buildSingleSample(requestedMetric, labels,
+                                            requested.doubleValue()).ifPresent(sample ->
+                                            samples.computeIfAbsent(requestedMetric, k -> new ArrayList<>())
+                                                    .add(sample));
+
 
                                     Integer allocated = config.allocatedProvisionedConcurrentExecutions();
-                                    samples.computeIfAbsent(allocatedMetric, k -> new ArrayList<>())
-                                            .add(sampleBuilder.buildSingleSample(
-                                                    allocatedMetric, labels, allocated.doubleValue()));
+                                    sampleBuilder.buildSingleSample(allocatedMetric, labels, allocated.doubleValue())
+                                            .ifPresent(sample -> samples.computeIfAbsent(allocatedMetric,
+                                                    k -> new ArrayList<>()).add(sample));
                                 });
                             }
                         });

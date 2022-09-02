@@ -96,9 +96,10 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                     byRegion.forEach((region, byARN) -> byARN.forEach((arn, fnConfig) -> {
                         try {
                             LambdaClient client = awsClientProvider.getLambdaClient(region, accountRegion);
-                            ListFunctionEventInvokeConfigsRequest request = ListFunctionEventInvokeConfigsRequest.builder()
-                                    .functionName(fnConfig.getName())
-                                    .build();
+                            ListFunctionEventInvokeConfigsRequest request =
+                                    ListFunctionEventInvokeConfigsRequest.builder()
+                                            .functionName(fnConfig.getName())
+                                            .build();
                             ListFunctionEventInvokeConfigsResponse resp = rateLimiter.doWithRateLimit(
                                     "LambdaClient/listFunctionEventInvokeConfigs",
                                     ImmutableSortedMap.of(
@@ -122,24 +123,26 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                                     DestinationConfig destConfig = config.destinationConfig();
 
                                     // Success
-                                    if (destConfig.onSuccess() != null && destConfig.onSuccess().destination() != null) {
+                                    if (destConfig.onSuccess() != null && destConfig.onSuccess()
+                                            .destination() != null) {
                                         String urn = destConfig.onSuccess().destination();
                                         resourceMapper.map(urn).ifPresent(targetResource -> {
                                             labels.put("on", "success");
                                             targetResource.addLabels(labels, "destination");
-                                            samples.add(metricSampleBuilder.buildSingleSample(
-                                                    metricName, labels, 1.0D));
+                                            metricSampleBuilder.buildSingleSample(metricName, labels, 1.0D)
+                                                    .ifPresent(samples::add);
                                         });
                                     }
 
                                     // Failure
-                                    if (destConfig.onFailure() != null && destConfig.onFailure().destination() != null) {
+                                    if (destConfig.onFailure() != null && destConfig.onFailure()
+                                            .destination() != null) {
                                         String urn = destConfig.onFailure().destination();
                                         resourceMapper.map(urn).ifPresent(targetResource -> {
                                             labels.put("on", "failure");
                                             targetResource.addLabels(labels, "destination");
-                                            samples.add(
-                                                    metricSampleBuilder.buildSingleSample(metricName, labels, 1.0D));
+                                            metricSampleBuilder.buildSingleSample(metricName, labels, 1.0D)
+                                                    .ifPresent(samples::add);
                                         });
                                     }
                                 });

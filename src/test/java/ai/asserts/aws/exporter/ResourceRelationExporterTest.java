@@ -14,6 +14,7 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.SortedMap;
 
 import static org.easymock.EasyMock.anyObject;
@@ -86,19 +87,19 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
 
         expect(sampleBuilder.buildSingleSample(
                 "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name1"), 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample(
                 "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name2"), 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample(
                 "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name3"), 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample(
                 "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name4"), 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample(
                 "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name5"), 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample, sample))).andReturn(familySamples);
 
         replayAll();

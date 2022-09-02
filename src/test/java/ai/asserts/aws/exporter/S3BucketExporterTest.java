@@ -24,6 +24,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
 
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -97,7 +98,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
                         .build()));
         expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
         expectLastCall();
         replayAll();

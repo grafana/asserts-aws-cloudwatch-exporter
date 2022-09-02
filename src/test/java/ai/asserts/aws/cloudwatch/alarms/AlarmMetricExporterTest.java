@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -73,7 +74,7 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                         .put("alarm_name", "a1")
                         .put("namespace", "n1")
                         .put("region", "us-west-2")
-                        .build(), 1.0)).andReturn(sample);
+                        .build(), 1.0)).andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples);
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("account_id", "account")

@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -100,6 +101,8 @@ public class S3BucketExporter extends Collector implements InitializingBean {
                                 }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
                             .collect(Collectors.toList()));
                 }
             } catch (Exception e) {

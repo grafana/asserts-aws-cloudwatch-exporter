@@ -98,6 +98,8 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                                 labels.put("namespace", "AWS/KinesisAnalytics");
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
                             .collect(Collectors.toList()));
                 }
             } catch (Exception e) {

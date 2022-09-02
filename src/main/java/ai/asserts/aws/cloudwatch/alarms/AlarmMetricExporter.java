@@ -70,7 +70,8 @@ public class AlarmMetricExporter extends Collector {
     }
 
     private Optional<String> getKey(Map<String, String> labels) {
-        Set<String> keyLabels = ImmutableSet.of("account_id", "region", "namespace", "metric_name", "alarm_name", "original_alarm_name");
+        Set<String> keyLabels = ImmutableSet.of("account_id", "region", "namespace", "metric_name", "alarm_name",
+                "original_alarm_name");
         return Optional.of(keyLabels.stream()
                 .filter(labels::containsKey)
                 .map(labels::get)
@@ -89,8 +90,8 @@ public class AlarmMetricExporter extends Collector {
                     recordHistogram(labels, timestamp);
                     labels.remove("timestamp");
                 }
-                metrics.add(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels,
-                        1.0));
+                sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0)
+                        .ifPresent(metrics::add);
             });
             latest.add(sampleBuilder.buildFamily(metrics));
         }

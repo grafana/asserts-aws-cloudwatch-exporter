@@ -65,7 +65,7 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
                 relation.getFrom().addLabels(labels, "from");
                 relation.getTo().addLabels(labels, "to");
                 labels.put("rel_name", relation.getName());
-                samples.add(sampleBuilder.buildSingleSample(name, labels, 1.0D));
+                sampleBuilder.buildSingleSample(name, labels, 1.0D).ifPresent(samples::add);
             });
             if (samples.size() > 0) {
                 familySamples.add(sampleBuilder.buildFamily(samples));

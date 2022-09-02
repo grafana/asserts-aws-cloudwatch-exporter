@@ -103,7 +103,7 @@ public class SNSTopicExporterTest extends EasyMockSupport {
                         .build()));
         expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
         expectLastCall();
         replayAll();

@@ -72,7 +72,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
         resource.addEnvLabel(labels, metricNameUtil);
 
         expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
 
         replayAll();
         assertEquals(Optional.of(sample), testClass.getSample(namespaceConfig,
@@ -101,7 +101,7 @@ public class LogEventEmitterTest extends EasyMockSupport {
         expect(labels.put(SCRAPE_ACCOUNT_ID_LABEL, SCRAPE_ACCOUNT_ID_LABEL)).andReturn(null);
         expect(labels.put("d_function_name", "fn1")).andReturn(null);
         expect(sampleBuilder.buildSingleSample("aws_lambda_logs", labels, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
 
         replayAll();
         assertEquals(Optional.of(sample), testClass.getSample(namespaceConfig,

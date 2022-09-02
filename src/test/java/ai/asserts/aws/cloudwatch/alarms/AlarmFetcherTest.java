@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.cloudwatch.model.DescribeAlarmsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.MetricAlarm;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -118,7 +119,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .build());
         alarmMetricConverter.simplifyAlarmName(labels);
         expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
         replayAll();
         testClass.update();

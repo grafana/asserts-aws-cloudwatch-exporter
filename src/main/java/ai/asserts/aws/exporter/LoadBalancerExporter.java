@@ -141,8 +141,8 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
 
                             labels.putAll(tagUtil.tagLabels(allTags));
                         }
-                        samples.add(metricSampleBuilder.buildSingleSample(
-                                "aws_resource", labels, 1.0D));
+                        metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D)
+                                .ifPresent(samples::add);
                     });
                 }
             } catch (Exception e) {
@@ -202,8 +202,8 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                                     labels.putAll(tagUtil.tagLabels(tagsByIdOrName.get(resource.getIdOrName())));
                                 }
 
-                                samples.add(metricSampleBuilder.buildSingleSample(
-                                        "aws_resource", labels, 1.0D));
+                                metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D)
+                                        .ifPresent(samples::add);
                             });
                 }
             } catch (Exception e) {

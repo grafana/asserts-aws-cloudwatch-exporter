@@ -108,20 +108,23 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                             if (response.hasEventSourceMappings()) {
                                 byRegion.computeIfAbsent(region, k -> new ArrayList<>())
                                         .addAll(response.eventSourceMappings().stream()
-                                                .filter(mapping -> resourceMapper.map(mapping.functionArn()).isPresent())
+                                                .filter(mapping -> resourceMapper.map(mapping.functionArn())
+                                                        .isPresent())
                                                 .collect(Collectors.toList()));
 
                             }
                             nextToken = response.nextMarker();
                         } while (StringUtils.hasText(nextToken));
 
-                        Set<Resource> fnResources = resourceTagHelper.getFilteredResources(accountRegion, region, namespaceConfig);
+                        Set<Resource> fnResources =
+                                resourceTagHelper.getFilteredResources(accountRegion, region, namespaceConfig);
                         byRegion.computeIfAbsent(region, k -> new ArrayList<>()).forEach(mappingConfiguration -> {
                             Optional<Resource> fnResource = Optional.ofNullable(fnResources.stream()
                                     .filter(r -> r.getArn().equals(mappingConfiguration.functionArn()))
                                     .findFirst()
                                     .orElse(resourceMapper.map(mappingConfiguration.functionArn()).orElse(null)));
-                            Optional<Resource> eventResourceOpt = resourceMapper.map(mappingConfiguration.eventSourceArn());
+                            Optional<Resource> eventResourceOpt =
+                                    resourceMapper.map(mappingConfiguration.eventSourceArn());
                             eventResourceOpt.ifPresent(eventResource ->
                                     fnResource.ifPresent(fn -> buildSample(region, fn, eventResource, samples))
                             );
@@ -148,7 +151,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         labels.put(SCRAPE_ACCOUNT_ID_LABEL, functionResource.getAccount());
         eventSourceResource.addLabels(labels, "event_source");
         functionResource.addEnvLabel(labels, metricNameUtil);
-        samples.computeIfAbsent(metricName, k -> new ArrayList<>())
-                .add(sampleBuilder.buildSingleSample(metricName, labels, 1.0D));
+        sampleBuilder.buildSingleSample(metricName, labels, 1.0D)
+                .ifPresent(sample -> samples.computeIfAbsent(metricName, k -> new ArrayList<>()).add(sample));
     }
 }

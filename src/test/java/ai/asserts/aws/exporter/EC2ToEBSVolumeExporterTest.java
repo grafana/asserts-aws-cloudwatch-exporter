@@ -32,6 +32,7 @@ import software.amazon.awssdk.services.ec2.model.Volume;
 import software.amazon.awssdk.services.ec2.model.VolumeAttachment;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
+import java.util.Optional;
 import java.util.SortedMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
@@ -158,7 +159,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                         .put("tag_k", "v")
                         .build()
                 , 1.0d))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
 
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
