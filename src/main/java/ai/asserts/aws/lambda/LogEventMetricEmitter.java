@@ -48,7 +48,7 @@ public class LogEventMetricEmitter {
                     .filter(resource -> resource.getArn().equals(lambdaFunction.getArn()))
                     .findFirst()
                     .ifPresent(resource -> resource.addEnvLabel(logLabels, metricNameUtil));
-            return Optional.of(sampleBuilder.buildSingleSample("aws_lambda_logs", logLabels, 1.0D));
+            return sampleBuilder.buildSingleSample("aws_lambda_logs", logLabels, 1.0D);
         }
         return Optional.empty();
     }

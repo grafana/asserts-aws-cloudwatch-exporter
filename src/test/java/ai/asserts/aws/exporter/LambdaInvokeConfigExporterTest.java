@@ -139,10 +139,10 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         resource.addLabels(failure, "destination");
 
         expect(metricSampleBuilder.buildSingleSample("prefix_invoke_config", success, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
 
         expect(metricSampleBuilder.buildSingleSample("prefix_invoke_config", failure, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
 
         replayAll();
         testClass.update();

@@ -134,8 +134,9 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                                 labels.put("id", asgRes.getId());
                                 labels.put("name", asgRes.getName());
                                 labels.putAll(tagLabels);
-                                samples.add(
-                                        metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
+                                Optional<Sample> opt =
+                                        metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                                opt.ifPresent(samples::add);
                             }
 
                             if (!isEmpty(asg.targetGroupARNs())) {

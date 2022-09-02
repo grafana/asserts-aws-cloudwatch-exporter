@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static io.prometheus.client.Collector.Type.GAUGE;
 import static org.easymock.EasyMock.expect;
@@ -60,6 +61,7 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         );
         expect(labelBuilder.buildLabels("account", "region", metricQuery)).andReturn(labels);
         expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
+        expect(scrapeConfig.keepMetric("metric", labels)).andReturn(true);
         replayAll();
 
         List<Sample> samples = testClass.buildSamples("account", "region",
@@ -83,8 +85,26 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         List<String> labelValues = Arrays.asList("value1", "value2");
         ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
         expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
+        expect(scrapeConfig.keepMetric("metric", labels)).andReturn(true);
         replayAll();
-        assertEquals(new Sample("metric", labelNames, labelValues, 1.0D),
+        assertEquals(Optional.of(new Sample("metric", labelNames, labelValues, 1.0D)),
+                testClass.buildSingleSample("metric",
+                        labels,
+                        1.0D
+                ));
+
+        verifyAll();
+    }
+
+    @Test
+    void buildSingleSample_DropMetric() {
+        List<String> labelNames = Arrays.asList("label1", "label2");
+        List<String> labelValues = Arrays.asList("value1", "value2");
+        ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of("label1", "value1", "label2", "value2");
+        expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
+        expect(scrapeConfig.keepMetric("metric", labels)).andReturn(false);
+        replayAll();
+        assertEquals(Optional.empty(),
                 testClass.buildSingleSample("metric",
                         labels,
                         1.0D

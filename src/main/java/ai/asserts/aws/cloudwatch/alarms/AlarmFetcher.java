@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.cloudwatch.model.StateValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -91,6 +92,8 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                     samples.addAll(labelsList.stream()
                             .map(labels -> sampleBuilder.buildSingleSample(
                                     "aws_cloudwatch_alarm", labels, 1.0))
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
                             .collect(Collectors.toList()));
                 } else {
                     alertsProcessor.sendAlerts(labelsList);

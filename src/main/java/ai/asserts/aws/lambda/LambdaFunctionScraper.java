@@ -81,22 +81,24 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
         try {
             Map<String, Map<String, Map<String, LambdaFunction>>> byAccount = getFunctions();
             List<Sample> samples = new ArrayList<>();
-            byAccount.forEach((accountId, byRegion) -> byRegion.forEach((region, byName) -> byName.forEach((name, details)
-                    -> {
-                Map<String, String> labels = new TreeMap<>();
-                labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
-                labels.put(SCRAPE_REGION_LABEL, region);
-                labels.put("aws_resource_type", "AWS::Lambda::Function");
-                labels.put("namespace", lambda.getNamespace());
-                labels.put("job", details.getName());
-                labels.put("name", details.getName());
-                labels.put("id", details.getName());
-                if (details.getResource() != null) {
-                    details.getResource().addTagLabels(labels, metricNameUtil);
-                    details.getResource().addEnvLabel(labels, metricNameUtil);
-                }
-                samples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D));
-            })));
+            byAccount.forEach(
+                    (accountId, byRegion) -> byRegion.forEach((region, byName) -> byName.forEach((name, details)
+                            -> {
+                        Map<String, String> labels = new TreeMap<>();
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
+                        labels.put(SCRAPE_REGION_LABEL, region);
+                        labels.put("aws_resource_type", "AWS::Lambda::Function");
+                        labels.put("namespace", lambda.getNamespace());
+                        labels.put("job", details.getName());
+                        labels.put("name", details.getName());
+                        labels.put("id", details.getName());
+                        if (details.getResource() != null) {
+                            details.getResource().addTagLabels(labels, metricNameUtil);
+                            details.getResource().addEnvLabel(labels, metricNameUtil);
+                        }
+                        metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D)
+                                .ifPresent(samples::add);
+                    })));
             if (samples.size() > 0) {
                 cache = Collections.singletonList(metricSampleBuilder.buildFamily(samples));
             } else {
@@ -133,7 +135,8 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
                             ),
                             lambdaClient::listFunctions);
                     if (response.hasFunctions()) {
-                        Set<Resource> resources = resourceTagHelper.getFilteredResources(accountRegion, region, lambdaNS);
+                        Set<Resource> resources =
+                                resourceTagHelper.getFilteredResources(accountRegion, region, lambdaNS);
                         response.functions().forEach(fnConfig -> {
                             Optional<Resource> fnResourceOpt = findFnResource(resources, fnConfig);
                             functionsByRegion

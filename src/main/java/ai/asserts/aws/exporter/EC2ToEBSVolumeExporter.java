@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -126,7 +127,9 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                                     labels.putAll(tagUtil.tagLabels(instance.tags().stream()
                                             .map(t -> Tag.builder().key(t.key()).value(t.value()).build())
                                             .collect(Collectors.toList())));
-                                    samples.add(metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0d));
+                                    Optional<Sample> opt = metricSampleBuilder.buildSingleSample(
+                                            "aws_resource", labels, 1.0d);
+                                    opt.ifPresent(samples::add);
                                 });
                     }
                 } while (nextToken.get() != null);

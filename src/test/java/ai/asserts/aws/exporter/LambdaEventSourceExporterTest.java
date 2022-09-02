@@ -132,7 +132,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         sourceResource.addLabels(fn1Labels, "event_source");
 
         expect(sampleBuilder.buildSingleSample("aws_lambda_event_source", fn1Labels, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
 
         expect(fnResource.getName()).andReturn("fn2");
         expect(fnResource.getArn()).andReturn("fn2_arn");
@@ -143,7 +143,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         sourceResource.addLabels(fn2Labels, "event_source");
         expect(sampleBuilder.buildSingleSample("aws_lambda_event_source",
                 fn2Labels,
-                1.0D)).andReturn(sample);
+                1.0D)).andReturn(Optional.of(sample));
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
 

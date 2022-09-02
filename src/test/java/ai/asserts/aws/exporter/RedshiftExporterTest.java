@@ -22,6 +22,7 @@ import software.amazon.awssdk.services.redshift.model.DescribeClustersResponse;
 import software.amazon.awssdk.services.redshift.model.Tag;
 import software.amazon.awssdk.utils.ImmutableMap;
 
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -94,7 +95,7 @@ public class RedshiftExporterTest extends EasyMockSupport {
                         .key("k").value("v")
                         .build()))).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
         expectLastCall();
         replayAll();

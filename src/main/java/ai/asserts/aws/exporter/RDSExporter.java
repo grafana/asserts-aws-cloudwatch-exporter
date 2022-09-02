@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.rds.model.DescribeDbInstancesResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -108,6 +109,8 @@ public class RDSExporter extends Collector implements InitializingBean {
                                     }
                                     return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                                 })
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
                                 .collect(Collectors.toList()));
                     }
                     nextToken.set(resp.marker());
@@ -143,6 +146,8 @@ public class RDSExporter extends Collector implements InitializingBean {
                                     }
                                     return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                                 })
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
                                 .collect(Collectors.toList()));
                     }
                     nextToken.set(resp.marker());

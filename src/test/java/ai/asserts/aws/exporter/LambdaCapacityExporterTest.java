@@ -189,12 +189,12 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                                 .build())
                         .build());
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
-        expect(sampleBuilder.buildSingleSample("timeout", fn1Labels, 120.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("memory_limit", fn1Labels, 128.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("reserved", fn1Labels, 100.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("available", fn1VersionLabels, 100.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("requested", fn1VersionLabels, 20.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("allocated", fn1VersionLabels, 10.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("timeout", fn1Labels, 120.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("memory_limit", fn1Labels, 128.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("reserved", fn1Labels, 100.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("available", fn1VersionLabels, 100.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("requested", fn1VersionLabels, 20.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("allocated", fn1VersionLabels, 10.0D)).andReturn(Optional.of(sample));
 
         expectAccountSettings(account2, "region2");
 
@@ -223,11 +223,11 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                         .build());
         metricCollector.recordLatency(anyObject(), anyObject(), anyLong());
 
-        expect(sampleBuilder.buildSingleSample("timeout", fn2Labels, 60.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("memory_limit", fn2Labels, 128.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("available", fn2ResourceLabels, 100.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("requested", fn2ResourceLabels, 30.0D)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("allocated", fn2ResourceLabels, 20.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("timeout", fn2Labels, 60.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("memory_limit", fn2Labels, 128.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("available", fn2ResourceLabels, 100.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("requested", fn2ResourceLabels, 30.0D)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("allocated", fn2ResourceLabels, 20.0D)).andReturn(Optional.of(sample));
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples).times(5);
@@ -271,8 +271,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                         .provisionedConcurrencyConfigs(Collections.emptyList())
                         .build());
 
-        expect(sampleBuilder.buildSingleSample("timeout", fn1Labels, 120.0)).andReturn(sample);
-        expect(sampleBuilder.buildSingleSample("memory_limit", fn1Labels, 128.0D)).andReturn(sample);
+        expect(sampleBuilder.buildSingleSample("timeout", fn1Labels, 120.0)).andReturn(Optional.of(sample));
+        expect(sampleBuilder.buildSingleSample("memory_limit", fn1Labels, 128.0D)).andReturn(Optional.of(sample));
 
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples).times(2);
@@ -313,10 +313,10 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
                 "account_id", account.getAccountId(),
                 "region", region, "type", "concurrent_executions", "cw_namespace", "AWS/Lambda"), 10.0D
-        )).andReturn(sample);
+        )).andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample("limit", ImmutableMap.of(
                 "account_id", account.getAccountId(),
                 "region", region, "type", "unreserved_concurrent_executions", "cw_namespace", "AWS/Lambda"), 20.0D
-        )).andReturn(sample);
+        )).andReturn(Optional.of(sample));
     }
 }

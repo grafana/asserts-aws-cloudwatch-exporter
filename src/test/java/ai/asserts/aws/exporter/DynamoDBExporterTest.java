@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.ListTablesResponse;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -97,7 +98,7 @@ public class DynamoDBExporterTest extends EasyMockSupport {
                         .build()));
         expect(tagUtil.tagLabels(ImmutableList.of(tag))).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
-                .andReturn(sample);
+                .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
         expectLastCall();
         replayAll();

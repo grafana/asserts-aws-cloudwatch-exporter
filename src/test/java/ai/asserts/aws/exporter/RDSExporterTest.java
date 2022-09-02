@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.rds.model.DescribeDbClustersResponse;
 import software.amazon.awssdk.services.rds.model.DescribeDbInstancesResponse;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -126,9 +127,9 @@ public class RDSExporterTest extends EasyMockSupport {
         expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v")).times(2);
         expect(awsClientProvider.getRDSClient("region1", accountRegion)).andReturn(rdsClient);
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
-                .andReturn(sample1);
+                .andReturn(Optional.of(sample1));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels2, 1.0D))
-                .andReturn(sample2);
+                .andReturn(Optional.of(sample2));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample1, sample2))).andReturn(familySamples);
         expectLastCall();
         replayAll();

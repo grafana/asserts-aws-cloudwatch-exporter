@@ -31,6 +31,7 @@ import software.amazon.awssdk.services.apigateway.model.Resource;
 import software.amazon.awssdk.services.apigateway.model.RestApi;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
+import java.util.Optional;
 import java.util.SortedMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
@@ -129,7 +130,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .put("name", "rest-api-name")
                         .put("aws_resource_type", "AWS::ApiGateway::RestApi")
                         .put("tag_foo_bar", "v")
-                        .build(), 1.0D)).andReturn(sample);
+                        .build(), 1.0D)).andReturn(Optional.of(sample));
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
 

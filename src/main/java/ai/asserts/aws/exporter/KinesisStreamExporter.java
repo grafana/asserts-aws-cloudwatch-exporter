@@ -98,6 +98,8 @@ public class KinesisStreamExporter extends Collector implements InitializingBean
                                 }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                             })
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
                             .collect(Collectors.toList()));
                 }
             } catch (Exception e) {

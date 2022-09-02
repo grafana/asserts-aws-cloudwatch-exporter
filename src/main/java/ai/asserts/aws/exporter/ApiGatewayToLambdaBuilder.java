@@ -9,10 +9,8 @@ import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
-import ai.asserts.aws.resource.ResourceTagHelper;
 import io.micrometer.core.instrument.util.StringUtils;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -123,8 +121,8 @@ public class ApiGatewayToLambdaBuilder extends Collector
                                         apiResourceLabels.put("job", restApi.name());
                                         restApi.tags().forEach((key, value) -> apiResourceLabels.put(
                                                 "tag_" + metricNameUtil.toSnakeCase(key), value));
-                                        samples.add(metricSampleBuilder.buildSingleSample("aws_resource",
-                                                apiResourceLabels, 1.0d));
+                                        metricSampleBuilder.buildSingleSample("aws_resource",
+                                                apiResourceLabels, 1.0d).ifPresent(samples::add);
                                     });
                                 }
                             });
