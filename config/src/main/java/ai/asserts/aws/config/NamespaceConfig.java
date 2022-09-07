@@ -39,6 +39,7 @@ public class NamespaceConfig {
     private Integer period;
     private Integer scrapeInterval;
     private Map<String, String> dimensionFilters;
+    @JsonIgnore
     private Map<String, Pattern> dimensionFilterPattern;
 
     private Map<String, Set<String>> tagFilters;

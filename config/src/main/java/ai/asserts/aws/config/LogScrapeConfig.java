@@ -1,6 +1,7 @@
 
 package ai.asserts.aws.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,12 +33,14 @@ import static java.lang.String.format;
 public class LogScrapeConfig {
     private String lambdaFunctionName;
     @EqualsAndHashCode.Exclude
+    @JsonIgnore
     private Pattern functionNamePattern;
     private List<String> functionNames;
     private String logFilterPattern;
     private String regexPattern;
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @JsonIgnore
     private Pattern pattern;
     private Map<String, String> labels;
     @EqualsAndHashCode.Exclude
