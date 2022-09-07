@@ -1,11 +1,22 @@
 logVerbose: true
 delay: 60
+# The default scrape interval for scraping metrics from CloudWatch
 scrapeInterval: 300
+
+# Whether to discover ECS Tasks for scraping metrics
 discoverECSTasks: true
+
 ecsTargetSDFile: /opt/asserts/ecs-scrape-targets.yml
+
+# Whether to pull CloudWatch alarms and convert them to prometheus alerts in Asserts
 pullCWAlarms: true
+
+# API endpoint to ingest CloudWatch alarms are prometheus alerts in Asserts
 alertForwardUrl: https://assertion-detector.dev.asserts.ai/assertion-detector/v4/prometheus-alerts
+
+# The tenant name in Asserts
 tenant: chief
+
 ecsTaskScrapeConfigs:
   - containerDefinitionName: cloudwatch-exporter
     metricPath: /aws-exporter/actuator/prometheus
