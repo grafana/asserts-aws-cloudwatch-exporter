@@ -81,8 +81,8 @@ public class ScrapeConfigProvider {
     }
 
     private void loadAndBuildLookups() {
+        readWriteLock.writeLock().lock();
         try {
-            readWriteLock.writeLock().lock();
             configCache = load();
             byNamespace.clear();
             byServiceName.clear();
@@ -90,6 +90,8 @@ public class ScrapeConfigProvider {
                 byNamespace.put(namespace.getNamespace(), namespace);
                 byServiceName.put(namespace.getServiceName(), namespace);
             });
+        } catch (Exception e) {
+            log.error("Failed to load config", e);
         } finally {
             readWriteLock.writeLock().unlock();
         }
@@ -145,12 +147,14 @@ public class ScrapeConfigProvider {
                     String key = envVariables.get("CONFIG_S3_KEY");
                     log.info("Will load configuration from S3 Bucket [{}] and Key [{}]", bucket, key);
                     S3Client s3Client = getS3Client();
-                    ResponseBytes<GetObjectResponse> objectAsBytes = s3Client.getObjectAsBytes(GetObjectRequest.builder()
-                            .bucket(bucket)
-                            .key(key)
-                            .build());
-                    scrapeConfig = objectMapper.readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
-                    });
+                    ResponseBytes<GetObjectResponse> objectAsBytes =
+                            s3Client.getObjectAsBytes(GetObjectRequest.builder()
+                                    .bucket(bucket)
+                                    .key(key)
+                                    .build());
+                    scrapeConfig =
+                            objectMapper.readValue(objectAsBytes.asInputStream(), new TypeReference<ScrapeConfig>() {
+                            });
                 } catch (Exception e) {
                     log.error("Failed to load configuration from S3", e);
                 }
@@ -181,14 +185,15 @@ public class ScrapeConfigProvider {
                     .map(File::new)
                     .filter(File::exists)
                     .findFirst().ifPresent(relabel_rules -> {
-                try {
-                    List<RelabelConfig> rules = objectMapper.readValue(relabel_rules, new TypeReference<List<RelabelConfig>>() {
+                        try {
+                            List<RelabelConfig> rules =
+                                    objectMapper.readValue(relabel_rules, new TypeReference<List<RelabelConfig>>() {
+                                    });
+                            finalScrapeConfig.getRelabelConfigs().addAll(rules);
+                        } catch (IOException e) {
+                            log.error("Failed to load relabel rules", e);
+                        }
                     });
-                    finalScrapeConfig.getRelabelConfigs().addAll(rules);
-                } catch (IOException e) {
-                    log.error("Failed to load relabel rules", e);
-                }
-            });
 
             scrapeConfig.validateConfig();
             return scrapeConfig;

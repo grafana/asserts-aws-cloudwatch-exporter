@@ -72,144 +72,150 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
     public void update() {
         List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
         List<Sample> samples = new ArrayList<>();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
-            log.info("Exporting Load Balancer resource metrics for {}-{}", awsAccount.getAccountId(), region);
-            try {
-                ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, awsAccount);
-                DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(
-                        "ElasticLoadBalancingClient/describeLoadBalancers",
-                        ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                                SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClient/describeLoadBalancers"
-                        ),
-                        elbClient::describeLoadBalancers);
-                if (!isEmpty(resp.loadBalancerDescriptions())) {
-                    DescribeTagsResponse describeTagsResponse = rateLimiter.doWithRateLimit(
-                            "ElasticLoadBalancingClient/describeTags",
+        try {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
+                log.info("Exporting Load Balancer resource metrics for {}-{}", awsAccount.getAccountId(), region);
+                try {
+                    ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, awsAccount);
+                    DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(
+                            "ElasticLoadBalancingClient/describeLoadBalancers",
                             ImmutableSortedMap.of(
                                     SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
                                     SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClient/describeTags"
+                                    SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClient/describeLoadBalancers"
                             ),
-                            () -> elbClient.describeTags(DescribeTagsRequest.builder()
-                                    .loadBalancerNames(
-                                            resp.loadBalancerDescriptions().stream()
-                                                    .map(LoadBalancerDescription::loadBalancerName)
-                                                    .collect(Collectors.toSet()))
-                                    .build()));
-                    Map<String, List<Tag>> classLBTagsByName = new TreeMap<>();
-                    describeTagsResponse.tagDescriptions().forEach(tagDescription ->
-                            classLBTagsByName.put(tagDescription.loadBalancerName(), tagDescription.tags().stream()
-                                    .map(t -> Tag.builder()
-                                            .key(t.key())
-                                            .value(t.value())
-                                            .build())
-                                    .collect(Collectors.toList())));
-
-                    resp.loadBalancerDescriptions().forEach(loadBalancerDescription -> {
-                        Map<String, String> labels = new TreeMap<>();
-                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId());
-                        labels.put(SCRAPE_REGION_LABEL, region);
-                        labels.put("namespace", "AWS/ELB");
-                        labels.put("aws_resource_type", "AWS::ElasticLoadBalancing::LoadBalancer");
-                        labels.put("job", loadBalancerDescription.loadBalancerName());
-                        labels.put("name", loadBalancerDescription.loadBalancerName());
-                        labels.put("id", loadBalancerDescription.loadBalancerName());
-                        if (classLBTagsByName.containsKey(loadBalancerDescription.loadBalancerName())) {
-                            List<Tag> allTags = classLBTagsByName.get(loadBalancerDescription.loadBalancerName());
-
-                            // This is for backward compatibility. We can modify model rule to instead use the
-                            /// k8s_* series of labels
-                            allTags.stream().filter(tag -> scrapeConfig.shouldExportTag(tag.key(), tag.value()))
-                                    .forEach(tag -> labels.put(metricNameUtil.toSnakeCase("tag_" + tag.key()),
-                                            tag.value()));
-
-                            allTags.stream().filter(tag -> tag.key().equals("kubernetes.io/service-name"))
-                                    .findFirst().ifPresent(tag -> {
-                                        String[] parts = tag.value().split("/");
-                                        labels.put("k8s_namespace", parts[0]);
-                                        labels.put("k8s_service", parts[1]);
-                                    });
-
-                            allTags.stream().filter(tag -> tag.key().startsWith("kubernetes.io/cluster"))
-                                    .findFirst().ifPresent(tag -> {
-                                        String[] parts = tag.key().split("/");
-                                        labels.put("k8s_cluster", parts[2]);
-                                    });
-
-                            labels.putAll(tagUtil.tagLabels(allTags));
-                        }
-                        metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D)
-                                .ifPresent(samples::add);
-                    });
-                }
-            } catch (Exception e) {
-                log.error("Failed to discover classic load balancers", e);
-            }
-
-            try {
-                ElasticLoadBalancingV2Client elbClient = awsClientProvider.getELBV2Client(region, awsAccount);
-                software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeLoadBalancersResponse resp =
-                        rateLimiter.doWithRateLimit("ElasticLoadBalancingClient/describeLoadBalancers",
+                            elbClient::describeLoadBalancers);
+                    if (!isEmpty(resp.loadBalancerDescriptions())) {
+                        DescribeTagsResponse describeTagsResponse = rateLimiter.doWithRateLimit(
+                                "ElasticLoadBalancingClient/describeTags",
                                 ImmutableSortedMap.of(
                                         SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
                                         SCRAPE_REGION_LABEL, region,
-                                        SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClient/describeLoadBalancers"
+                                        SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClient/describeTags"
                                 ),
-                                elbClient::describeLoadBalancers);
-                if (resp.hasLoadBalancers()) {
-                    software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsResponse
-                            tagsResponse = elbClient.describeTags(
-                            software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsRequest.builder()
-                                    .resourceArns(resp.loadBalancers().stream()
-                                            .map(LoadBalancer::loadBalancerArn)
-                                            .collect(Collectors.toList()))
-                                    .build());
+                                () -> elbClient.describeTags(DescribeTagsRequest.builder()
+                                        .loadBalancerNames(
+                                                resp.loadBalancerDescriptions().stream()
+                                                        .map(LoadBalancerDescription::loadBalancerName)
+                                                        .collect(Collectors.toSet()))
+                                        .build()));
+                        Map<String, List<Tag>> classLBTagsByName = new TreeMap<>();
+                        describeTagsResponse.tagDescriptions().forEach(tagDescription ->
+                                classLBTagsByName.put(tagDescription.loadBalancerName(), tagDescription.tags().stream()
+                                        .map(t -> Tag.builder()
+                                                .key(t.key())
+                                                .value(t.value())
+                                                .build())
+                                        .collect(Collectors.toList())));
 
-                    Map<String, List<Tag>> tagsByIdOrName = new TreeMap<>();
+                        resp.loadBalancerDescriptions().forEach(loadBalancerDescription -> {
+                            Map<String, String> labels = new TreeMap<>();
+                            labels.put(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId());
+                            labels.put(SCRAPE_REGION_LABEL, region);
+                            labels.put("namespace", "AWS/ELB");
+                            labels.put("aws_resource_type", "AWS::ElasticLoadBalancing::LoadBalancer");
+                            labels.put("job", loadBalancerDescription.loadBalancerName());
+                            labels.put("name", loadBalancerDescription.loadBalancerName());
+                            labels.put("id", loadBalancerDescription.loadBalancerName());
+                            if (classLBTagsByName.containsKey(loadBalancerDescription.loadBalancerName())) {
+                                List<Tag> allTags = classLBTagsByName.get(loadBalancerDescription.loadBalancerName());
 
-                    tagsResponse.tagDescriptions().forEach(td -> resourceMapper.map(td.resourceArn()).ifPresent(res -> {
-                        List<Tag> tags = tagsByIdOrName.computeIfAbsent(res.getIdOrName(), k -> new ArrayList<>());
-                        tags.addAll(td.tags().stream()
-                                .map(t -> Tag.builder()
-                                        .key(t.key())
-                                        .value(t.value()).build())
-                                .collect(Collectors.toList()));
-                    }));
+                                // This is for backward compatibility. We can modify model rule to instead use the
+                                /// k8s_* series of labels
+                                allTags.stream().filter(tag -> scrapeConfig.shouldExportTag(tag.key(), tag.value()))
+                                        .forEach(tag -> labels.put(metricNameUtil.toSnakeCase("tag_" + tag.key()),
+                                                tag.value()));
 
-                    resp.loadBalancers().stream()
-                            .map(loadBalancer -> resourceMapper.map(loadBalancer.loadBalancerArn()))
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .forEach(resource -> {
-                                Map<String, String> labels = new TreeMap<>();
-                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId());
-                                labels.put(SCRAPE_REGION_LABEL, region);
-                                labels.put("aws_resource_type", "AWS::ElasticLoadBalancingV2::LoadBalancer");
-                                labels.put("job", resource.getName());
-                                labels.put("name", resource.getName());
-                                labels.put("id", resource.getId());
-                                labels.put("type", resource.getSubType());
-                                if ("app".equals(resource.getSubType())) {
-                                    labels.put("namespace", "AWS/ApplicationELB");
-                                } else {
-                                    labels.put("namespace", "AWS/NetworkELB");
-                                }
+                                allTags.stream().filter(tag -> tag.key().equals("kubernetes.io/service-name"))
+                                        .findFirst().ifPresent(tag -> {
+                                            String[] parts = tag.value().split("/");
+                                            labels.put("k8s_namespace", parts[0]);
+                                            labels.put("k8s_service", parts[1]);
+                                        });
 
-                                if (tagsByIdOrName.containsKey(resource.getIdOrName())) {
-                                    labels.putAll(tagUtil.tagLabels(tagsByIdOrName.get(resource.getIdOrName())));
-                                }
+                                allTags.stream().filter(tag -> tag.key().startsWith("kubernetes.io/cluster"))
+                                        .findFirst().ifPresent(tag -> {
+                                            String[] parts = tag.key().split("/");
+                                            labels.put("k8s_cluster", parts[2]);
+                                        });
 
-                                metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D)
-                                        .ifPresent(samples::add);
-                            });
+                                labels.putAll(tagUtil.tagLabels(allTags));
+                            }
+                            metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D)
+                                    .ifPresent(samples::add);
+                        });
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to discover classic load balancers", e);
                 }
-            } catch (Exception e) {
-                log.error("Failed to discover ALBs and NLBs", e);
-            }
-        }));
+
+                try {
+                    ElasticLoadBalancingV2Client elbClient = awsClientProvider.getELBV2Client(region, awsAccount);
+                    software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeLoadBalancersResponse resp =
+                            rateLimiter.doWithRateLimit("ElasticLoadBalancingClient/describeLoadBalancers",
+                                    ImmutableSortedMap.of(
+                                            SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
+                                            SCRAPE_REGION_LABEL, region,
+                                            SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClient/describeLoadBalancers"
+                                    ),
+                                    elbClient::describeLoadBalancers);
+                    if (resp.hasLoadBalancers()) {
+                        software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsResponse
+                                tagsResponse = elbClient.describeTags(
+                                software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsRequest.builder()
+                                        .resourceArns(resp.loadBalancers().stream()
+                                                .map(LoadBalancer::loadBalancerArn)
+                                                .collect(Collectors.toList()))
+                                        .build());
+
+                        Map<String, List<Tag>> tagsByIdOrName = new TreeMap<>();
+
+                        tagsResponse.tagDescriptions()
+                                .forEach(td -> resourceMapper.map(td.resourceArn()).ifPresent(res -> {
+                                    List<Tag> tags =
+                                            tagsByIdOrName.computeIfAbsent(res.getIdOrName(), k -> new ArrayList<>());
+                                    tags.addAll(td.tags().stream()
+                                            .map(t -> Tag.builder()
+                                                    .key(t.key())
+                                                    .value(t.value()).build())
+                                            .collect(Collectors.toList()));
+                                }));
+
+                        resp.loadBalancers().stream()
+                                .map(loadBalancer -> resourceMapper.map(loadBalancer.loadBalancerArn()))
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
+                                .forEach(resource -> {
+                                    Map<String, String> labels = new TreeMap<>();
+                                    labels.put(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId());
+                                    labels.put(SCRAPE_REGION_LABEL, region);
+                                    labels.put("aws_resource_type", "AWS::ElasticLoadBalancingV2::LoadBalancer");
+                                    labels.put("job", resource.getName());
+                                    labels.put("name", resource.getName());
+                                    labels.put("id", resource.getId());
+                                    labels.put("type", resource.getSubType());
+                                    if ("app".equals(resource.getSubType())) {
+                                        labels.put("namespace", "AWS/ApplicationELB");
+                                    } else {
+                                        labels.put("namespace", "AWS/NetworkELB");
+                                    }
+
+                                    if (tagsByIdOrName.containsKey(resource.getIdOrName())) {
+                                        labels.putAll(tagUtil.tagLabels(tagsByIdOrName.get(resource.getIdOrName())));
+                                    }
+
+                                    metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D)
+                                            .ifPresent(samples::add);
+                                });
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to discover ALBs and NLBs", e);
+                }
+            }));
+        } catch (Exception e) {
+            log.error("Failed to build Load Balancer metrics", e);
+        }
         metricFamilySamples.add(metricSampleBuilder.buildFamily(samples));
         resourceMetrics = metricFamilySamples;
     }

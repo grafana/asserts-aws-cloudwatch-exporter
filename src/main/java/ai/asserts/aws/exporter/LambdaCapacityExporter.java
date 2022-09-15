@@ -30,6 +30,7 @@ import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyCo
 import software.amazon.awssdk.services.lambda.model.ListProvisionedConcurrencyConfigsResponse;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,7 +81,11 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     @Override
     public void update() {
         log.info("Updating Lambda Capacity");
-        cache = getMetrics();
+        try {
+            cache = getMetrics();
+        } catch (Exception e) {
+            log.error("Failed to discover Lambda function configurations", e);
+        }
     }
 
     private List<MetricFamilySamples> getMetrics() {
@@ -99,7 +104,8 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         optional.ifPresent(lambdaConfig -> {
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 String account = accountRegion.getAccountId();
-                Map<String, Map<String, LambdaFunction>> byRegion = byAccountByRegion.get(account);
+                Map<String, Map<String, LambdaFunction>> byRegion = byAccountByRegion.getOrDefault(account,
+                        Collections.emptyMap());
                 byRegion.forEach((region, functions) -> {
                     log.info(" - Getting Lambda account and provisioned concurrency for region {}", region);
                     try {
@@ -184,10 +190,11 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                                     samples.computeIfAbsent(memoryLimit, k -> new ArrayList<>()).add(sample));
 
 
-                            ListProvisionedConcurrencyConfigsRequest request = ListProvisionedConcurrencyConfigsRequest
-                                    .builder()
-                                    .functionName(lambdaFunction.getName())
-                                    .build();
+                            ListProvisionedConcurrencyConfigsRequest request =
+                                    ListProvisionedConcurrencyConfigsRequest
+                                            .builder()
+                                            .functionName(lambdaFunction.getName())
+                                            .build();
 
                             ListProvisionedConcurrencyConfigsResponse response =
                                     rateLimiter.doWithRateLimit(
@@ -222,7 +229,8 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
 
 
                                     Integer allocated = config.allocatedProvisionedConcurrentExecutions();
-                                    sampleBuilder.buildSingleSample(allocatedMetric, labels, allocated.doubleValue())
+                                    sampleBuilder.buildSingleSample(allocatedMetric, labels,
+                                                    allocated.doubleValue())
                                             .ifPresent(sample -> samples.computeIfAbsent(allocatedMetric,
                                                     k -> new ArrayList<>()).add(sample));
                                 });

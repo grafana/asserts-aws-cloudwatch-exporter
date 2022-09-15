@@ -77,32 +77,36 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     }
 
     public void update() {
-        if (!scrapeConfigProvider.getScrapeConfig().isPullCWAlarms()) {
-            return;
-        }
-        boolean exposeAsMetric = isEmpty(scrapeConfigProvider.getScrapeConfig().getAlertForwardUrl());
-        List<MetricFamilySamples> newFamily = new ArrayList<>();
-        List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            accountRegion.getRegions().forEach(region -> {
-                log.info("Fetching alarms from account {} and region {}", accountRegion.getAccountId(), region);
-                List<Map<String, String>> labelsList = getAlarms(accountRegion, region);
-                labelsList.forEach(alarmMetricConverter::simplifyAlarmName);
-                if (exposeAsMetric) {
-                    samples.addAll(labelsList.stream()
-                            .map(labels -> sampleBuilder.buildSingleSample(
-                                    "aws_cloudwatch_alarm", labels, 1.0))
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(Collectors.toList()));
-                } else {
-                    alertsProcessor.sendAlerts(labelsList);
-                }
-            });
-        }
-        if (exposeAsMetric) {
-            newFamily.add(sampleBuilder.buildFamily(samples));
-            metricFamilySamples = newFamily;
+        try {
+            if (!scrapeConfigProvider.getScrapeConfig().isPullCWAlarms()) {
+                return;
+            }
+            boolean exposeAsMetric = isEmpty(scrapeConfigProvider.getScrapeConfig().getAlertForwardUrl());
+            List<MetricFamilySamples> newFamily = new ArrayList<>();
+            List<MetricFamilySamples.Sample> samples = new ArrayList<>();
+            for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+                accountRegion.getRegions().forEach(region -> {
+                    log.info("Fetching alarms from account {} and region {}", accountRegion.getAccountId(), region);
+                    List<Map<String, String>> labelsList = getAlarms(accountRegion, region);
+                    labelsList.forEach(alarmMetricConverter::simplifyAlarmName);
+                    if (exposeAsMetric) {
+                        samples.addAll(labelsList.stream()
+                                .map(labels -> sampleBuilder.buildSingleSample(
+                                        "aws_cloudwatch_alarm", labels, 1.0))
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
+                                .collect(Collectors.toList()));
+                    } else {
+                        alertsProcessor.sendAlerts(labelsList);
+                    }
+                });
+            }
+            if (exposeAsMetric) {
+                newFamily.add(sampleBuilder.buildFamily(samples));
+                metricFamilySamples = newFamily;
+            }
+        } catch (Exception e) {
+            log.error("Failed to update", e);
         }
     }
 
@@ -130,13 +134,15 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                             .stream()
                             .map(metricAlarm -> this.processMetricAlarm(metricAlarm, account.getAccountId(), region))
                             .collect(Collectors.toList()));
+
                 }
                 // TODO Handle Composite Alarms
                 nextToken[0] = response.nextToken();
             } while (nextToken[0] != null);
         } catch (Exception e) {
-            log.error("Failed to build resource metric samples", e);
+            log.error("Failed to fetch CloudWatch alarms", e);
         }
+        log.info("Fetched {} alarms from CloudWatch", labelsList.size());
         return labelsList;
     }
 

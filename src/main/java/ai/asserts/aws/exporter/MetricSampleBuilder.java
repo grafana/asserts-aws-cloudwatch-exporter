@@ -38,6 +38,7 @@ public class MetricSampleBuilder {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             Map<String, String> labels = scrapeConfig
                     .additionalLabels(metricName, labelBuilder.buildLabels(account, region, metricQuery));
+            labels.entrySet().removeIf(entry -> entry.getValue() == null);
             if (scrapeConfig.keepMetric(metricName, labels)) {
                 for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
                     Sample sample = new Sample(
@@ -56,6 +57,7 @@ public class MetricSampleBuilder {
                                               Double metric) {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
+        labels.entrySet().removeIf(entry -> entry.getValue() == null);
         if (scrapeConfig.keepMetric(metricName, inputLabels)) {
             return Optional.of(new Sample(
                     metricName,

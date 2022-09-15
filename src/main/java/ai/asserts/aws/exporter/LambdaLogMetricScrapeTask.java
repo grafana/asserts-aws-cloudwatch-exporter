@@ -62,19 +62,27 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
 
     public List<MetricFamilySamples> collect() {
         List<Collector.MetricFamilySamples.Sample> samples = new ArrayList<>();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        scrapeConfig.getLambdaConfig().ifPresent(namespaceConfig -> {
-            Map<FunctionLogScrapeConfig, FilteredLogEvent> copy = this.cache;
-            copy.forEach((config, event) ->
-                    logEventMetricEmitter.getSample(namespaceConfig, config, event)
-                            .ifPresent(samples::add));
-        });
+        try {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            scrapeConfig.getLambdaConfig().ifPresent(namespaceConfig -> {
+                Map<FunctionLogScrapeConfig, FilteredLogEvent> copy = this.cache;
+                copy.forEach((config, event) ->
+                        logEventMetricEmitter.getSample(namespaceConfig, config, event)
+                                .ifPresent(samples::add));
+            });
+        } catch (Exception e) {
+            log.error("Failed to build metric samples", e);
+        }
         return Collections.singletonList(new MetricFamilySamples("aws_lambda_logs", GAUGE, "", samples));
     }
 
     @Override
     public void update() {
-        this.cache = scrapeLogEvents();
+        try {
+            this.cache = scrapeLogEvents();
+        } catch (Exception e) {
+            log.error("Failed to scrape Lambda logs", e);
+        }
     }
 
     private Map<FunctionLogScrapeConfig, FilteredLogEvent> scrapeLogEvents() {
@@ -117,7 +125,8 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
                         Optional<FilteredLogEvent> logEventOpt = logEventScraper.findLogEvent(
                                 cloudWatchLogsClient, functionConfig, logScrapeConfig);
                         logEventOpt.ifPresent(logEvent ->
-                                map.put(new FunctionLogScrapeConfig(account, functionConfig, logScrapeConfig), logEvent));
+                                map.put(new FunctionLogScrapeConfig(account, functionConfig, logScrapeConfig),
+                                        logEvent));
                     }));
         } catch (Exception e) {
             log.error("Failed to scrape lambda logs", e);

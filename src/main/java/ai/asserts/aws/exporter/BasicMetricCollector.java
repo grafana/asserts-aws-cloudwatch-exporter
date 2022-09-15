@@ -43,35 +43,39 @@ public class BasicMetricCollector extends Collector {
     public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> familySamples = new ArrayList<>();
 
-        Map<String, List<Sample>> gaugeSamples = new TreeMap<>();
-        gaugeValues.forEach((key, value) ->
-                gaugeSamples.computeIfAbsent(key.metricName, k -> new ArrayList<>())
-                        .add(new Sample(key.metricName, key.labelNames, key.labelValues, value)));
-        gaugeSamples.forEach((name, samples) ->
-                familySamples.add(new MetricFamilySamples(name, Type.GAUGE, "", samples)));
-        gaugeValues = new ConcurrentHashMap<>();
+        try {
+            Map<String, List<Sample>> gaugeSamples = new TreeMap<>();
+            gaugeValues.forEach((key, value) ->
+                    gaugeSamples.computeIfAbsent(key.metricName, k -> new ArrayList<>())
+                            .add(new Sample(key.metricName, key.labelNames, key.labelValues, value)));
+            gaugeSamples.forEach((name, samples) ->
+                    familySamples.add(new MetricFamilySamples(name, Type.GAUGE, "", samples)));
+            gaugeValues = new ConcurrentHashMap<>();
 
-        Map<String, List<Sample>> counterSamples = new TreeMap<>();
-        counters.forEach((key, value) ->
-                counterSamples.computeIfAbsent(key.metricName, k -> new ArrayList<>())
-                        .add(new Sample(key.metricName, key.labelNames, key.labelValues, value.get())));
-        counterSamples.forEach((name, samples) ->
-                familySamples.add(new MetricFamilySamples(name, Type.COUNTER, "", samples)));
+            Map<String, List<Sample>> counterSamples = new TreeMap<>();
+            counters.forEach((key, value) ->
+                    counterSamples.computeIfAbsent(key.metricName, k -> new ArrayList<>())
+                            .add(new Sample(key.metricName, key.labelNames, key.labelValues, value.get())));
+            counterSamples.forEach((name, samples) ->
+                    familySamples.add(new MetricFamilySamples(name, Type.COUNTER, "", samples)));
 
-        Map<String, List<Sample>> latencySamples = new TreeMap<>();
-        latencyCounters.forEach((key, latencyCounter) -> {
-            int count = latencyCounter.getCount();
-            double value = latencyCounter.getValue();
-            latencySamples.computeIfAbsent(key.metricName + "_count", k -> new ArrayList<>())
-                    .add(new Sample(key.metricName + "_count", key.labelNames, key.labelValues, count));
-            latencySamples.computeIfAbsent(key.metricName + "_sum", k -> new ArrayList<>())
-                    .add(new Sample(key.metricName + "_sum", key.labelNames, key.labelValues, value));
-        });
+            Map<String, List<Sample>> latencySamples = new TreeMap<>();
+            latencyCounters.forEach((key, latencyCounter) -> {
+                int count = latencyCounter.getCount();
+                double value = latencyCounter.getValue();
+                latencySamples.computeIfAbsent(key.metricName + "_count", k -> new ArrayList<>())
+                        .add(new Sample(key.metricName + "_count", key.labelNames, key.labelValues, count));
+                latencySamples.computeIfAbsent(key.metricName + "_sum", k -> new ArrayList<>())
+                        .add(new Sample(key.metricName + "_sum", key.labelNames, key.labelValues, value));
+            });
 
-        histograms.values().forEach(histogram -> familySamples.addAll(histogram.collect()));
+            histograms.values().forEach(histogram -> familySamples.addAll(histogram.collect()));
 
-        latencySamples.forEach((name, samples) ->
-                familySamples.add(new MetricFamilySamples(name, Type.COUNTER, "", samples)));
+            latencySamples.forEach((name, samples) ->
+                    familySamples.add(new MetricFamilySamples(name, Type.COUNTER, "", samples)));
+        } catch (Exception e) {
+            log.error("Failed to collect metric samples", e);
+        }
 
         return familySamples;
     }
