@@ -200,7 +200,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                 File resultFile = new File(scrapeConfig.getEcsTargetSDFile());
                 ObjectWriter objectWriter = objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter();
                 objectWriter.writeValue(resultFile, targets);
-                if (scrapeConfig.isLogVerbose()) {
+                if (scrapeConfig.isLogECSTargets()) {
                     String targetsFileContent = objectWriter.writeValueAsString(targets);
                     log.info("Wrote ECS scrape target SD file {}\n{}\n", resultFile.toURI(), targetsFileContent);
                 } else {

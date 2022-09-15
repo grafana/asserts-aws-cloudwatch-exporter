@@ -130,7 +130,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
-        expect(scrapeConfig.isLogVerbose()).andReturn(true);
+        expect(scrapeConfig.isLogECSTargets()).andReturn(true);
         expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(true).times(3);
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(false);
@@ -284,7 +284,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
-        expect(scrapeConfig.isLogVerbose()).andReturn(true);
+        expect(scrapeConfig.isLogECSTargets()).andReturn(true);
 
         expect(restTemplate.getForObject(anyObject(), anyObject())).andReturn(TaskMetaData.builder()
                 .taskARN("self-task-arn")
