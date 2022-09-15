@@ -11,7 +11,7 @@ import java.util.stream.Stream;
 
 @Getter
 public enum CWNamespace {
-    alb("AWS/ApplicationELB", "aws_alb", "alb", "elasticloadbalancing2"),
+    alb("AWS/ApplicationELB", "aws_alb", "alb", "elasticloadbalancing"),
     apigateway("AWS/ApiGateway", "aws_apigateway", "apigateway", null),
     appsync("AWS/AppSync", "aws_appsync", "appsync", null),
     billing("AWS/Billing", "aws_billing", "billing", null),
@@ -33,8 +33,8 @@ public enum CWNamespace {
     fsx("AWS/FSx", "aws_fsx", "fsx", null),
     gamelift("AWS/GameLift", "aws_gamelift", "gamelift", null),
     glue("Glue", "aws_glue", "glue", null),
-    kinesis("AWS/Kinesis", "aws_kinesis", "kinesis", null),
-    kinesis_analytics("AWS/KinesisAnalytics", "aws_kinesis_analytics", "kinesis", null),
+    kinesis("AWS/Kinesis", "aws_kinesis", "kinesis", "kinesis"),
+    kinesis_analytics("AWS/KinesisAnalytics", "aws_kinesis_analytics", "kinesis", "kinesisanalytics"),
     nfw("AWS/NetworkFirewall", "aws_nfw", "nfw", null),
     ngw("AWS/NATGateway", "aws_ngw", "ngw", null),
     lambda("AWS/Lambda", "aws_lambda", "lambda", "lambda","function"),
@@ -50,7 +50,7 @@ public enum CWNamespace {
     vpn("AWS/VPN", "aws_vpn", "vpn", null),
     asg("AWS/AutoScaling", "aws_asg", "asg", null),
     kafka("AWS/Kafka", "aws_kafka", "kafka", null),
-    firehose("AWS/Firehose", "aws_firehose", "firehose", null),
+    firehose("AWS/Firehose", "aws_firehose", "firehose", "firehose"),
     sns("AWS/SNS", "aws_sns", "sns", null),
     sfn("AWS/States", "aws_sfn", "sfn", null),
     wafv2("AWS/WAFV2", "aws_wav2", "wafv2", null);
