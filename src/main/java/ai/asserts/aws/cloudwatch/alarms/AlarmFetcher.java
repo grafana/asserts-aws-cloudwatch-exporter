@@ -9,6 +9,7 @@ import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -33,7 +34,6 @@ import java.util.stream.Collectors;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
-import static io.micrometer.core.instrument.util.StringUtils.isEmpty;
 
 @Component
 @Slf4j
@@ -78,10 +78,11 @@ public class AlarmFetcher extends Collector implements InitializingBean {
 
     public void update() {
         try {
-            if (!scrapeConfigProvider.getScrapeConfig().isPullCWAlarms()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            if (!scrapeConfig.isPullCWAlarms()) {
                 return;
             }
-            boolean exposeAsMetric = isEmpty(scrapeConfigProvider.getScrapeConfig().getAlertForwardUrl());
+            boolean exposeAsMetric = scrapeConfig.isCwAlarmAsMetric();
             List<MetricFamilySamples> newFamily = new ArrayList<>();
             List<MetricFamilySamples.Sample> samples = new ArrayList<>();
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
@@ -101,9 +102,11 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                     }
                 });
             }
+
             if (exposeAsMetric) {
                 newFamily.add(sampleBuilder.buildFamily(samples));
                 metricFamilySamples = newFamily;
+                log.info("Exported {} alarms as metrics", samples.size());
             }
         } catch (Exception e) {
             log.error("Failed to update", e);
