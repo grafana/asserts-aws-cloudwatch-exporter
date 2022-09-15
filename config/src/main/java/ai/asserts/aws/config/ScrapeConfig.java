@@ -113,6 +113,9 @@ public class ScrapeConfig {
     @Builder.Default
     private boolean logVerbose = false;
 
+    @Builder.Default
+    private boolean logECSTargets = false;
+
     @JsonIgnore
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {
