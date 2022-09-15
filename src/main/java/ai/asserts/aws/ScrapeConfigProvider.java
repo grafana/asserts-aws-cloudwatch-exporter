@@ -167,9 +167,11 @@ public class ScrapeConfigProvider {
                         .readValue(resource.getURL(), new TypeReference<ScrapeConfig>() {
                         });
             }
-            log.info("Loaded configuration \n{}\n", objectMapper
-                    .writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(scrapeConfig));
+            if (scrapeConfig.isLogScrapeConfig()) {
+                log.info("Loaded configuration \n{}\n", objectMapper
+                        .writerWithDefaultPrettyPrinter()
+                        .writeValueAsString(scrapeConfig));
+            }
 
             if (envVariables.containsKey("REGIONS")) {
                 scrapeConfig.setRegions(Stream.of(envVariables.get("REGIONS").split(","))

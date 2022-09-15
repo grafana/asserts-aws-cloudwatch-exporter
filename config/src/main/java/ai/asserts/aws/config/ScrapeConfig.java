@@ -27,6 +27,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
@@ -115,6 +116,9 @@ public class ScrapeConfig {
 
     @Builder.Default
     private boolean logECSTargets = false;
+
+    @Builder.Default
+    private boolean logScrapeConfig = false;
 
     @JsonIgnore
     public Optional<NamespaceConfig> getLambdaConfig() {
