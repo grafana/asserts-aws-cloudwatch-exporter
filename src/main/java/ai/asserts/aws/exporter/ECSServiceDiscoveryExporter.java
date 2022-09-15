@@ -145,39 +145,43 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     public void update() {
         Set<ResourceRelation> newRouting = new HashSet<>();
         List<Sample> resourceMetricSamples = new ArrayList<>();
+        List<StaticConfig> latestTargets = new ArrayList<>();
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        List<StaticConfig> latestTargets = new ArrayList<>();
-        discoverSelfSubnet();
-        accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
-            ImmutableSortedMap<String, String> TELEMETRY_LABELS =
-                    ImmutableSortedMap.of(
-                            SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                            SCRAPE_REGION_LABEL, region,
-                            SCRAPE_OPERATION_LABEL, "listClusters",
-                            SCRAPE_NAMESPACE_LABEL, "AWS/ECS");
-            SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
-            try {
-                EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount);
-                // List clusters just returns the cluster ARN. There is no need to paginate
-                ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit("EcsClient/listClusters",
+        try {
+            discoverSelfSubnet();
+            accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
+                ImmutableSortedMap<String, String> TELEMETRY_LABELS =
                         ImmutableSortedMap.of(
                                 SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
                                 SCRAPE_OPERATION_LABEL, "listClusters",
-                                SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
-                        ecsClient::listClusters);
-                labels.put(SCRAPE_REGION_LABEL, region);
-                if (listClustersResponse.hasClusterArns()) {
-                    listClustersResponse.clusterArns().stream().map(resourceMapper::map).filter(Optional::isPresent)
-                            .map(Optional::get).forEach(cluster -> latestTargets.addAll(
-                                    buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting,
-                                            resourceMetricSamples)));
+                                SCRAPE_NAMESPACE_LABEL, "AWS/ECS");
+                SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
+                try {
+                    EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount);
+                    // List clusters just returns the cluster ARN. There is no need to paginate
+                    ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit("EcsClient/listClusters",
+                            ImmutableSortedMap.of(
+                                    SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
+                                    SCRAPE_REGION_LABEL, region,
+                                    SCRAPE_OPERATION_LABEL, "listClusters",
+                                    SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
+                            ecsClient::listClusters);
+                    labels.put(SCRAPE_REGION_LABEL, region);
+                    if (listClustersResponse.hasClusterArns()) {
+                        listClustersResponse.clusterArns().stream().map(resourceMapper::map).filter(Optional::isPresent)
+                                .map(Optional::get).forEach(cluster -> latestTargets.addAll(
+                                        buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting,
+                                                resourceMetricSamples)));
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to get list of ECS Clusters", e);
                 }
-            } catch (Exception e) {
-                log.error("Failed to get list of ECS Clusters", e);
-            }
-        }));
+            }));
+        } catch (Exception e) {
+            log.error("Failed to build ECS Targets", e);
+        }
 
         routing = newRouting;
         targets = latestTargets.stream()

@@ -91,7 +91,11 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     @Override
     public void update() {
         if (intervalSeconds <= 60 || System.currentTimeMillis() - lastRunTime > intervalSeconds * 1000L) {
-            cache = fetchMetricsFromCW();
+            try {
+                cache = fetchMetricsFromCW();
+            } catch (Exception e) {
+                log.error("Failed to update", e);
+            }
             lastRunTime = System.currentTimeMillis();
         }
     }

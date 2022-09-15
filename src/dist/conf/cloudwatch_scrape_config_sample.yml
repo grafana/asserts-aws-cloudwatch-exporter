@@ -24,9 +24,20 @@ regions:
   - us-west-2
 namespaces:
   - name: AWS/Lambda
+    scrapeInterval: 60
     dimensionFilters:
       FunctionName: .+
     metrics:
+      - name: Invocations
+        stats:
+          - Sum
+      - name: Errors
+        stats:
+          - Sum
+      - name: Duration
+        stats:
+          - Average
+          - p99
       - name: Throttles
         stats:
           - Sum

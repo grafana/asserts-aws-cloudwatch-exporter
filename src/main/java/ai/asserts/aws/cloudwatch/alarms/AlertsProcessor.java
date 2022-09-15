@@ -39,8 +39,10 @@ public class AlertsProcessor {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         if (!CollectionUtils.isEmpty(labelsList)) {
             if (scrapeConfig.isCwAlarmAsMetric()) {
+                log.info("Exporting alarms as metric");
                 alarmMetricExporter.processMetric(labelsList);
             } else if (hasLength(scrapeConfig.getTenant()) && !CollectionUtils.isEmpty(labelsList)) {
+                log.info("Exporting alarms as prometheus alerts");
                 // Add scope labels
                 List<PrometheusAlert> alertList = labelsList.stream()
                         .map(inputLabels -> scrapeConfig.additionalLabels("asserts:alerts", inputLabels))
@@ -50,12 +52,14 @@ public class AlertsProcessor {
                 HttpEntity<PrometheusAlerts> request = new HttpEntity<>(alerts,
                         scrapeConfigProvider.createAssertsAuthHeader().getHeaders());
                 try {
-                    String url = String.format("%s?tenant=%s", scrapeConfigProvider.getAlertForwardUrl(), scrapeConfig.getTenant());
-                    log.info("Forwarding CloudWatch alarms as alerts to - {}", url);
+                    String url = String.format("%s?tenant=%s", scrapeConfigProvider.getAlertForwardUrl(),
+                            scrapeConfig.getTenant());
+                    log.info("Forwarding {} CloudWatch alarms as alerts to - {}", alertList.size(), url);
                     ResponseEntity<String> responseEntity = restTemplate.exchange(url, POST, request,
                             new ParameterizedTypeReference<String>() {
                             });
-                    log.info("Got response code {} and response {}", responseEntity.getStatusCode(), responseEntity.getBody());
+                    log.info("Got response code {} and response {}", responseEntity.getStatusCode(),
+                            responseEntity.getBody());
                 } catch (RestClientException e) {
                     log.error("Error sending alerts - {}", Arrays.toString(e.getStackTrace()));
                 }

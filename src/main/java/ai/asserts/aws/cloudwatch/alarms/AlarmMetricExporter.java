@@ -42,12 +42,12 @@ public class AlarmMetricExporter extends Collector {
         this.alarmMetricConverter = alarmMetricConverter;
     }
 
-    public void processMetric(List<Map<String, String>> labels) {
-        labels.forEach(labellist -> {
-            if ("ALARM".equals(labellist.get("state"))) {
-                addMetric(labellist);
+    public void processMetric(List<Map<String, String>> labelsList) {
+        labelsList.forEach(labels -> {
+            if ("ALARM".equals(labels.get("state"))) {
+                addMetric(labels);
             } else {
-                removeMetric(labellist);
+                removeMetric(labels);
             }
         });
     }
@@ -81,19 +81,24 @@ public class AlarmMetricExporter extends Collector {
     @Override
     public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> latest = new ArrayList<>();
-        if (alarmLabels.size() > 0) {
-            List<MetricFamilySamples.Sample> metrics = new ArrayList<>();
-            alarmLabels.values().forEach(labels -> {
-                alarmMetricConverter.simplifyAlarmName(labels);
-                if (labels.containsKey("timestamp")) {
-                    Instant timestamp = Instant.parse(labels.get("timestamp"));
-                    recordHistogram(labels, timestamp);
-                    labels.remove("timestamp");
-                }
-                sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0)
-                        .ifPresent(metrics::add);
-            });
-            latest.add(sampleBuilder.buildFamily(metrics));
+        try {
+            if (alarmLabels.size() > 0) {
+                List<MetricFamilySamples.Sample> metrics = new ArrayList<>();
+                alarmLabels.values().forEach(labels -> {
+                    alarmMetricConverter.simplifyAlarmName(labels);
+                    if (labels.containsKey("timestamp")) {
+                        Instant timestamp = Instant.parse(labels.get("timestamp"));
+                        recordHistogram(labels, timestamp);
+                        labels.remove("timestamp");
+                    }
+                    sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0)
+                            .ifPresent(metrics::add);
+                });
+                latest.add(sampleBuilder.buildFamily(metrics));
+            }
+            log.info("Built {} alarm metrics", latest.size());
+        } catch (Exception e) {
+            log.error("Failed to build cloudwatch alarm metrics", e);
         }
         return latest;
     }
