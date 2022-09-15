@@ -122,7 +122,7 @@ public class MetricConfigTest extends EasyMockSupport {
                 .build();
 
         expect(namespaceConfig.getDimensionFilterPattern()).andReturn(ImmutableMap.of(
-                "FunctionName", Pattern.compile("fn.*")
+                "FunctionName", new PatternMatcher("fn.*")
         )).anyTimes();
 
         replayAll();
@@ -135,6 +135,70 @@ public class MetricConfigTest extends EasyMockSupport {
                         .build())
                 .build()));
         assertTrue(metricConfig.matchesMetric(Metric.builder()
+                .dimensions(Dimension.builder()
+                        .name("FunctionName")
+                        .value("fn-1")
+                        .build())
+                .build()));
+        verifyAll();
+    }
+
+    @Test
+    void matches_DimensionPattern_NegationFilterSpecified() {
+        NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
+        MetricConfig metricConfig = MetricConfig.builder()
+                .name("metric")
+                .namespace(namespaceConfig)
+                .scrapeInterval(60)
+                .stats(ImmutableSet.of(MetricStat.Sum))
+                .build();
+
+        expect(namespaceConfig.getDimensionFilterPattern()).andReturn(ImmutableMap.of(
+                "FunctionName", new PatternMatcher("!fn.*")
+        )).anyTimes();
+
+        replayAll();
+        assertFalse(metricConfig.matchesMetric(Metric.builder()
+                .build()));
+        assertTrue(metricConfig.matchesMetric(Metric.builder()
+                .dimensions(Dimension.builder()
+                        .name("FunctionName")
+                        .value("function-1")
+                        .build())
+                .build()));
+        assertFalse(metricConfig.matchesMetric(Metric.builder()
+                .dimensions(Dimension.builder()
+                        .name("FunctionName")
+                        .value("fn-1")
+                        .build())
+                .build()));
+        verifyAll();
+    }
+
+    @Test
+    void matches_DimensionPattern_AbsenceFilterSpecified() {
+        NamespaceConfig namespaceConfig = mock(NamespaceConfig.class);
+        MetricConfig metricConfig = MetricConfig.builder()
+                .name("metric")
+                .namespace(namespaceConfig)
+                .scrapeInterval(60)
+                .stats(ImmutableSet.of(MetricStat.Sum))
+                .build();
+
+        expect(namespaceConfig.getDimensionFilterPattern()).andReturn(ImmutableMap.of(
+                "FunctionName", new PatternMatcher("NOT_PRESENT")
+        )).anyTimes();
+
+        replayAll();
+        assertTrue(metricConfig.matchesMetric(Metric.builder()
+                .build()));
+        assertFalse(metricConfig.matchesMetric(Metric.builder()
+                .dimensions(Dimension.builder()
+                        .name("FunctionName")
+                        .value("function-1")
+                        .build())
+                .build()));
+        assertFalse(metricConfig.matchesMetric(Metric.builder()
                 .dimensions(Dimension.builder()
                         .name("FunctionName")
                         .value("fn-1")

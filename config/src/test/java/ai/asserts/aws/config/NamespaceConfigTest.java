@@ -90,7 +90,7 @@ public class NamespaceConfigTest extends EasyMockSupport {
         namespaceConfig.validate(0);
         assertEquals(1, namespaceConfig.getDimensionFilterPattern().size());
         assertTrue(namespaceConfig.getDimensionFilterPattern().containsKey("Dimension"));
-        assertEquals("abc.+", namespaceConfig.getDimensionFilterPattern().get("Dimension").pattern());
+        assertEquals("abc.+", namespaceConfig.getDimensionFilterPattern().get("Dimension").getPattern());
         verifyAll();
     }
 
