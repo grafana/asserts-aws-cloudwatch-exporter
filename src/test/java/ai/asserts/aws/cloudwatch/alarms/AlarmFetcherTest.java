@@ -81,7 +81,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     public void sendAlarmsForRegions_exposeAsMetric() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPullCWAlarms()).andReturn(true);
-        expect(scrapeConfig.getAlertForwardUrl()).andReturn(null).anyTimes();
+        expect(scrapeConfig.isCwAlarmAsMetric()).andReturn(true).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(accountIDProvider.getAccountId()).andReturn("123456789").anyTimes();
         expect(awsClientProvider.getCloudWatchClient("region", awsAccount))
@@ -132,6 +132,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     public void sendAlarmsForRegions_forwardAlerts() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPullCWAlarms()).andReturn(true);
+        expect(scrapeConfig.isCwAlarmAsMetric()).andReturn(false).anyTimes();
         expect(scrapeConfig.getAlertForwardUrl()).andReturn("url").anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(accountIDProvider.getAccountId()).andReturn("123456789").anyTimes();
