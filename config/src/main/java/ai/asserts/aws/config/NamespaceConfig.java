@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -30,6 +31,7 @@ import static java.lang.String.format;
 @Builder
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Slf4j
 public class NamespaceConfig {
     @JsonIgnore
     @ToString.Exclude
@@ -40,7 +42,7 @@ public class NamespaceConfig {
     private Integer scrapeInterval;
     private Map<String, String> dimensionFilters;
     @JsonIgnore
-    private Map<String, Pattern> dimensionFilterPattern;
+    private Map<String, PatternMatcher> dimensionFilterPattern;
 
     private Map<String, Set<String>> tagFilters;
     private List<MetricConfig> metrics;
@@ -74,8 +76,12 @@ public class NamespaceConfig {
 
         if (!CollectionUtils.isEmpty(dimensionFilters)) {
             dimensionFilterPattern = new TreeMap<>();
-            dimensionFilters.forEach((dimension, patternString) ->
-                    dimensionFilterPattern.put(dimension, Pattern.compile(patternString)));
+            try {
+                dimensionFilters.forEach((dimension, patternString) ->
+                        dimensionFilterPattern.put(dimension, new PatternMatcher(patternString)));
+            } catch (Exception e) {
+                log.error("Error compiling a pattern match string", e);
+            }
         }
     }
 

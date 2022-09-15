@@ -18,7 +18,9 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 @Getter
 @Setter
@@ -47,11 +49,11 @@ public class MetricConfig {
     }
 
     public boolean matchesMetric(Metric cwMetric) {
+        Map<String, String> dimensionValues = new TreeMap<>();
+        cwMetric.dimensions().forEach(d -> dimensionValues.put(d.name(), d.value()));
         return CollectionUtils.isEmpty(namespace.getDimensionFilterPattern()) ||
-                (cwMetric.hasDimensions() && namespace.getDimensionFilterPattern().entrySet().stream()
-                        .allMatch(entry -> cwMetric.dimensions().stream().anyMatch(
-                                d -> entry.getKey().equals(d.name()) &&
-                                        entry.getValue().matcher(d.value()).matches())));
+                namespace.getDimensionFilterPattern().entrySet().stream()
+                        .allMatch(entry -> entry.getValue().matches(dimensionValues.get(entry.getKey())));
     }
 
     void validate(int position) {

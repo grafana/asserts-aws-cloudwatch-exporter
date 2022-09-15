@@ -120,13 +120,13 @@ public class ResourceTagHelper {
             GetResourcesRequest.Builder builder = GetResourcesRequest.builder();
             if (cwNamespace.getResourceTypes().size() > 0) {
                 Set<String> resourceTypeFilters = cwNamespace.getResourceTypes().stream()
-                        .map(type -> format("%s:%s", cwNamespace.getServiceName(), type))
+                        .map(type -> format("%s:%s", cwNamespace.getServiceNameForTagApi(), type))
                         .collect(Collectors.toSet());
                 builder = builder.resourceTypeFilters(resourceTypeFilters);
                 log.info("Applying resource type filters {}", resourceTypeFilters);
             } else {
-                builder = builder.resourceTypeFilters(cwNamespace.getServiceName());
-                log.info("Applying resource type filters {}", cwNamespace.getServiceName());
+                builder = builder.resourceTypeFilters(cwNamespace.getServiceNameForTagApi());
+                log.info("Applying resource type filters {}", cwNamespace.getServiceNameForTagApi());
             }
 
             if (key.getNamespace().hasTagFilters()) {
