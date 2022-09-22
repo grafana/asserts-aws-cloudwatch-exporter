@@ -179,16 +179,11 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .build())
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
-        String uri = "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/" +
-                "arn:aws:lambda:us-west-2:342994379019:function:Fn-With-Event-Invoke-Config/invocations";
         expect(apiGatewayClient.getMethod(GetMethodRequest.builder()
                 .restApiId("rest-api-id")
                 .resourceId("resource-id")
                 .httpMethod("GET")
                 .build())).andReturn(GetMethodResponse.builder()
-                .methodIntegration(Integration.builder()
-                        .uri(uri)
-                        .build())
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expect(metricNameUtil.toSnakeCase("FooBar")).andReturn("foo_bar");
@@ -208,24 +203,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
 
         replayAll();
         testClass.update();
-        assertEquals(ImmutableSet.of(
-                ResourceRelation.builder()
-                        .from(ai.asserts.aws.resource.Resource.builder()
-                                .account("account")
-                                .region("region")
-                                .type(ApiGateway)
-                                .name("rest-api-name")
-                                .id("rest-api-id")
-                                .build())
-                        .to(ai.asserts.aws.resource.Resource.builder()
-                                .type(LambdaFunction)
-                                .region("us-west-2")
-                                .account("342994379019")
-                                .name("Fn-With-Event-Invoke-Config")
-                                .build())
-                        .name("FORWARDS_TO")
-                        .build()
-        ), testClass.getLambdaIntegrations());
+        assertEquals(ImmutableSet.of(), testClass.getLambdaIntegrations());
         verifyAll();
     }
 }
