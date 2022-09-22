@@ -29,7 +29,6 @@ import software.amazon.awssdk.services.apigateway.model.Integration;
 import software.amazon.awssdk.services.apigateway.model.Method;
 import software.amazon.awssdk.services.apigateway.model.Resource;
 import software.amazon.awssdk.services.apigateway.model.RestApi;
-import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.Optional;
 import java.util.SortedMap;
@@ -86,6 +85,79 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
 
     @Test
     void updateCollect() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
+        expect(awsClientProvider.getApiGatewayClient("region", awsAccount))
+                .andReturn(apiGatewayClient).anyTimes();
+        expect(accountIDProvider.getAccountId()).andReturn("account").anyTimes();
+        expect(apiGatewayClient.getRestApis()).andReturn(GetRestApisResponse.builder()
+                .items(RestApi.builder()
+                        .id("rest-api-id")
+                        .name("rest-api-name")
+                        .tags(ImmutableMap.of("FooBar", "v"))
+                        .build())
+                .build());
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        expect(apiGatewayClient.getResources(GetResourcesRequest.builder()
+                .restApiId("rest-api-id")
+                .build())).andReturn(GetResourcesResponse.builder()
+                .items(Resource.builder()
+                        .id("resource-id")
+                        .resourceMethods(ImmutableMap.of("GET", Method.builder().build()))
+                        .build())
+                .build());
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        String uri = "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/" +
+                "arn:aws:lambda:us-west-2:342994379019:function:Fn-With-Event-Invoke-Config/invocations";
+        expect(apiGatewayClient.getMethod(GetMethodRequest.builder()
+                .restApiId("rest-api-id")
+                .resourceId("resource-id")
+                .httpMethod("GET")
+                .build())).andReturn(GetMethodResponse.builder()
+                .methodIntegration(Integration.builder()
+                        .uri(uri)
+                        .build())
+                .build());
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        expect(metricNameUtil.toSnakeCase("FooBar")).andReturn("foo_bar");
+        expect(metricSampleBuilder.buildSingleSample("aws_resource",
+                new ImmutableMap.Builder<String, String>()
+                        .put("namespace", "AWS/ApiGateway")
+                        .put("account_id", "account")
+                        .put("region", "region")
+                        .put("job", "rest-api-name")
+                        .put("id", "rest-api-id")
+                        .put("name", "rest-api-name")
+                        .put("aws_resource_type", "AWS::ApiGateway::RestApi")
+                        .put("tag_foo_bar", "v")
+                        .build(), 1.0D)).andReturn(Optional.of(sample));
+
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+
+        replayAll();
+        testClass.update();
+        assertEquals(ImmutableSet.of(
+                ResourceRelation.builder()
+                        .from(ai.asserts.aws.resource.Resource.builder()
+                                .account("account")
+                                .region("region")
+                                .type(ApiGateway)
+                                .name("rest-api-name")
+                                .id("rest-api-id")
+                                .build())
+                        .to(ai.asserts.aws.resource.Resource.builder()
+                                .type(LambdaFunction)
+                                .region("us-west-2")
+                                .account("342994379019")
+                                .name("Fn-With-Event-Invoke-Config")
+                                .build())
+                        .name("FORWARDS_TO")
+                        .build()
+        ), testClass.getLambdaIntegrations());
+        verifyAll();
+    }
+
+    @Test
+    void updateCollect_methodIntegrationMissing() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(awsClientProvider.getApiGatewayClient("region", awsAccount))
                 .andReturn(apiGatewayClient).anyTimes();
