@@ -156,7 +156,7 @@ public class RDSExporter extends Collector implements InitializingBean {
                 log.error("Failed to export RDS Metrics for " + account, e);
             }
         }));
-        newFamily.add(sampleBuilder.buildFamily(samples));
+        sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }
 }

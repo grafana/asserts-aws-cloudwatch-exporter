@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class MetricSampleBuilderTest extends EasyMockSupport {
     private MetricNameUtil metricNameUtil;
     private LabelBuilder labelBuilder;
-    private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
     private MetricSampleBuilder testClass;
 
@@ -42,7 +41,7 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
     public void setup() {
         metricNameUtil = mock(MetricNameUtil.class);
         labelBuilder = mock(LabelBuilder.class);
-        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder, scrapeConfigProvider);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
@@ -122,8 +121,19 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
                 Collections.emptyList(),
                 Collections.emptyList(), 1.0D);
         assertEquals(
-                new Collector.MetricFamilySamples("metric", GAUGE, "", ImmutableList.of(sample, sample)),
+                Optional.of(new Collector.MetricFamilySamples("metric", GAUGE, "", ImmutableList.of(sample, sample))),
                 testClass.buildFamily(ImmutableList.of(sample, sample))
+        );
+
+        verifyAll();
+    }
+
+    @Test
+    void buildFamily_NoSamples() {
+        replayAll();
+        assertEquals(
+                Optional.empty(),
+                testClass.buildFamily(ImmutableList.of())
         );
 
         verifyAll();

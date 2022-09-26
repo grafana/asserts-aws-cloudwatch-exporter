@@ -245,6 +245,8 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
 
         return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(Collectors.toList());
     }
 }

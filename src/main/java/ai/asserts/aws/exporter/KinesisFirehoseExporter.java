@@ -131,7 +131,7 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
                 log.error("Error " + account, e);
             }
         }));
-        newFamily.add(sampleBuilder.buildFamily(samples));
+        sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }
 }

@@ -191,7 +191,8 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
         } else {
             log.info("Didn't find any samples for region {} and interval {}", region, intervalSeconds);
         }
-        samplesByMetric.forEach((metricName, samples) -> familySamples.add(sampleBuilder.buildFamily(samples)));
+        samplesByMetric.forEach((metricName, samples) ->
+                sampleBuilder.buildFamily(samples).ifPresent(familySamples::add));
 
         log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
         return familySamples;

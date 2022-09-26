@@ -131,7 +131,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .put("tag_foo_bar", "v")
                         .build(), 1.0D)).andReturn(Optional.of(sample));
 
-        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(metricFamilySamples));
 
         replayAll();
         testClass.update();
@@ -199,7 +199,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                         .put("tag_foo_bar", "v")
                         .build(), 1.0D)).andReturn(Optional.of(sample));
 
-        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(metricFamilySamples));
 
         replayAll();
         testClass.update();

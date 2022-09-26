@@ -145,7 +145,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
                 fn2Labels,
                 1.0D)).andReturn(Optional.of(sample));
 
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(Optional.of(familySamples));
 
         replayAll();
         testClass.update();

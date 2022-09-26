@@ -100,7 +100,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
                                 .ifPresent(samples::add);
                     })));
             if (samples.size() > 0) {
-                cache = Collections.singletonList(metricSampleBuilder.buildFamily(samples));
+                metricSampleBuilder.buildFamily(samples).ifPresent(family -> cache = Collections.singletonList(family));
             } else {
                 cache = new ArrayList<>();
             }

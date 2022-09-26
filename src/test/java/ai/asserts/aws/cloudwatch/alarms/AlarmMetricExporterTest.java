@@ -75,7 +75,7 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
                         .put("namespace", "n1")
                         .put("region", "us-west-2")
                         .build(), 1.0)).andReturn(Optional.of(sample));
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(samples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(samples));
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("account_id", "account")
                 .put("alarm_name", "a1")
@@ -84,7 +84,8 @@ public class AlarmMetricExporterTest extends EasyMockSupport {
 
         alarmMetricConverter.simplifyAlarmName(anyObject(Map.class));
 
-        basicMetricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, labels, now.minusSeconds(timestamp).getEpochSecond());
+        basicMetricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, labels,
+                now.minusSeconds(timestamp).getEpochSecond());
         replayAll();
         addLabels("ALARM");
         assertEquals(1, testClass.getAlarmLabels().size());

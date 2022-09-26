@@ -142,6 +142,8 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
 
         return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(Collectors.toList());
     }
 

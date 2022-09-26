@@ -28,6 +28,7 @@ import software.amazon.awssdk.services.cloudwatch.model.StatusCode;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.easymock.EasyMock.anyLong;
@@ -172,7 +173,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         expect(sampleBuilder.buildSamples(accountId, region, queries.get(1), mdr2))
                 .andReturn(ImmutableList.of(sample));
 
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(Optional.of(familySamples));
 
         replayAll();
         testClass.update();

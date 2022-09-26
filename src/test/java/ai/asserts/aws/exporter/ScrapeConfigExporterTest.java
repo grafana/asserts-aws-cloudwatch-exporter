@@ -65,7 +65,7 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
         expect(metricSampleBuilder.buildSingleSample("aws_exporter_scrape_interval",
                 ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"), 61.0D)).andReturn(Optional.of(sample));
 
-        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(metricFamilySamples));
 
         replayAll();
         assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());

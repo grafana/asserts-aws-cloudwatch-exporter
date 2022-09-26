@@ -216,7 +216,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
         } catch (Exception e) {
             log.error("Failed to build Load Balancer metrics", e);
         }
-        metricFamilySamples.add(metricSampleBuilder.buildFamily(samples));
+        metricSampleBuilder.buildFamily(samples).ifPresent(metricFamilySamples::add);
         resourceMetrics = metricFamilySamples;
     }
 

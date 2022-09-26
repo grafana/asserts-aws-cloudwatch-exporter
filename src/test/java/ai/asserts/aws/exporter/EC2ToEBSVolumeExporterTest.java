@@ -162,7 +162,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                 .andReturn(Optional.of(sample));
 
 
-        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(metricFamilySamples));
 
         replayAll();
         testClass.update();

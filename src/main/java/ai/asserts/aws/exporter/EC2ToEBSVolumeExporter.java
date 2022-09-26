@@ -173,7 +173,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
         }));
 
         if (samples.size() > 0) {
-            newMetrics.add(metricSampleBuilder.buildFamily(samples));
+            metricSampleBuilder.buildFamily(samples).ifPresent(newMetrics::add);
         }
 
         resourceMetrics = newMetrics;
