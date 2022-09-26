@@ -129,7 +129,7 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
                 log.error("Failed to discover queues", e);
             }
         }));
-        newFamily.add(sampleBuilder.buildFamily(samples));
+        sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }
 }

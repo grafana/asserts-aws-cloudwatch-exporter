@@ -100,7 +100,8 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample(
                 "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name5"), 1.0D))
                 .andReturn(Optional.of(sample));
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample, sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample, sample)))
+                .andReturn(Optional.of(familySamples));
 
         replayAll();
         testClass.update();

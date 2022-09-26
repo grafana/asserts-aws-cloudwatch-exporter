@@ -104,7 +104,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
             }
 
             if (exposeAsMetric) {
-                newFamily.add(sampleBuilder.buildFamily(samples));
+                sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
                 metricFamilySamples = newFamily;
                 log.info("Exported {} alarms as metrics", samples.size());
             }

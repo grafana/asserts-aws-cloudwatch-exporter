@@ -122,7 +122,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                         .put("job", "function")
                         .put("id", "function")
                         .build(), 1.0D)).andReturn(Optional.of(sample));
-        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(metricFamilySamples));
 
         replayAll();
 

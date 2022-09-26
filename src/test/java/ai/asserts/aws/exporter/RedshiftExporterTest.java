@@ -96,7 +96,7 @@ public class RedshiftExporterTest extends EasyMockSupport {
                         .build()))).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(Optional.of(sample));
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(familySamples));
         expectLastCall();
         replayAll();
         testClass.update();

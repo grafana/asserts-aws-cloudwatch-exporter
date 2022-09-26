@@ -137,7 +137,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
         }
 
         if (samples.size() > 0) {
-            newMetrics.add(metricSampleBuilder.buildFamily(samples));
+            metricSampleBuilder.buildFamily(samples).ifPresent(newMetrics::add);
         }
 
         lambdaIntegrations = newIntegrations;

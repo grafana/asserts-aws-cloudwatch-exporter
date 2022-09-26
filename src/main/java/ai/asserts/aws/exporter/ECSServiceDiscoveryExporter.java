@@ -190,7 +190,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                 .collect(Collectors.toList());
 
         if (resourceMetricSamples.size() > 0) {
-            resourceMetrics = Collections.singletonList(metricSampleBuilder.buildFamily(resourceMetricSamples));
+            metricSampleBuilder.buildFamily(resourceMetricSamples).ifPresent(metricFamilySamples ->
+                    resourceMetrics = Collections.singletonList(metricFamilySamples));
         } else {
             resourceMetrics = Collections.emptyList();
         }

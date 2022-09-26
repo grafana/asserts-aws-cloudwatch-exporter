@@ -94,7 +94,7 @@ public class AlarmMetricExporter extends Collector {
                     sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0)
                             .ifPresent(metrics::add);
                 });
-                latest.add(sampleBuilder.buildFamily(metrics));
+                sampleBuilder.buildFamily(metrics).ifPresent(latest::add);
             }
             log.info("Built {} alarm metrics", latest.size());
         } catch (Exception e) {

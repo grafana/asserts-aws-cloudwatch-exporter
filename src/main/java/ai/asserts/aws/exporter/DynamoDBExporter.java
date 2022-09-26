@@ -109,7 +109,7 @@ public class DynamoDBExporter extends Collector implements InitializingBean {
                 log.error("Error : " + account, e);
             }
         }));
-        newFamily.add(sampleBuilder.buildFamily(samples));
+        sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }
 }

@@ -229,16 +229,18 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("requested", fn2ResourceLabels, 30.0D)).andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample("allocated", fn2ResourceLabels, 20.0D)).andReturn(Optional.of(sample));
 
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples).times(5);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(familySamples));
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(Optional.of(familySamples))
+                .times(5);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample))).andReturn(
+                Optional.of(familySamples));
         expectLastCall();
 
         replayAll();
         testClass.update();
         testClass.collect();
         assertEquals(ImmutableList.of(familySamples, familySamples, familySamples, familySamples, familySamples,
-                familySamples, familySamples),
+                        familySamples, familySamples),
                 testClass.collect());
         verifyAll();
     }
@@ -274,8 +276,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expect(sampleBuilder.buildSingleSample("timeout", fn1Labels, 120.0)).andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample("memory_limit", fn1Labels, 128.0D)).andReturn(Optional.of(sample));
 
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(familySamples).times(2);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(Optional.of(familySamples));
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(familySamples)).times(2);
         metricCollector.recordLatency(anyString(), anyObject(), anyLong());
         expectLastCall().times(2);
         replayAll();
@@ -294,7 +296,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         expectAccountSettings(account1, "region1");
         expect(resourceTagHelper.getFilteredResources(account1, "region1", namespaceConfig))
                 .andThrow(new RuntimeException());
-        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(familySamples);
+        expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample))).andReturn(Optional.of(familySamples));
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(familySamples), testClass.collect());

@@ -122,7 +122,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
                         .put("tag_k", "v")
                         .build(), 1.0D)).andReturn(Optional.of(sample));
 
-        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(metricFamilySamples);
+        expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(metricFamilySamples));
 
         expect(resourceMapper.map("tg-arn")).andReturn(Optional.of(tgResource));
         expect(resourceMapper.map("asg-arn")).andReturn(Optional.of(asgResource));

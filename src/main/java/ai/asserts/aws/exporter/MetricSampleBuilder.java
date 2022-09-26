@@ -68,7 +68,10 @@ public class MetricSampleBuilder {
         return Optional.empty();
     }
 
-    public MetricFamilySamples buildFamily(List<Sample> samples) {
-        return new MetricFamilySamples(samples.get(0).name, GAUGE, "", samples);
+    public Optional<MetricFamilySamples> buildFamily(List<Sample> samples) {
+        if (samples.size() > 0) {
+            return Optional.of(new MetricFamilySamples(samples.get(0).name, GAUGE, "", samples));
+        }
+        return Optional.empty();
     }
 }

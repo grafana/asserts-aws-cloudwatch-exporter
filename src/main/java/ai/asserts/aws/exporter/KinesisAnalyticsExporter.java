@@ -106,7 +106,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                 log.error("Error " + account, e);
             }
         }));
-        newFamily.add(sampleBuilder.buildFamily(samples));
+        sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }
 }

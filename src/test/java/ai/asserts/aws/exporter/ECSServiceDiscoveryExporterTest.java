@@ -176,7 +176,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         )))).andReturn("content");
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample)))
-                .andReturn(metricFamilySamples);
+                .andReturn(Optional.of(metricFamilySamples));
 
         replayAll();
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(

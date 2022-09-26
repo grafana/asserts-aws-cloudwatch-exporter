@@ -68,7 +68,7 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
                 sampleBuilder.buildSingleSample(name, labels, 1.0D).ifPresent(samples::add);
             });
             if (samples.size() > 0) {
-                familySamples.add(sampleBuilder.buildFamily(samples));
+                sampleBuilder.buildFamily(samples).ifPresent(familySamples::add);
             }
             log.info("Emitted {} metrics ", samples.size());
             metrics = familySamples;
