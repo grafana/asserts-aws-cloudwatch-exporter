@@ -33,7 +33,6 @@
   target_label: asserts_request_context
   replacement: $1-$2
 
-
 # AWS Exporter internal metrics
 - source_labels: [ __name__, operation ]
   regex: aws_exporter.+;(.+)

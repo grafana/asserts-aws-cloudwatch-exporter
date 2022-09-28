@@ -155,7 +155,13 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 .build();
 
         Resource tgResource = Resource.builder()
+                .name("tg")
                 .arn("tg-arn")
+                .build();
+
+        Resource tgResource2 = Resource.builder()
+                .name("tg2")
+                .arn("tg-arn2")
                 .build();
 
         Listener listener = Listener.builder()
@@ -169,22 +175,45 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         DescribeRulesResponse response = DescribeRulesResponse.builder()
                 .rules(Rule.builder()
                         .actions(Action.builder()
-                                .targetGroupArn("tg-arn")
-                                .build())
+                                        .targetGroupArn("tg-arn")
+                                        .build(),
+                                Action.builder()
+                                        .targetGroupArn("tg-arn2")
+                                        .build())
                         .build())
                 .build();
         expect(lbClient.describeRules(request)).andReturn(response);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
 
         expect(resourceMapper.map("tg-arn")).andReturn(Optional.of(tgResource));
+        expect(resourceMapper.map("tg-arn2")).andReturn(Optional.of(tgResource2));
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
                 resourceMapper, new RateLimiter(metricCollector));
+
+        testClass.getMissingTgMap().put(tgResource2, tgResource2);
 
         replayAll();
         assertTrue(testClass.getTgToLB().isEmpty());
         testClass.mapListener(lbClient, new TreeMap<>(), lbResource, listener);
         assertEquals(ImmutableMap.of(tgResource, lbResource), testClass.getTgToLB());
         verifyAll();
+    }
+
+    @Test
+    public void handleMissing() {
+        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
+                resourceMapper, new RateLimiter(metricCollector));
+
+        Resource tgResource = Resource.builder()
+                .name("tg")
+                .arn("tg-arn")
+                .build();
+
+        testClass.getTgToLB().put(tgResource, tgResource);
+        testClass.handleMissingTgs(ImmutableSet.of(tgResource));
+        assertTrue(testClass.getTgToLB().isEmpty());
+        assertTrue(testClass.getMissingTgMap().containsKey(tgResource));
+        assertEquals(tgResource, testClass.getMissingTgMap().get(tgResource));
     }
 }

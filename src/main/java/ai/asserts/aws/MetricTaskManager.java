@@ -78,7 +78,7 @@ public class MetricTaskManager implements InitializingBean {
                 metricScrapeTasks.computeIfAbsent(awsAccount.getAccountId(), k -> new TreeMap<>())
                         .computeIfAbsent(region, k -> new TreeMap<>());
                 scrapeConfig.getNamespaces().stream()
-                        .filter(nc -> !CollectionUtils.isEmpty(nc.getMetrics()))
+                        .filter(nc -> nc.isEnabled() && !CollectionUtils.isEmpty(nc.getMetrics()))
                         .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))
                         .forEach(interval -> {
                             String accountId = awsAccount.getAccountId();

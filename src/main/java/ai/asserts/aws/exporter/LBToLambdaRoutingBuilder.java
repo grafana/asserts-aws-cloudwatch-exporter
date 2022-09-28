@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -43,6 +44,7 @@ public class LBToLambdaRoutingBuilder {
     public Set<ResourceRelation> getRoutings() {
         log.info("LB To Lambda routing relation builder about to build relations");
         Set<ResourceRelation> routing = new HashSet<>();
+        Set<Resource> missingTgs = new HashSet<>();
         for (AccountProvider.AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
                 try {
@@ -74,8 +76,14 @@ public class LBToLambdaRoutingBuilder {
                             }
                         } catch (TargetGroupNotFoundException e) {
                             log.warn("LoadBalancer-2-TargetGroup Cache refers to non-existent TargetGroup {}", tg);
+                            missingTgs.add(tg);
                         } catch (Exception e) {
-                            log.error("Failed to build resource relations", e);
+                            if (e.getCause() instanceof TargetGroupNotFoundException) {
+                                log.warn("LoadBalancer-2-TargetGroup Cache refers to non-existent TargetGroup {}", tg);
+                                missingTgs.add(tg);
+                            } else {
+                                log.error("Failed to build resource relations", e);
+                            }
                         }
                     });
                 } catch (Exception e) {
@@ -83,6 +91,10 @@ public class LBToLambdaRoutingBuilder {
                 }
             });
         }
+        if (missingTgs.size() > 0) {
+            targetGroupLBMapProvider.handleMissingTgs(missingTgs);
+        }
+
         return routing;
     }
 }
