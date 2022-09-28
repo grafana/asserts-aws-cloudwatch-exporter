@@ -42,14 +42,16 @@ public class AccountProvider {
     private Set<AWSAccount> getAccountsInternal() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<AWSAccount> accountRegions = new LinkedHashSet<>();
-        String accountId = accountIDProvider.getAccountId();
-        Set<String> regions = scrapeConfig.getRegions();
-        if (regions.isEmpty()) {
-            regions = new TreeSet<>();
-            regions.add("us-west-2");
+        if (!scrapeConfig.isPauseAllProcessing()) {
+            String accountId = accountIDProvider.getAccountId();
+            Set<String> regions = scrapeConfig.getRegions();
+            if (regions.isEmpty()) {
+                regions = new TreeSet<>();
+                regions.add("us-west-2");
+            }
+            accountRegions.add(new AWSAccount(accountId, null, null, null, regions));
+            log.info("Scraping AWS Accounts {}", accountRegions);
         }
-        accountRegions.add(new AWSAccount(accountId, null, null, null, regions));
-        log.info("Scraping AWS Accounts {}", accountRegions);
         return accountRegions;
     }
 

@@ -52,14 +52,17 @@ public class MetricTaskManager implements InitializingBean {
             initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping cloudwatch metrics from all regions", histogram = true)
     public void triggerScrapes() {
-        updateScrapeTasks();
-        ExecutorService executorService = taskThreadPool.getExecutorService();
-        metricScrapeTasks.values().stream()
-                .flatMap(map -> map.values().stream())
-                .flatMap(map -> map.values().stream())
-                .forEach(task -> executorService.submit(task::update));
-        executorService.submit(alarmFetcher::update);
-
+        if (scrapeConfigProvider.getScrapeConfig().isPauseAllProcessing()) {
+            log.info("Skipping Metric Scrapes and Alarm Scrape. All processing paused.");
+        } else {
+            updateScrapeTasks();
+            ExecutorService executorService = taskThreadPool.getExecutorService();
+            metricScrapeTasks.values().stream()
+                    .flatMap(map -> map.values().stream())
+                    .flatMap(map -> map.values().stream())
+                    .forEach(task -> executorService.submit(task::update));
+            executorService.submit(alarmFetcher::update);
+        }
     }
 
     @VisibleForTesting

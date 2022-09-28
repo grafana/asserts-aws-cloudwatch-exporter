@@ -112,7 +112,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
                 targetGroupLBMapProvider, relationExporter, lbToASGRelationBuilder, ec2ToEBSVolumeExporter,
                 apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
-                sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter, snsTopicExporter);
+                sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter,
+                snsTopicExporter);
     }
 
     @Test
@@ -137,6 +138,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     @SuppressWarnings("null")
     public void updateMetadata() {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
@@ -227,6 +230,19 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         capture17.getValue().run();
         capture18.getValue().run();
         capture19.getValue().run();
+
+        verifyAll();
+    }
+
+    @Test
+    @SuppressWarnings("null")
+    public void updateMetadata_processingPaused() {
+        testClass.getLogScrapeTasks().add(logMetricScrapeTask);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
+
+        replayAll();
+        testClass.updateMetadata();
 
         verifyAll();
     }
