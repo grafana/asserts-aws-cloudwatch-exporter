@@ -2,6 +2,7 @@ package ai.asserts.aws;
 
 import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.CollectorRegistry;
@@ -24,6 +25,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private MetricTaskManager testClass;
     private AutowireCapableBeanFactory beanFactory;
     private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private MetricScrapeTask metricScrapeTask;
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
@@ -35,6 +37,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         accountProvider = mock(AccountProvider.class);
         beanFactory = mock(AutowireCapableBeanFactory.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         metricScrapeTask = mock(MetricScrapeTask.class);
         collectorRegistry = mock(CollectorRegistry.class);
         taskThreadPool = mock(TaskThreadPool.class);
@@ -76,6 +79,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture2 = newCapture();
         Capture<Runnable> capture3 = newCapture();
 
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
@@ -92,6 +97,28 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         capture1.getValue().run();
         capture2.getValue().run();
         capture3.getValue().run();
+
+        verifyAll();
+    }
+
+    @Test
+    void triggerScrapes_processingPaused() {
+        testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
+                taskThreadPool, alarmMetricExporter, alarmFetcher) {
+            @Override
+            void updateScrapeTasks() {
+            }
+        };
+        testClass.getMetricScrapeTasks().put("account", ImmutableMap.of(
+                "region1", ImmutableMap.of(300, metricScrapeTask),
+                "region2", ImmutableMap.of(300, metricScrapeTask)
+        ));
+
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
+
+        replayAll();
+        testClass.triggerScrapes();
 
         verifyAll();
     }

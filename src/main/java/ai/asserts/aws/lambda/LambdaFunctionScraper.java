@@ -152,7 +152,6 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
             }));
         }
 
-
         return functionsByRegion;
     }
 

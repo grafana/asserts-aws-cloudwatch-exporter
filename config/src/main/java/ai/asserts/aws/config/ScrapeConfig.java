@@ -86,6 +86,9 @@ public class ScrapeConfig {
     private boolean discoverOnlySubnetTasks = false;
 
     @Builder.Default
+    private boolean pauseAllProcessing = false;
+
+    @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
 
     @Builder.Default

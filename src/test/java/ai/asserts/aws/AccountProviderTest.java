@@ -33,6 +33,7 @@ public class AccountProviderTest extends EasyMockSupport {
     public void getAccounts_ApiServerCredentialsMissing() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
+        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false);
         expect(accountIDProvider.getAccountId()).andReturn("account1");
         replayAll();
         assertEquals(
@@ -46,6 +47,7 @@ public class AccountProviderTest extends EasyMockSupport {
     @Test
     public void getAccounts_ApiServerCredentialsPresent() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
         expect(accountIDProvider.getAccountId()).andReturn("account1");
 
@@ -54,6 +56,20 @@ public class AccountProviderTest extends EasyMockSupport {
                 ImmutableSet.of(
                         new AWSAccount("account1", null, null, null, ImmutableSet.of("region"))
                 ),
+                testClass.getAccounts()
+        );
+        verifyAll();
+    }
+
+    @Test
+    public void getAccounts_ApiServerCredentialsPresent_ProcessingPaused() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.isPauseAllProcessing()).andReturn(true);
+        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("region")).anyTimes();
+
+        replayAll();
+        assertEquals(
+                ImmutableSet.of(),
                 testClass.getAccounts()
         );
         verifyAll();
