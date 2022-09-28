@@ -199,4 +199,21 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         assertEquals(ImmutableMap.of(tgResource, lbResource), testClass.getTgToLB());
         verifyAll();
     }
+
+    @Test
+    public void handleMissing() {
+        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
+                resourceMapper, new RateLimiter(metricCollector));
+
+        Resource tgResource = Resource.builder()
+                .name("tg")
+                .arn("tg-arn")
+                .build();
+
+        testClass.getTgToLB().put(tgResource, tgResource);
+        testClass.handleMissingTgs(ImmutableSet.of(tgResource));
+        assertTrue(testClass.getTgToLB().isEmpty());
+        assertTrue(testClass.getMissingTgMap().containsKey(tgResource));
+        assertEquals(tgResource, testClass.getMissingTgMap().get(tgResource));
+    }
 }
