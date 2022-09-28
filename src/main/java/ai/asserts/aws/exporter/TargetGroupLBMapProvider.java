@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.elasticloadbalancingv2.model.LoadBalancer
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,6 +47,8 @@ public class TargetGroupLBMapProvider {
     private final RateLimiter rateLimiter;
     @Getter
     private final Map<Resource, Resource> tgToLB = new ConcurrentHashMap<>();
+
+    private final Map<Resource, Resource> missingTgMap = new ConcurrentHashMap<>();
 
     public void update() {
         log.info("Updating TargetGroup to LoadBalancer map");
@@ -67,6 +70,13 @@ public class TargetGroupLBMapProvider {
                 }
             });
         }
+    }
+
+    public void handleMissingTgs(Set<Resource> missingTgs) {
+        missingTgs.forEach(tg -> {
+            missingTgMap.put(tg, tg);
+            tgToLB.remove(tg);
+        });
     }
 
     @VisibleForTesting
@@ -91,6 +101,11 @@ public class TargetGroupLBMapProvider {
     }
 
     @VisibleForTesting
+    public Map<Resource, Resource> getMissingTgMap() {
+        return missingTgMap;
+    }
+
+    @VisibleForTesting
     void mapListener(ElasticLoadBalancingV2Client lbClient, SortedMap<String, String> labels, Resource lbResource,
                      Listener listener) {
         SortedMap<String, String> telemetryLabels = new TreeMap<>(labels);
@@ -105,10 +120,11 @@ public class TargetGroupLBMapProvider {
                     .filter(rule -> !isEmpty(rule.actions()))
                     .flatMap(rule -> rule.actions().stream())
                     .filter(action -> action.targetGroupArn() != null)
-                    .map(action -> resourceMapper.map(action.targetGroupArn()))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .forEach(tg -> tgToLB.put(tg, lbResource));
+                    .forEach(action -> resourceMapper.map(action.targetGroupArn()).ifPresent(tg -> {
+                        if (!missingTgMap.containsKey(tg)) {
+                            tgToLB.put(tg, lbResource);
+                        }
+                    }));
         }
     }
 }

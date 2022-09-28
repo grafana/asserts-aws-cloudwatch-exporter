@@ -38,6 +38,8 @@ public class NamespaceConfig {
     @EqualsAndHashCode.Exclude
     private ScrapeConfig scrapeConfig;
     private String name;
+
+    private boolean enabled = true;
     private Integer period;
     private Integer scrapeInterval;
     private Map<String, String> dimensionFilters;

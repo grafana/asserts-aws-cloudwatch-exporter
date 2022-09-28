@@ -91,6 +91,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     @Test
     void getMetricQueries() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
+        expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
                 .namespaces(ImmutableList.of(namespaceConfig))
@@ -152,7 +153,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .regions(ImmutableSet.of("region1"))
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
-
+        expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(awsClientProvider.getCloudWatchClient("region1", accountRegion)).andReturn(cloudWatchClient);
 

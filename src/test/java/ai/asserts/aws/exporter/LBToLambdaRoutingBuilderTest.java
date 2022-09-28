@@ -21,11 +21,13 @@ import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalanci
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthResponse;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetDescription;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetGroupNotFoundException;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetHealthDescription;
 
 import java.util.Optional;
 import java.util.SortedMap;
 
+import static org.easymock.EasyMock.anyInt;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.anyString;
@@ -36,23 +38,28 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
     private ElasticLoadBalancingV2Client elbV2Client;
     private BasicMetricCollector metricCollector;
     private ResourceMapper resourceMapper;
-    private Resource targetResource;
+    private Resource targetGroupResource;
+    private Resource targetGroupResource2;
     private Resource lbRsource;
+    private Resource lbRsource2;
     private Resource lambdaResource;
+    TargetGroupLBMapProvider targetGroupLBMapProvider;
     private LBToLambdaRoutingBuilder testClass;
 
     @BeforeEach
     public void setup() {
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         AccountProvider accountProvider = mock(AccountProvider.class);
-        TargetGroupLBMapProvider targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
+        targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
 
         metricCollector = mock(BasicMetricCollector.class);
         elbV2Client = mock(ElasticLoadBalancingV2Client.class);
         resourceMapper = mock(ResourceMapper.class);
 
-        targetResource = mock(Resource.class);
+        targetGroupResource = mock(Resource.class);
+        targetGroupResource2 = mock(Resource.class);
         lbRsource = mock(Resource.class);
+        lbRsource2 = mock(Resource.class);
         lambdaResource = mock(Resource.class);
 
         testClass = new LBToLambdaRoutingBuilder(awsClientProvider, new RateLimiter(metricCollector),
@@ -62,12 +69,14 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
                 ImmutableSet.of("region"));
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).anyTimes();
         expect(awsClientProvider.getELBV2Client("region", awsAccount)).andReturn(elbV2Client).anyTimes();
-        expect(targetGroupLBMapProvider.getTgToLB()).andReturn(ImmutableMap.of(targetResource, lbRsource));
+        expect(targetGroupLBMapProvider.getTgToLB()).andReturn(ImmutableMap.of(
+                targetGroupResource, lbRsource, targetGroupResource2, lbRsource2)).anyTimes();
     }
 
     @Test
     void getRoutings() {
-        expect(targetResource.getArn()).andReturn("tg-arn");
+        expect(targetGroupResource.getArn()).andReturn("tg-arn");
+        expect(targetGroupResource2.getArn()).andReturn("tg-arn2");
         expect(elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()
                 .targetGroupArn("tg-arn")
                 .build())).andReturn(DescribeTargetHealthResponse.builder()
@@ -77,10 +86,16 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
                                 .build())
                         .build())
                 .build());
+        expect(elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()
+                .targetGroupArn("tg-arn2")
+                .build())).andThrow(TargetGroupNotFoundException.builder().build());
         expect(resourceMapper.map("lambda-arn")).andReturn(Optional.of(lambdaResource));
         expect(lambdaResource.getType()).andReturn(ResourceType.LambdaFunction).anyTimes();
 
         metricCollector.recordLatency(anyString(), anyObject(SortedMap.class), anyLong());
+        metricCollector.recordLatency(anyString(), anyObject(SortedMap.class), anyLong());
+        metricCollector.recordCounterValue(anyString(), anyObject(SortedMap.class), anyInt());
+        targetGroupLBMapProvider.handleMissingTgs(ImmutableSet.of(targetGroupResource2));
         replayAll();
         assertEquals(
                 ImmutableSet.of(ResourceRelation.builder()
