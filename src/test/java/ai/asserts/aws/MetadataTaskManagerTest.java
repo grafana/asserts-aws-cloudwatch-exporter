@@ -161,6 +161,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture17 = newCapture();
         Capture<Runnable> capture18 = newCapture();
         Capture<Runnable> capture19 = newCapture();
+        Capture<Runnable> capture20 = newCapture();
 
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(executorService.submit(capture(capture1))).andReturn(null);
@@ -182,13 +183,14 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(executorService.submit(capture(capture17))).andReturn(null);
         expect(executorService.submit(capture(capture18))).andReturn(null);
         expect(executorService.submit(capture(capture19))).andReturn(null);
+        expect(executorService.submit(capture(capture20))).andReturn(null);
 
+        scrapeConfigProvider.update();
         lambdaFunctionScraper.update();
         lambdaCapacityExporter.update();
         lambdaEventSourceExporter.update();
         lambdaInvokeConfigExporter.update();
         logMetricScrapeTask.update();
-        scrapeConfigProvider.update();
         targetGroupLBMapProvider.update();
         lbToASGRelationBuilder.updateRouting();
         relationExporter.update();
@@ -197,7 +199,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         kinesisFirehoseExporter.update();
         kinesisAnalyticsExporter.update();
         s3BucketExporter.update();
-        //ecsServiceDiscoveryExporter.update();
         redshiftExporter.update();
         sqsQueueExporter.update();
         kinesisStreamExporter.update();
@@ -205,7 +206,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         rdsExporter.update();
         dynamoDBExporter.update();
         snsTopicExporter.update();
-
 
         replayAll();
         testClass.updateMetadata();
@@ -230,6 +230,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         capture17.getValue().run();
         capture18.getValue().run();
         capture19.getValue().run();
+        capture20.getValue().run();
 
         verifyAll();
     }
@@ -240,10 +241,15 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
+        expect(taskThreadPool.getExecutorService()).andReturn(executorService);
+        scrapeConfigProvider.update();
+        Capture<Runnable> capture0 = newCapture();
+        expect(executorService.submit(capture(capture0))).andReturn(null);
 
         replayAll();
         testClass.updateMetadata();
 
+        capture0.getValue().run();
         verifyAll();
     }
 }
