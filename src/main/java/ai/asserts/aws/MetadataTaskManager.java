@@ -115,7 +115,6 @@ public class MetadataTaskManager implements InitializingBean {
             taskThreadPool.getExecutorService().submit(rdsExporter::update);
             taskThreadPool.getExecutorService().submit(dynamoDBExporter::update);
             taskThreadPool.getExecutorService().submit(snsTopicExporter::update);
-
             taskThreadPool.getExecutorService().submit(() ->
                     logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));
         }

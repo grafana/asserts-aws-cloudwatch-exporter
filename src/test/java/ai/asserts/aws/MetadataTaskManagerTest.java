@@ -242,11 +242,13 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService);
-        scrapeConfigProvider.update();
+
         Capture<Runnable> capture0 = newCapture();
         expect(executorService.submit(capture(capture0))).andReturn(null);
+        scrapeConfigProvider.update();
 
         replayAll();
+
         testClass.updateMetadata();
 
         capture0.getValue().run();
