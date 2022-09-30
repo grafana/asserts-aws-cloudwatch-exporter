@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.model.ComparisonOperator;
 import software.amazon.awssdk.services.cloudwatch.model.DescribeAlarmsResponse;
+import software.amazon.awssdk.services.cloudwatch.model.Dimension;
 import software.amazon.awssdk.services.cloudwatch.model.MetricAlarm;
 
 import java.time.Instant;
@@ -95,7 +96,11 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .stateUpdatedTimestamp(now)
                 .threshold(10.0)
                 .comparisonOperator(ComparisonOperator.GREATER_THAN_THRESHOLD)
-                .namespace("AWS/RDS")
+                .namespace("AWS/ECS")
+                .dimensions(Dimension.builder()
+                        .name("ServiceName")
+                        .value("sample-ecs-service")
+                        .build())
                 .build();
         DescribeAlarmsResponse response = DescribeAlarmsResponse.builder()
                 .metricAlarms(ImmutableList.of(alarm))
@@ -109,16 +114,20 @@ public class AlarmFetcherTest extends EasyMockSupport {
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("account_id", "123456789")
                 .put("label1", "value1")
-                .put("namespace", "AWS/RDS")
-                .put("metric_namespace", "AWS/RDS")
+                .put("namespace", "AWS/ECS")
+                .put("metric_namespace", "AWS/ECS")
                 .put("metric_operator", ">")
                 .put("region", "region")
                 .put("state", "ALARM")
                 .put("threshold", "10.0")
                 .put("timestamp", now.toString())
+                .put("workload", "sample-ecs-service")
+                .put("d_ServiceName", "sample-ecs-service")
                 .build());
+        SortedMap<String, String> withoutTimestamp = new TreeMap<>(labels);
+        withoutTimestamp.remove("timestamp");
         alarmMetricConverter.simplifyAlarmName(labels);
-        expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", labels, 1.0D))
+        expect(sampleBuilder.buildSingleSample("aws_cloudwatch_alarm", withoutTimestamp, 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(familySamples));
         replayAll();
@@ -168,6 +177,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
                 .put("state", "ALARM")
                 .put("threshold", "10.0")
                 .put("timestamp", now.toString())
+                .put("workload", "none")
                 .build());
         alarmMetricConverter.simplifyAlarmName(labels);
         alertsProcessor.sendAlerts(ImmutableList.of(labels));
