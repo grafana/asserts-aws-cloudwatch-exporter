@@ -92,8 +92,11 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                     labelsList.forEach(alarmMetricConverter::simplifyAlarmName);
                     if (exposeAsMetric) {
                         samples.addAll(labelsList.stream()
-                                .map(labels -> sampleBuilder.buildSingleSample(
-                                        "aws_cloudwatch_alarm", labels, 1.0))
+                                .map(labels -> {
+                                    labels.remove("timestamp");
+                                    return sampleBuilder.buildSingleSample(
+                                            "aws_cloudwatch_alarm", labels, 1.0);
+                                })
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
                                 .collect(Collectors.toList()));
@@ -168,6 +171,20 @@ public class AlarmFetcher extends Collector implements InitializingBean {
             alarm.dimensions().forEach(dimension -> labels.put("d_" + dimension.name(), dimension.value()));
         }
         labels.put("timestamp", alarm.stateUpdatedTimestamp().toString());
+
+        // If this is an alarm on ECS Service, set the service name as the `workload`
+        if ("AWS/ECS".equals(alarm.namespace()) &&
+                alarm.hasDimensions() && alarm.dimensions().stream().anyMatch(d -> d.name().equals("ServiceName"))) {
+            alarm.dimensions().stream()
+                    .filter(d -> d.name().equals("ServiceName"))
+                    .findFirst()
+                    .ifPresent(d -> labels.put("workload", d.value()));
+        } else {
+            // We don't want the alarm to automatically get attached to the `exporter` as the target label
+            // will add `workload=exporter` since the metrics are being scraped from the exporter.
+            labels.put("workload", "none");
+        }
+
         return labels;
     }
 
