@@ -161,7 +161,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture17 = newCapture();
         Capture<Runnable> capture18 = newCapture();
         Capture<Runnable> capture19 = newCapture();
-        Capture<Runnable> capture20 = newCapture();
 
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(executorService.submit(capture(capture1))).andReturn(null);
@@ -183,9 +182,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(executorService.submit(capture(capture17))).andReturn(null);
         expect(executorService.submit(capture(capture18))).andReturn(null);
         expect(executorService.submit(capture(capture19))).andReturn(null);
-        expect(executorService.submit(capture(capture20))).andReturn(null);
 
-        scrapeConfigProvider.update();
         lambdaFunctionScraper.update();
         lambdaCapacityExporter.update();
         lambdaEventSourceExporter.update();
@@ -230,7 +227,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         capture17.getValue().run();
         capture18.getValue().run();
         capture19.getValue().run();
-        capture20.getValue().run();
 
         verifyAll();
     }
@@ -241,17 +237,33 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
-        expect(taskThreadPool.getExecutorService()).andReturn(executorService);
-
-        Capture<Runnable> capture0 = newCapture();
-        expect(executorService.submit(capture(capture0))).andReturn(null);
-        scrapeConfigProvider.update();
 
         replayAll();
 
         testClass.updateMetadata();
 
+        verifyAll();
+    }
+
+    @Test
+    @SuppressWarnings("null")
+    public void perMinuteTasks() {
+        Capture<Runnable> capture0 = newCapture();
+        Capture<Runnable> capture1 = newCapture();
+        expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
+        expect(executorService.submit(capture(capture0))).andReturn(null);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false).anyTimes();
+        expect(executorService.submit(capture(capture1))).andReturn(null);
+        scrapeConfigProvider.update();
+        ecsServiceDiscoveryExporter.update();
+        replayAll();
+
+        testClass.perMinute();
+
         capture0.getValue().run();
+        capture1.getValue().run();
+
         verifyAll();
     }
 }

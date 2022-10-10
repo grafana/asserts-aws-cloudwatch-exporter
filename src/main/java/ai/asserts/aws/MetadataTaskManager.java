@@ -92,7 +92,6 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void updateMetadata() {
-        taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
         if (scrapeConfigProvider.getScrapeConfig().isPauseAllProcessing()) {
             log.info("Skipping all scheduled meta data tasks. All processing paused.");
         } else {
@@ -125,6 +124,7 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {
+        taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
         if (scrapeConfigProvider.getScrapeConfig().isPauseAllProcessing()) {
             log.info("Skipping ECS Service Discovery. All processing paused.");
         } else {
