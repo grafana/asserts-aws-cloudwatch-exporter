@@ -7,7 +7,6 @@ package ai.asserts.aws.config;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableSet;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -53,7 +52,6 @@ public class RelabelConfig {
     }
 
     public void validate() {
-        ImmutableSet<String> allowedActions = ImmutableSet.of("replace", "drop-metric", "keep-metric");
         if (!StringUtils.hasLength(regex)) {
             throw new RuntimeException("regex not specified in " + this);
 
@@ -70,35 +68,44 @@ public class RelabelConfig {
     }
 
     public Map<String, String> addReplacements(String metricName, Map<String, String> labelValues) {
-        Map<String, String> input = new TreeMap<>(labelValues);
-        input.put("__name__", metricName);
+        if ("replace".equals(action)) {
+            Map<String, String> input = new TreeMap<>(labelValues);
+            input.put("__name__", metricName);
 
-        if (labels.stream().allMatch(input::containsKey)) {
-            String source = labels.stream().map(label -> input.getOrDefault(label, ""))
-                    .collect(Collectors.joining(";"));
-            Matcher matcher = compiledExp.matcher(source);
-            if (matcher.matches()) {
-                Map<String, String> result = new TreeMap<>(labelValues);
-                Map<String, String> capturingGroups = new TreeMap<>();
-                for (int i = 0; i <= matcher.groupCount(); i++) {
-                    capturingGroups.put("$" + i + "", matcher.group(i));
+            if (labels.stream().allMatch(input::containsKey)) {
+                String source = labels.stream().map(label -> input.getOrDefault(label, ""))
+                        .collect(Collectors.joining(";"));
+                Matcher matcher = compiledExp.matcher(source);
+                if (matcher.matches()) {
+                    Map<String, String> result = new TreeMap<>(labelValues);
+                    Map<String, String> capturingGroups = new TreeMap<>();
+                    for (int i = 0; i <= matcher.groupCount(); i++) {
+                        capturingGroups.put("$" + i + "", matcher.group(i));
+                    }
+                    String targetValue = replacement;
+                    for (String group : capturingGroups.keySet()) {
+                        targetValue = targetValue.replace(group, capturingGroups.get(group));
+                    }
+                    result.put(target, targetValue);
+                    return result;
                 }
-                String targetValue = replacement;
-                for (String group : capturingGroups.keySet()) {
-                    targetValue = targetValue.replace(group, capturingGroups.get(group));
-                }
-                result.put(target, targetValue);
-                return result;
             }
         }
         return labelValues;
     }
 
     public boolean dropMetric(String metricName, Map<String, String> labelValues) {
+        if (!isDropKeepAction()) {
+            return false;
+        }
         boolean matches = matches(metricName, labelValues);
         boolean explicitDrop = "drop-metric".equals(action) && matches;
         boolean dontKeep = "keep-metric".equals(action) && this.metricName.equals(metricName) && !matches;
         return explicitDrop || dontKeep;
+    }
+
+    private boolean isDropKeepAction() {
+        return "drop-metric".equals(action) || "keep-metric".equals(action);
     }
 
     private boolean matches(String metricName, Map<String, String> labelValues) {
