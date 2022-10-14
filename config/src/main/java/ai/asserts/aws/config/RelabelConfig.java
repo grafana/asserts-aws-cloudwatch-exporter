@@ -48,27 +48,27 @@ public class RelabelConfig {
     private String metricName;
 
     public boolean actionReplace() {
-        return "replace".equals(action);
+        return replace();
     }
 
     public void validate() {
         if (!StringUtils.hasLength(regex)) {
             throw new RuntimeException("regex not specified in " + this);
 
-        } else if (action.equals("replace") && !StringUtils.hasLength(target)) {
+        } else if (replace() && !StringUtils.hasLength(target)) {
             throw new RuntimeException("target_label not specified in " + this);
-        } else if (action.equals("replace") && !StringUtils.hasLength(replacement)) {
+        } else if (replace() && !StringUtils.hasLength(replacement)) {
             throw new RuntimeException("replacement not specified in " + this);
-        } else if (action.equals("keep-metric") && !StringUtils.hasLength(metricName)) {
+        } else if (keepMetric() && !StringUtils.hasLength(metricName)) {
             throw new RuntimeException("metricName not specified in " + this);
         } else if (CollectionUtils.isEmpty(labels) || labels.stream().anyMatch(l -> !StringUtils.hasLength(l))) {
-            throw new RuntimeException("labels not specified or has empty value " + this);
+            throw new RuntimeException("source_labels not specified or has empty value " + this);
         }
         compiledExp = Pattern.compile(regex);
     }
 
     public Map<String, String> addReplacements(String metricName, Map<String, String> labelValues) {
-        if ("replace".equals(action)) {
+        if (replace()) {
             Map<String, String> input = new TreeMap<>(labelValues);
             input.put("__name__", metricName);
 
@@ -95,17 +95,25 @@ public class RelabelConfig {
     }
 
     public boolean dropMetric(String metricName, Map<String, String> labelValues) {
-        if (!isDropKeepAction()) {
+        if (!dropMetric() && !keepMetric()) {
             return false;
         }
         boolean matches = matches(metricName, labelValues);
-        boolean explicitDrop = "drop-metric".equals(action) && matches;
-        boolean dontKeep = "keep-metric".equals(action) && this.metricName.equals(metricName) && !matches;
+        boolean explicitDrop = dropMetric() && matches;
+        boolean dontKeep = keepMetric() && this.metricName.equals(metricName) && !matches;
         return explicitDrop || dontKeep;
     }
 
-    private boolean isDropKeepAction() {
-        return "drop-metric".equals(action) || "keep-metric".equals(action);
+    private boolean replace() {
+        return "replace".equals(action);
+    }
+
+    private boolean dropMetric() {
+        return "drop-metric".equals(action) || "drop".equals(action);
+    }
+
+    private boolean keepMetric() {
+        return action.equals("keep-metric") || action.equals("keep");
     }
 
     private boolean matches(String metricName, Map<String, String> labelValues) {
