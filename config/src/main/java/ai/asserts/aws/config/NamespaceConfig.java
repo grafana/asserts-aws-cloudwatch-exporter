@@ -39,6 +39,7 @@ public class NamespaceConfig {
     private ScrapeConfig scrapeConfig;
     private String name;
 
+    @Builder.Default
     private boolean enabled = true;
     private Integer period;
     private Integer scrapeInterval;
