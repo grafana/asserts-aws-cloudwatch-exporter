@@ -7,14 +7,12 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.lambda.LambdaLabelConverter;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.services.cloudwatch.model.Dimension;
-import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -32,11 +30,15 @@ public class LabelBuilder {
         Map<String, String> labels = new TreeMap<>();
         labels.put(SCRAPE_ACCOUNT_ID_LABEL, account);
         labels.put(SCRAPE_REGION_LABEL, region);
-        scrapeConfigProvider.getStandardNamespace(metricQuery.getMetric().namespace())
-                .ifPresent(ns -> labels.put("cw_namespace", ns.getNormalizedNamespace()));
+        String namespace = metricQuery.getMetric().namespace();
+        scrapeConfigProvider.getStandardNamespace(namespace)
+                .ifPresent(ns -> {
+                    labels.put("cw_namespace", ns.getNormalizedNamespace());
+                    labels.put("namespace", ns.getNormalizedNamespace());
+                });
 
 
-        if (lambdaLabelConverter.shouldUseForNamespace(metricQuery.getMetric().namespace())) {
+        if (lambdaLabelConverter.shouldUseForNamespace(namespace)) {
             metricQuery.getMetric().dimensions().forEach(dimension ->
                     labels.putAll(lambdaLabelConverter.convert(dimension)));
         } else {
@@ -49,44 +51,15 @@ public class LabelBuilder {
         if (metricQuery.getResource() != null) {
             metricQuery.getResource().addEnvLabel(labels, metricNameUtil);
         }
-        getJob(metricQuery.getMetric()).ifPresent(jobName -> labels.put("job", jobName));
-        getTopic(metricQuery.getMetric()).ifPresent(queueName -> labels.put("topic", queueName));
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        Map<String, String> dimensions = new TreeMap<>();
+        metricQuery.getMetric().dimensions().forEach(d -> dimensions.put(d.name(), d.value()));
+        Map<String, String> entityLabels = new TreeMap<>(scrapeConfig.getEntityLabels(namespace, dimensions));
 
+        // Exported metrics will be mapped through vendor rules. So no need for entity type
+        // unlike the aws_cloudwatch_alarm
+        entityLabels.remove("asserts_entity_type");
+        labels.putAll(entityLabels);
         return labels;
-    }
-
-    Optional<String> getJob(Metric metric) {
-        if (metric.hasDimensions()) {
-            if ("AWS/Lambda".equals(metric.namespace())) {
-                return metric.dimensions().stream()
-                        .filter(dimension -> dimension.name().equals("FunctionName"))
-                        .map(Dimension::value)
-                        .findFirst();
-            } else if ("LambdaInsights".equals(metric.namespace())) {
-                return metric.dimensions().stream()
-                        .filter(dimension ->
-                                dimension.name().equals("function_name") || dimension.name().equals("FunctionName"))
-                        .map(Dimension::value)
-                        .findFirst();
-            } else if ("AWS/ECS".equals(metric.namespace()) || "ECS/ContainerInsights".equals(metric.namespace())) {
-                return metric.dimensions().stream()
-                        .filter(dimension -> dimension.name().equals("ServiceName"))
-                        .map(Dimension::value)
-                        .findFirst();
-            }
-        }
-        return Optional.empty();
-    }
-
-    Optional<String> getTopic(Metric metric) {
-        if (metric.hasDimensions()) {
-            if ("AWS/SQS".equals(metric.namespace())) {
-                return metric.dimensions().stream()
-                        .filter(dimension -> dimension.name().equals("QueueName"))
-                        .map(Dimension::value)
-                        .findFirst();
-            }
-        }
-        return Optional.empty();
     }
 }

@@ -70,6 +70,10 @@ dimensionToLabels:
     dimensionName: TopicName
   - namespace: AWS/Lambda
     dimensionName: FunctionName
+  - namespace: LambdaInsights
+    dimensionName: function_name
+  - namespace: LambdaInsights
+    dimensionName: FunctionName
   - namespace: AWS/ELB
     dimensionName: LoadBalancerName
   - namespace: AWS/ApplicationELB
@@ -78,6 +82,10 @@ dimensionToLabels:
     dimensionName: LoadBalancer
   - namespace: AWS/ECS
     dimensionName: ServiceName
+    mapToLabel: workload
+  - namespace: ECS/ContainerInsights
+    dimensionName: ServiceName
+    mapToLabel: workload
   - namespace: AWS/ApiGateway
     dimensionName: ApiName
   - namespace: AWS/Firehose
