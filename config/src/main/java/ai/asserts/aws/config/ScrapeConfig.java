@@ -148,7 +148,7 @@ public class ScrapeConfig {
         return false;
     }
 
-    public Map<String, String> getEntityLabels(String namespace, Map<String, String> alarmDimensions) {
+    public Map<String, String> getEntityLabels(String namespace, Map<String, String> dimensions) {
         boolean unknownNamespace = !dimensionToLabels.stream()
                 .map(DimensionToLabel::getNamespace)
                 .collect(Collectors.toSet())
@@ -157,19 +157,19 @@ public class ScrapeConfig {
         boolean knownDimension = dimensionToLabels.stream()
                 .map(DimensionToLabel::getDimensionName)
                 .collect(Collectors.toSet())
-                .stream().anyMatch(alarmDimensions::containsKey);
+                .stream().anyMatch(dimensions::containsKey);
 
         SortedMap<String, String> labels = new TreeMap<>();
         dimensionToLabels.stream()
-                .filter(dimensionToLabel -> captureDimension(namespace, alarmDimensions, dimensionToLabel))
-                .forEach(dimensionToLabel -> mapTypeAndName(alarmDimensions, labels, dimensionToLabel));
+                .filter(dimensionToLabel -> captureDimension(namespace, dimensions, dimensionToLabel))
+                .forEach(dimensionToLabel -> mapTypeAndName(dimensions, labels, dimensionToLabel));
 
 
         if (unknownNamespace && knownDimension) {
             dimensionToLabels.stream()
-                    .filter(d -> alarmDimensions.containsKey(d.getDimensionName()))
+                    .filter(d -> dimensions.containsKey(d.getDimensionName()))
                     .findFirst().ifPresent(dimensionToLabel -> {
-                        mapTypeAndName(alarmDimensions, labels, dimensionToLabel);
+                        mapTypeAndName(dimensions, labels, dimensionToLabel);
                         labels.put("namespace", dimensionToLabel.getNamespace());
                     });
         }

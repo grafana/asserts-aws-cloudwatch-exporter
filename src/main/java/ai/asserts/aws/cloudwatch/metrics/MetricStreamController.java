@@ -7,8 +7,10 @@ package ai.asserts.aws.cloudwatch.metrics;
 import ai.asserts.aws.ApiAuthenticator;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -46,6 +48,8 @@ public class MetricStreamController {
     private final BasicMetricCollector metricCollector;
     private final MetricNameUtil metricNameUtil;
     private final ApiAuthenticator apiAuthenticator;
+
+    private final ScrapeConfigProvider scrapeConfigProvider;
 
     @PostMapping(
             path = METRICS,
@@ -120,7 +124,8 @@ public class MetricStreamController {
         decodedData = decodedData.replace("}\n{", "},{");
         decodedData = "{\"metrics\":[" + decodedData + "]}";
         try {
-            CloudWatchMetrics metrics = objectMapperFactory.getObjectMapper().readValue(decodedData, CloudWatchMetrics.class);
+            CloudWatchMetrics metrics =
+                    objectMapperFactory.getObjectMapper().readValue(decodedData, CloudWatchMetrics.class);
             metrics.getMetrics().forEach(m -> {
                 publishMetric(m);
                 log.debug("Metric Name{} - Namespace {}", m.getMetric_name(), m.getNamespace());
@@ -140,18 +145,29 @@ public class MetricStreamController {
             metric.getDimensions().forEach((k, v) -> metricMap.put(metricNameUtil.toSnakeCase(k), v));
 
         }
-        Optional<CWNamespace> namespace =
+        Optional<CWNamespace> namespaceOpt =
                 Arrays.stream(CWNamespace.values()).filter(f -> f.getNamespace().equals(metricNamespace))
                         .findFirst();
-        if (namespace.isPresent()) {
-            String prefix = namespace.get().getMetricPrefix();
+        namespaceOpt.ifPresent(namespace -> {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            Map<String, String> dimensions = new TreeMap<>();
+            Map<String, String> entityLabels =
+                    new TreeMap<>(scrapeConfig.getEntityLabels(namespace.getNormalizedNamespace(),
+                            metric.getDimensions()));
+
+            // Exported metrics will be mapped through vendor rules. So no need for entity type
+            // unlike the aws_cloudwatch_alarm
+            entityLabels.remove("asserts_entity_type");
+            metricMap.putAll(entityLabels);
+
+            String prefix = namespace.getMetricPrefix();
             String metricName = prefix + "_" + metric.getMetric_name();
             recordHistogram(metricMap, metric.getTimestamp(), metricName);
             metric.getValue().forEach((key, value) -> {
                 String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + mapStat(key));
                 metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
             });
-        }
+        });
     }
 
     private void recordHistogram(Map<String, String> labels, Long timestamp, String metric_name) {
