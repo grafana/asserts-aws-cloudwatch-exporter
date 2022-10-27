@@ -35,6 +35,8 @@ import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MetricScrapeTaskTest extends EasyMockSupport {
     private String accountId;
@@ -201,5 +203,27 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass.update();
         assertEquals(ImmutableList.of(), testClass.collect());
         verifyAll();
+    }
+
+    @Test
+    public void isS3DailyMetric() {
+        assertFalse(testClass.isS3DailyMetric(MetricQuery.builder()
+                .metric(Metric.builder()
+                        .namespace("AWS/S3")
+                        .metricName("FirstByteLatency")
+                        .build())
+                .build()));
+        assertTrue(testClass.isS3DailyMetric(MetricQuery.builder()
+                .metric(Metric.builder()
+                        .namespace("AWS/S3")
+                        .metricName("NumberOfObjects")
+                        .build())
+                .build()));
+        assertTrue(testClass.isS3DailyMetric(MetricQuery.builder()
+                .metric(Metric.builder()
+                        .namespace("AWS/S3")
+                        .metricName("BucketSizeBytes")
+                        .build())
+                .build()));
     }
 }
