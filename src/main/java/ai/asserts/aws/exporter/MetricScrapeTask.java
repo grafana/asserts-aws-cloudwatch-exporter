@@ -8,6 +8,7 @@ import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
 import ai.asserts.aws.cloudwatch.query.QueryBatcher;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -117,8 +118,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
             log.error("No queries found for region {} and interval {}", region, intervalSeconds);
             return Collections.emptyList();
         }
-        boolean s3DailyMetric = queries.stream()
-                .anyMatch(metricQuery -> "AWS/S3".equals(metricQuery.getMetric().namespace()));
+        boolean s3DailyMetric = queries.stream().anyMatch(this::isS3DailyMetric);
 
         // The result only has the query id. We will need the metric while processing the result
         // so build a map for lookup
@@ -133,7 +133,8 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
             CloudWatchClient cloudWatchClient = awsClientProvider.getCloudWatchClient(region, account);
             batches.forEach(batch -> {
                 String nextToken = null;
-                // For now, S3 is the only one which has a different period of 1 day. All other metrics are 1m
+                // For now, S3 is the only one which has some metrics with a period of 1 day.
+                // These metrics should be configured with a different interval
                 Instant[] timePeriod = s3DailyMetric ? timeWindowBuilder.getDailyMetricTimeWindow(region) :
                         timeWindowBuilder.getTimePeriod(region, intervalSeconds);
                 log.info("Scraping metrics for time period {} - {}", timePeriod[0], timePeriod[1]);
@@ -196,6 +197,13 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
         log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
         return familySamples;
+    }
+
+    @VisibleForTesting
+    boolean isS3DailyMetric(MetricQuery metricQuery) {
+        String metricName = metricQuery.getMetric().metricName();
+        return "AWS/S3".equals(metricQuery.getMetric().namespace()) && (metricName.equals(
+                "BucketSizeBytes") || metricName.equals("NumberOfObjects"));
     }
 
     private Map<String, MetricQuery> mapQueriesById(List<MetricQuery> queries) {
