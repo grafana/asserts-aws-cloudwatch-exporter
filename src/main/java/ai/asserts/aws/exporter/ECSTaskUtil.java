@@ -203,7 +203,7 @@ public class ECSTaskUtil {
                                 labels.putAll(afterRelabeling);
                                 StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                         labels, k -> StaticConfig.builder().labels(labels).build());
-                                staticConfig.getTargets().add(format("%s:%d", ipAddress, port.containerPort()));
+                                staticConfig.getTargets().add(format("%s:%d", ipAddress, port.hostPort()));
                             }
                         });
                     } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
@@ -219,7 +219,7 @@ public class ECSTaskUtil {
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         cD.portMappings().forEach(port ->
-                                staticConfig.getTargets().add(format("%s:%d", ipAddress, port.containerPort())));
+                                staticConfig.getTargets().add(format("%s:%d", ipAddress, port.hostPort())));
                     }
                 });
             }
