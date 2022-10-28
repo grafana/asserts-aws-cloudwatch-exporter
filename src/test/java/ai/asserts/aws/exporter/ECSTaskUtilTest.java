@@ -272,12 +272,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
                         .map(sc -> sc.getLabels().getContainer())
                         .collect(Collectors.toSet())),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8081", "10.20.30.40:8082"),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:52342", "10.20.30.40:52343"),
                         staticConfigs.stream()
                                 .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
                                 .map(StaticConfig::getTargets)
                                 .findFirst().get()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:52341"),
                         staticConfigs.stream()
                                 .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
                                 .map(StaticConfig::getTargets)
@@ -379,12 +379,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
                                 .map(sc -> sc.getLabels().getMetricsPath())
                                 .findFirst().get()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8081", "10.20.30.40:8082"),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:52342", "10.20.30.40:52343"),
                         staticConfigs.stream()
                                 .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
                                 .map(StaticConfig::getTargets)
                                 .findFirst().get()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:52341"),
                         staticConfigs.stream()
                                 .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
                                 .map(StaticConfig::getTargets)
@@ -462,17 +462,17 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
         Optional<StaticConfig> apiServer_8081 = staticConfigs.stream()
                 .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
-                .filter(sc -> sc.getTargets().contains("10.20.30.40:8081"))
+                .filter(sc -> sc.getTargets().contains("10.20.30.40:52342"))
                 .findFirst();
 
         Optional<StaticConfig> apiServer_8082 = staticConfigs.stream()
                 .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
-                .filter(sc -> sc.getTargets().contains("10.20.30.40:8082"))
+                .filter(sc -> sc.getTargets().contains("10.20.30.40:52343"))
                 .findFirst();
 
         Optional<StaticConfig> modelBuilder = staticConfigs.stream()
                 .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
-                .filter(sc -> sc.getTargets().contains("10.20.30.40:8080"))
+                .filter(sc -> sc.getTargets().contains("10.20.30.40:52341"))
                 .findFirst();
 
         assertAll(
@@ -577,7 +577,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getTaskId()),
                 () -> assertEquals("/prometheus/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
                 () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8081"),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:52342"),
                         staticConfigs.get(0).getTargets())
         );
         verifyAll();
