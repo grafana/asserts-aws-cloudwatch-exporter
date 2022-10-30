@@ -1,6 +1,12 @@
 ARG VM_VERSION=v1.80.1
 FROM asserts/vmagent:$VM_VERSION
 
+RUN yum update -y openssl
+RUN yum update -y openssl-libs
+RUN yum update -y gnupg2
+RUN yum update -y glibc
+RUN yum update -y vim-data
+
 WORKDIR /
 COPY ./agent-scrape-config.yml /etc/agent-scrape-config.yml
 
