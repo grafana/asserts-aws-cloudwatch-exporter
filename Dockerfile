@@ -24,10 +24,18 @@ RUN gradle bootJar --no-daemon
 
 
 # Stage 2 - Create a size optimized Image for our Service with only what we need to run
+# FIXME
+# Using the latest base Amazon Linux image from here https://hub.docker.com/_/amazonlinux/tags?page=1 and adding JDK
+# doesn't resolve the vulnerability. For e.g, the snyk vulnerabiliby and fix recommendation page
+# https://security.snyk.io/vuln/SNYK-AMZN2-GLIBC-3058942 describes the fix. But the amazon linux base image doesn't
+# seem to incorporate this fix. Updating the libraries resolves the issue but we will end up accumulating update
+# commands over time. Need a better solution
 FROM amazoncorretto:8-al2-jdk
 RUN yum update -y openssl
 RUN yum update -y openssl-libs
 RUN yum update -y gnupg2
+RUN yum update -y glibc
+RUN yum update -y vim-data
 EXPOSE 8010
 # EXPOSE 8095
 WORKDIR /opt/demo_app
