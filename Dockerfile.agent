@@ -6,6 +6,8 @@ RUN yum update -y openssl-libs
 RUN yum update -y gnupg2
 RUN yum update -y glibc
 RUN yum update -y vim-data
+RUN yum update -y libxml2
+RUN yum update -y zlib
 
 WORKDIR /
 COPY ./agent-scrape-config.yml /etc/agent-scrape-config.yml

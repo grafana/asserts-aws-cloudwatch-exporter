@@ -36,6 +36,9 @@ RUN yum update -y openssl-libs
 RUN yum update -y gnupg2
 RUN yum update -y glibc
 RUN yum update -y vim-data
+RUN yum update -y libxml2
+RUN yum update -y zlib
+
 EXPOSE 8010
 # EXPOSE 8095
 WORKDIR /opt/demo_app
