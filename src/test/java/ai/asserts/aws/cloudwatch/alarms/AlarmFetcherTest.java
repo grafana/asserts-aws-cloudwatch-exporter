@@ -11,6 +11,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +52,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     private AlarmMetricConverter alarmMetricConverter;
     private MetricSampleBuilder sampleBuilder;
     private AlertsProcessor alertsProcessor;
+    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private AlarmFetcher testClass;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
@@ -73,13 +75,16 @@ public class AlarmFetcherTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         alertsProcessor = mock(AlertsProcessor.class);
+        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         testClass = new AlarmFetcher(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, alarmMetricConverter, scrapeConfigProvider, alertsProcessor);
+                sampleBuilder, alarmMetricConverter, scrapeConfigProvider, alertsProcessor,
+                ecsServiceDiscoveryExporter);
     }
 
     @Test
     @SuppressWarnings("unchecked")
     public void sendAlarmsForRegions_exposeAsMetric() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPullCWAlarms()).andReturn(true);
         expect(scrapeConfig.isCwAlarmAsMetric()).andReturn(true).anyTimes();
@@ -139,6 +144,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
 
     @Test
     public void sendAlarmsForRegions_forwardAlerts() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPullCWAlarms()).andReturn(true);
         expect(scrapeConfig.isCwAlarmAsMetric()).andReturn(false).anyTimes();
@@ -190,8 +196,19 @@ public class AlarmFetcherTest extends EasyMockSupport {
 
     @Test
     public void pullAlarm_disabled() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.isPullCWAlarms()).andReturn(false);
+        replayAll();
+        testClass.update();
+        assertEquals(ImmutableList.of(), testClass.collect());
+
+        verifyAll();
+    }
+
+    @Test
+    public void pullAlarm_notPrimaryExporter() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(), testClass.collect());

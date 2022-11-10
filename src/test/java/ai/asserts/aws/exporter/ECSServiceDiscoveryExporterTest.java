@@ -12,9 +12,9 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.TaskMetaData;
-import ai.asserts.aws.exporter.ECSTaskUtil.SubnetDetails;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -65,6 +65,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     private RestTemplate restTemplate;
@@ -125,6 +126,133 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     }
 
     @Test
+    public void discoverSubnet() {
+        expect(restTemplate.getForObject(anyObject(), anyObject())).andReturn(TaskMetaData.builder()
+                .taskARN("self-task-arn")
+                .build());
+        expect(resourceMapper.map("self-task-arn")).andReturn(Optional.of(resource));
+        expect(ecsTaskUtil.getSubnetDetails(resource)).andReturn(SubnetDetails.builder()
+                .subnetId("subnet-id")
+                .vpcId("vpc-id")
+                .build());
+        replayAll();
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil) {
+            @Override
+            String getMetaDataURI() {
+                return "http://localhost";
+            }
+        };
+        testClass.discoverSelfSubnet();
+        assertEquals(SubnetDetails.builder()
+                .vpcId("vpc-id")
+                .subnetId("subnet-id")
+                .build(), testClass.getSubnetDetails().get());
+        verifyAll();
+    }
+
+    @Test
+    public void isPrimary_primaryVpcSubnetNotSpecified() {
+        expect(accountProvider.getCurrentAccountId()).andReturn("account-id");
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getPrimaryExporterByAccount()).andReturn(ImmutableMap.of()).anyTimes();
+        replayAll();
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil);
+
+        testClass.getSubnetDetails().set(SubnetDetails.builder()
+                .vpcId("vpc-id")
+                .subnetId("subnet-id")
+                .build());
+        assertTrue(testClass.isPrimaryExporter());
+        verifyAll();
+    }
+
+    @Test
+    public void isPrimary_primaryVpcMatches() {
+        expect(accountProvider.getCurrentAccountId()).andReturn("account-id");
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getPrimaryExporterByAccount()).andReturn(ImmutableMap.of("account-id",
+                SubnetDetails.builder().vpcId("vpc-id").build())).anyTimes();
+        replayAll();
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil);
+
+        testClass.getSubnetDetails().set(SubnetDetails.builder()
+                .vpcId("vpc-id")
+                .subnetId("subnet-id")
+                .build());
+        assertTrue(testClass.isPrimaryExporter());
+        verifyAll();
+    }
+
+    @Test
+    public void isPrimary_subnetMatches() {
+        expect(accountProvider.getCurrentAccountId()).andReturn("account-id");
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getPrimaryExporterByAccount()).andReturn(ImmutableMap.of("account-id",
+                SubnetDetails.builder().subnetId("subnet-id").build())).anyTimes();
+        replayAll();
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil);
+
+        testClass.getSubnetDetails().set(SubnetDetails.builder()
+                .vpcId("vpc-id")
+                .subnetId("subnet-id")
+                .build());
+        assertTrue(testClass.isPrimaryExporter());
+        verifyAll();
+    }
+
+    @Test
+    public void isPrimary_primaryVpcDoesNotMatch() {
+        expect(accountProvider.getCurrentAccountId()).andReturn("account-id");
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getPrimaryExporterByAccount()).andReturn(ImmutableMap.of("account-id",
+                SubnetDetails.builder().vpcId("vpc-id").build())).anyTimes();
+        replayAll();
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil);
+
+        testClass.getSubnetDetails().set(SubnetDetails.builder()
+                .vpcId("vpc-id1")
+                .subnetId("subnet-id")
+                .build());
+        assertFalse(testClass.isPrimaryExporter());
+        verifyAll();
+    }
+
+    @Test
+    public void isPrimary_subnetDoesNotMatch() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(accountProvider.getCurrentAccountId()).andReturn("account-id");
+        expect(scrapeConfig.getPrimaryExporterByAccount()).andReturn(ImmutableMap.of("account-id",
+                SubnetDetails.builder().subnetId("subnet-id").build())).anyTimes();
+        replayAll();
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil);
+
+        testClass.getSubnetDetails().set(SubnetDetails.builder()
+                .vpcId("vpc-id")
+                .subnetId("subnet-id1")
+                .build());
+        assertFalse(testClass.isPrimaryExporter());
+        verifyAll();
+    }
+
+    @Test
     public void updateCollect() throws Exception {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
@@ -134,14 +262,6 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(true).times(3);
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(false);
-        expect(restTemplate.getForObject(anyObject(), anyObject())).andReturn(TaskMetaData.builder()
-                .taskARN("self-task-arn")
-                .build());
-        expect(resourceMapper.map("self-task-arn")).andReturn(Optional.of(resource));
-        expect(ecsTaskUtil.getSubnetDetails(resource)).andReturn(SubnetDetails.builder()
-                .subnetId("subnet-id")
-                .vpcId("vpc-id")
-                .build());
         expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
         expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(false).anyTimes();
         expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
@@ -200,6 +320,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 return ImmutableList.of(mockStaticConfig);
             }
         };
+        testClass.getSubnetDetails().set(SubnetDetails.builder().vpcId("vpc-id").subnetId("subnet-id").build());
         testClass.update();
         assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());
 
@@ -216,14 +337,6 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(true).times(3);
         expect(scrapeConfig.keepMetric("up", mockLabels)).andReturn(false);
 
-        expect(restTemplate.getForObject(anyObject(), anyObject())).andReturn(TaskMetaData.builder()
-                .taskARN("self-task-arn")
-                .build());
-        expect(resourceMapper.map("self-task-arn")).andReturn(Optional.of(resource));
-        expect(ecsTaskUtil.getSubnetDetails(resource)).andReturn(SubnetDetails.builder()
-                .subnetId("subnet-id")
-                .vpcId("vpc-id")
-                .build());
         expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
         expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(false).anyTimes();
         expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
@@ -273,6 +386,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 return ImmutableList.of(mockStaticConfig);
             }
         };
+        testClass.getSubnetDetails().set(SubnetDetails.builder().vpcId("vpc-id").subnetId("subnet-id").build());
         testClass.update();
 
         verifyAll();
@@ -286,14 +400,6 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isLogECSTargets()).andReturn(true);
 
-        expect(restTemplate.getForObject(anyObject(), anyObject())).andReturn(TaskMetaData.builder()
-                .taskARN("self-task-arn")
-                .build());
-        expect(resourceMapper.map("self-task-arn")).andReturn(Optional.of(resource));
-        expect(ecsTaskUtil.getSubnetDetails(resource)).andReturn(SubnetDetails.builder()
-                .subnetId("subnet-id")
-                .vpcId("vpc-id")
-                .build());
         expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(true).anyTimes();
         expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
         expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();
@@ -323,6 +429,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 return "http://localhost";
             }
         };
+        testClass.getSubnetDetails().set(SubnetDetails.builder().vpcId("vpc-id").subnetId("subnet-id").build());
         testClass.update();
 
         verifyAll();
@@ -417,6 +524,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 return ImmutableList.of(mockStaticConfig);
             }
         };
+        testClass.getSubnetDetails().set(new SubnetDetails());
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig, mockStaticConfig),
                 testClass.buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting, samples));

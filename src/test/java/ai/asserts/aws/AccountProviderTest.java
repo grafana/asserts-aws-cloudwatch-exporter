@@ -74,4 +74,12 @@ public class AccountProviderTest extends EasyMockSupport {
         );
         verifyAll();
     }
+
+    @Test
+    public void getCurrentAccountId() {
+        expect(accountIDProvider.getAccountId()).andReturn("account-id");
+        replayAll();
+        assertEquals("account-id", testClass.getCurrentAccountId());
+        verifyAll();
+    }
 }

@@ -9,16 +9,13 @@ import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.exporter.Labels.LabelsBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
-import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -311,14 +308,5 @@ public class ECSTaskUtil {
                 .filter(entry -> entry.getKey().equals(labelName))
                 .map(Map.Entry::getValue)
                 .findFirst();
-    }
-
-    @EqualsAndHashCode
-    @ToString
-    @SuperBuilder
-    @Getter
-    public static class SubnetDetails {
-        private String subnetId;
-        private String vpcId;
     }
 }

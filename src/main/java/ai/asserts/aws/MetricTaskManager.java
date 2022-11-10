@@ -5,6 +5,7 @@ import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.annotation.Timed;
@@ -36,6 +37,8 @@ public class MetricTaskManager implements InitializingBean {
     private final AlarmMetricExporter alarmMetricExporter;
     private final AlarmFetcher alarmFetcher;
 
+    private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+
     /**
      * Maintains the last scrape time for all the metrics of a given scrape interval. The scrapes are
      * not expected to happen concurrently so no need to worry about thread safety
@@ -54,7 +57,7 @@ public class MetricTaskManager implements InitializingBean {
     public void triggerScrapes() {
         if (scrapeConfigProvider.getScrapeConfig().isPauseAllProcessing()) {
             log.info("Skipping Metric Scrapes and Alarm Scrape. All processing paused.");
-        } else {
+        } else if (ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             updateScrapeTasks();
             ExecutorService executorService = taskThreadPool.getExecutorService();
             metricScrapeTasks.values().stream()

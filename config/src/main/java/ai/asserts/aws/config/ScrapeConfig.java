@@ -14,7 +14,6 @@ import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +24,8 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+
+import static org.springframework.util.StringUtils.hasLength;
 
 @Getter
 @Setter
@@ -101,6 +102,9 @@ public class ScrapeConfig {
     private String tenant;
 
     private String assumeRole;
+
+    @Builder.Default
+    private Map<String, SubnetDetails> primaryExporterByAccount = new TreeMap<>();
 
     @Builder.Default
     private List<RelabelConfig> relabelConfigs = new ArrayList<>();
@@ -182,7 +186,7 @@ public class ScrapeConfig {
         String toLabel = dimensionToLabel.getMapToLabel();
         String dimensionName = dimensionToLabel.getDimensionName();
         labels.put(toLabel, alarmDimensions.get(dimensionName));
-        if (StringUtils.hasLength(dimensionToLabel.getEntityType())) {
+        if (hasLength(dimensionToLabel.getEntityType())) {
             labels.put("asserts_entity_type", dimensionToLabel.getEntityType());
         }
     }
@@ -211,6 +215,15 @@ public class ScrapeConfig {
             getTagExportConfig().compile();
         }
         relabelConfigs.forEach(RelabelConfig::validate);
+        if (primaryExporterByAccount != null) {
+            primaryExporterByAccount.forEach((accountId, vpcSubnet) -> {
+                if (!vpcSubnet.isValid()) {
+                    throw new RuntimeException(
+                            "Either vpcId or subnetId must be specified to identify primary exporter " +
+                                    "in account [" + accountId + "]");
+                }
+            });
+        }
         authConfig.validate();
     }
 
@@ -241,6 +254,23 @@ public class ScrapeConfig {
             }
         });
         return configs;
+    }
+
+    @EqualsAndHashCode
+    @ToString
+    @SuperBuilder
+    @Getter
+    @Setter
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @NoArgsConstructor
+    public static class SubnetDetails {
+        private String subnetId;
+        private String vpcId;
+
+        @JsonIgnore
+        public boolean isValid() {
+            return hasLength(vpcId) || hasLength(subnetId);
+        }
     }
 }
 

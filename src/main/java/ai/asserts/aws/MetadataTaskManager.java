@@ -1,6 +1,5 @@
 package ai.asserts.aws;
 
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ApiGatewayToLambdaBuilder;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.DynamoDBExporter;
@@ -70,21 +69,24 @@ public class MetadataTaskManager implements InitializingBean {
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
 
     public void afterPropertiesSet() {
-        lambdaFunctionScraper.register(collectorRegistry);
-        lambdaCapacityExporter.register(collectorRegistry);
-        lambdaEventSourceExporter.register(collectorRegistry);
-        lambdaInvokeConfigExporter.register(collectorRegistry);
-        metricCollector.register(collectorRegistry);
-        relationExporter.register(collectorRegistry);
         ecsServiceDiscoveryExporter.register(collectorRegistry);
-        loadBalancerExporter.register(collectorRegistry);
+        if (ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+            lambdaFunctionScraper.register(collectorRegistry);
+            lambdaCapacityExporter.register(collectorRegistry);
+            lambdaEventSourceExporter.register(collectorRegistry);
+            lambdaInvokeConfigExporter.register(collectorRegistry);
+            metricCollector.register(collectorRegistry);
+            relationExporter.register(collectorRegistry);
+            loadBalancerExporter.register(collectorRegistry);
 
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        scrapeConfig.getLambdaConfig().ifPresent(nc -> {
-            if (!CollectionUtils.isEmpty(nc.getLogs())) {
-                logScrapeTasks.add(lambdaLogScrapeTask);
-            }
-        });
+            scrapeConfigProvider.getScrapeConfig().getLambdaConfig().ifPresent(nc -> {
+                if (!CollectionUtils.isEmpty(nc.getLogs())) {
+                    logScrapeTasks.add(lambdaLogScrapeTask);
+                }
+            });
+        } else {
+            log.info("Not primary exporter. Will skip scraping meta data information");
+        }
     }
 
     @SuppressWarnings("unused")
@@ -92,6 +94,10 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void updateMetadata() {
+        if (!ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+            log.info("Not primary exporter. Skip meta data scraping.");
+            return;
+        }
         if (scrapeConfigProvider.getScrapeConfig().isPauseAllProcessing()) {
             log.info("Skipping all scheduled meta data tasks. All processing paused.");
         } else {

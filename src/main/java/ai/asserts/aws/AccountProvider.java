@@ -35,6 +35,10 @@ public class AccountProvider {
     private final Supplier<Set<AWSAccount>> accountsCache =
             Suppliers.memoizeWithExpiration(this::getAccountsInternal, 5, MINUTES);
 
+    public String getCurrentAccountId() {
+        return accountIDProvider.getAccountId();
+    }
+
     public Set<AWSAccount> getAccounts() {
         return accountsCache.get();
     }

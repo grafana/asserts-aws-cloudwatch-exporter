@@ -117,7 +117,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     }
 
     @Test
-    public void afterPropertiesSet() {
+    public void afterPropertiesSet_primaryExporter() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(lambdaFunctionScraper.register(collectorRegistry)).andReturn(null);
         expect(lambdaCapacityExporter.register(collectorRegistry)).andReturn(null);
         expect(lambdaEventSourceExporter.register(collectorRegistry)).andReturn(null);
@@ -135,9 +136,20 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     }
 
     @Test
+    public void afterPropertiesSet_notPrimaryExporter() {
+        expect(ecsServiceDiscoveryExporter.register(collectorRegistry)).andReturn(null);
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
+        replayAll();
+        testClass.afterPropertiesSet();
+        verifyAll();
+    }
+
+    @Test
     @SuppressWarnings("null")
-    public void updateMetadata() {
+    public void updateMetadata_primaryExporter() {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
+
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPauseAllProcessing()).andReturn(false).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
@@ -233,8 +245,23 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     @SuppressWarnings("null")
+    public void updateMetadata_notPrimaryExporter() {
+        testClass.getLogScrapeTasks().add(logMetricScrapeTask);
+
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
+
+        replayAll();
+        testClass.updateMetadata();
+
+
+        verifyAll();
+    }
+
+    @Test
+    @SuppressWarnings("null")
     public void updateMetadata_processingPaused() {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
 
