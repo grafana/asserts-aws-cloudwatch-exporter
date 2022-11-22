@@ -44,23 +44,18 @@ public class RateLimiter {
     public <K extends AWSAPICall<V>, V> V doWithRateLimit(String api, SortedMap<String, String> labels, K k) {
         Semaphore theSemaphore = semaphores.getOrDefault(api.split("/")[0], defaultSemaphore);
         long tick = System.currentTimeMillis();
-        boolean error = true;
         try {
             theSemaphore.acquire();
             tick = System.currentTimeMillis();
-            V value = k.makeCall();
-            error = false;
-            return value;
+            return k.makeCall();
         } catch (Throwable e) {
             log.error("Exception", e);
+            SortedMap<String, String> errorLabels = new TreeMap<>(labels);
+            errorLabels.put(ASSERTS_ERROR_TYPE, e.getClass().getSimpleName());
+            metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
             throw new RuntimeException(e);
         } finally {
             tick = System.currentTimeMillis() - tick;
-            if (error) {
-                SortedMap<String, String> errorLabels = new TreeMap<>(labels);
-                errorLabels.put(ASSERTS_ERROR_TYPE, "aws_api_error");
-                metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
-            }
             metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, labels, tick);
             theSemaphore.release();
         }
