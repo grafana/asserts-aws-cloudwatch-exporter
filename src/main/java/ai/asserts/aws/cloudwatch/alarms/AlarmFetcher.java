@@ -10,6 +10,7 @@ import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -46,6 +47,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     private final MetricSampleBuilder sampleBuilder;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AlertsProcessor alertsProcessor;
+    private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public AlarmFetcher(AccountProvider accountProvider,
@@ -55,7 +57,8 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                         MetricSampleBuilder sampleBuilder,
                         AlarmMetricConverter alarmMetricConverter,
                         ScrapeConfigProvider scrapeConfigProvider,
-                        AlertsProcessor alertsProcessor) {
+                        AlertsProcessor alertsProcessor,
+                        ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -64,6 +67,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
         this.alarmMetricConverter = alarmMetricConverter;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.alertsProcessor = alertsProcessor;
+        this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
     }
 
     @Override
@@ -77,6 +81,10 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     }
 
     public void update() {
+        if (!ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+            log.info("Not primary exporter. Skip fetching CloudWatch alarms");
+            return;
+        }
         try {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             if (!scrapeConfig.isPullCWAlarms()) {

@@ -40,7 +40,6 @@ RUN yum update -y libxml2
 RUN yum update -y zlib
 
 EXPOSE 8010
-# EXPOSE 8095
 WORKDIR /opt/demo_app
 COPY --from=builder /home/gradle/app/src/dist/conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml
 COPY --from=builder /home/gradle/app/src/dist/conf/default_relabel_rules.yml ./default_relabel_rules.yml
@@ -51,3 +50,6 @@ COPY --from=builder /home/gradle/app/build/resources/main/*.properties ./
 # COPY httpserver_config.yml ./
 CMD ["/bin/sh", "-c", "java -jar app-*.jar --spring.config.location=application.properties"]
 # CMD ["/bin/sh", "-c", "java -javaagent:./jmx_prometheus_javaagent-0.16.1.jar=8095:httpserver_config.yml -jar app-*.jar --spring.config.location=application.properties"]
+
+LABEL "PROMETHEUS_EXPORTER_PORT"="8010"
+LABEL "PROMETHEUS_EXPORTER_PATH"="/aws-exporter/actuator/prometheus"

@@ -12,7 +12,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.exporter.ECSTaskUtil.SubnetDetails;
+import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -68,6 +68,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.lang.String.format;
 import static java.nio.file.Files.newOutputStream;
+import static org.springframework.util.StringUtils.hasLength;
 
 /**
  * Exports the Service Discovery file with the list of task instances running in ECS across clusters and services
@@ -91,6 +92,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     private final ResourceTagHelper resourceTagHelper;
 
     private final TagUtil tagUtil;
+    @Getter
     private final AtomicReference<SubnetDetails> subnetDetails = new AtomicReference<>(null);
 
     @Getter
@@ -134,6 +136,39 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         } catch (Exception e) {
             log.error("Failed to copy dummy fd_config {} to {}", src, dest);
         }
+        discoverSelfSubnet();
+    }
+
+    /**
+     * If the exporter is installed in multiple VPCs and multiple subnets in an AWS Account, only one of the exporters
+     * will export the cloudwatch metrics and AWS Config metadata. The exporter doesn't automatically determine which
+     * instance is primary. It has to be specified in the configuration by specifying either the VPC or the subnet or
+     * both.
+     *
+     * @return <code>true</code> if this exporter should function as a primary exporter in this account.
+     * <code>false</code> otherwise.
+     */
+    public boolean isPrimaryExporter() {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        Map<String, SubnetDetails> primaryExportersByAccount = scrapeConfig.getPrimaryExporterByAccount();
+        SubnetDetails primaryConfig = primaryExportersByAccount.get(accountProvider.getCurrentAccountId());
+        return primaryConfig == null ||
+                (!hasLength(primaryConfig.getVpcId()) || runningInVPC(primaryConfig.getVpcId())) &&
+                        (!hasLength(primaryConfig.getSubnetId()) || runningInSubnet(primaryConfig.getSubnetId()));
+    }
+
+    private boolean runningInVPC(String vpcId) {
+        if (subnetDetails.get() != null) {
+            return vpcId.equals(subnetDetails.get().getVpcId());
+        }
+        return false;
+    }
+
+    private boolean runningInSubnet(String subnetId) {
+        if (subnetDetails.get() != null) {
+            return subnetId.equals(subnetDetails.get().getSubnetId());
+        }
+        return false;
     }
 
     @Override
@@ -149,7 +184,6 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         try {
-            discoverSelfSubnet();
             accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
                 ImmutableSortedMap<String, String> TELEMETRY_LABELS =
                         ImmutableSortedMap.of(
@@ -379,7 +413,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         return System.getenv(ECS_CONTAINER_METADATA_URI_V4);
     }
 
-    private void discoverSelfSubnet() {
+    @VisibleForTesting
+    void discoverSelfSubnet() {
         if (this.subnetDetails.get() == null) {
             String containerMetaURI = getMetaDataURI();
             log.info("Container stats scrape task got URI {}", containerMetaURI);

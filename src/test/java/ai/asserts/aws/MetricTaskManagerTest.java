@@ -3,6 +3,7 @@ package ai.asserts.aws;
 import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.CollectorRegistry;
@@ -32,6 +33,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private AlarmMetricExporter alarmMetricExporter;
     private AlarmFetcher alarmFetcher;
 
+    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+
     @BeforeEach
     public void setup() {
         accountProvider = mock(AccountProvider.class);
@@ -44,10 +47,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         executorService = mock(ExecutorService.class);
         alarmMetricExporter = mock(AlarmMetricExporter.class);
         alarmFetcher = mock(AlarmFetcher.class);
+        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
 
         replayAll();
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher);
+                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter);
         verifyAll();
         resetAll();
     }
@@ -65,7 +69,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher) {
+                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter) {
             @Override
             void updateScrapeTasks() {
             }
@@ -78,9 +82,9 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture1 = newCapture();
         Capture<Runnable> capture2 = newCapture();
         Capture<Runnable> capture3 = newCapture();
-
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false).anyTimes();
+        expect(accountProvider.pauseCurrentAccount()).andReturn(false).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
@@ -104,7 +108,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes_processingPaused() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher) {
+                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter) {
             @Override
             void updateScrapeTasks() {
             }
@@ -115,7 +119,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         ));
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
+        expect(accountProvider.pauseCurrentAccount()).andReturn(true).anyTimes();
 
         replayAll();
         testClass.triggerScrapes();

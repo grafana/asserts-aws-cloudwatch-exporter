@@ -40,7 +40,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MetricScrapeTaskTest extends EasyMockSupport {
     private String accountId;
-    private String accountRole;
     private String region;
     private Integer interval;
     private Integer delay;
@@ -49,6 +48,8 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private AWSClientProvider awsClientProvider;
     private CloudWatchClient cloudWatchClient;
+
+    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private Instant now;
     private MetricSampleBuilder sampleBuilder;
     private Sample sample;
@@ -61,11 +62,10 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     public void setup() {
         now = Instant.now();
         accountId = "account";
-        accountRole = "role";
         region = "region1";
         interval = 60;
         delay = 0;
-        account = new AWSAccount(accountId, "", "", accountRole, ImmutableSet.of(region));
+        account = new AWSAccount(accountId, "", "", "role", ImmutableSet.of(region));
         metricQueryProvider = mock(MetricQueryProvider.class);
         queryBatcher = mock(QueryBatcher.class);
         metricCollector = mock(BasicMetricCollector.class);
@@ -76,6 +76,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                 1.0D, now.toEpochMilli());
         familySamples = mock(Collector.MetricFamilySamples.class);
         timeWindowBuilder = mock(TimeWindowBuilder.class);
+        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
 
         testClass = new MetricScrapeTask(account, region, interval, delay);
         testClass.setMetricQueryProvider(metricQueryProvider);
@@ -83,11 +84,13 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setSampleBuilder(sampleBuilder);
         testClass.setTimeWindowBuilder(timeWindowBuilder);
+        testClass.setEcsServiceDiscoveryExporter(ecsServiceDiscoveryExporter);
         testClass.setRateLimiter(new RateLimiter(metricCollector));
     }
 
     @Test
     public void run() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         List<MetricQuery> queries = ImmutableList.of(
                 MetricQuery.builder()
                         .metric(Metric.builder().namespace("ns1").build())
@@ -184,7 +187,17 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     }
 
     @Test
+    public void run_notPrimary() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
+        replayAll();
+        testClass.update();
+        assertEquals(ImmutableList.of(), testClass.collect());
+        verifyAll();
+    }
+
+    @Test
     public void run_NoQueriesForRegion() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(metricQueryProvider.getMetricQueries())
                 .andReturn(ImmutableMap.of());
 
@@ -196,6 +209,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
 
     @Test
     public void run_NoQueriesForInterval() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(metricQueryProvider.getMetricQueries())
                 .andReturn(ImmutableMap.of(accountId, ImmutableMap.of(region, ImmutableMap.of())));
 

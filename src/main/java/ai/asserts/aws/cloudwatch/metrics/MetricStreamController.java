@@ -11,8 +11,8 @@ import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.model.CWNamespace;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.model.CWNamespace;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
@@ -20,10 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
@@ -43,7 +43,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @SuppressWarnings("unused")
 public class MetricStreamController {
     public static final String METRICS = "/receive-cloudwatch-metrics";
-    public static final String METRICS_TOKEN = "/receive-cloudwatch-metrics/{token}";
+    public static final String METRICS_SECURE = "/receive-cloudwatch-metrics-secure";
     private final ObjectMapperFactory objectMapperFactory;
     private final BasicMetricCollector metricCollector;
     private final MetricNameUtil metricNameUtil;
@@ -78,11 +78,11 @@ public class MetricStreamController {
     }
 
     @PostMapping(
-            path = METRICS_TOKEN,
+            path = METRICS_SECURE,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<MetricResponse> receiveMetricsPostSecure(
-            @PathVariable("token") String apiToken,
+            @RequestHeader("X-Amz-Firehose-Access-Key") String apiToken,
             @RequestBody FirehoseEventRequest metricRequest) {
         apiAuthenticator.authenticate(Optional.of(apiToken));
         processRequest(metricRequest);
@@ -92,11 +92,11 @@ public class MetricStreamController {
     }
 
     @PutMapping(
-            path = METRICS_TOKEN,
+            path = METRICS_SECURE,
             produces = APPLICATION_JSON_VALUE,
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<MetricResponse> receiveMetricsPutSecure(
-            @PathVariable("token") String apiToken,
+            @RequestHeader("X-Amz-Firehose-Access-Key") String apiToken,
             @RequestBody FirehoseEventRequest metricRequest) {
         apiAuthenticator.authenticate(Optional.of(apiToken));
         processRequest(metricRequest);

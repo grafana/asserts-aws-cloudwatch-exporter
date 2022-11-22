@@ -9,16 +9,13 @@ import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.exporter.Labels.LabelsBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
-import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -156,20 +153,7 @@ public class ECSTaskUtil {
                     Optional<String> portFromLabel = getDockerLabel(cD, PROMETHEUS_PORT_DOCKER_LABEL);
                     labelsBuilder.availabilityZone(task.availabilityZone());
                     String jobName = cD.name();
-                    if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
-                        Labels labels = labelsBuilder
-                                .job(jobName)
-                                .metricsPath(pathFromLabel.get())
-                                .container(cD.name())
-                                .build();
-                        labels.populateMapEntries();
-                        labels.putAll(tagLabels);
-                        Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);
-                        labels.putAll(afterRelabeling);
-                        StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
-                                labels, k -> StaticConfig.builder().labels(labels).build());
-                        staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
-                    } else if (configs.containsKey(cD.name())) {
+                    if (configs.containsKey(cD.name())) {
                         Map<Integer, ECSTaskDefScrapeConfig> byPort = configs.get(cD.name());
                         ECSTaskDefScrapeConfig forAnyPort = byPort.get(-1);
                         cD.portMappings().forEach(port -> {
@@ -206,6 +190,19 @@ public class ECSTaskUtil {
                                 staticConfig.getTargets().add(format("%s:%d", ipAddress, port.hostPort()));
                             }
                         });
+                    } else if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
+                        Labels labels = labelsBuilder
+                                .job(jobName)
+                                .metricsPath(pathFromLabel.get())
+                                .container(cD.name())
+                                .build();
+                        labels.populateMapEntries();
+                        labels.putAll(tagLabels);
+                        Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);
+                        labels.putAll(afterRelabeling);
+                        StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
+                                labels, k -> StaticConfig.builder().labels(labels).build());
+                        staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
                     } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
                         Labels labels = labelsBuilder
                                 .job(jobName)
@@ -311,14 +308,5 @@ public class ECSTaskUtil {
                 .filter(entry -> entry.getKey().equals(labelName))
                 .map(Map.Entry::getValue)
                 .findFirst();
-    }
-
-    @EqualsAndHashCode
-    @ToString
-    @SuperBuilder
-    @Getter
-    public static class SubnetDetails {
-        private String subnetId;
-        private String vpcId;
     }
 }

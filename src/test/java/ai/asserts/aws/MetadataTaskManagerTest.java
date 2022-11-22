@@ -73,6 +73,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private RDSExporter rdsExporter;
     private DynamoDBExporter dynamoDBExporter;
     private SNSTopicExporter snsTopicExporter;
+    private AccountProvider accountProvider;
     private MetadataTaskManager testClass;
 
     @BeforeEach
@@ -106,6 +107,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         rdsExporter = mock(RDSExporter.class);
         dynamoDBExporter = mock(DynamoDBExporter.class);
         snsTopicExporter = mock(SNSTopicExporter.class);
+        accountProvider = mock(AccountProvider.class);
         testClass = new MetadataTaskManager(
                 collectorRegistry, lambdaFunctionScraper, lambdaCapacityExporter, lambdaEventSourceExporter,
                 lambdaInvokeConfigExporter, logMetricScrapeTask, metricCollector,
@@ -113,11 +115,12 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
                 apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
                 sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter,
-                snsTopicExporter);
+                snsTopicExporter, accountProvider);
     }
 
     @Test
-    public void afterPropertiesSet() {
+    public void afterPropertiesSet_primaryExporter() {
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(lambdaFunctionScraper.register(collectorRegistry)).andReturn(null);
         expect(lambdaCapacityExporter.register(collectorRegistry)).andReturn(null);
         expect(lambdaEventSourceExporter.register(collectorRegistry)).andReturn(null);
@@ -135,11 +138,22 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     }
 
     @Test
+    public void afterPropertiesSet_notPrimaryExporter() {
+        expect(ecsServiceDiscoveryExporter.register(collectorRegistry)).andReturn(null);
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
+        replayAll();
+        testClass.afterPropertiesSet();
+        verifyAll();
+    }
+
+    @Test
     @SuppressWarnings("null")
-    public void updateMetadata() {
+    public void updateMetadata_primaryExporter() {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
+
+        expect(accountProvider.pauseCurrentAccount()).andReturn(false);
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
@@ -233,10 +247,25 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     @SuppressWarnings("null")
+    public void updateMetadata_notPrimaryExporter() {
+        testClass.getLogScrapeTasks().add(logMetricScrapeTask);
+
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
+
+        replayAll();
+        testClass.updateMetadata();
+
+
+        verifyAll();
+    }
+
+    @Test
+    @SuppressWarnings("null")
     public void updateMetadata_processingPaused() {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
+        expect(accountProvider.pauseCurrentAccount()).andReturn(true);
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
 
         replayAll();
 
@@ -250,10 +279,10 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     public void perMinuteTasks() {
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
+        expect(accountProvider.pauseCurrentAccount()).andReturn(false);
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false).anyTimes();
         expect(executorService.submit(capture(capture1))).andReturn(null);
         scrapeConfigProvider.update();
         ecsServiceDiscoveryExporter.update();
