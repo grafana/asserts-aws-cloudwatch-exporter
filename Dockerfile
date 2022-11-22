@@ -40,7 +40,7 @@ RUN yum update -y libxml2
 RUN yum update -y zlib
 
 EXPOSE 8010
-WORKDIR /opt/asserts
+WORKDIR /opt/demo_app
 COPY --from=builder /home/gradle/app/src/dist/conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml
 COPY --from=builder /home/gradle/app/src/dist/conf/default_relabel_rules.yml ./default_relabel_rules.yml
 COPY --from=builder /home/gradle/app/build/libs/* ./
