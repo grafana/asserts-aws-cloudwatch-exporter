@@ -142,7 +142,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     /**
      * If the exporter is installed in multiple VPCs and multiple subnets in an AWS Account, only one of the exporters
      * will export the cloudwatch metrics and AWS Config metadata. The exporter doesn't automatically determine which
-     * instance is primary. It has to be specified in the configuration. Depending on that, it will
+     * instance is primary. It has to be specified in the configuration by specifying either the VPC or the subnet or
+     * both.
      *
      * @return <code>true</code> if this exporter should function as a primary exporter in this account.
      * <code>false</code> otherwise.
