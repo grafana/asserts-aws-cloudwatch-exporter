@@ -43,10 +43,16 @@ public class AccountProvider {
         return accountsCache.get();
     }
 
+    public boolean pauseCurrentAccount() {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        String accountId = accountIDProvider.getAccountId();
+        return scrapeConfig.getPauseAccounts().contains(accountId);
+    }
+
     private Set<AWSAccount> getAccountsInternal() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<AWSAccount> accountRegions = new LinkedHashSet<>();
-        if (!scrapeConfig.isPauseAllProcessing()) {
+        if (!pauseCurrentAccount()) {
             String accountId = accountIDProvider.getAccountId();
             Set<String> regions = scrapeConfig.getRegions();
             if (regions.isEmpty()) {

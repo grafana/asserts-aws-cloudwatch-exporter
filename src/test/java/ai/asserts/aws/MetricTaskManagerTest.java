@@ -84,7 +84,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture3 = newCapture();
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.isPauseAllProcessing()).andReturn(false).anyTimes();
+        expect(accountProvider.pauseCurrentAccount()).andReturn(false).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
@@ -119,7 +119,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         ));
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.isPauseAllProcessing()).andReturn(true).anyTimes();
+        expect(accountProvider.pauseCurrentAccount()).andReturn(true).anyTimes();
 
         replayAll();
         testClass.triggerScrapes();

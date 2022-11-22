@@ -65,6 +65,8 @@ public class MetadataTaskManager implements InitializingBean {
     private final DynamoDBExporter dynamoDBExporter;
     private final SNSTopicExporter snsTopicExporter;
 
+    private final AccountProvider accountProvider;
+
     @Getter
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
 
@@ -98,7 +100,7 @@ public class MetadataTaskManager implements InitializingBean {
             log.info("Not primary exporter. Skip meta data scraping.");
             return;
         }
-        if (scrapeConfigProvider.getScrapeConfig().isPauseAllProcessing()) {
+        if (accountProvider.pauseCurrentAccount()) {
             log.info("Skipping all scheduled meta data tasks. All processing paused.");
         } else {
             taskThreadPool.getExecutorService().submit(lambdaFunctionScraper::update);
@@ -131,7 +133,7 @@ public class MetadataTaskManager implements InitializingBean {
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {
         taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
-        if (scrapeConfigProvider.getScrapeConfig().isPauseAllProcessing()) {
+        if (accountProvider.pauseCurrentAccount()) {
             log.info("Skipping ECS Service Discovery. All processing paused.");
         } else {
             taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter::update);
