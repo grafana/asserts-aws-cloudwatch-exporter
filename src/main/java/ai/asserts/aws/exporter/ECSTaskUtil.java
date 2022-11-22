@@ -153,20 +153,7 @@ public class ECSTaskUtil {
                     Optional<String> portFromLabel = getDockerLabel(cD, PROMETHEUS_PORT_DOCKER_LABEL);
                     labelsBuilder.availabilityZone(task.availabilityZone());
                     String jobName = cD.name();
-                    if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
-                        Labels labels = labelsBuilder
-                                .job(jobName)
-                                .metricsPath(pathFromLabel.get())
-                                .container(cD.name())
-                                .build();
-                        labels.populateMapEntries();
-                        labels.putAll(tagLabels);
-                        Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);
-                        labels.putAll(afterRelabeling);
-                        StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
-                                labels, k -> StaticConfig.builder().labels(labels).build());
-                        staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
-                    } else if (configs.containsKey(cD.name())) {
+                    if (configs.containsKey(cD.name())) {
                         Map<Integer, ECSTaskDefScrapeConfig> byPort = configs.get(cD.name());
                         ECSTaskDefScrapeConfig forAnyPort = byPort.get(-1);
                         cD.portMappings().forEach(port -> {
@@ -203,6 +190,19 @@ public class ECSTaskUtil {
                                 staticConfig.getTargets().add(format("%s:%d", ipAddress, port.hostPort()));
                             }
                         });
+                    } else if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
+                        Labels labels = labelsBuilder
+                                .job(jobName)
+                                .metricsPath(pathFromLabel.get())
+                                .container(cD.name())
+                                .build();
+                        labels.populateMapEntries();
+                        labels.putAll(tagLabels);
+                        Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);
+                        labels.putAll(afterRelabeling);
+                        StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
+                                labels, k -> StaticConfig.builder().labels(labels).build());
+                        staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
                     } else if (scrapeConfig.isDiscoverAllECSTasksByDefault()) {
                         Labels labels = labelsBuilder
                                 .job(jobName)
