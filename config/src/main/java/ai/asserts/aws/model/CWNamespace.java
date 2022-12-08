@@ -20,7 +20,7 @@ public enum CWNamespace {
     docdb("AWS/DocDB", "aws_docdb", "docdb", null),
     dynamodb("AWS/DynamoDB", "aws_dynamodb", "dynamodb", "dynamodb", "table", "index"),
     ebs("AWS/EBS", "aws_ebs", "ebs", null),
-    ec("AWS/Elasticache", "aws_elasticache", "ec", null),
+    ec("AWS/ElastiCache", "aws_elasticache", "elasticache", null),
     ec2("AWS/EC2", "aws_ec2", "ec2", null),
     ec2Spot("AWS/EC2Spot", "aws_ec2spot", "ec2Spot", null),
     ecs_svc("AWS/ECS", "aws_ecs", "ecs", "ecs", "cluster", "service", "task-definition"),

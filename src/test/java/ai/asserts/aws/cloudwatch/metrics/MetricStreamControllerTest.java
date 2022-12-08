@@ -104,7 +104,6 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
         expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
-        apiAuthenticator.authenticate(Optional.empty());
         replayAll();
 
         assertEquals(HttpStatus.OK, testClass.receiveMetricsPost(firehoseEventRequest).getStatusCode());
@@ -121,7 +120,6 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
         expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
-        apiAuthenticator.authenticate(Optional.empty());
         replayAll();
 
         assertEquals(HttpStatus.OK, testClass.receiveMetricsPut(firehoseEventRequest).getStatusCode());

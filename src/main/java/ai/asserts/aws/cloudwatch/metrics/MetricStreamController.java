@@ -57,7 +57,6 @@ public class MetricStreamController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<MetricResponse> receiveMetricsPost(
             @RequestBody FirehoseEventRequest metricRequest) {
-        apiAuthenticator.authenticate(Optional.empty());
         processRequest(metricRequest);
         return ResponseEntity.ok(MetricResponse.builder()
                 .status("Success")
@@ -70,7 +69,6 @@ public class MetricStreamController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<MetricResponse> receiveMetricsPut(
             @RequestBody FirehoseEventRequest metricRequest) {
-        apiAuthenticator.authenticate(Optional.empty());
         processRequest(metricRequest);
         return ResponseEntity.ok(MetricResponse.builder()
                 .status("Success")
@@ -143,7 +141,6 @@ public class MetricStreamController {
         metricMap.put("account_id", metric.getAccount_id());
         if (!CollectionUtils.isEmpty(metric.getDimensions())) {
             metric.getDimensions().forEach((k, v) -> metricMap.put(metricNameUtil.toSnakeCase(k), v));
-
         }
         Optional<CWNamespace> namespaceOpt =
                 Arrays.stream(CWNamespace.values()).filter(f -> f.getNamespace().equals(metricNamespace))
