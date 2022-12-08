@@ -185,7 +185,10 @@ public class ScrapeConfig {
                                 DimensionToLabel dimensionToLabel) {
         String toLabel = dimensionToLabel.getMapToLabel();
         String dimensionName = dimensionToLabel.getDimensionName();
-        labels.put(toLabel, alarmDimensions.get(dimensionName));
+        if (alarmDimensions.containsKey(dimensionName)) {
+            dimensionToLabel.getValue(alarmDimensions.get(dimensionName))
+                    .ifPresent(value -> labels.put(toLabel, value));
+        }
         if (hasLength(dimensionToLabel.getEntityType())) {
             labels.put("asserts_entity_type", dimensionToLabel.getEntityType());
         }
@@ -225,6 +228,8 @@ public class ScrapeConfig {
             });
         }
         authConfig.validate();
+
+        dimensionToLabels.forEach(DimensionToLabel::compile);
     }
 
     public boolean keepMetric(String metricName, Map<String, String> inputLabels) {
