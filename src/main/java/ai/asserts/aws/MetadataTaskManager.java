@@ -5,6 +5,7 @@ import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.DynamoDBExporter;
 import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
+import ai.asserts.aws.exporter.EMRExporter;
 import ai.asserts.aws.exporter.KinesisAnalyticsExporter;
 import ai.asserts.aws.exporter.KinesisFirehoseExporter;
 import ai.asserts.aws.exporter.KinesisStreamExporter;
@@ -67,6 +68,8 @@ public class MetadataTaskManager implements InitializingBean {
 
     private final AccountProvider accountProvider;
 
+    private final EMRExporter emrExporter;
+
     @Getter
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
 
@@ -124,6 +127,7 @@ public class MetadataTaskManager implements InitializingBean {
             taskThreadPool.getExecutorService().submit(snsTopicExporter::update);
             taskThreadPool.getExecutorService().submit(() ->
                     logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));
+            taskThreadPool.getExecutorService().submit(emrExporter::update);
         }
     }
 

@@ -94,6 +94,22 @@ dimensionToLabels:
     dimensionName: StreamName
   - namespace: AWS/KinesisAnalytics
     dimensionName: Application
+  - namespace: AWS/ElastiCache
+    dimensionName: ReplicationGroupId
+    mapToLabel: job
+    entityType: Service
+  - namespace: AWS/ElastiCache
+    dimensionName: CacheClusterId
+    mapToLabel: job
+    regex: (.+?)-[0-9]+
+    valueExp: $1
+    entityType: Service
+  - namespace: AWS/ElastiCache
+    dimensionName: CacheClusterId
+    mapToLabel: job
+    regex: (.+?)-[0-9]+-[0-9]+
+    valueExp: $1
+    entityType: Service
 relabelConfigs:
   - source_labels: [account_id]
     regex: (.+)

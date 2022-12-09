@@ -36,7 +36,8 @@ public enum ResourceType {
     DynamoDBTable("TableName", CWNamespace.dynamodb, "OperationType", "Operation"), // Dynamo DB Table
     LambdaFunction("FunctionName", CWNamespace.lambda), // Lambda function
     S3Bucket("BucketName", CWNamespace.s3, "StorageType"),
-    Redshift("ClusterIdentifier", CWNamespace.redshift);  // Redshift
+    Redshift("ClusterIdentifier", CWNamespace.redshift),  // Redshift
+    ElasticMapReduce("JobFlowId", CWNamespace.emr);  // Redshift
 
     @Getter
     private String nameDimension;

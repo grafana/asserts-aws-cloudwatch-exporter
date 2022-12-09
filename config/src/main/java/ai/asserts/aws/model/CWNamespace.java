@@ -28,7 +28,7 @@ public enum CWNamespace {
             "task-definition"),
     efs("AWS/EFS", "aws_efs", "efs", null),
     elb("AWS/ELB", "aws_elb", "elb", "elasticloadbalancing","loadbalancer"),
-    emr("AWS/ElasticMapReduce", "aws_emr", "emr", null),
+    emr("AWS/ElasticMapReduce", "aws_emr", "elasticmapreduce", null),
     es("AWS/ES", "aws_es", "es", null),
     fsx("AWS/FSx", "aws_fsx", "fsx", null),
     gamelift("AWS/GameLift", "aws_gamelift", "gamelift", null),
