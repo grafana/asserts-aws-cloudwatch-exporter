@@ -65,7 +65,7 @@ public class LabelBuilderTest extends EasyMockSupport {
                 .build();
 
         expect(scrapeConfig.getEntityLabels("AWS/Lambda", ImmutableMap.of("FunctionName", "function1")))
-                .andReturn(new TreeMap<>(ImmutableMap.of("asserts_entity_type", "Service", "job", "function1")));
+                .andReturn(new TreeMap<>(ImmutableMap.of("job", "function1")));
 
         replayAll();
 
@@ -103,7 +103,7 @@ public class LabelBuilderTest extends EasyMockSupport {
                 .build();
 
         expect(scrapeConfig.getEntityLabels("LambdaInsights", ImmutableMap.of("function_name", "function1")))
-                .andReturn(new TreeMap<>(ImmutableMap.of("asserts_entity_type", "Service", "job", "function1")));
+                .andReturn(new TreeMap<>(ImmutableMap.of("job", "function1")));
 
         replayAll();
 
@@ -128,7 +128,7 @@ public class LabelBuilderTest extends EasyMockSupport {
         expect(metricNameUtil.toSnakeCase("QueueName")).andReturn("queue_name");
 
         expect(scrapeConfig.getEntityLabels("AWS/SQS", ImmutableMap.of("QueueName", "queue1")))
-                .andReturn(new TreeMap<>(ImmutableMap.of("asserts_entity_type", "Topic", "topic", "queue1")));
+                .andReturn(new TreeMap<>(ImmutableMap.of("topic", "queue1")));
 
         MetricQuery metricQuery = MetricQuery.builder()
                 .metric(Metric.builder()
@@ -166,8 +166,7 @@ public class LabelBuilderTest extends EasyMockSupport {
 
         expect(scrapeConfig.getEntityLabels("ECS/ContainerInsights",
                 ImmutableMap.of("ServiceName", "service-name")))
-                .andReturn(new TreeMap<>(ImmutableMap.of("asserts_entity_type", "Service", "workload",
-                        "service-name")));
+                .andReturn(new TreeMap<>(ImmutableMap.of("workload", "service-name")));
 
         replayAll();
         Map<String, String> labels = labelBuilder.buildLabels("account", "region1", MetricQuery.builder()

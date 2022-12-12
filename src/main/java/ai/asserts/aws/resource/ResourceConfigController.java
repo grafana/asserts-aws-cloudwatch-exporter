@@ -217,11 +217,6 @@ public class ResourceConfigController {
             } else {
                 labels.put("job", name);
             }
-            if (dimensionToLabel.get().getEntityType() != null) {
-                labels.put("asserts_entity_type", dimensionToLabel.get().getEntityType());
-            } else {
-                labels.put("asserts_entity_type", "Service");
-            }
         }
         labels.put("namespace", namespace);
     }

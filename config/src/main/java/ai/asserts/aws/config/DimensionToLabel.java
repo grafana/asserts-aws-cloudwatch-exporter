@@ -47,8 +47,6 @@ public class DimensionToLabel {
      */
     private String mapToLabel = "job";
 
-    private String entityType = "Service";
-
     public void compile() {
         pattern = Pattern.compile(regex);
     }

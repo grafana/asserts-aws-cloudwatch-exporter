@@ -189,9 +189,6 @@ public class ScrapeConfig {
             dimensionToLabel.getValue(alarmDimensions.get(dimensionName))
                     .ifPresent(value -> labels.put(toLabel, value));
         }
-        if (hasLength(dimensionToLabel.getEntityType())) {
-            labels.put("asserts_entity_type", dimensionToLabel.getEntityType());
-        }
     }
 
     private boolean captureDimension(String namespace, Map<String, String> alarmDimensions,
