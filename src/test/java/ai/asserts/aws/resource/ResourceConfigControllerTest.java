@@ -92,7 +92,6 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         expect(scrapeConfig.getDimensionToLabels()).andReturn(ImmutableList.of(dimensionToLabel));
         expect(dimensionToLabel.getNamespace()).andReturn("AWS/EC2");
         expect(dimensionToLabel.getMapToLabel()).andReturn(null);
-        expect(dimensionToLabel.getEntityType()).andReturn(null);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("test", ResourceConfigChange.class)).andReturn(configChange);
         expect(configDiff.getChangeType()).andReturn("UPDATE").times(3);
@@ -112,7 +111,6 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         SortedMap<String, String> labels = new TreeMap<>();
         labels.put("account_id", "123");
         labels.put("change", "AWSResourceConfig-Update");
-        labels.put("asserts_entity_type", "Service");
         labels.put("job", "i-04ac60054729e1e1f");
         labels.put("namespace", "AWS/EC2");
         labels.put("region", "r1");
@@ -131,7 +129,6 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         expect(scrapeConfig.getDimensionToLabels()).andReturn(ImmutableList.of(dimensionToLabel));
         expect(dimensionToLabel.getNamespace()).andReturn("AWS/EC2");
         expect(dimensionToLabel.getMapToLabel()).andReturn("workload").times(2);
-        expect(dimensionToLabel.getEntityType()).andReturn(null);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("test", ResourceConfigChange.class)).andReturn(configChange);
         expect(configDiff.getChangeType()).andReturn("UPDATE").times(3);
@@ -151,7 +148,6 @@ public class ResourceConfigControllerTest extends EasyMockSupport {
         SortedMap<String, String> labels = new TreeMap<>();
         labels.put("account_id", "123");
         labels.put("change", "AWSResourceConfig-Update");
-        labels.put("asserts_entity_type", "Service");
         labels.put("workload", "i-04ac60054729e1e1f");
         labels.put("namespace", "AWS/EC2");
         labels.put("region", "r1");

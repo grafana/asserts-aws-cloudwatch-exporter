@@ -77,8 +77,7 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         expect(metric.getDimensions()).andReturn(dimensions).anyTimes();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         ImmutableMap<String, String> entityLabels = ImmutableMap.of(
-                "AutoScalingGroup", "grp1",
-                "asserts_entity_type", "AutoScalingGroup");
+                "AutoScalingGroup", "grp1");
         expect(scrapeConfig.getEntityLabels("namespace", dimensions)).andReturn(entityLabels);
 
         replayAll();
@@ -89,7 +88,6 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         assertAll(
                 () -> assertEquals(alertTime, labels.get("timestamp")),
                 () -> assertEquals("123456789", labels.get("account_id")),
-                () -> assertEquals("AutoScalingGroup", labels.get("asserts_entity_type")),
                 () -> assertEquals("grp1", labels.get("AutoScalingGroup")),
                 () -> assertEquals("alarm1", labels.get("alertname")),
                 () -> assertEquals("namespace", labels.get("namespace")),

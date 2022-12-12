@@ -152,9 +152,6 @@ public class MetricStreamController {
                     new TreeMap<>(scrapeConfig.getEntityLabels(namespace.getNormalizedNamespace(),
                             metric.getDimensions()));
 
-            // Exported metrics will be mapped through vendor rules. So no need for entity type
-            // unlike the aws_cloudwatch_alarm
-            entityLabels.remove("asserts_entity_type");
             metricMap.putAll(entityLabels);
 
             String prefix = namespace.getMetricPrefix();

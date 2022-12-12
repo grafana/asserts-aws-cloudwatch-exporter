@@ -95,13 +95,12 @@ public class ScrapeConfigTest extends EasyMockSupport {
         expect(labelExportConfig.getNamespace()).andReturn("AWS/S3").anyTimes();
         expect(labelExportConfig.getDimensionName()).andReturn("BucketName").anyTimes();
         expect(labelExportConfig.getMapToLabel()).andReturn("job").anyTimes();
-        expect(labelExportConfig.getEntityType()).andReturn("Service").anyTimes();
         expect(labelExportConfig.getValue("TestBucket")).andReturn(Optional.of("TestBucket"));
 
         replayAll();
         Map<String, String> labels = scrapeConfig.getEntityLabels("AWS/S3", ImmutableMap.of(
                 "namespace", "AWS/S3", "BucketName", "TestBucket"));
-        assertEquals(ImmutableMap.of("asserts_entity_type", "Service", "job", "TestBucket"), labels);
+        assertEquals(ImmutableMap.of( "job", "TestBucket"), labels);
         verifyAll();
     }
 

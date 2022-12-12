@@ -55,10 +55,6 @@ public class LabelBuilder {
         Map<String, String> dimensions = new TreeMap<>();
         metricQuery.getMetric().dimensions().forEach(d -> dimensions.put(d.name(), d.value()));
         Map<String, String> entityLabels = new TreeMap<>(scrapeConfig.getEntityLabels(namespace, dimensions));
-
-        // Exported metrics will be mapped through vendor rules. So no need for entity type
-        // unlike the aws_cloudwatch_alarm
-        entityLabels.remove("asserts_entity_type");
         labels.putAll(entityLabels);
         return labels;
     }
