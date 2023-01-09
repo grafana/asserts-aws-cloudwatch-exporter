@@ -36,6 +36,8 @@ import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancing
 import software.amazon.awssdk.services.elasticloadbalancing.ElasticLoadBalancingClientBuilder;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2ClientBuilder;
+import software.amazon.awssdk.services.emr.EmrClient;
+import software.amazon.awssdk.services.emr.EmrClientBuilder;
 import software.amazon.awssdk.services.firehose.FirehoseClient;
 import software.amazon.awssdk.services.firehose.FirehoseClientBuilder;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
@@ -510,6 +512,29 @@ public class AWSClientProvider {
         RedshiftClient client = (RedshiftClient) clientCache.getIfPresent(clientCacheKey);
         if (client == null) {
             RedshiftClientBuilder clientBuilder = RedshiftClient.builder().region(Region.of(region));
+            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
+            if (credentialsOpt.isPresent()) {
+                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
+            }
+            if (account.getAssumeRole() != null) {
+                clientBuilder = clientBuilder.credentialsProvider(() ->
+                        getAwsSessionCredentials(region, account, credentialsOpt));
+            }
+            client = clientBuilder.build();
+            clientCache.put(clientCacheKey, client);
+        }
+        return client;
+    }
+
+    public EmrClient getEmrClient(String region, AWSAccount account) {
+        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
+                .region(region)
+                .accountId(accountIDProvider.getAccountId())
+                .clientType(EmrClient.class)
+                .build();
+        EmrClient client = (EmrClient) clientCache.getIfPresent(clientCacheKey);
+        if (client == null) {
+            EmrClientBuilder clientBuilder = EmrClient.builder().region(Region.of(region));
             Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
             if (credentialsOpt.isPresent()) {
                 clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
