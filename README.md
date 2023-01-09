@@ -131,43 +131,5 @@ aws_lambda_concurrent_executions_sum{d_function_name="first-lambda-function",d_r
 
 <details>
   <summary>AWS IAM Permissions</summary>
-The following IAM permissions need to be configured for the exporter
-  
-```
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "cloudwatch:ListMetrics",
-                "cloudwatch:GetMetricData",
-                "logs:FilterLogEvents",
-                "tag:GetResources",
-                "lambda:GetAccountSettings",
-                "lambda:ListFunctions",
-                "lambda:ListVersionsByFunction",
-                "lambda:ListAliases",
-                "lambda:ListProvisionedConcurrencyConfigs",
-                "lambda:ListFunctionEventInvokeConfigs",
-                "lambda:GetProvisionedConcurrencyConfig",
-                "lambda:GetFunctionConcurrency",
-                "lambda:ListEventSourceMappings",
-                "ecs:ListTaskDefinitionFamilies",
-                "ecs:ListTaskDefinitions",
-                "ecs:ListClusters"
-                "ecs:ListServices",
-                "ecs:ListContainerInstances",
-                "ecs:ListTasks",
-                "ecs:ListAccountSettings",
-                "ecs:DescribeServices",
-                "ecs:DescribeContainerInstances",
-                "ecs:DescribeTasks",
-                "ecs:DescribeTaskDefinition"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
-```
+  There are two roles required for the AWS Exporter. An ECS Execution Role and an ECS Task role. Please refer to this CloudFormation template https://github.com/asserts/downloads/blob/main/cloudformation/aws-integration/ecs/iam-roles-user-access-key.yaml to see the permissions required in these two roles. 
   </details>
