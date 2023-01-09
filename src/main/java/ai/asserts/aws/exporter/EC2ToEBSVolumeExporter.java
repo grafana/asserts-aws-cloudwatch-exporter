@@ -22,6 +22,7 @@ import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
+import software.amazon.awssdk.services.ec2.model.InstanceStateName;
 import software.amazon.awssdk.services.ec2.model.Reservation;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
@@ -42,6 +43,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static ai.asserts.aws.resource.ResourceType.EBSVolume;
 import static ai.asserts.aws.resource.ResourceType.EC2Instance;
 import static org.springframework.util.CollectionUtils.isEmpty;
+import static software.amazon.awssdk.services.ec2.model.InstanceStateName.RUNNING;
 
 @Slf4j
 @Component
@@ -109,6 +111,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                         response.reservations().stream()
                                 .filter(Reservation::hasInstances)
                                 .flatMap(reservation -> reservation.instances().stream())
+                                .filter(instance -> instance.state()!=null && instance.state().name().equals(RUNNING))
                                 .filter(instance -> !isEmpty(instance.tags()) && instance.tags().stream()
                                         .noneMatch(t -> t.key().contains("k8s") || t.key().contains("kubernetes")))
                                 .forEach(instance -> {
