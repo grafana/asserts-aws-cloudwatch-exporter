@@ -26,6 +26,8 @@ import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
 import software.amazon.awssdk.services.ec2.model.Instance;
+import software.amazon.awssdk.services.ec2.model.InstanceState;
+import software.amazon.awssdk.services.ec2.model.InstanceStateName;
 import software.amazon.awssdk.services.ec2.model.InstanceType;
 import software.amazon.awssdk.services.ec2.model.Reservation;
 import software.amazon.awssdk.services.ec2.model.Volume;
@@ -100,6 +102,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                                         .instanceId("instance-id")
                                         .instanceType(InstanceType.M1_LARGE)
                                         .instanceType(InstanceType.M1_LARGE.name())
+                                        .state(InstanceState.builder().name(InstanceStateName.RUNNING).build())
                                         .tags(software.amazon.awssdk.services.ec2.model.Tag.builder()
                                                         .key("k").value("v")
                                                         .build(),
@@ -119,6 +122,19 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                                                         .key("k8s").value("v")
                                                         .build(),
                                                 software.amazon.awssdk.services.ec2.model.Tag.builder()
+                                                        .key("Name").value("instance-name")
+                                                        .build())
+                                        .build(),
+                                Instance.builder()
+                                        .vpcId("vpc-id")
+                                        .subnetId("subnet-id")
+                                        .privateDnsName("dns-name2")
+                                        .privateIpAddress("1.2.3.5")
+                                        .instanceId("instance-id2")
+                                        .instanceType(InstanceType.M1_LARGE)
+                                        .instanceType(InstanceType.M1_LARGE.name())
+                                        .state(InstanceState.builder().name(InstanceStateName.STOPPED).build())
+                                        .tags(software.amazon.awssdk.services.ec2.model.Tag.builder()
                                                         .key("Name").value("instance-name")
                                                         .build())
                                         .build())
