@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -206,7 +205,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     if (listClustersResponse.hasClusterArns()) {
                         listClustersResponse.clusterArns().stream().map(resourceMapper::map).filter(Optional::isPresent)
                                 .map(Optional::get).forEach(cluster -> latestTargets.addAll(
-                                        buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting,
+                                        buildTargetsInCluster(awsAccount, scrapeConfig, ecsClient, cluster, newRouting,
                                                 resourceMetricSamples)));
                     }
                 } catch (Exception e) {
@@ -257,7 +256,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     }
 
     @VisibleForTesting
-    List<StaticConfig> buildTargetsInCluster(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
+    List<StaticConfig> buildTargetsInCluster(AWSAccount awsAccount, ScrapeConfig scrapeConfig, EcsClient ecsClient,
+                                             Resource cluster,
                                              Set<ResourceRelation> newRouting, List<Sample> resourceMetricSamples) {
         List<StaticConfig> targets = new ArrayList<>();
         String nextToken;
@@ -276,8 +276,6 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     () -> ecsClient.listServices(serviceReq));
             if (serviceResp.hasServiceArns()) {
                 // Get tags
-                AWSAccount awsAccount = new AWSAccount(cluster.getAccount(), null, null,
-                        null, ImmutableSet.of(cluster.getRegion()));
                 Map<String, Resource> tagsByName =
                         resourceTagHelper.getResourcesWithTag(awsAccount, cluster.getRegion(), "ecs:service",
                                 serviceResp.serviceArns().stream()

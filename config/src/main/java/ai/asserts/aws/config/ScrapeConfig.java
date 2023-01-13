@@ -87,9 +87,6 @@ public class ScrapeConfig {
     private boolean discoverOnlySubnetTasks = false;
 
     @Builder.Default
-    private Set<String> pauseAccounts = new TreeSet<>();
-
-    @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
 
     @Builder.Default
@@ -126,6 +123,9 @@ public class ScrapeConfig {
 
     @Builder.Default
     private boolean logScrapeConfig = false;
+
+    @Builder.Default
+    private boolean scrapeCurrentAccount = true;
 
     @JsonIgnore
     public Optional<NamespaceConfig> getLambdaConfig() {

@@ -309,7 +309,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
             }
 
             @Override
-            List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client,
+            List<StaticConfig> buildTargetsInCluster(AWSAccount account, ScrapeConfig sc, EcsClient client,
                                                      Resource _cluster,
                                                      Set<ResourceRelation> routing,
                                                      List<Sample> samples) {
@@ -377,7 +377,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
             }
 
             @Override
-            List<StaticConfig> buildTargetsInCluster(ScrapeConfig sc, EcsClient client, Resource _cluster,
+            List<StaticConfig> buildTargetsInCluster(AWSAccount awsAccount, ScrapeConfig sc, EcsClient client,
+                                                     Resource _cluster,
                                                      Set<ResourceRelation> routing,
                                                      List<Sample> samples) {
                 assertEquals(scrapeConfig, sc);
@@ -527,7 +528,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         testClass.getSubnetDetails().set(new SubnetDetails());
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig, mockStaticConfig),
-                testClass.buildTargetsInCluster(scrapeConfig, ecsClient, cluster, newRouting, samples));
+                testClass.buildTargetsInCluster(account, scrapeConfig, ecsClient, cluster, newRouting, samples));
 
         assertEquals(ImmutableSet.of(mockRelation), newRouting);
 
