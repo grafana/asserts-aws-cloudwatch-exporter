@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static ai.asserts.aws.ApiServerConstants.ASSERTS_API_SERVER_URL;
+import static ai.asserts.aws.ApiServerConstants.ASSERTS_TENANT_HEADER;
 
 @Component
 @Slf4j
@@ -50,7 +51,6 @@ public class ScrapeConfigProvider {
     private final ScrapeConfig NOOP_CONFIG = new ScrapeConfig();
     private final RestTemplate restTemplate;
     private volatile ScrapeConfig configCache;
-
 
     public ScrapeConfigProvider(ObjectMapperFactory objectMapperFactory,
                                 @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile,
@@ -98,7 +98,7 @@ public class ScrapeConfigProvider {
     }
 
     private ScrapeConfig getConfigFromServer() {
-        String url = getApiServerUrl();
+        String url = getExporterConfigUrl();
         log.info("Will load configuration from [{}]", url);
         ResponseEntity<ScrapeConfig> response = restTemplate.exchange(url,
                 HttpMethod.GET,
@@ -111,12 +111,16 @@ public class ScrapeConfigProvider {
         return NOOP_CONFIG;
     }
 
-    private String getApiServerUrl() {
-        return getGetenv().get(ASSERTS_API_SERVER_URL) + "/api-server/v1/config/aws-exporter";
+    public String getAssertsTenantBaseUrl() {
+        return getGetenv().get(ASSERTS_API_SERVER_URL);
+    }
+
+    private String getExporterConfigUrl() {
+        return getAssertsTenantBaseUrl() + "/api-server/v1/config/aws-exporter";
     }
 
     public String getAlertForwardUrl() {
-        return getGetenv().get(ASSERTS_API_SERVER_URL) + "/assertion-detector/external-alerts/prometheus";
+        return getAssertsTenantBaseUrl() + "/assertion-detector/external-alerts/prometheus";
     }
 
     public HttpEntity<String> createAssertsAuthHeader() {
@@ -128,6 +132,7 @@ public class ScrapeConfigProvider {
             HttpHeaders headers = new HttpHeaders();
             headers.setBasicAuth(username, password);
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.add(ASSERTS_TENANT_HEADER, username);
             return new HttpEntity<>(headers);
         } else {
             return null;

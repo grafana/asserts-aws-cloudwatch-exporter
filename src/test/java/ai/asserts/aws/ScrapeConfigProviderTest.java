@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static ai.asserts.aws.ApiServerConstants.ASSERTS_TENANT_HEADER;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -178,8 +179,9 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     @Test
     void loadConfigFromS3() throws IOException {
         FileInputStream fis = new FileInputStream("src/test/resources/cloudwatch_scrape_config.yml");
-        ScrapeConfig scrapeConfig = new ObjectMapperFactory().getObjectMapper().readValue(fis, new TypeReference<ScrapeConfig>() {
-        });
+        ScrapeConfig scrapeConfig =
+                new ObjectMapperFactory().getObjectMapper().readValue(fis, new TypeReference<ScrapeConfig>() {
+                });
         scrapeConfig.getRelabelConfigs().addAll(relabelConfigs);
         scrapeConfig.validateConfig();
 
@@ -222,8 +224,9 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         HttpHeaders headers = new HttpHeaders();
         headers.setBasicAuth("user", "key");
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.add(ASSERTS_TENANT_HEADER, "user");
         HttpEntity<?> httpEntity = new HttpEntity<>(headers);
-        ResponseEntity<ScrapeConfig> response = new ResponseEntity(scrapeConfig, HttpStatus.OK);
+        ResponseEntity<ScrapeConfig> response = new ResponseEntity<>(scrapeConfig, HttpStatus.OK);
         expect(restTemplate.exchange("host/api-server/v1/config/aws-exporter",
                 HttpMethod.GET,
                 httpEntity,

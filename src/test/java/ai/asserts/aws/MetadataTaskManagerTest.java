@@ -74,7 +74,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private RDSExporter rdsExporter;
     private DynamoDBExporter dynamoDBExporter;
     private SNSTopicExporter snsTopicExporter;
-    private AccountProvider accountProvider;
     private EMRExporter emrExporter;
     private MetadataTaskManager testClass;
 
@@ -109,7 +108,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         rdsExporter = mock(RDSExporter.class);
         dynamoDBExporter = mock(DynamoDBExporter.class);
         snsTopicExporter = mock(SNSTopicExporter.class);
-        accountProvider = mock(AccountProvider.class);
         emrExporter = mock(EMRExporter.class);
         testClass = new MetadataTaskManager(
                 collectorRegistry, lambdaFunctionScraper, lambdaCapacityExporter, lambdaEventSourceExporter,
@@ -118,7 +116,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
                 apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
                 sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter,
-                snsTopicExporter, accountProvider, emrExporter);
+                snsTopicExporter, emrExporter);
     }
 
     @Test
@@ -154,7 +152,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     public void updateMetadata_primaryExporter() {
         testClass.getLogScrapeTasks().add(logMetricScrapeTask);
 
-        expect(accountProvider.pauseCurrentAccount()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
@@ -268,25 +265,9 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     @SuppressWarnings("null")
-    public void updateMetadata_processingPaused() {
-        testClass.getLogScrapeTasks().add(logMetricScrapeTask);
-        expect(accountProvider.pauseCurrentAccount()).andReturn(true);
-        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-
-        replayAll();
-
-        testClass.updateMetadata();
-
-        verifyAll();
-    }
-
-    @Test
-    @SuppressWarnings("null")
     public void perMinuteTasks() {
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
-        expect(accountProvider.pauseCurrentAccount()).andReturn(false);
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();

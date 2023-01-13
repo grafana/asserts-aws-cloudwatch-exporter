@@ -575,10 +575,13 @@ public class AWSClientProvider {
                 stsClientBuilder = stsClientBuilder.credentialsProvider(credentialsOpt.get());
             }
             try (StsClient build = stsClientBuilder.build()) {
-                AssumeRoleResponse response = build.assumeRole(AssumeRoleRequest.builder()
+                AssumeRoleRequest.Builder reqBuilder = AssumeRoleRequest.builder()
                         .roleSessionName("session1")
-                        .roleArn(account.getAssumeRole())
-                        .build());
+                        .roleArn(account.getAssumeRole());
+                if(hasLength(account.getExternalId())) {
+                    reqBuilder = reqBuilder.externalId(account.getExternalId());
+                }
+                AssumeRoleResponse response = build.assumeRole(reqBuilder.build());
                 credentials = AWSSessionConfig.builder()
                         .accessKeyId(response.credentials().accessKeyId())
                         .secretAccessKey(response.credentials().secretAccessKey())
