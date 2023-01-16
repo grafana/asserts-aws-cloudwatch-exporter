@@ -127,6 +127,9 @@ public class ScrapeConfig {
     @Builder.Default
     private boolean scrapeCurrentAccount = true;
 
+    @Builder.Default
+    private boolean fetchAccountConfigs = false;
+
     @JsonIgnore
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {

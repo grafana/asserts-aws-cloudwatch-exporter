@@ -67,30 +67,32 @@ public class AccountProvider {
         }
 
         // Get Configured AWS Accounts
-        String cloudwatchConfigUrl = scrapeConfigProvider.getAssertsTenantBaseUrl() +
-                "/api-server/v1/config/cloudwatch";
-        ResponseEntity<CloudwatchConfigs> response = restTemplate.exchange(cloudwatchConfigUrl,
-                HttpMethod.GET,
-                scrapeConfigProvider.createAssertsAuthHeader(),
-                new ParameterizedTypeReference<CloudwatchConfigs>() {
-                });
-        if (response.getStatusCode().is2xxSuccessful()) {
-            Set<String> finalRegions = regions;
-            if (response.getBody() != null && !isEmpty(response.getBody().getCloudWatchConfigs())) {
-                response.getBody().getCloudWatchConfigs()
-                        .stream()
-                        .filter(awsAccount -> {
-                            if (awsAccount.paused) {
-                                log.info("Account {} is paused", awsAccount.accountId);
-                            }
-                            return !awsAccount.paused;
-                        })
-                        .forEach(awsAccount -> {
-                            awsAccount.getRegions().addAll(finalRegions);
-                            accountRegions.add(awsAccount);
-                        });
-            }
+        if (scrapeConfig.isFetchAccountConfigs()) {
+            String cloudwatchConfigUrl = scrapeConfigProvider.getAssertsTenantBaseUrl() +
+                    "/api-server/v1/config/cloudwatch";
+            ResponseEntity<CloudwatchConfigs> response = restTemplate.exchange(cloudwatchConfigUrl,
+                    HttpMethod.GET,
+                    scrapeConfigProvider.createAssertsAuthHeader(),
+                    new ParameterizedTypeReference<CloudwatchConfigs>() {
+                    });
+            if (response.getStatusCode().is2xxSuccessful()) {
+                Set<String> finalRegions = regions;
+                if (response.getBody() != null && !isEmpty(response.getBody().getCloudWatchConfigs())) {
+                    response.getBody().getCloudWatchConfigs()
+                            .stream()
+                            .filter(awsAccount -> {
+                                if (awsAccount.paused) {
+                                    log.info("Account {} is paused", awsAccount.accountId);
+                                }
+                                return !awsAccount.paused;
+                            })
+                            .forEach(awsAccount -> {
+                                awsAccount.getRegions().addAll(finalRegions);
+                                accountRegions.add(awsAccount);
+                            });
+                }
 
+            }
         }
         return accountRegions;
     }

@@ -41,8 +41,22 @@ public class AccountProviderTest extends EasyMockSupport {
     }
 
     @Test
+    public void getAccounts_SkipConfiguredAccounts_SkipCurrentAccount() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchAccountConfigs()).andReturn(false);
+        expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
+        expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(false);
+        expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
+
+        replayAll();
+        assertEquals(ImmutableSet.of(), testClass.getAccounts());
+        verifyAll();
+    }
+
+    @Test
     public void getAccounts_NoConfiguredAccounts_SkipCurrentAccount() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(false);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
@@ -62,6 +76,7 @@ public class AccountProviderTest extends EasyMockSupport {
     @Test
     public void getAccounts_NoConfiguredAccounts_UseCurrentAccount() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(true);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
@@ -86,6 +101,7 @@ public class AccountProviderTest extends EasyMockSupport {
     @Test
     public void getAccounts_ConfiguredAccounts_SkipCurrentAccount() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(false);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
@@ -119,6 +135,7 @@ public class AccountProviderTest extends EasyMockSupport {
     @Test
     public void getAccounts_ConfiguredAccounts_UseCurrentAccount() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(true);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
@@ -157,6 +174,7 @@ public class AccountProviderTest extends EasyMockSupport {
     @Test
     public void getAccounts_ConfiguredAccounts_SomePaused_UseCurrentAccount() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(true);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
