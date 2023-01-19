@@ -10,9 +10,13 @@ import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import io.prometheus.client.Collector.MetricFamilySamples;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import io.prometheus.client.CollectorRegistry;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,10 +27,21 @@ import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeList
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeLoadBalancersResponse;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeRulesRequest;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeRulesResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetGroupsResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthResponse;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.Listener;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.LoadBalancer;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.Rule;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetDescription;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetGroup;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetHealth;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetHealthDescription;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetHealthStateEnum;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetTypeEnum;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -40,15 +55,21 @@ import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings("unchecked")
 public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     private AccountProvider accountProvider;
     private AWSClientProvider awsClientProvider;
     private ElasticLoadBalancingV2Client lbClient;
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
+    private MetricSampleBuilder sampleBuilder;
+    private CollectorRegistry collectorRegistry;
+    private Sample mockSample;
+    private MetricFamilySamples mockFamilySamples;
     private SortedMap<String, String> labels;
     private AWSAccount awsAccount;
 
@@ -59,6 +80,10 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         lbClient = mock(ElasticLoadBalancingV2Client.class);
         resourceMapper = mock(ResourceMapper.class);
         metricCollector = mock(BasicMetricCollector.class);
+        sampleBuilder = mock(MetricSampleBuilder.class);
+        collectorRegistry = mock(CollectorRegistry.class);
+        mockSample = mock(Sample.class);
+        mockFamilySamples = mock(MetricFamilySamples.class);
         labels = ImmutableSortedMap.of(
                 SCRAPE_ACCOUNT_ID_LABEL, "account",
                 SCRAPE_REGION_LABEL, "region",
@@ -68,6 +93,17 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         awsAccount = new AWSAccount("account", "", "", "role",
                 ImmutableSet.of("region"));
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).anyTimes();
+    }
+
+
+    @Test
+    public void afterPropertiesSet() throws Exception{
+        TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry);
+        collectorRegistry.register(testClass);
+        replayAll();
+        testClass.afterPropertiesSet();
+        verifyAll();
     }
 
     @Test
@@ -86,20 +122,23 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         AtomicInteger sideEffect = new AtomicInteger();
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector)) {
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry) {
             @Override
-            void mapLB(ElasticLoadBalancingV2Client client, SortedMap<String, String> theLabels,
-                       LoadBalancer theLb) {
+            List<Sample> mapLB(ElasticLoadBalancingV2Client client,
+                               SortedMap<String, String> theLabels,
+                               LoadBalancer theLb) {
                 assertEquals(lbClient, client);
                 assertEquals(labels, theLabels);
                 assertEquals(loadBalancer, theLb);
                 sideEffect.incrementAndGet();
+                return ImmutableList.of(mockSample);
             }
         };
-
+        expect(sampleBuilder.buildFamily(ImmutableList.of(mockSample))).andReturn(Optional.of(mockFamilySamples));
         replayAll();
         testClass.update();
         assertEquals(1, sideEffect.get());
+        assertEquals(mockFamilySamples, testClass.getMetricFamilySamples());
         verifyAll();
     }
 
@@ -131,19 +170,21 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         AtomicInteger sideEffect = new AtomicInteger();
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector)) {
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry) {
             @Override
-            void mapListener(ElasticLoadBalancingV2Client theClient, SortedMap<String, String> labels,
-                             Resource theResource, Listener theListener) {
+            List<Sample> mapListener(ElasticLoadBalancingV2Client theClient,
+                                     SortedMap<String, String> labels,
+                                     Resource theResource, Listener theListener) {
                 assertEquals(lbClient, theClient);
                 assertEquals(lbResource, theResource);
                 assertEquals(listener, theListener);
                 sideEffect.incrementAndGet();
+                return ImmutableList.of(mockSample);
             }
         };
 
         replayAll();
-        testClass.mapLB(lbClient, labels, loadBalancer);
+        assertEquals(ImmutableList.of(mockSample), testClass.mapLB(lbClient, labels, loadBalancer));
         assertEquals(1, sideEffect.get());
         verifyAll();
     }
@@ -151,16 +192,24 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     @Test
     public void mapListener() {
         Resource lbResource = Resource.builder()
+                .name("lb-name")
+                .id("lb-id")
                 .arn("lb-arn")
+                .account("account")
+                .region("us-west-2")
                 .build();
 
         Resource tgResource = Resource.builder()
                 .name("tg")
+                .account("account")
+                .region("us-west-2")
                 .arn("tg-arn")
                 .build();
 
         Resource tgResource2 = Resource.builder()
                 .name("tg2")
+                .account("account")
+                .region("us-west-2")
                 .arn("tg-arn2")
                 .build();
 
@@ -183,19 +232,85 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                         .build())
                 .build();
         expect(lbClient.describeRules(request)).andReturn(response);
+        expect(lbClient.describeTargetGroups(DescribeTargetGroupsRequest.builder()
+                .targetGroupArns("tg-arn")
+                .build())).andReturn(DescribeTargetGroupsResponse.builder()
+                .targetGroups(TargetGroup.builder()
+                        .healthCheckPort("80")
+                        .targetType(TargetTypeEnum.INSTANCE)
+                        .build())
+                .build());
+        expect(lbClient.describeTargetHealth(DescribeTargetHealthRequest.builder().targetGroupArn("tg-arn")
+                .build())).andReturn(DescribeTargetHealthResponse.builder()
+                .targetHealthDescriptions(TargetHealthDescription.builder()
+                        .target(TargetDescription.builder()
+                                .id("instance-id")
+                                .port(80)
+                                .build())
+                        .targetHealth(TargetHealth.builder()
+                                .state(TargetHealthStateEnum.HEALTHY)
+                                .build())
+                        .build())
+                .build());
+
+        expect(lbClient.describeTargetGroups(DescribeTargetGroupsRequest.builder()
+                .targetGroupArns("tg-arn2")
+                .build())).andReturn(DescribeTargetGroupsResponse.builder()
+                .targetGroups(TargetGroup.builder()
+                        .healthCheckPort("80")
+                        .targetType(TargetTypeEnum.INSTANCE)
+                        .build())
+                .build());
+        expect(lbClient.describeTargetHealth(DescribeTargetHealthRequest.builder().targetGroupArn("tg-arn2")
+                .build())).andReturn(DescribeTargetHealthResponse.builder()
+                .targetHealthDescriptions(TargetHealthDescription.builder()
+                        .target(TargetDescription.builder()
+                                .id("instance-id2")
+                                .port(80)
+                                .build())
+                        .targetHealth(TargetHealth.builder()
+                                .state(TargetHealthStateEnum.HEALTHY)
+                                .build())
+                        .build())
+                .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        expectLastCall().anyTimes();
 
         expect(resourceMapper.map("tg-arn")).andReturn(Optional.of(tgResource));
         expect(resourceMapper.map("tg-arn2")).andReturn(Optional.of(tgResource2));
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector));
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry);
 
         testClass.getMissingTgMap().put(tgResource2, tgResource2);
 
+        ImmutableMap<String, String> labels = ImmutableMap.<String, String>builder()
+                .put("account_id", "account")
+                .put("region", "us-west-2")
+                .put("ec2_instance_id", "instance-id")
+                .put("port", "80")
+                .put("lb_name", "lb-name")
+                .put("lb_id", "lb-id")
+                .build();
+        expect(sampleBuilder.buildSingleSample("aws_lb_to_ec2_instance", labels, 1.0D))
+                .andReturn(Optional.of(mockSample));
+
+        labels = ImmutableMap.<String, String>builder()
+                .put("account_id", "account")
+                .put("region", "us-west-2")
+                .put("ec2_instance_id", "instance-id2")
+                .put("port", "80")
+                .put("lb_name", "lb-name")
+                .put("lb_id", "lb-id")
+                .build();
+        expect(sampleBuilder.buildSingleSample("aws_lb_to_ec2_instance", labels, 1.0D))
+                .andReturn(Optional.of(mockSample));
+
         replayAll();
         assertTrue(testClass.getTgToLB().isEmpty());
-        testClass.mapListener(lbClient, new TreeMap<>(), lbResource, listener);
+        assertEquals(ImmutableList.of(
+                mockSample, mockSample
+        ), testClass.mapListener(lbClient, new TreeMap<>(), lbResource, listener));
         assertEquals(ImmutableMap.of(tgResource, lbResource), testClass.getTgToLB());
         verifyAll();
     }
@@ -203,7 +318,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     @Test
     public void handleMissing() {
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector));
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry);
 
         Resource tgResource = Resource.builder()
                 .name("tg")
