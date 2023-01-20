@@ -11,10 +11,15 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import lombok.AllArgsConstructor;
+import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import io.prometheus.client.CollectorRegistry;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeListenersRequest;
@@ -22,11 +27,19 @@ import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeList
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeLoadBalancersResponse;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeRulesRequest;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeRulesResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetGroupsResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthResponse;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.Listener;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.LoadBalancer;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetDescription;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -35,23 +48,56 @@ import java.util.concurrent.ConcurrentHashMap;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static java.lang.String.format;
 import static org.springframework.util.CollectionUtils.isEmpty;
+import static software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetHealthStateEnum.HEALTHY;
+import static software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetTypeEnum.INSTANCE;
 
 @Component
 @Slf4j
-@AllArgsConstructor
-public class TargetGroupLBMapProvider {
+public class TargetGroupLBMapProvider extends Collector implements InitializingBean {
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final RateLimiter rateLimiter;
+    private final MetricSampleBuilder sampleBuilder;
+    private final CollectorRegistry collectorRegistry;
     @Getter
     private final Map<Resource, Resource> tgToLB = new ConcurrentHashMap<>();
 
     private final Map<Resource, Resource> missingTgMap = new ConcurrentHashMap<>();
 
+    @Getter
+    private volatile MetricFamilySamples metricFamilySamples = null;
+
+
+    public TargetGroupLBMapProvider(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
+                                    ResourceMapper resourceMapper, RateLimiter rateLimiter,
+                                    MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry) {
+        this.accountProvider = accountProvider;
+        this.awsClientProvider = awsClientProvider;
+        this.resourceMapper = resourceMapper;
+        this.rateLimiter = rateLimiter;
+        this.sampleBuilder = sampleBuilder;
+        this.collectorRegistry = collectorRegistry;
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        collectorRegistry.register(this);
+    }
+
+    @Override
+    public List<MetricFamilySamples> collect() {
+        if (metricFamilySamples != null) {
+            return ImmutableList.of(metricFamilySamples);
+        }
+        return Collections.emptyList();
+    }
+
     public void update() {
         log.info("Updating TargetGroup to LoadBalancer map");
+        List<Sample> newSamples = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
                 try {
@@ -63,13 +109,14 @@ public class TargetGroupLBMapProvider {
                     DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(api, labels,
                             lbClient::describeLoadBalancers);
                     if (resp.hasLoadBalancers()) {
-                        resp.loadBalancers().forEach(lb -> mapLB(lbClient, labels, lb));
+                        resp.loadBalancers().forEach(lb -> newSamples.addAll(mapLB(lbClient, labels, lb)));
                     }
                 } catch (Exception e) {
                     log.error("Failed to build LB Target Group map", e);
                 }
             });
         }
+        sampleBuilder.buildFamily(newSamples).ifPresent(familySamples -> metricFamilySamples = familySamples);
     }
 
     public void handleMissingTgs(Set<Resource> missingTgs) {
@@ -80,7 +127,9 @@ public class TargetGroupLBMapProvider {
     }
 
     @VisibleForTesting
-    void mapLB(ElasticLoadBalancingV2Client lbClient, SortedMap<String, String> labels, LoadBalancer lb) {
+    List<Sample> mapLB(ElasticLoadBalancingV2Client lbClient,
+                       SortedMap<String, String> labels, LoadBalancer lb) {
+        List<Sample> lbEC2RelationSamples = new ArrayList<>();
         String lbArn = lb.loadBalancerArn();
         resourceMapper.map(lbArn).ifPresent(lbResource -> {
             String api = "ElasticLoadBalancingV2Client/describeListeners";
@@ -93,11 +142,13 @@ public class TargetGroupLBMapProvider {
                 DescribeListenersResponse listenersResponse = lbClient.describeListeners(listenersRequest);
                 if (!isEmpty(listenersResponse.listeners())) {
                     listenersResponse.listeners()
-                            .forEach(listener -> mapListener(lbClient, labels, lbResource, listener));
+                            .forEach(listener -> lbEC2RelationSamples.addAll(mapListener(
+                                    lbClient, labels, lbResource, listener)));
                 }
                 return null;
             });
         });
+        return lbEC2RelationSamples;
     }
 
     @VisibleForTesting
@@ -106,8 +157,11 @@ public class TargetGroupLBMapProvider {
     }
 
     @VisibleForTesting
-    void mapListener(ElasticLoadBalancingV2Client lbClient, SortedMap<String, String> labels, Resource lbResource,
-                     Listener listener) {
+    List<Sample> mapListener(ElasticLoadBalancingV2Client lbClient,
+                             SortedMap<String, String> labels,
+                             Resource lbResource,
+                             Listener listener) {
+        List<Sample> lbEC2RelationSamples = new ArrayList<>();
         SortedMap<String, String> telemetryLabels = new TreeMap<>(labels);
         telemetryLabels.put(SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClientV2/describeRules");
         DescribeRulesResponse dLR = rateLimiter.doWithRateLimit("ElasticLoadBalancingClientV2/describeRules",
@@ -120,11 +174,71 @@ public class TargetGroupLBMapProvider {
                     .filter(rule -> !isEmpty(rule.actions()))
                     .flatMap(rule -> rule.actions().stream())
                     .filter(action -> action.targetGroupArn() != null)
-                    .forEach(action -> resourceMapper.map(action.targetGroupArn()).ifPresent(tg -> {
-                        if (!missingTgMap.containsKey(tg)) {
-                            tgToLB.put(tg, lbResource);
+                    .forEach(action -> {
+                        resourceMapper.map(action.targetGroupArn()).ifPresent(tg -> {
+                            if (!missingTgMap.containsKey(tg)) {
+                                tgToLB.put(tg, lbResource);
+                            }
+                        });
+                        // If the TG has EC2 instances directly registered into it instead of through an ASG
+                        // Build the LB-EC2 Relationship
+                        telemetryLabels.put(SCRAPE_OPERATION_LABEL,
+                                "ElasticLoadBalancingV2Client/describeTargetGroups");
+                        DescribeTargetGroupsResponse tgr =
+                                rateLimiter.doWithRateLimit("ElasticLoadBalancingV2Client/describeTargetGroups",
+                                        ImmutableSortedMap.of(),
+                                        () -> lbClient.describeTargetGroups(DescribeTargetGroupsRequest.builder()
+                                                .targetGroupArns(action.targetGroupArn())
+                                                .build()));
+                        if (!isEmpty(tgr.targetGroups())) {
+                            tgr.targetGroups()
+                                    .stream()
+                                    .filter(targetGroup -> targetGroup.targetType()
+                                            .equals(INSTANCE))
+                                    .forEach(targetGroup -> {
+                                        DescribeTargetHealthResponse thr =
+                                                rateLimiter.doWithRateLimit(
+                                                        "ElasticLoadBalancingV2Client/describeTargetHealth",
+                                                        ImmutableSortedMap.of(),
+                                                        () -> lbClient.describeTargetHealth(
+                                                                DescribeTargetHealthRequest.builder()
+                                                                        .targetGroupArn(action.targetGroupArn())
+                                                                        .build()));
+                                        if (!isEmpty(thr.targetHealthDescriptions())) {
+                                            thr.targetHealthDescriptions()
+                                                    .stream()
+                                                    .filter(thD -> thD.targetHealth().state().equals(HEALTHY))
+                                                    .forEach(targetHealthDescription -> {
+                                                        TargetDescription target = targetHealthDescription.target();
+                                                        String id = target.id();
+                                                        Map<String, String> relLabels =
+                                                                new HashMap<>(ImmutableMap.<String, String>builder()
+                                                                        .put(SCRAPE_ACCOUNT_ID_LABEL,
+                                                                                lbResource.getAccount())
+                                                                        .put(SCRAPE_REGION_LABEL,
+                                                                                lbResource.getRegion())
+                                                                        .put("lb_id", lbResource.getId())
+                                                                        .put("lb_name", lbResource.getName())
+                                                                        .build());
+                                                        // If it is an IP
+                                                        if (id.split("\\.").length == 4) {
+                                                            relLabels.put("instance", format("%s:%d", target.id(),
+                                                                    target.port()));
+                                                        } else {
+                                                            relLabels.put("ec2_instance_id", target.id());
+                                                            if (target.port() != null) {
+                                                                relLabels.put("port", target.port().toString());
+                                                            }
+                                                        }
+                                                        sampleBuilder.buildSingleSample(
+                                                                        "aws_lb_to_ec2_instance", relLabels, 1.0D)
+                                                                .ifPresent(lbEC2RelationSamples::add);
+                                                    });
+                                        }
+                                    });
                         }
-                    }));
+                    });
         }
+        return lbEC2RelationSamples;
     }
 }
