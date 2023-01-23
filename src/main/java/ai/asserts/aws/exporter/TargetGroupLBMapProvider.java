@@ -21,6 +21,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeListenersRequest;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeListenersResponse;
@@ -50,6 +51,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static java.lang.String.format;
 import static org.springframework.util.CollectionUtils.isEmpty;
+import static org.springframework.util.StringUtils.hasLength;
 import static software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetHealthStateEnum.HEALTHY;
 import static software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetTypeEnum.INSTANCE;
 
@@ -219,6 +221,10 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
                                                                                 lbResource.getRegion())
                                                                         .put("lb_id", lbResource.getId())
                                                                         .put("lb_name", lbResource.getName())
+                                                                        .put("lb_type",
+                                                                                hasLength(lbResource.getSubType()) ?
+                                                                                        lbResource.getSubType() :
+                                                                                        "classic")
                                                                         .build());
                                                         // If it is an IP
                                                         if (id.split("\\.").length == 4) {

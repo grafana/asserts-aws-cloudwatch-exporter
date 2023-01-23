@@ -291,6 +291,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 .put("port", "80")
                 .put("lb_name", "lb-name")
                 .put("lb_id", "lb-id")
+                .put("lb_type", "classic")
                 .build();
         expect(sampleBuilder.buildSingleSample("aws_lb_to_ec2_instance", labels, 1.0D))
                 .andReturn(Optional.of(mockSample));
@@ -302,6 +303,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 .put("port", "80")
                 .put("lb_name", "lb-name")
                 .put("lb_id", "lb-id")
+                .put("lb_type", "classic")
                 .build();
         expect(sampleBuilder.buildSingleSample("aws_lb_to_ec2_instance", labels, 1.0D))
                 .andReturn(Optional.of(mockSample));
