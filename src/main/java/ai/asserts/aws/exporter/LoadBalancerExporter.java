@@ -6,12 +6,14 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.ResourceMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -27,6 +29,7 @@ import software.amazon.awssdk.services.elasticloadbalancingv2.model.LoadBalancer
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,6 +75,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
     public void update() {
         List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
         List<Sample> samples = new ArrayList<>();
+        List<Sample> elbEC2RelSamples = new ArrayList<>();
         try {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
@@ -109,17 +113,17 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                                                 .build())
                                         .collect(Collectors.toList())));
 
-                        resp.loadBalancerDescriptions().forEach(loadBalancerDescription -> {
+                        resp.loadBalancerDescriptions().forEach(lbDescription -> {
                             Map<String, String> labels = new TreeMap<>();
                             labels.put(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId());
                             labels.put(SCRAPE_REGION_LABEL, region);
                             labels.put("namespace", "AWS/ELB");
                             labels.put("aws_resource_type", "AWS::ElasticLoadBalancing::LoadBalancer");
-                            labels.put("job", loadBalancerDescription.loadBalancerName());
-                            labels.put("name", loadBalancerDescription.loadBalancerName());
-                            labels.put("id", loadBalancerDescription.loadBalancerName());
-                            if (classLBTagsByName.containsKey(loadBalancerDescription.loadBalancerName())) {
-                                List<Tag> allTags = classLBTagsByName.get(loadBalancerDescription.loadBalancerName());
+                            labels.put("job", lbDescription.loadBalancerName());
+                            labels.put("name", lbDescription.loadBalancerName());
+                            labels.put("id", lbDescription.loadBalancerName());
+                            if (classLBTagsByName.containsKey(lbDescription.loadBalancerName())) {
+                                List<Tag> allTags = classLBTagsByName.get(lbDescription.loadBalancerName());
 
                                 // This is for backward compatibility. We can modify model rule to instead use the
                                 /// k8s_* series of labels
@@ -144,6 +148,10 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                             }
                             metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D)
                                     .ifPresent(samples::add);
+
+                            if (!labels.containsKey("k8s_cluster")) {
+                                discoverTargetEC2Instances(elbEC2RelSamples, awsAccount, region, lbDescription);
+                            }
                         });
                     }
                 } catch (Exception e) {
@@ -162,13 +170,18 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
                                     elbClient::describeLoadBalancers);
                     if (resp.hasLoadBalancers()) {
                         software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsResponse
-                                tagsResponse = elbClient.describeTags(
-                                software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsRequest.builder()
-                                        .resourceArns(resp.loadBalancers().stream()
-                                                .map(LoadBalancer::loadBalancerArn)
-                                                .collect(Collectors.toList()))
-                                        .build());
-
+                        tagsResponse = rateLimiter.doWithRateLimit("ElasticLoadBalancingClient/describeTags",
+                                ImmutableSortedMap.of(
+                                        SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
+                                        SCRAPE_REGION_LABEL, region,
+                                        SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingClient/describeTags"
+                                ),
+                                () -> elbClient.describeTags(
+                                        software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTagsRequest.builder()
+                                                .resourceArns(resp.loadBalancers().stream()
+                                                        .map(LoadBalancer::loadBalancerArn)
+                                                        .collect(Collectors.toList()))
+                                                .build()));
                         Map<String, List<Tag>> tagsByIdOrName = new TreeMap<>();
 
                         tagsResponse.tagDescriptions()
@@ -217,7 +230,33 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
             log.error("Failed to build Load Balancer metrics", e);
         }
         metricSampleBuilder.buildFamily(samples).ifPresent(metricFamilySamples::add);
+        metricSampleBuilder.buildFamily(elbEC2RelSamples).ifPresent(metricFamilySamples::add);
         resourceMetrics = metricFamilySamples;
+    }
+
+    private void discoverTargetEC2Instances(List<Sample> elbEC2RelSamples, AWSAccount awsAccount, String region,
+                                            LoadBalancerDescription loadBalancerDescription) {
+        if (!isEmpty(loadBalancerDescription.instances())) {
+            loadBalancerDescription.instances().forEach(instance -> {
+                // For each listener, there will be a forwarding port which will forward to
+                // all the instances.
+                loadBalancerDescription.listenerDescriptions().forEach(lD -> {
+                    Map<String, String> relLabels =
+                            new HashMap<>(ImmutableMap.<String, String>builder()
+                                    .put(SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId())
+                                    .put(SCRAPE_REGION_LABEL, region)
+                                    .put("lb_name", loadBalancerDescription.loadBalancerName())
+                                    .put("lb_type", "classic")
+                                    .put("ec2_instance_id", instance.instanceId())
+                                    .put("port", lD.listener().instancePort().toString())
+                                    .build());
+
+                    metricSampleBuilder.buildSingleSample(
+                                    "aws_lb_to_ec2_instance", relLabels, 1.0D)
+                            .ifPresent(elbEC2RelSamples::add);
+                });
+            });
+        }
     }
 
     @Override
