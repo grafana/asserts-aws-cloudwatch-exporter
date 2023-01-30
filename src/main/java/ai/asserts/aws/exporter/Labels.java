@@ -29,8 +29,10 @@ public class Labels extends TreeMap<String, String> {
     private String taskDefVersion;
     @JsonProperty
     private String container;
-    @JsonProperty("pod")
+    @JsonProperty("task_id")
     private String taskId;
+    @JsonProperty("pod")
+    private String pod;
 
     private String vpcId;
     private String subnetId;
@@ -71,7 +73,10 @@ public class Labels extends TreeMap<String, String> {
             put("container", container);
         }
         if (taskId != null) {
-            put("pod", taskId);
+            put("task_id", taskId);
+        }
+        if (pod != null) {
+            put("pod", pod);
         }
         if (isNotEmpty(vpcId)) {
             put("vpc_id", vpcId);
