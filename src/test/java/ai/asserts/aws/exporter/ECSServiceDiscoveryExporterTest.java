@@ -312,11 +312,11 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
             List<StaticConfig> buildTargetsInCluster(AWSAccount account, ScrapeConfig sc, EcsClient client,
                                                      Resource _cluster,
                                                      Set<ResourceRelation> routing,
-                                                     List<Sample> samples) {
+                                                     List<Sample> taskMetaMetric) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(resource, _cluster);
-                samples.add(sample);
+                taskMetaMetric.add(sample);
                 return ImmutableList.of(mockStaticConfig);
             }
         };
@@ -380,7 +380,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
             List<StaticConfig> buildTargetsInCluster(AWSAccount awsAccount, ScrapeConfig sc, EcsClient client,
                                                      Resource _cluster,
                                                      Set<ResourceRelation> routing,
-                                                     List<Sample> samples) {
+                                                     List<Sample> taskMetaMetric) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(resource, _cluster);
@@ -493,7 +493,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .accountId("account")
                 .region("region")
                 .cluster("cluster")
-                .taskId("workload-task2")
+                .pod("workload-task2")
                 .workload("workload")
                 .build()).anyTimes();
 
@@ -507,7 +507,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
             @Override
             List<StaticConfig> buildTargetsInService(ScrapeConfig sc, EcsClient client, Resource _cluster,
-                                                     Resource _service, Map<String, Resource> tagsByName) {
+                                                     Resource _service, Map<String, Resource> tagsByName,
+                                                     List<Sample> taskMetaMetric) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(cluster, _cluster);
@@ -517,7 +518,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
             @Override
             List<StaticConfig> buildTaskTargets(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                 Optional<Resource> service, Set<String> taskARNs,
-                                                Map<String, String> tags) {
+                                                Map<String, String> tags,
+                                                List<Sample> taskMetaMetric) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertFalse(service.isPresent());
@@ -537,6 +539,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void buildTargetsInService() {
+        List<Sample> taskMetaSamples = new ArrayList<>();
         Resource cluster = Resource.builder()
                 .region("region1")
                 .arn("cluster-arn")
@@ -596,7 +599,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
             @Override
             List<StaticConfig> buildTaskTargets(ScrapeConfig sc, EcsClient client, Resource _cluster,
                                                 Optional<Resource> _service, Set<String> taskIds,
-                                                Map<String, String> tagLabels) {
+                                                Map<String, String> tagLabels,
+                                                List<Sample> taskMetaMetric) {
                 assertEquals(scrapeConfig, sc);
                 assertEquals(ecsClient, client);
                 assertEquals(cluster, _cluster);
@@ -607,7 +611,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         };
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),
-                testClass.buildTargetsInService(scrapeConfig, ecsClient, cluster, service, Collections.emptyMap()));
+                testClass.buildTargetsInService(scrapeConfig, ecsClient, cluster, service, Collections.emptyMap(),
+                        taskMetaSamples));
         assertEquals(expectedARNs, actualARNs);
 
         verifyAll();
@@ -615,6 +620,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void buildTaskTargets() {
+        List<Sample> taskMetaSamples = new ArrayList<>();
         Resource cluster = Resource.builder()
                 .region("region1")
                 .arn("cluster-arn")
@@ -639,10 +645,47 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
         Task task1 = Task.builder()
                 .taskArn("arn1")
+                .taskDefinitionArn("taskdef-arn1")
+                .version(1L)
                 .build();
         Task task2 = Task.builder()
                 .taskArn("arn2")
+                .taskDefinitionArn("taskdef-arn2")
+                .group("group")
+                .version(2L)
                 .build();
+
+        expect(resourceMapper.map("taskdef-arn1")).andReturn(Optional.of(resource));
+        expect(resource.getName()).andReturn("taskdef1");
+        expect(resourceMapper.map("arn1")).andReturn(Optional.of(resource));
+        expect(resource.getName()).andReturn("task1");
+
+        expect(metricSampleBuilder.buildSingleSample("aws_ecs_task_info",
+                ImmutableMap.<String, String>builder()
+                        .put("account_id", "account")
+                        .put("region", "region1")
+                        .put("cluster", "cluster")
+                        .put("service", "service")
+                        .put("task_id", "task1")
+                        .put("taskdef_family", "taskdef1")
+                        .put("taskdef_version", "1")
+                        .build(), 1.0D)).andReturn(Optional.of(sample));
+
+        expect(resourceMapper.map("taskdef-arn2")).andReturn(Optional.of(resource));
+        expect(resource.getName()).andReturn("taskdef2");
+        expect(resourceMapper.map("arn2")).andReturn(Optional.of(resource));
+        expect(resource.getName()).andReturn("task2");
+
+        expect(metricSampleBuilder.buildSingleSample("aws_ecs_task_info",
+                ImmutableMap.<String, String>builder()
+                        .put("account_id", "account")
+                        .put("region", "region1")
+                        .put("cluster", "cluster")
+                        .put("service", "service")
+                        .put("task_id", "task2")
+                        .put("taskdef_family", "taskdef2")
+                        .put("taskdef_version", "2")
+                        .build(), 1.0D)).andReturn(Optional.of(sample));
 
         expect(ecsClient.describeTasks(DescribeTasksRequest.builder()
                 .cluster(cluster.getName())
@@ -675,7 +718,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         assertEquals(
                 ImmutableList.of(mockStaticConfig, mockStaticConfig),
                 testClass.buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.of(service), taskArns,
-                        Collections.emptyMap()));
+                        Collections.emptyMap(), taskMetaSamples));
 
         verifyAll();
     }

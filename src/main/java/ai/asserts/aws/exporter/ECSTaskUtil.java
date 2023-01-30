@@ -93,7 +93,8 @@ public class ECSTaskUtil {
         if (service.isPresent()) {
             labelsBuilder = Labels.builder()
                     .workload(service.get().getName())
-                    .taskId(service.get().getName() + "-" + taskResource.getName())
+                    .taskId(taskResource.getName())
+                    .pod(service.get().getName() + "-" + taskResource.getName())
                     .vpcId(taskSubnetMap.get(taskResource.getName()).getVpcId())
                     .subnetId(taskSubnetMap.get(taskResource.getName()).getSubnetId())
                     .accountId(cluster.getAccount())
@@ -107,7 +108,8 @@ public class ECSTaskUtil {
         } else {
             labelsBuilder = Labels.builder()
                     .workload(taskDefResource.getName())
-                    .taskId(taskDefResource.getName() + "-" + taskResource.getName())
+                    .taskId(taskResource.getName())
+                    .pod(taskDefResource.getName() + "-" + taskResource.getName())
                     .vpcId(taskSubnetMap.get(taskResource.getName()).getVpcId())
                     .subnetId(taskSubnetMap.get(taskResource.getName()).getSubnetId())
                     .accountId(cluster.getAccount())

@@ -100,7 +100,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     @Getter
     private volatile Set<ResourceRelation> routing = new HashSet<>();
 
-    private volatile List<Collector.MetricFamilySamples> resourceMetrics = new ArrayList<>();
+    @Getter
+    private volatile List<MetricFamilySamples> taskMetaMetric = new ArrayList<>();
 
     public ECSServiceDiscoveryExporter(RestTemplate restTemplate, AccountProvider accountProvider,
                                        ScrapeConfigProvider scrapeConfigProvider,
@@ -172,13 +173,13 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
     @Override
     public List<MetricFamilySamples> collect() {
-        return resourceMetrics;
+        return taskMetaMetric;
     }
 
     @Override
     public void update() {
         Set<ResourceRelation> newRouting = new HashSet<>();
-        List<Sample> resourceMetricSamples = new ArrayList<>();
+        List<Sample> taskMetaMetricSamples = new ArrayList<>();
         List<StaticConfig> latestTargets = new ArrayList<>();
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
@@ -206,7 +207,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                         listClustersResponse.clusterArns().stream().map(resourceMapper::map).filter(Optional::isPresent)
                                 .map(Optional::get).forEach(cluster -> latestTargets.addAll(
                                         buildTargetsInCluster(awsAccount, scrapeConfig, ecsClient, cluster, newRouting,
-                                                resourceMetricSamples)));
+                                                taskMetaMetricSamples)));
                     }
                 } catch (Exception e) {
                     log.error("Failed to get list of ECS Clusters", e);
@@ -222,11 +223,11 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                 .filter(config -> scrapeConfig.keepMetric("up", config.getLabels()))
                 .collect(Collectors.toList());
 
-        if (resourceMetricSamples.size() > 0) {
-            metricSampleBuilder.buildFamily(resourceMetricSamples).ifPresent(metricFamilySamples ->
-                    resourceMetrics = Collections.singletonList(metricFamilySamples));
+        if (taskMetaMetricSamples.size() > 0) {
+            metricSampleBuilder.buildFamily(taskMetaMetricSamples).ifPresent(metricFamilySamples ->
+                    taskMetaMetric = Collections.singletonList(metricFamilySamples));
         } else {
-            resourceMetrics = Collections.emptyList();
+            taskMetaMetric = Collections.emptyList();
         }
 
         if (scrapeConfig.isDiscoverECSTasks()) {
@@ -258,7 +259,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     @VisibleForTesting
     List<StaticConfig> buildTargetsInCluster(AWSAccount awsAccount, ScrapeConfig scrapeConfig, EcsClient ecsClient,
                                              Resource cluster,
-                                             Set<ResourceRelation> newRouting, List<Sample> resourceMetricSamples) {
+                                             Set<ResourceRelation> newRouting, List<Sample> taskMetaMetric) {
         List<StaticConfig> targets = new ArrayList<>();
         String nextToken;
 
@@ -292,7 +293,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                                 log.info("Discovering ECS Tasks with ECS Scrape Config {}",
                                         scrapeConfig.getECSConfigByNameAndPort());
                                 targets.addAll(
-                                        buildTargetsInService(scrapeConfig, ecsClient, cluster, service, tagsByName));
+                                        buildTargetsInService(scrapeConfig, ecsClient, cluster, service, tagsByName,
+                                                taskMetaMetric));
                             }
                             services.add(service);
                         });
@@ -303,7 +305,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
         Set<String> capturedTasks = targets.stream().map(StaticConfig::getLabels)
                 .map(labels -> format("%s-%s-%s-%s", labels.getAccountId(), labels.getRegion(), labels.getCluster(),
-                        labels.getTaskId().substring(labels.getWorkload().length() + 1)))
+                        labels.getPod().substring(labels.getWorkload().length() + 1)))
                 .collect(Collectors.toCollection(TreeSet::new));
 
         // Tasks without service
@@ -332,7 +334,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                 }
                 if (tasksWithoutService.size() > 0) {
                     targets.addAll(buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.empty(),
-                            new TreeSet<>(tasksWithoutService), Collections.emptyMap()));
+                            new TreeSet<>(tasksWithoutService), Collections.emptyMap(), taskMetaMetric));
                 }
             }
             nextToken = tasksResponse.nextToken();
@@ -343,7 +345,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
     @VisibleForTesting
     List<StaticConfig> buildTargetsInService(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
-                                             Resource service, Map<String, Resource> resourceWithTags) {
+                                             Resource service, Map<String, Resource> resourceWithTags,
+                                             List<Sample> taskMetaMetric) {
         List<StaticConfig> scrapeTargets = new ArrayList<>();
         Set<String> taskARNs = new TreeSet<>();
         String nextToken = null;
@@ -367,7 +370,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     taskARNs.add(taskArn);
                     if (taskARNs.size() == 100) {
                         scrapeTargets.addAll(buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.of(service),
-                                taskARNs, tagLabels));
+                                taskARNs, tagLabels, taskMetaMetric));
                         taskARNs = new TreeSet<>();
                     }
                 }
@@ -377,7 +380,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         // Either the first batch was less than 100 or this is the last batch
         if (taskARNs.size() > 0) {
             scrapeTargets.addAll(buildTaskTargets(scrapeConfig, ecsClient, cluster, Optional.of(service), taskARNs,
-                    tagLabels));
+                    tagLabels, taskMetaMetric));
         }
         return scrapeTargets;
     }
@@ -386,7 +389,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     @VisibleForTesting
     List<StaticConfig> buildTaskTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
                                         Optional<Resource> service, Set<String> taskARNs,
-                                        Map<String, String> tagLabels) {
+                                        Map<String, String> tagLabels, List<Sample> taskMetaMetric) {
         List<StaticConfig> configs = new ArrayList<>();
         DescribeTasksRequest request =
                 DescribeTasksRequest.builder().cluster(cluster.getName()).tasks(taskARNs).build();
@@ -397,9 +400,21 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         if (taskResponse.hasTasks()) {
             configs.addAll(taskResponse.tasks().stream()
                     .filter(ecsTaskUtil::hasAllInfo)
-                    .flatMap(task ->
-                            ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service,
-                                    task, tagLabels).stream())
+                    .flatMap(task -> {
+                        Map<String, String> labels = new TreeMap<>();
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount());
+                        labels.put(SCRAPE_REGION_LABEL, cluster.getRegion());
+                        labels.put("cluster", cluster.getName());
+                        resourceMapper.map(task.taskDefinitionArn()).ifPresent(res -> labels.put("taskdef_family",
+                                res.getName()));
+                        labels.put("taskdef_version", task.version().toString());
+                        service.ifPresent(res -> labels.put("service", res.getName()));
+                        resourceMapper.map(task.taskArn()).ifPresent(res -> labels.put("task_id", res.getName()));
+                        metricSampleBuilder.buildSingleSample("aws_ecs_task_info", labels, 1.0D)
+                                .ifPresent(taskMetaMetric::add);
+                        return ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster, service,
+                                task, tagLabels).stream();
+                    })
                     .collect(Collectors.toList()));
         }
         return configs;
