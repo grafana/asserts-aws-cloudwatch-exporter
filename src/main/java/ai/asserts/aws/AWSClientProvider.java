@@ -82,7 +82,7 @@ public class AWSClientProvider {
         this.accountIDProvider = accountIDProvider;
         Map<String, String> env = System.getenv();
         this.clientCache = CacheBuilder.newBuilder()
-                .expireAfterAccess(Long.parseLong(env.getOrDefault("AWS_SDK_CLIENT_CACHE_TTL", "30")), MINUTES)
+                .expireAfterWrite(Long.parseLong(env.getOrDefault("AWS_SDK_CLIENT_CACHE_TTL", "30")), MINUTES)
                 .removalListener(removalNotification -> {
                     try {
                         SdkClient sdkClient = (SdkClient) removalNotification.getValue();

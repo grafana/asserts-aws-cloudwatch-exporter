@@ -31,7 +31,7 @@ public class ApiAuthenticator {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         secretCache = CacheBuilder.newBuilder()
-                .expireAfterAccess(10, MINUTES)
+                .expireAfterWrite(10, MINUTES)
                 .build(new CacheLoader<String, String>() {
                     @Override
                     public String load(@NonNull String key) {
