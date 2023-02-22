@@ -94,7 +94,7 @@ public class ResourceTagHelper {
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         resourceCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(scrapeConfig.getGetResourcesResultCacheTTLMinutes(), MINUTES)
+                .expireAfterAccess(scrapeConfig.getGetResourcesResultCacheTTLMinutes(), MINUTES)
                 .build(new CacheLoader<Key, Set<Resource>>() {
                     @Override
                     public Set<Resource> load(@NonNull Key key) {
