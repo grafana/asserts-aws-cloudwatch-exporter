@@ -31,13 +31,6 @@ RUN gradle bootJar --no-daemon
 # seem to incorporate this fix. Updating the libraries resolves the issue but we will end up accumulating update
 # commands over time. Need a better solution
 FROM amazoncorretto:8-al2-jdk
-RUN yum update -y openssl
-RUN yum update -y openssl-libs
-RUN yum update -y gnupg2
-RUN yum update -y glibc
-RUN yum update -y vim-data
-RUN yum update -y libxml2
-RUN yum update -y zlib
 
 EXPOSE 8010
 WORKDIR /opt/demo_app
