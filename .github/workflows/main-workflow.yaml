@@ -91,7 +91,6 @@ jobs:
           images: ${{ env.REGISTRY}}/${{ env.REPO_NAME }}
           tags: |
             type=schedule
-            type=ref,event=branch
             type=sha
 
       - name: Docker metadata
@@ -102,7 +101,6 @@ jobs:
           images: ${{ env.REGISTRY}}/${{ env.REPO_NAME }}
           tags: |
             type=schedule
-            type=ref,event=branch
             type=ref,event=tag
             type=raw,value=latest-release
 
