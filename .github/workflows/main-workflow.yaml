@@ -170,14 +170,12 @@ jobs:
         uses: eskatos/gradle-command-action@v2
         with:
           build-root-directory: .
-          wrapper-directory: .
           arguments: build
 
       - name: Publish with Gradle
         uses: eskatos/gradle-command-action@v2
         with:
           build-root-directory: .
-          wrapper-directory: .
           arguments: config:publish
 
       - name: Clear session
