@@ -166,17 +166,14 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
           restore-keys: ${{ runner.os }}-gradle
 
-      - name: Build with Gradle
-        uses: eskatos/gradle-command-action@v2
-        with:
-          build-root-directory: .
-          arguments: build
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Gradle Build
+        run: ./gradlew build
 
       - name: Publish with Gradle
-        uses: eskatos/gradle-command-action@v2
-        with:
-          build-root-directory: .
-          arguments: config:publish
+        run: ./gradlew config:publish
 
       - name: Clear session
         run: |
