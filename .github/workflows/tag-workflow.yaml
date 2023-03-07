@@ -38,6 +38,7 @@ jobs:
   build:
     name: Build Aws-Exporter
     runs-on: ubuntu-20.04
+    needs: lint
 
     steps:
       - name: Checkout
