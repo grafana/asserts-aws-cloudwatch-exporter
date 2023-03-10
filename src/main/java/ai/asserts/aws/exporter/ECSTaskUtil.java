@@ -48,6 +48,7 @@ import static java.lang.String.format;
 @Component
 @Slf4j
 public class ECSTaskUtil {
+    public static final String INSTALLED_ENV_NAME = "INSTALL_ENV_NAME";
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final RateLimiter rateLimiter;
@@ -73,7 +74,6 @@ public class ECSTaskUtil {
     @VisibleForTesting
     String getInstallEnvName() {
         final String envName;
-        String INSTALLED_ENV_NAME = "INSTALL_ENV_NAME";
         if (System.getenv(INSTALLED_ENV_NAME) != null) {
             envName = System.getenv(INSTALLED_ENV_NAME);
         } else {

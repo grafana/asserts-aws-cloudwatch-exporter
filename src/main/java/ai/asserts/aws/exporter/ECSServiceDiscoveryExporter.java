@@ -273,10 +273,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         boolean vpcOK = scrapeConfig.isDiscoverECSTasksAcrossVPCs() ||
                 (subnetDetails.get() != null && subnetDetails.get().getVpcId().equals(targetVpc));
         boolean subnetOK = subnetsToScrape.contains(targetSubnet) ||
-                (subnetDetails.get() != null && (
-                        subnetDetails.get().getSubnetId().equals(targetSubnet) ||
-                                subnetsToScrape.contains(targetSubnet)
-                )) || !scrapeConfig.isDiscoverOnlySubnetTasks();
+                (subnetDetails.get() != null && subnetDetails.get().getSubnetId().equals(targetSubnet)) ||
+                !scrapeConfig.isDiscoverOnlySubnetTasks();
         return vpcOK && subnetOK;
     }
 
