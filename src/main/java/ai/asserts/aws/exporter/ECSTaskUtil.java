@@ -14,8 +14,8 @@ import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.exporter.Labels.LabelsBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -47,11 +47,13 @@ import static java.lang.String.format;
 
 @Component
 @Slf4j
-@AllArgsConstructor
 public class ECSTaskUtil {
+    public static final String INSTALLED_ENV_NAME = "INSTALL_ENV_NAME";
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final RateLimiter rateLimiter;
+
+    private final String envName;
 
     private final Map<String, String> subnetIdMap = new ConcurrentHashMap<>();
     private final Map<String, SubnetDetails> taskSubnetMap = new ConcurrentHashMap<>();
@@ -61,6 +63,24 @@ public class ECSTaskUtil {
     public static final String PROMETHEUS_PORT_DOCKER_LABEL = "PROMETHEUS_EXPORTER_PORT";
     public static final String PROMETHEUS_METRIC_PATH_DOCKER_LABEL = "PROMETHEUS_EXPORTER_PATH";
 
+    public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper, RateLimiter rateLimiter) {
+        this.awsClientProvider = awsClientProvider;
+        this.resourceMapper = resourceMapper;
+        this.rateLimiter = rateLimiter;
+        // If the exporter's environment name is marked, use this for ECS metrics
+        envName = getInstallEnvName();
+    }
+
+    @VisibleForTesting
+    String getInstallEnvName() {
+        final String envName;
+        if (System.getenv(INSTALLED_ENV_NAME) != null) {
+            envName = System.getenv(INSTALLED_ENV_NAME);
+        } else {
+            envName = null;
+        }
+        return envName;
+    }
 
     public boolean hasAllInfo(Task task) {
         return "RUNNING".equals(task.lastStatus()) && task.hasAttachments() && task.attachments()
@@ -100,7 +120,7 @@ public class ECSTaskUtil {
                     .accountId(cluster.getAccount())
                     .region(cluster.getRegion())
                     .cluster(cluster.getName())
-                    .env(cluster.getAccount())
+                    .env(envName != null ? envName : cluster.getAccount())
                     .site(cluster.getRegion())
                     .taskDefName(taskDefResource.getName())
                     .taskDefVersion(taskDefResource.getVersion())
@@ -115,7 +135,7 @@ public class ECSTaskUtil {
                     .accountId(cluster.getAccount())
                     .region(cluster.getRegion())
                     .cluster(cluster.getName())
-                    .env(cluster.getAccount())
+                    .env(envName != null ? envName : cluster.getAccount())
                     .site(cluster.getRegion())
                     .taskDefName(taskDefResource.getName())
                     .taskDefVersion(taskDefResource.getVersion())

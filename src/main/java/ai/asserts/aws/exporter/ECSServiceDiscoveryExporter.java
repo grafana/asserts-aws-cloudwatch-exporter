@@ -49,6 +49,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -77,6 +78,7 @@ import static org.springframework.util.StringUtils.hasLength;
 @Component
 public class ECSServiceDiscoveryExporter extends Collector implements MetricProvider, InitializingBean {
     public static final String ECS_CONTAINER_METADATA_URI_V4 = "ECS_CONTAINER_METADATA_URI_V4";
+    public static final String SCRAPE_ECS_SUBNETS = "SCRAPE_ECS_SUBNETS";
     private final RestTemplate restTemplate;
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
@@ -94,6 +96,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     @Getter
     private final AtomicReference<SubnetDetails> subnetDetails = new AtomicReference<>(null);
 
+    protected final Set<String> subnetsToScrape = new TreeSet<>();
+
     @Getter
     private volatile List<StaticConfig> targets = new ArrayList<>();
 
@@ -102,6 +106,8 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
 
     @Getter
     private volatile List<MetricFamilySamples> taskMetaMetric = new ArrayList<>();
+
+
 
     public ECSServiceDiscoveryExporter(RestTemplate restTemplate, AccountProvider accountProvider,
                                        ScrapeConfigProvider scrapeConfigProvider,
@@ -122,6 +128,18 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         this.metricSampleBuilder = metricSampleBuilder;
         this.resourceTagHelper = resourceTagHelper;
         this.tagUtil = tagUtil;
+
+        identifySubnetsToScrape();
+    }
+
+    @VisibleForTesting
+    void identifySubnetsToScrape() {
+        if (System.getenv(SCRAPE_ECS_SUBNETS) != null) {
+            this.subnetsToScrape.addAll(
+                    Arrays.stream(System.getenv(SCRAPE_ECS_SUBNETS).split(","))
+                            .map(String::trim)
+                            .collect(Collectors.toSet()));
+        }
     }
 
     @Override
@@ -247,12 +265,15 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         }
     }
 
-    private boolean shouldScrapeTargets(ScrapeConfig scrapeConfig, StaticConfig config) {
+    @VisibleForTesting
+    boolean shouldScrapeTargets(ScrapeConfig scrapeConfig, StaticConfig config) {
+        String targetVpc = config.getLabels().getVpcId();
+        String targetSubnet = config.getLabels().getSubnetId();
         boolean vpcOK = scrapeConfig.isDiscoverECSTasksAcrossVPCs() ||
-                (subnetDetails.get() != null && subnetDetails.get().getVpcId().equals(config.getLabels().getVpcId()));
-        boolean subnetOK = !scrapeConfig.isDiscoverOnlySubnetTasks() ||
-                (subnetDetails.get() != null && subnetDetails.get().getSubnetId()
-                        .equals(config.getLabels().getSubnetId()));
+                (subnetDetails.get() != null && subnetDetails.get().getVpcId().equals(targetVpc));
+        boolean subnetOK = subnetsToScrape.contains(targetSubnet) ||
+                (subnetDetails.get() != null && subnetDetails.get().getSubnetId().equals(targetSubnet)) ||
+                !scrapeConfig.isDiscoverOnlySubnetTasks();
         return vpcOK && subnetOK;
     }
 

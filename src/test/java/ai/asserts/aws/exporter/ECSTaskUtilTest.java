@@ -51,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ECSTaskUtilTest extends EasyMockSupport {
+    private AWSClientProvider awsClientProvider;
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
     private EcsClient ecsClient;
@@ -69,7 +70,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         ecsClient = mock(EcsClient.class);
         scrapeConfig = mock(ScrapeConfig.class);
         taskDefScrapeConfig = mock(ECSTaskDefScrapeConfig.class);
-        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+        awsClientProvider = mock(AWSClientProvider.class);
         Ec2Client ec2Client = mock(Ec2Client.class);
         testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector));
 
@@ -477,6 +478,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
         assertAll(
                 () -> assertTrue(apiServer_8081.isPresent()),
+                () -> assertEquals("account", apiServer_8081.get().getLabels().getEnv()),
+                () -> assertEquals("us-west-2", staticConfigs.get(0).getLabels().getSite()),
                 () -> assertEquals("cluster", apiServer_8081.get().getLabels().getCluster()),
                 () -> assertEquals("api-server", apiServer_8081.get().getLabels().getJob()),
                 () -> assertEquals("task-def", apiServer_8081.get().getLabels().getTaskDefName()),
@@ -486,6 +489,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         );
         assertAll(
                 () -> assertTrue(apiServer_8082.isPresent()),
+                () -> assertEquals("account", apiServer_8081.get().getLabels().getEnv()),
+                () -> assertEquals("us-west-2", staticConfigs.get(0).getLabels().getSite()),
                 () -> assertEquals("cluster", apiServer_8082.get().getLabels().getCluster()),
                 () -> assertEquals("api-server", apiServer_8082.get().getLabels().getJob()),
                 () -> assertEquals("task-def", apiServer_8082.get().getLabels().getTaskDefName()),
@@ -495,6 +500,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         );
         assertAll(
                 () -> assertTrue(modelBuilder.isPresent()),
+                () -> assertEquals("account", apiServer_8081.get().getLabels().getEnv()),
+                () -> assertEquals("us-west-2", staticConfigs.get(0).getLabels().getSite()),
                 () -> assertEquals("cluster", modelBuilder.get().getLabels().getCluster()),
                 () -> assertEquals("model-builder", modelBuilder.get().getLabels().getJob()),
                 () -> assertEquals("task-def", modelBuilder.get().getLabels().getTaskDefName()),
@@ -550,6 +557,13 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
         expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
         replayAll();
+
+        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector)) {
+            @Override
+            String getInstallEnvName() {
+                return "Dev";
+            }
+        };
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
                 Optional.of(service), Task.builder()
                         .taskArn("task-arn")
@@ -570,6 +584,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                         .build());
         assertEquals(1, staticConfigs.size());
         assertAll(
+                () -> assertEquals("Dev", staticConfigs.get(0).getLabels().getEnv()),
+                () -> assertEquals("us-west-2", staticConfigs.get(0).getLabels().getSite()),
                 () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
                 () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getJob()),
                 () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
