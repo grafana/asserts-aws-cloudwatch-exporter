@@ -129,7 +129,6 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         this.resourceTagHelper = resourceTagHelper;
         this.tagUtil = tagUtil;
 
-
         identifySubnetsToScrape();
     }
 
