@@ -253,6 +253,62 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     }
 
     @Test
+    public void shouldScrapeTargets() {
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(false).anyTimes();
+        expect(scrapeConfig.isDiscoverOnlySubnetTasks()).andReturn(true).anyTimes();
+
+        replayAll();
+        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
+                restTemplate, accountProvider, scrapeConfigProvider, awsClientProvider,
+                resourceMapper, ecsTaskUtil, objectMapperFactory, rateLimiter,
+                lbToECSRoutingBuilder, metricSampleBuilder, resourceTagHelper, tagUtil) {
+            @Override
+            void identifySubnetsToScrape() {
+                super.subnetsToScrape.add("subnet-1");
+                super.subnetsToScrape.add("subnet-2");
+            }
+        };
+
+        // Same VPC and Subnet
+        testClass.getSubnetDetails().set(SubnetDetails.builder()
+                .vpcId("vpc-1")
+                .subnetId("subnet-1")
+                .build());
+        assertTrue(testClass.shouldScrapeTargets(scrapeConfig, StaticConfig.builder()
+                        .labels(Labels.builder()
+                                .vpcId("vpc-1")
+                                .subnetId("subnet-1")
+                                .build())
+                .build()));
+
+        // Same VPC, different subnet. But subnet configured to be scraped
+        assertTrue(testClass.shouldScrapeTargets(scrapeConfig, StaticConfig.builder()
+                .labels(Labels.builder()
+                        .vpcId("vpc-1")
+                        .subnetId("subnet-2")
+                        .build())
+                .build()));
+
+        // Same VPC, different subnet. But subnet not configured to be scraped
+        assertFalse(testClass.shouldScrapeTargets(scrapeConfig, StaticConfig.builder()
+                .labels(Labels.builder()
+                        .vpcId("vpc-1")
+                        .subnetId("subnet-3")
+                        .build())
+                .build()));
+
+        // Different VPC
+        assertFalse(testClass.shouldScrapeTargets(scrapeConfig, StaticConfig.builder()
+                .labels(Labels.builder()
+                        .vpcId("vpc-2")
+                        .subnetId("subnet-1")
+                        .build())
+                .build()));
+        verifyAll();
+    }
+
+    @Test
     public void updateCollect() throws Exception {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
