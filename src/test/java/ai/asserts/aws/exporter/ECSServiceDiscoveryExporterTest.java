@@ -313,6 +313,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
+        expect(scrapeConfig.getEcsTaskScrapeConfigs()).andReturn(ImmutableList.of());
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isLogECSTargets()).andReturn(true);
         expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
@@ -387,6 +388,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     public void update_JacksonWriteException() throws Exception {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getEcsTaskScrapeConfigs()).andReturn(ImmutableList.of());
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
@@ -453,6 +455,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     public void update_AWSException() throws Exception {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getEcsTaskScrapeConfigs()).andReturn(ImmutableList.of());
         expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isLogECSTargets()).andReturn(true);
