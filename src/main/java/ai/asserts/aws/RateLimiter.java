@@ -50,9 +50,10 @@ public class RateLimiter {
         try {
             theSemaphore.acquire();
             Map<String, Integer> callCounts = apiCallCounts.get();
-            Integer count = callCounts.getOrDefault(labels.get(SCRAPE_OPERATION_LABEL), 0);
+            String operationName = labels.getOrDefault(SCRAPE_OPERATION_LABEL, "unknown");
+            Integer count = callCounts.getOrDefault(operationName, 0);
             count++;
-            callCounts.put(labels.get(SCRAPE_OPERATION_LABEL), count);
+            callCounts.put(operationName, count);
             tick = System.currentTimeMillis();
             return k.makeCall();
         } catch (Throwable e) {
