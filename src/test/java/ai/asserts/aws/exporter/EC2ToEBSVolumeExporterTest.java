@@ -9,6 +9,7 @@ import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,7 @@ import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
+import software.amazon.awssdk.services.ec2.model.Filter;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceState;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
@@ -36,6 +38,7 @@ import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.resource.ResourceType.EBSVolume;
@@ -57,7 +60,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     private CollectorRegistry collectorRegistry;
     private Sample sample;
     private EC2ToEBSVolumeExporter testClass;
-
+    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private TagUtil tagUtil;
 
     @BeforeEach
@@ -72,9 +75,10 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         metricFamilySamples = mock(MetricFamilySamples.class);
         sample = mock(Sample.class);
         collectorRegistry = mock(CollectorRegistry.class);
+        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         tagUtil = mock(TagUtil.class);
         testClass = new EC2ToEBSVolumeExporter(accountProvider, awsClientProvider, metricSampleBuilder,
-                collectorRegistry, new RateLimiter(metricCollector), tagUtil);
+                collectorRegistry, new RateLimiter(metricCollector), tagUtil, ecsServiceDiscoveryExporter);
     }
 
     @Test
@@ -91,7 +95,16 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client);
 
-        DescribeInstancesRequest request = DescribeInstancesRequest.builder().build();
+        DescribeInstancesRequest request = DescribeInstancesRequest.builder()
+                .filters(Filter.builder()
+                                .name("vpc-id")
+                                .values("vpc-id")
+                                .build(),
+                        Filter.builder()
+                                .name("subnet-id")
+                                .values("subnet-id")
+                                .build())
+                .build();
         DescribeInstancesResponse response = DescribeInstancesResponse.builder()
                 .reservations(Reservation.builder()
                         .instances(Instance.builder()
@@ -135,8 +148,8 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                                         .instanceType(InstanceType.M1_LARGE.name())
                                         .state(InstanceState.builder().name(InstanceStateName.STOPPED).build())
                                         .tags(software.amazon.awssdk.services.ec2.model.Tag.builder()
-                                                        .key("Name").value("instance-name")
-                                                        .build())
+                                                .key("Name").value("instance-name")
+                                                .build())
                                         .build())
                         .build())
                 .build();
@@ -179,7 +192,11 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
 
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(metricFamilySamples));
-
+        expect(ecsServiceDiscoveryExporter.getSubnetDetails()).andReturn(new AtomicReference<>(
+                ScrapeConfig.SubnetDetails.builder()
+                        .vpcId("vpc-id")
+                        .build())).anyTimes();
+        expect(ecsServiceDiscoveryExporter.getSubnetsToScrape()).andReturn(ImmutableSet.of("subnet-id")).anyTimes();
         replayAll();
         testClass.update();
         assertEquals(ImmutableSet.of(

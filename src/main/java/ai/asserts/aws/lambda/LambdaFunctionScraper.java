@@ -9,10 +9,12 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricProvider;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.FunctionConfiguration;
 import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
+import software.amazon.awssdk.services.lambda.model.VpcConfigResponse;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,6 +45,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @Component
 @Slf4j
 public class LambdaFunctionScraper extends Collector implements MetricProvider {
+    public static final String ONLY_LAMBDAS_IN_THIS_ENV = "ONLY_LAMBDAS_IN_THIS_ENV";
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
@@ -50,7 +54,9 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder metricSampleBuilder;
     private final MetricNameUtil metricNameUtil;
+    private final ECSServiceDiscoveryExporter ecsSDExporter;
     private final Supplier<Map<String, Map<String, Map<String, LambdaFunction>>>> functionsByRegion;
+    private final boolean filterLambdaByEnvironment;
     private List<MetricFamilySamples> cache;
 
     public LambdaFunctionScraper(
@@ -58,7 +64,8 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
             ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
             ResourceTagHelper resourceTagHelper,
             LambdaFunctionBuilder fnBuilder, RateLimiter rateLimiter,
-            MetricSampleBuilder metricSampleBuilder, MetricNameUtil metricNameUtil) {
+            MetricSampleBuilder metricSampleBuilder, MetricNameUtil metricNameUtil,
+            ECSServiceDiscoveryExporter ecsSDExporter) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -69,7 +76,14 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
         this.metricNameUtil = metricNameUtil;
         this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions,
                 scrapeConfigProvider.getScrapeConfig().getListFunctionsResultCacheTTLMinutes(), MINUTES);
+        this.ecsSDExporter = ecsSDExporter;
         this.cache = new ArrayList<>();
+        this.filterLambdaByEnvironment = "true".equalsIgnoreCase(lambdaEnvFilterFlag());
+    }
+
+    @VisibleForTesting
+    String lambdaEnvFilterFlag() {
+        return System.getenv(ONLY_LAMBDAS_IN_THIS_ENV);
     }
 
     public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
@@ -137,14 +151,16 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
                     if (response.hasFunctions()) {
                         Set<Resource> resources =
                                 resourceTagHelper.getFilteredResources(accountRegion, region, lambdaNS);
-                        response.functions().forEach(fnConfig -> {
-                            Optional<Resource> fnResourceOpt = findFnResource(resources, fnConfig);
-                            functionsByRegion
-                                    .computeIfAbsent(accountRegion.getAccountId(), k -> new TreeMap<>())
-                                    .computeIfAbsent(region, k -> new TreeMap<>())
-                                    .computeIfAbsent(fnConfig.functionArn(), k ->
-                                            fnBuilder.buildFunction(region, fnConfig, fnResourceOpt));
-                        });
+                        response.functions().stream()
+                                .filter(this::isLambdaInSameEnvironment)
+                                .forEach(fnConfig -> {
+                                    Optional<Resource> fnResourceOpt = findFnResource(resources, fnConfig);
+                                    functionsByRegion
+                                            .computeIfAbsent(accountRegion.getAccountId(), k -> new TreeMap<>())
+                                            .computeIfAbsent(region, k -> new TreeMap<>())
+                                            .computeIfAbsent(fnConfig.functionArn(), k ->
+                                                    fnBuilder.buildFunction(region, fnConfig, fnResourceOpt));
+                                });
                     }
                 } catch (Exception e) {
                     log.error("Failed to retrieve lambda functions", e);
@@ -153,6 +169,14 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
         }
 
         return functionsByRegion;
+    }
+
+    @VisibleForTesting
+    boolean isLambdaInSameEnvironment(FunctionConfiguration functionConfiguration) {
+        VpcConfigResponse vpcConfigResponse = functionConfiguration.vpcConfig();
+        return !filterLambdaByEnvironment || vpcConfigResponse == null ||
+                (ecsSDExporter.runningInVPC(vpcConfigResponse.vpcId()) &&
+                        vpcConfigResponse.subnetIds().stream().anyMatch(ecsSDExporter::runningInSubnet));
     }
 
     private Optional<Resource> findFnResource(Set<Resource> resources,
