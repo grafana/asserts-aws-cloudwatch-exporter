@@ -45,7 +45,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @Component
 @Slf4j
 public class LambdaFunctionScraper extends Collector implements MetricProvider {
-    public static final String ONLY_LAMBDAS_IN_SAME_ENV = "ONLY_LAMBDAS_IN_SAME_ENV";
+    public static final String ONLY_LAMBDAS_IN_THIS_ENV = "ONLY_LAMBDAS_IN_THIS_ENV";
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AWSClientProvider awsClientProvider;
@@ -83,7 +83,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
 
     @VisibleForTesting
     String lambdaEnvFilterFlag() {
-        return System.getenv(ONLY_LAMBDAS_IN_SAME_ENV);
+        return System.getenv(ONLY_LAMBDAS_IN_THIS_ENV);
     }
 
     public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
