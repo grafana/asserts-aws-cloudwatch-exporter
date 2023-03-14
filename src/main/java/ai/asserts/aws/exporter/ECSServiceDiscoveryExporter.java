@@ -202,6 +202,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         List<StaticConfig> latestTargets = new ArrayList<>();
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        log.info("Discovering ECS targets with scrape configs={}", scrapeConfig.getEcsTaskScrapeConfigs());
         try {
             accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
                 ImmutableSortedMap<String, String> TELEMETRY_LABELS =
@@ -284,7 +285,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                                              Set<ResourceRelation> newRouting, List<Sample> taskMetaMetric) {
         List<StaticConfig> targets = new ArrayList<>();
         String nextToken;
-
+        log.info("Discovering ECS targets in cluster={}", cluster.getName());
         do {
             // List services just returns the service ARN. There is no need to paginate
             ListServicesRequest serviceReq = ListServicesRequest.builder()
@@ -312,8 +313,6 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                         .map(Optional::get)
                         .forEach(service -> {
                             if (scrapeConfig.isDiscoverECSTasks()) {
-                                log.info("Discovering ECS Tasks with ECS Scrape Config {}",
-                                        scrapeConfig.getECSConfigByNameAndPort());
                                 targets.addAll(
                                         buildTargetsInService(scrapeConfig, ecsClient, cluster, service, tagsByName,
                                                 taskMetaMetric));
@@ -369,6 +368,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     List<StaticConfig> buildTargetsInService(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
                                              Resource service, Map<String, Resource> resourceWithTags,
                                              List<Sample> taskMetaMetric) {
+        log.info("Discovering ECS targets in cluster={}, service={}", cluster.getName(), service.getName());
         List<StaticConfig> scrapeTargets = new ArrayList<>();
         Set<String> taskARNs = new TreeSet<>();
         String nextToken = null;
@@ -412,6 +412,10 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     List<StaticConfig> buildTaskTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
                                         Optional<Resource> service, Set<String> taskARNs,
                                         Map<String, String> tagLabels, List<Sample> taskMetaMetric) {
+        service.ifPresent(serviceRes -> {
+            log.info("Building ECS targets in cluster={}, service={}", cluster.getName(), serviceRes.getName());
+        });
+
         List<StaticConfig> configs = new ArrayList<>();
         DescribeTasksRequest request =
                 DescribeTasksRequest.builder().cluster(cluster.getName()).tasks(taskARNs).build();
