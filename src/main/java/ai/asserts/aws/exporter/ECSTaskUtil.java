@@ -155,11 +155,12 @@ public class ECSTaskUtil {
         }
 
         try {
-            TaskDefinition taskDefinition = rateLimiter.doWithRateLimit("EcsClient/describeTaskDefinition",
+            String operationName = "EcsClient/describeTaskDefinition";
+            TaskDefinition taskDefinition = rateLimiter.doWithRateLimit(operationName,
                     ImmutableSortedMap.of(
                             SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                             SCRAPE_REGION_LABEL, cluster.getRegion(),
-                            SCRAPE_OPERATION_LABEL, "describeTaskDefinition",
+                            SCRAPE_OPERATION_LABEL, operationName,
                             SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
                     ), () ->
                             ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()

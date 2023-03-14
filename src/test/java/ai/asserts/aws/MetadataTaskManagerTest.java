@@ -116,7 +116,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
                 apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
                 sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter,
-                snsTopicExporter, emrExporter);
+                snsTopicExporter, emrExporter, new RateLimiter(metricCollector));
     }
 
     @Test

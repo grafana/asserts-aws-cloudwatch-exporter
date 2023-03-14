@@ -3,6 +3,7 @@ package ai.asserts.aws;
 import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
 import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +33,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private ExecutorService executorService;
     private AlarmMetricExporter alarmMetricExporter;
     private AlarmFetcher alarmFetcher;
+    private BasicMetricCollector metricCollector;
 
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
 
@@ -48,10 +50,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         alarmMetricExporter = mock(AlarmMetricExporter.class);
         alarmFetcher = mock(AlarmFetcher.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
-
+        metricCollector = mock(BasicMetricCollector.class);
         replayAll();
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter);
+                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter
+                , new RateLimiter(metricCollector));
         verifyAll();
         resetAll();
     }
@@ -69,7 +72,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter) {
+                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter,
+                new RateLimiter(metricCollector)) {
             @Override
             void updateScrapeTasks() {
             }

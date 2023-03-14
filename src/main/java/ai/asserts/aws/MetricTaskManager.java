@@ -36,8 +36,8 @@ public class MetricTaskManager implements InitializingBean {
     private final TaskThreadPool taskThreadPool;
     private final AlarmMetricExporter alarmMetricExporter;
     private final AlarmFetcher alarmFetcher;
-
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    private final RateLimiter rateLimiter;
 
     /**
      * Maintains the last scrape time for all the metrics of a given scrape interval. The scrapes are
@@ -61,8 +61,8 @@ public class MetricTaskManager implements InitializingBean {
             metricScrapeTasks.values().stream()
                     .flatMap(map -> map.values().stream())
                     .flatMap(map -> map.values().stream())
-                    .forEach(task -> executorService.submit(task::update));
-            executorService.submit(alarmFetcher::update);
+                    .forEach(task -> executorService.submit(() -> rateLimiter.runTask(task::update)));
+            executorService.submit(() -> rateLimiter.runTask(alarmFetcher::update));
         }
     }
 

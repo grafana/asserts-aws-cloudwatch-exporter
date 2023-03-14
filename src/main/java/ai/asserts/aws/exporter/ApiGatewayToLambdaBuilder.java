@@ -101,7 +101,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
                                 rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
                         if (restApis.hasItems()) {
                             restApis.items().forEach(restApi -> {
-                                String getResources = "getResources";
+                                String getResources = "ResourceGroupsTaggingApiClient/getResources";
                                 labels.put(SCRAPE_OPERATION_LABEL, getResources);
                                 GetResourcesResponse resources = rateLimiter.doWithRateLimit(getResources, labels,
                                         () -> client.getResources(GetResourcesRequest.builder()

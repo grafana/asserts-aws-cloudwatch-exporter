@@ -115,7 +115,7 @@ public class MetricQueryProvider {
 
                                     ListMetricsRequest request = builder.build();
                                     ListMetricsResponse response = rateLimiter.doWithRateLimit(
-                                            "CloudWatchClient/listMetrics",
+                                            "CloudWatchClient/ListMetrics",
                                             operationLabels(account, region, ns),
                                             () -> cloudWatchClient.listMetrics(request));
 
@@ -165,7 +165,7 @@ public class MetricQueryProvider {
         return ImmutableSortedMap.of(
                 SCRAPE_ACCOUNT_ID_LABEL, account,
                 SCRAPE_REGION_LABEL, region,
-                SCRAPE_OPERATION_LABEL, "list_metrics",
+                SCRAPE_OPERATION_LABEL, "CloudWatchClient/ListMetrics",
                 SCRAPE_NAMESPACE_LABEL, ns.getName()
         );
     }

@@ -141,7 +141,7 @@ public class ResourceTagHelper {
             ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
                     SCRAPE_REGION_LABEL, key.region,
                     SCRAPE_NAMESPACE_LABEL, key.namespace.getName(),
-                    SCRAPE_OPERATION_LABEL, "getResources"
+                    SCRAPE_OPERATION_LABEL, "ResourceGroupsTaggingApiClient/getResources"
             );
             resources.addAll(getResourcesWithTag(key.accountRegion, key.region, labels, builder));
             log.info("Found {}", resources.stream()

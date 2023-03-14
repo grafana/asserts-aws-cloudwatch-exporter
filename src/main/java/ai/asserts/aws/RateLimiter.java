@@ -24,6 +24,7 @@ import java.util.concurrent.Semaphore;
 import static ai.asserts.aws.MetricNameUtil.ASSERTS_ERROR_TYPE;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 
 @Component
 @Slf4j
@@ -31,6 +32,8 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 public class RateLimiter {
     private final Semaphore defaultSemaphore = new Semaphore(2);
     private final BasicMetricCollector metricCollector;
+
+    private final ThreadLocal<Map<String, Integer>> apiCallCounts = ThreadLocal.withInitial(TreeMap::new);
 
     private final Map<String, Semaphore> semaphores = new ImmutableMap.Builder<String, Semaphore>()
             .put(LambdaClient.class.getSimpleName(), new Semaphore(2))
@@ -46,10 +49,16 @@ public class RateLimiter {
         long tick = System.currentTimeMillis();
         try {
             theSemaphore.acquire();
+            Map<String, Integer> callCounts = apiCallCounts.get();
+            String operationName = labels.getOrDefault(SCRAPE_OPERATION_LABEL, "unknown");
+            Integer count = callCounts.getOrDefault(operationName, 0);
+            count++;
+            callCounts.put(operationName, count);
             tick = System.currentTimeMillis();
             return k.makeCall();
         } catch (Throwable e) {
             log.error("Exception", e);
+            log.info("AWS API Call Counts {}", apiCallCounts.get());
             SortedMap<String, String> errorLabels = new TreeMap<>(labels);
             errorLabels.put(ASSERTS_ERROR_TYPE, e.getClass().getSimpleName());
             metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
@@ -58,6 +67,16 @@ public class RateLimiter {
             tick = System.currentTimeMillis() - tick;
             metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, labels, tick);
             theSemaphore.release();
+        }
+    }
+
+    public void runTask(Runnable runnable) {
+        try {
+            runnable.run();
+        } finally {
+            Map<String, Integer> callCounts = apiCallCounts.get();
+            log.info("AWS API Call Counts {}", callCounts);
+            callCounts.clear();
         }
     }
 

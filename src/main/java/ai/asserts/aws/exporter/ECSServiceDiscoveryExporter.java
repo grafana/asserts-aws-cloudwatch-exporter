@@ -109,7 +109,6 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     private volatile List<MetricFamilySamples> taskMetaMetric = new ArrayList<>();
 
 
-
     public ECSServiceDiscoveryExporter(RestTemplate restTemplate, AccountProvider accountProvider,
                                        ScrapeConfigProvider scrapeConfigProvider,
                                        AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
@@ -205,27 +204,27 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
         log.info("Discovering ECS targets with scrape configs={}", scrapeConfig.getEcsTaskScrapeConfigs());
         try {
             accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
+                String operationName = "EcsClient/listClusters";
                 ImmutableSortedMap<String, String> TELEMETRY_LABELS =
                         ImmutableSortedMap.of(
                                 SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
                                 SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, "listClusters",
+                                SCRAPE_OPERATION_LABEL, operationName,
                                 SCRAPE_NAMESPACE_LABEL, "AWS/ECS");
                 SortedMap<String, String> labels = new TreeMap<>(TELEMETRY_LABELS);
                 try {
                     EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount);
                     // List clusters just returns the cluster ARN. There is no need to paginate
-                    ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit("EcsClient/listClusters",
-                            ImmutableSortedMap.of(
-                                    SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_OPERATION_LABEL, "listClusters",
-                                    SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
+                    ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(operationName,
+                            TELEMETRY_LABELS,
                             ecsClient::listClusters);
                     labels.put(SCRAPE_REGION_LABEL, region);
                     if (listClustersResponse.hasClusterArns()) {
-                        listClustersResponse.clusterArns().stream().map(resourceMapper::map).filter(Optional::isPresent)
-                                .map(Optional::get).forEach(cluster -> latestTargets.addAll(
+                        listClustersResponse.clusterArns().stream()
+                                .map(resourceMapper::map)
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
+                                .forEach(cluster -> latestTargets.addAll(
                                         buildTargetsInCluster(awsAccount, scrapeConfig, ecsClient, cluster, newRouting,
                                                 taskMetaMetricSamples)));
                     }
@@ -291,11 +290,12 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
             ListServicesRequest serviceReq = ListServicesRequest.builder()
                     .cluster(cluster.getName())
                     .build();
-            ListServicesResponse serviceResp = rateLimiter.doWithRateLimit("EcsClient/listServices",
+            String operationName = "EcsClient/listServices";
+            ListServicesResponse serviceResp = rateLimiter.doWithRateLimit(operationName,
                     ImmutableSortedMap.of(
                             SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                             SCRAPE_REGION_LABEL, cluster.getRegion(),
-                            SCRAPE_OPERATION_LABEL, "listServices",
+                            SCRAPE_OPERATION_LABEL, operationName,
                             SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
                     () -> ecsClient.listServices(serviceReq));
             if (serviceResp.hasServiceArns()) {
@@ -335,11 +335,12 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
             ListTasksRequest tasksRequest = ListTasksRequest.builder()
                     .cluster(cluster.getName())
                     .build();
-            ListTasksResponse tasksResponse = rateLimiter.doWithRateLimit("EcsClient/listTasks",
+            String operationName = "EcsClient/listTasks";
+            ListTasksResponse tasksResponse = rateLimiter.doWithRateLimit(operationName,
                     ImmutableSortedMap.of(
                             SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                             SCRAPE_REGION_LABEL, cluster.getRegion(),
-                            SCRAPE_OPERATION_LABEL, "listTasks",
+                            SCRAPE_OPERATION_LABEL, operationName,
                             SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
                     () -> ecsClient.listTasks(tasksRequest));
             if (tasksResponse.hasTaskArns()) {
@@ -381,9 +382,10 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     .cluster(cluster.getName())
                     .serviceName(service.getName())
                     .nextToken(nextToken).build();
-            ListTasksResponse tasksResp = rateLimiter.doWithRateLimit("EcsClient/listTasks",
+            String operationName = "EcsClient/listTasks";
+            ListTasksResponse tasksResp = rateLimiter.doWithRateLimit(operationName,
                     ImmutableSortedMap.of(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(), SCRAPE_REGION_LABEL,
-                            cluster.getRegion(), SCRAPE_OPERATION_LABEL, "listTasks", SCRAPE_NAMESPACE_LABEL,
+                            cluster.getRegion(), SCRAPE_OPERATION_LABEL, operationName, SCRAPE_NAMESPACE_LABEL,
                             "AWS/ECS"), () -> ecsClient.listTasks(request));
 
             nextToken = tasksResp.nextToken();
@@ -412,16 +414,16 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     List<StaticConfig> buildTaskTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient, Resource cluster,
                                         Optional<Resource> service, Set<String> taskARNs,
                                         Map<String, String> tagLabels, List<Sample> taskMetaMetric) {
-        service.ifPresent(serviceRes -> {
-            log.info("Building ECS targets in cluster={}, service={}", cluster.getName(), serviceRes.getName());
-        });
+        service.ifPresent(serviceRes ->
+                log.info("Building ECS targets in cluster={}, service={}", cluster.getName(), serviceRes.getName()));
 
         List<StaticConfig> configs = new ArrayList<>();
         DescribeTasksRequest request =
                 DescribeTasksRequest.builder().cluster(cluster.getName()).tasks(taskARNs).build();
-        DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit("EcsClient/describeTasks",
+        String operationName = "EcsClient/describeTasks";
+        DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit(operationName,
                 ImmutableSortedMap.of(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(), SCRAPE_REGION_LABEL,
-                        cluster.getRegion(), SCRAPE_OPERATION_LABEL, "describeTasks", SCRAPE_NAMESPACE_LABEL,
+                        cluster.getRegion(), SCRAPE_OPERATION_LABEL, operationName, SCRAPE_NAMESPACE_LABEL,
                         "AWS/ECS"), () -> ecsClient.describeTasks(request));
         if (taskResponse.hasTasks()) {
             configs.addAll(taskResponse.tasks().stream()
