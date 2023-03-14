@@ -96,6 +96,7 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
     @Getter
     private final AtomicReference<SubnetDetails> subnetDetails = new AtomicReference<>(null);
 
+    @Getter
     protected final Set<String> subnetsToScrape = new TreeSet<>();
 
     @Getter
@@ -175,14 +176,14 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                         (!hasLength(primaryConfig.getSubnetId()) || runningInSubnet(primaryConfig.getSubnetId()));
     }
 
-    private boolean runningInVPC(String vpcId) {
+    public boolean runningInVPC(String vpcId) {
         if (subnetDetails.get() != null) {
             return vpcId.equals(subnetDetails.get().getVpcId());
         }
         return false;
     }
 
-    private boolean runningInSubnet(String subnetId) {
+    public boolean runningInSubnet(String subnetId) {
         if (subnetDetails.get() != null) {
             return subnetId.equals(subnetDetails.get().getSubnetId());
         }

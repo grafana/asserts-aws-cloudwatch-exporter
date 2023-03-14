@@ -22,7 +22,7 @@ import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
-import software.amazon.awssdk.services.ec2.model.InstanceStateName;
+import software.amazon.awssdk.services.ec2.model.Filter;
 import software.amazon.awssdk.services.ec2.model.Reservation;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
@@ -56,19 +56,23 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
 
     private final TagUtil tagUtil;
 
+    private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+
     @Getter
     private volatile Set<ResourceRelation> attachedVolumes = new HashSet<>();
     private volatile List<MetricFamilySamples> resourceMetrics = new ArrayList<>();
 
     public EC2ToEBSVolumeExporter(AccountProvider accountProvider,
                                   AWSClientProvider awsClientProvider, MetricSampleBuilder metricSampleBuilder,
-                                  CollectorRegistry collectorRegistry, RateLimiter rateLimiter, TagUtil tagUtil) {
+                                  CollectorRegistry collectorRegistry, RateLimiter rateLimiter, TagUtil tagUtil,
+                                  ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricSampleBuilder = metricSampleBuilder;
         this.collectorRegistry = collectorRegistry;
         this.rateLimiter = rateLimiter;
         this.tagUtil = tagUtil;
+        this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
     }
 
     @Override
@@ -101,17 +105,30 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                 // Get the EC2 Instances
                 telemetryLabels.put(SCRAPE_OPERATION_LABEL, "Ec2Client/describeInstances");
                 do {
+                    DescribeInstancesRequest.Builder reqBuilder = DescribeInstancesRequest.builder();
+                    if (!isEmpty(ecsServiceDiscoveryExporter.getSubnetsToScrape())) {
+                        reqBuilder = reqBuilder.filters(
+                                Filter.builder()
+                                        .name("vpc-id")
+                                        .values(ecsServiceDiscoveryExporter.getSubnetDetails().get().getVpcId())
+                                        .build(),
+                                Filter.builder()
+                                        .name("subnet-id")
+                                        .values(ecsServiceDiscoveryExporter.getSubnetsToScrape())
+                                        .build());
+                    }
+                        DescribeInstancesRequest describeInstancesRequest = reqBuilder
+                            .nextToken(nextToken.get())
+                            .build();
                     DescribeInstancesResponse response = rateLimiter.doWithRateLimit(
                             "Ec2Client/describeInstances", telemetryLabels,
-                            () -> ec2Client.describeInstances(DescribeInstancesRequest.builder()
-                                    .nextToken(nextToken.get())
-                                    .build()));
+                            () -> ec2Client.describeInstances(describeInstancesRequest));
                     nextToken.set(response.nextToken());
                     if (response.hasReservations()) {
                         response.reservations().stream()
                                 .filter(Reservation::hasInstances)
                                 .flatMap(reservation -> reservation.instances().stream())
-                                .filter(instance -> instance.state()!=null && instance.state().name().equals(RUNNING))
+                                .filter(instance -> instance.state() != null && instance.state().name().equals(RUNNING))
                                 .filter(instance -> !isEmpty(instance.tags()) && instance.tags().stream()
                                         .noneMatch(t -> t.key().contains("k8s") || t.key().contains("kubernetes")))
                                 .forEach(instance -> {

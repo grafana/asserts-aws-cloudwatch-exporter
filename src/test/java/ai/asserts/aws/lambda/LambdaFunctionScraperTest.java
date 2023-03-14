@@ -10,6 +10,7 @@ import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricSampleBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -59,6 +60,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
     private LambdaFunctionScraper lambdaFunctionScraper;
     private Resource fnResource;
     private AWSAccount accountRegion;
+    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
 
     @BeforeEach
     public void setup() {
@@ -78,6 +80,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         sample = mock(Sample.class);
         metricNameUtil = mock(MetricNameUtil.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
                 .regions(ImmutableSortedSet.of("region1", "region2"))
                 .namespaces(ImmutableList.of(namespaceConfig))
@@ -88,7 +91,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
                 resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
-                metricSampleBuilder, metricNameUtil);
+                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter);
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -130,7 +133,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
                 resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
-                metricSampleBuilder, metricNameUtil) {
+                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter) {
             @Override
             public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
                 return functions;
