@@ -117,7 +117,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                                         .values(ecsServiceDiscoveryExporter.getSubnetsToScrape())
                                         .build());
                     }
-                        DescribeInstancesRequest describeInstancesRequest = reqBuilder
+                    DescribeInstancesRequest describeInstancesRequest = reqBuilder
                             .nextToken(nextToken.get())
                             .build();
                     DescribeInstancesResponse response = rateLimiter.doWithRateLimit(

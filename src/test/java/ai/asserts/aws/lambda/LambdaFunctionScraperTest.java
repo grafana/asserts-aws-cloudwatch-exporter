@@ -195,9 +195,9 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         replayAll();
 
         assertEquals(ImmutableMap.of(
-                "account", ImmutableMap.of(
-                        "region1", ImmutableMap.of("arn1", lambdaFunction, "arn2", lambdaFunction),
-                        "region2", ImmutableMap.of("arn3", lambdaFunction, "arn4", lambdaFunction))
+                        "account", ImmutableMap.of(
+                                "region1", ImmutableMap.of("arn1", lambdaFunction, "arn2", lambdaFunction),
+                                "region2", ImmutableMap.of("arn3", lambdaFunction, "arn4", lambdaFunction))
                 ),
                 lambdaFunctionScraper.getFunctions());
 
