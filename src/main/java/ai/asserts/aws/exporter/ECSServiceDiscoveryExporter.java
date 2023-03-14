@@ -335,11 +335,12 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
             ListTasksRequest tasksRequest = ListTasksRequest.builder()
                     .cluster(cluster.getName())
                     .build();
-            ListTasksResponse tasksResponse = rateLimiter.doWithRateLimit("EcsClient/listTasks",
+            String operationName = "EcsClient/listTasks";
+            ListTasksResponse tasksResponse = rateLimiter.doWithRateLimit(operationName,
                     ImmutableSortedMap.of(
                             SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                             SCRAPE_REGION_LABEL, cluster.getRegion(),
-                            SCRAPE_OPERATION_LABEL, "listTasks",
+                            SCRAPE_OPERATION_LABEL, operationName,
                             SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
                     () -> ecsClient.listTasks(tasksRequest));
             if (tasksResponse.hasTaskArns()) {
@@ -381,9 +382,10 @@ public class ECSServiceDiscoveryExporter extends Collector implements MetricProv
                     .cluster(cluster.getName())
                     .serviceName(service.getName())
                     .nextToken(nextToken).build();
-            ListTasksResponse tasksResp = rateLimiter.doWithRateLimit("EcsClient/listTasks",
+            String operationName = "EcsClient/listTasks";
+            ListTasksResponse tasksResp = rateLimiter.doWithRateLimit(operationName,
                     ImmutableSortedMap.of(SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(), SCRAPE_REGION_LABEL,
-                            cluster.getRegion(), SCRAPE_OPERATION_LABEL, "listTasks", SCRAPE_NAMESPACE_LABEL,
+                            cluster.getRegion(), SCRAPE_OPERATION_LABEL, operationName, SCRAPE_NAMESPACE_LABEL,
                             "AWS/ECS"), () -> ecsClient.listTasks(request));
 
             nextToken = tasksResp.nextToken();
