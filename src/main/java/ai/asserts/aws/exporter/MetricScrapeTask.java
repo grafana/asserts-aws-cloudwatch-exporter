@@ -155,12 +155,13 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                                     .collect(Collectors.toList()));
 
                     GetMetricDataRequest req = requestBuilder.build();
+                    String operationName = "CloudWatchClient/getMetricData";
                     GetMetricDataResponse metricData = rateLimiter.doWithRateLimit(
-                            "CloudWatchClient/getMetricData",
+                            operationName,
                             ImmutableSortedMap.of(
                                     SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
                                     SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_OPERATION_LABEL, "getMetricData",
+                                    SCRAPE_OPERATION_LABEL, operationName,
                                     SCRAPE_INTERVAL_LABEL, intervalSeconds + ""
                             ),
                             () -> cloudWatchClient.getMetricData(req));
