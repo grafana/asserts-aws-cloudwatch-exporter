@@ -92,6 +92,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
 
     @Override
     public void update() {
+        log.info("Discover Lambda functions");
         try {
             Map<String, Map<String, Map<String, LambdaFunction>>> byAccount = getFunctions();
             List<Sample> samples = new ArrayList<>();

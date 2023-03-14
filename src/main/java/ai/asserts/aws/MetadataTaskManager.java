@@ -67,6 +67,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final SNSTopicExporter snsTopicExporter;
 
     private final EMRExporter emrExporter;
+    private final RateLimiter rateLimiter;
 
     @Getter
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
@@ -102,28 +103,28 @@ public class MetadataTaskManager implements InitializingBean {
             return;
         }
 
-        taskThreadPool.getExecutorService().submit(lambdaFunctionScraper::update);
-        taskThreadPool.getExecutorService().submit(lambdaCapacityExporter::update);
-        taskThreadPool.getExecutorService().submit(lambdaEventSourceExporter::update);
-        taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
-        taskThreadPool.getExecutorService().submit(targetGroupLBMapProvider::update);
-        taskThreadPool.getExecutorService().submit(lbToASGRelationBuilder::updateRouting);
-        taskThreadPool.getExecutorService().submit(relationExporter::update);
-        taskThreadPool.getExecutorService().submit(ec2ToEBSVolumeExporter::update);
-        taskThreadPool.getExecutorService().submit(apiGatewayToLambdaBuilder::update);
-        taskThreadPool.getExecutorService().submit(kinesisAnalyticsExporter::update);
-        taskThreadPool.getExecutorService().submit(kinesisFirehoseExporter::update);
-        taskThreadPool.getExecutorService().submit(s3BucketExporter::update);
-        taskThreadPool.getExecutorService().submit(redshiftExporter::update);
-        taskThreadPool.getExecutorService().submit(sqsQueueExporter::update);
-        taskThreadPool.getExecutorService().submit(kinesisStreamExporter::update);
-        taskThreadPool.getExecutorService().submit(loadBalancerExporter::update);
-        taskThreadPool.getExecutorService().submit(rdsExporter::update);
-        taskThreadPool.getExecutorService().submit(dynamoDBExporter::update);
-        taskThreadPool.getExecutorService().submit(snsTopicExporter::update);
-        taskThreadPool.getExecutorService().submit(() ->
-                logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));
-        taskThreadPool.getExecutorService().submit(emrExporter::update);
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaFunctionScraper::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaCapacityExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaEventSourceExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaInvokeConfigExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(targetGroupLBMapProvider::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lbToASGRelationBuilder::updateRouting));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(relationExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(ec2ToEBSVolumeExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(apiGatewayToLambdaBuilder::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(kinesisAnalyticsExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(kinesisFirehoseExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(s3BucketExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(redshiftExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(sqsQueueExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(kinesisStreamExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(loadBalancerExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(rdsExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(dynamoDBExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(snsTopicExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(() ->
+                logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update)));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(emrExporter::update));
     }
 
     @SuppressWarnings("unused")
@@ -131,7 +132,7 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {
-        taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
-        taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter::update);
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(scrapeConfigProvider::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(ecsServiceDiscoveryExporter::update));
     }
 }
