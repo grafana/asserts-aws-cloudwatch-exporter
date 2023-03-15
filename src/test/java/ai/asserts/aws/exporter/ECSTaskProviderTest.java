@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
+import software.amazon.awssdk.services.ecs.model.DesiredStatus;
 import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
 import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
 import software.amazon.awssdk.services.ecs.model.Task;
@@ -214,6 +215,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         expect(ecsClient.listTasks(ListTasksRequest.builder()
                 .cluster("cluster1")
+                .desiredStatus(DesiredStatus.RUNNING)
                 .build()))
                 .andReturn(
                         ListTasksResponse.builder()
@@ -225,6 +227,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         expect(ecsClient.listTasks(ListTasksRequest.builder()
                 .cluster("cluster1")
                 .nextToken("token1")
+                .desiredStatus(DesiredStatus.RUNNING)
                 .build()))
                 .andReturn(
                         ListTasksResponse.builder()
@@ -288,8 +291,8 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .build())).andReturn(DescribeTasksResponse.builder()
                 .tasks(task1, task2)
                 .build());
-        expect(ecsTaskUtil.hasAllInfo(task1)).andReturn(true).times(3);
-        expect(ecsTaskUtil.hasAllInfo(task2)).andReturn(true).times(3);
+        expect(ecsTaskUtil.hasAllInfo(task1)).andReturn(true).times(2);
+        expect(ecsTaskUtil.hasAllInfo(task2)).andReturn(true).times(2);
         basicMetricCollector.recordLatency(eq("aws_exporter_milliseconds"), anyObject(SortedMap.class), anyLong());
 
         Resource task1Resource = Resource.builder().name("task1").build();
@@ -317,8 +320,8 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .tasks(task3, task4)
                 .build());
 
-        expect(ecsTaskUtil.hasAllInfo(task3)).andReturn(true).times(3);
-        expect(ecsTaskUtil.hasAllInfo(task4)).andReturn(true).times(3);
+        expect(ecsTaskUtil.hasAllInfo(task3)).andReturn(true).times(2);
+        expect(ecsTaskUtil.hasAllInfo(task4)).andReturn(true).times(2);
 
         Resource task3Resource = Resource.builder().name("task3").build();
         Resource task4Resource = Resource.builder().name("task4").build();

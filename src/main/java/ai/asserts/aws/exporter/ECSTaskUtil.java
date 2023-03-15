@@ -16,6 +16,8 @@ import ai.asserts.aws.exporter.Labels.LabelsBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -33,12 +35,12 @@ import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -60,7 +62,9 @@ public class ECSTaskUtil {
 
     private final String envName;
 
-    public final Map<String, TaskDefinition> taskDefsByARN = new HashMap<>();
+    public final Cache<String, TaskDefinition> taskDefsByARN = CacheBuilder.newBuilder()
+            .expireAfterAccess(30, TimeUnit.MINUTES)
+            .build();
 
     private final Map<String, String> subnetIdMap = new ConcurrentHashMap<>();
     private final Map<String, SubnetDetails> taskSubnetMap = new ConcurrentHashMap<>();
@@ -163,20 +167,20 @@ public class ECSTaskUtil {
             return Collections.emptyList();
         }
 
+
         try {
             String operationName = "EcsClient/describeTaskDefinition";
-            TaskDefinition taskDefinition = taskDefsByARN.computeIfAbsent(task.taskDefinitionArn(),
-                    k -> rateLimiter.doWithRateLimit(operationName,
+            TaskDefinition taskDefinition = taskDefsByARN.get(task.taskDefinitionArn(), () ->
+                    rateLimiter.doWithRateLimit(operationName,
                             ImmutableSortedMap.of(
                                     SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
                                     SCRAPE_REGION_LABEL, cluster.getRegion(),
                                     SCRAPE_OPERATION_LABEL, operationName,
                                     SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
-                            ), () ->
-                                    ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
-                                            .taskDefinition(k)
-                                            .build()).taskDefinition()
-                    ));
+                            ),
+                            () -> ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
+                                    .taskDefinition(task.taskDefinitionArn())
+                                    .build()).taskDefinition()));
 
             Map<String, Map<Integer, ECSTaskDefScrapeConfig>> configs = scrapeConfig.getECSConfigByNameAndPort();
             if (taskDefinition.hasContainerDefinitions()) {
