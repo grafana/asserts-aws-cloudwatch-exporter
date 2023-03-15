@@ -75,11 +75,9 @@ public class ECSClusterProvider {
             EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount);
             Paginator paginator = new Paginator();
             do {
-                // List clusters just returns the cluster ARN. There is no need to paginate
                 ListClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(operationName,
                         labels,
                         ecsClient::listClusters);
-                labels.put(SCRAPE_REGION_LABEL, region);
                 if (listClustersResponse.hasClusterArns()) {
                     allClusterARNs.addAll(listClustersResponse.clusterArns());
                 }
@@ -89,17 +87,16 @@ public class ECSClusterProvider {
             log.info("Found {} total clusters : {}", allClusterARNs.size(), allClusterARNs);
 
             // Filter by ACTIVE clusters
-            // List clusters just returns the cluster ARN. There is no need to paginate
             operationName = "EcsClient/DescribeClusters";
             labels.put(SCRAPE_OPERATION_LABEL, operationName);
             DescribeClustersRequest describeClustersRequest = DescribeClustersRequest.builder()
                     .clusters(allClusterARNs)
                     .build();
-            DescribeClustersResponse listClustersResponse = rateLimiter.doWithRateLimit(operationName,
+            DescribeClustersResponse describeClustersResponse = rateLimiter.doWithRateLimit(operationName,
                     labels,
                     () -> ecsClient.describeClusters(describeClustersRequest));
-            if (listClustersResponse.hasClusters()) {
-                clusters.addAll(listClustersResponse.clusters().stream()
+            if (describeClustersResponse.hasClusters()) {
+                clusters.addAll(describeClustersResponse.clusters().stream()
                         .filter(cluster -> "ACTIVE".equals(cluster.status()))
                         .map(cluster -> resourceMapper.map(cluster.clusterArn()))
                         .filter(Optional::isPresent)
