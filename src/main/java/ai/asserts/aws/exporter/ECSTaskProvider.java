@@ -107,7 +107,7 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
                 for (Resource cluster : ecsClusterProvider.getClusters(account, region)) {
                     discoverNewTasks(clusterWiseNewTasks, ecsClient, cluster);
                 }
-                buildNewTargets(account,scrapeConfig, clusterWiseNewTasks, ecsClient);
+                buildNewTargets(account, scrapeConfig, clusterWiseNewTasks, ecsClient);
             }
         }
 
@@ -163,31 +163,33 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
                          EcsClient ecsClient) {
         // Make the describeTasks call for the new tasks and build the scrape targets
         clusterWiseNewTasks.forEach((cluster, tasks) -> {
-            String operationName = "EcsClient/describeTasks";
-            DescribeTasksRequest request =
-                    DescribeTasksRequest.builder()
-                            .cluster(cluster.getName())
-                            .tasks(tasks.stream().map(Resource::getArn).collect(Collectors.toList()))
-                            .build();
-            DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit(operationName,
-                    ImmutableSortedMap.of(
-                            SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
-                            SCRAPE_REGION_LABEL, cluster.getRegion(),
-                            SCRAPE_OPERATION_LABEL, operationName,
-                            SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
-                    () -> ecsClient.describeTasks(request));
-            if (taskResponse.hasTasks()) {
-                taskResponse.tasks().stream()
-                        .filter(ecsTaskUtil::hasAllInfo)
-                        .filter(ecsTaskUtil::hasAllInfo)
-                        .forEach(task -> resourceMapper.map(task.taskArn()).ifPresent(taskResource -> {
-                            List<StaticConfig> staticConfigs =
-                                    ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                                            getService(task), task);
-                            Map<Resource, List<StaticConfig>> clusterTargets =
-                                    tasksByCluster.computeIfAbsent(cluster, k -> new HashMap<>());
-                            clusterTargets.put(taskResource, staticConfigs);
-                        }));
+            if (!tasks.isEmpty()) {
+                String operationName = "EcsClient/describeTasks";
+                DescribeTasksRequest request =
+                        DescribeTasksRequest.builder()
+                                .cluster(cluster.getName())
+                                .tasks(tasks.stream().map(Resource::getArn).collect(Collectors.toList()))
+                                .build();
+                DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit(operationName,
+                        ImmutableSortedMap.of(
+                                SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
+                                SCRAPE_REGION_LABEL, cluster.getRegion(),
+                                SCRAPE_OPERATION_LABEL, operationName,
+                                SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
+                        () -> ecsClient.describeTasks(request));
+                if (taskResponse.hasTasks()) {
+                    taskResponse.tasks().stream()
+                            .filter(ecsTaskUtil::hasAllInfo)
+                            .filter(ecsTaskUtil::hasAllInfo)
+                            .forEach(task -> resourceMapper.map(task.taskArn()).ifPresent(taskResource -> {
+                                List<StaticConfig> staticConfigs =
+                                        ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
+                                                getService(task), task);
+                                Map<Resource, List<StaticConfig>> clusterTargets =
+                                        tasksByCluster.computeIfAbsent(cluster, k -> new HashMap<>());
+                                clusterTargets.put(taskResource, staticConfigs);
+                            }));
+                }
             }
         });
     }
