@@ -188,7 +188,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
                                 "ElasticLoadBalancingV2Client/describeTargetGroups");
                         DescribeTargetGroupsResponse tgr =
                                 rateLimiter.doWithRateLimit("ElasticLoadBalancingV2Client/describeTargetGroups",
-                                        ImmutableSortedMap.of(),
+                                        telemetryLabels,
                                         () -> lbClient.describeTargetGroups(DescribeTargetGroupsRequest.builder()
                                                 .targetGroupArns(action.targetGroupArn())
                                                 .build()));
@@ -198,10 +198,12 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
                                     .filter(targetGroup -> targetGroup.targetType()
                                             .equals(INSTANCE))
                                     .forEach(targetGroup -> {
+                                        telemetryLabels.put(SCRAPE_OPERATION_LABEL,
+                                                "ElasticLoadBalancingV2Client/describeTargetHealth");
                                         DescribeTargetHealthResponse thr =
                                                 rateLimiter.doWithRateLimit(
                                                         "ElasticLoadBalancingV2Client/describeTargetHealth",
-                                                        ImmutableSortedMap.of(),
+                                                        telemetryLabels,
                                                         () -> lbClient.describeTargetHealth(
                                                                 DescribeTargetHealthRequest.builder()
                                                                         .targetGroupArn(action.targetGroupArn())

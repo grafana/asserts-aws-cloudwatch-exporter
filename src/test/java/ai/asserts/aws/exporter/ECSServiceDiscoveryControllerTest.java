@@ -20,10 +20,10 @@ public class ECSServiceDiscoveryControllerTest extends EasyMockSupport {
 
     @Test
     public void getECSSDConfig() {
-        ECSServiceDiscoveryExporter mockExporter = mock(ECSServiceDiscoveryExporter.class);
+        ECSTaskProvider mockExporter = mock(ECSTaskProvider.class);
         List mockConfig = mock(List.class);
 
-        expect(mockExporter.getTargets()).andReturn(mockConfig);
+        expect(mockExporter.getScrapeTargets()).andReturn(mockConfig);
 
         replayAll();
         ECSServiceDiscoveryController testClass = new ECSServiceDiscoveryController(mockExporter);

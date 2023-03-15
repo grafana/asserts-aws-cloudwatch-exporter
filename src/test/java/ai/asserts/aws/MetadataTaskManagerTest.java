@@ -128,7 +128,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(lambdaInvokeConfigExporter.register(collectorRegistry)).andReturn(null);
         expect(metricCollector.register(collectorRegistry)).andReturn(null);
         expect(relationExporter.register(collectorRegistry)).andReturn(null);
-        expect(ecsServiceDiscoveryExporter.register(collectorRegistry)).andReturn(null);
         expect(loadBalancerExporter.register(collectorRegistry)).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
@@ -140,7 +139,6 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void afterPropertiesSet_notPrimaryExporter() {
-        expect(ecsServiceDiscoveryExporter.register(collectorRegistry)).andReturn(null);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
         replayAll();
         testClass.afterPropertiesSet();
@@ -273,7 +271,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(executorService.submit(capture(capture1))).andReturn(null);
         scrapeConfigProvider.update();
-        ecsServiceDiscoveryExporter.update();
+        ecsServiceDiscoveryExporter.run();
         replayAll();
 
         testClass.perMinute();

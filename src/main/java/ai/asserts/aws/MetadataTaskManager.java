@@ -73,7 +73,6 @@ public class MetadataTaskManager implements InitializingBean {
     private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
 
     public void afterPropertiesSet() {
-        ecsServiceDiscoveryExporter.register(collectorRegistry);
         if (ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             lambdaFunctionScraper.register(collectorRegistry);
             lambdaCapacityExporter.register(collectorRegistry);
@@ -128,11 +127,11 @@ public class MetadataTaskManager implements InitializingBean {
     }
 
     @SuppressWarnings("unused")
-    @Scheduled(fixedRateString = "${aws.metadata.scrape.manager.task.fixedDelay:60000}",
+    @Scheduled(fixedRateString = "${aws.metadata.scrape.manager.task.fixedDelay:300000}",
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {
         taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(scrapeConfigProvider::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(ecsServiceDiscoveryExporter::update));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(ecsServiceDiscoveryExporter));
     }
 }
