@@ -10,6 +10,7 @@ import ai.asserts.aws.exporter.KinesisAnalyticsExporter;
 import ai.asserts.aws.exporter.KinesisFirehoseExporter;
 import ai.asserts.aws.exporter.KinesisStreamExporter;
 import ai.asserts.aws.exporter.LBToASGRelationBuilder;
+import ai.asserts.aws.exporter.LBToECSRoutingBuilder;
 import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
@@ -50,6 +51,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final ResourceRelationExporter relationExporter;
     private final LBToASGRelationBuilder lbToASGRelationBuilder;
+    private final LBToECSRoutingBuilder lbToECSRoutingBuilder;
     private final EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter;
     private final ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder;
     private final KinesisAnalyticsExporter kinesisAnalyticsExporter;
@@ -108,6 +110,7 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaInvokeConfigExporter::update));
         taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(targetGroupLBMapProvider::update));
         taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lbToASGRelationBuilder::updateRouting));
+        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lbToECSRoutingBuilder));
         taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(relationExporter::update));
         taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(ec2ToEBSVolumeExporter::update));
         taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(apiGatewayToLambdaBuilder::update));
