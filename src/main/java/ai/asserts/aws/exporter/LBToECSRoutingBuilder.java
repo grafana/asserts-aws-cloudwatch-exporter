@@ -20,11 +20,7 @@ import software.amazon.awssdk.services.ecs.model.DescribeServicesResponse;
 import software.amazon.awssdk.services.ecs.model.ListServicesRequest;
 import software.amazon.awssdk.services.ecs.model.ListServicesResponse;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -44,86 +40,92 @@ public class LBToECSRoutingBuilder implements Runnable {
     private final AWSClientProvider awsClientProvider;
 
     private final AccountProvider accountProvider;
+    private final ECSClusterProvider ecsClusterProvider;
 
     @Getter
     private volatile Set<ResourceRelation> routing = new HashSet<>();
 
     public LBToECSRoutingBuilder(RateLimiter rateLimiter, ResourceMapper resourceMapper,
                                  TargetGroupLBMapProvider targetGroupLBMapProvider,
-                                 AWSClientProvider awsClientProvider, AccountProvider accountProvider) {
+                                 AWSClientProvider awsClientProvider, AccountProvider accountProvider,
+                                 ECSClusterProvider ecsClusterProvider) {
         this.rateLimiter = rateLimiter;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
         this.awsClientProvider = awsClientProvider;
         this.accountProvider = accountProvider;
+        this.ecsClusterProvider = ecsClusterProvider;
     }
 
     public void run() {
         Set<ResourceRelation> newRouting = new HashSet<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
             EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount);
-            Map<String, List<String>> serviceARNsByCluster = new HashMap<>();
-            Paginator paginator = new Paginator();
-            do {
-                String api = "EcsClient/listServices";
-                ListServicesResponse response = rateLimiter.doWithRateLimit(api, ImmutableSortedMap.of(
-                        SCRAPE_REGION_LABEL, region,
-                        SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                        SCRAPE_OPERATION_LABEL, api
-                ), () -> ecsClient.listServices(ListServicesRequest.builder()
-                        .nextToken(paginator.getNextToken())
-                        .build()));
-                if (response.hasServiceArns()) {
-                    response.serviceArns().stream()
-                            .map(resourceMapper::map)
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .forEach(service -> serviceARNsByCluster.computeIfAbsent(service.getChildOf().getName(),
-                                    k -> new ArrayList<>()).add(service.getArn()));
-                }
-                paginator.nextToken(response.nextToken());
-            } while (paginator.hasNext());
-
-
-            serviceARNsByCluster.forEach((cluster, _ARNs) -> {
-                try {
-                    String api = "EcsClient/describeServices";
-                    DescribeServicesResponse response = rateLimiter.doWithRateLimit(api,
-                            ImmutableSortedMap.of(
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                                    SCRAPE_OPERATION_LABEL, api
-                            )
-                            , () -> ecsClient.describeServices(DescribeServicesRequest.builder()
-                                    .cluster(cluster)
-                                    .services(_ARNs)
-                                    .build()));
-                    if (response.hasServices()) {
-                        response.services().stream()
-                                .filter(service -> resourceMapper.map(service.serviceArn()).isPresent())
-                                .forEach(service -> {
-                                    Optional<Resource> servResOpt = resourceMapper.map(service.serviceArn());
-                                    servResOpt.ifPresent(
-                                            servRes -> newRouting.addAll(service.loadBalancers().stream()
-                                                    .map(loadBalancer -> resourceMapper.map(
-                                                            loadBalancer.targetGroupArn()))
-                                                    .filter(Optional::isPresent).map(Optional::get)
-                                                    .map(tg -> targetGroupLBMapProvider.getTgToLB().get(tg))
-                                                    .filter(Objects::nonNull)
-                                                    .map(lb -> ResourceRelation.builder()
-                                                            .from(lb)
-                                                            .to(servRes)
-                                                            .name("ROUTES_TO")
-                                                            .build())
-                                                    .collect(Collectors.toSet())));
-                                });
+            Set<Resource> clusters = ecsClusterProvider.getClusters(awsAccount, region);
+            clusters.forEach(cluster -> {
+                Set<String> serviceARNs = new HashSet<>();
+                Paginator paginator = new Paginator();
+                do {
+                    String api = "EcsClient/listServices";
+                    ListServicesResponse response = rateLimiter.doWithRateLimit(api, ImmutableSortedMap.of(
+                            SCRAPE_REGION_LABEL, region,
+                            SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
+                            SCRAPE_OPERATION_LABEL, api
+                    ), () -> ecsClient.listServices(ListServicesRequest.builder()
+                            .cluster(cluster.getName())
+                            .nextToken(paginator.getNextToken())
+                            .build()));
+                    if (response.hasServiceArns()) {
+                        serviceARNs.addAll(response.serviceArns());
                     }
-                } catch (Exception e) {
-                    log.error("Failed to build resource relations", e);
+                    paginator.nextToken(response.nextToken());
+                } while (paginator.hasNext());
+
+                if (!serviceARNs.isEmpty()) {
+                    discoverRelationships(newRouting, awsAccount, region, ecsClient, cluster, serviceARNs);
                 }
             });
         }));
         routing = newRouting;
+    }
+
+    private void discoverRelationships(Set<ResourceRelation> newRouting, AccountProvider.AWSAccount awsAccount,
+                                       String region, EcsClient ecsClient, Resource cluster, Set<String> serviceARNs) {
+        try {
+            String api = "EcsClient/describeServices";
+            DescribeServicesResponse response = rateLimiter.doWithRateLimit(api,
+                    ImmutableSortedMap.of(
+                            SCRAPE_REGION_LABEL, region,
+                            SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
+                            SCRAPE_OPERATION_LABEL, api
+                    )
+                    , () -> ecsClient.describeServices(DescribeServicesRequest.builder()
+                            .cluster(cluster.getName())
+                            .services(serviceARNs)
+                            .build()));
+            if (response.hasServices()) {
+                response.services().stream()
+                        .filter(service -> resourceMapper.map(service.serviceArn()).isPresent())
+                        .forEach(service -> {
+                            Optional<Resource> servResOpt = resourceMapper.map(service.serviceArn());
+                            servResOpt.ifPresent(
+                                    servRes -> newRouting.addAll(service.loadBalancers().stream()
+                                            .map(loadBalancer -> resourceMapper.map(
+                                                    loadBalancer.targetGroupArn()))
+                                            .filter(Optional::isPresent).map(Optional::get)
+                                            .map(tg -> targetGroupLBMapProvider.getTgToLB().get(tg))
+                                            .filter(Objects::nonNull)
+                                            .map(lb -> ResourceRelation.builder()
+                                                    .from(lb)
+                                                    .to(servRes)
+                                                    .name("ROUTES_TO")
+                                                    .build())
+                                            .collect(Collectors.toSet())));
+                        });
+            }
+        } catch (Exception e) {
+            log.error("Failed to build resource relations", e);
+        }
     }
 
 }

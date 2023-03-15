@@ -11,7 +11,6 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
@@ -47,6 +46,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
     private AccountProvider accountProvider;
 
     private EcsClient ecsClient;
+    private ECSClusterProvider ecsClusterProvider;
 
     private LBToECSRoutingBuilder testClass;
 
@@ -59,8 +59,9 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
         ecsClient = mock(EcsClient.class);
         awsClientProvider = mock(AWSClientProvider.class);
         accountProvider = mock(AccountProvider.class);
+        ecsClusterProvider = mock(ECSClusterProvider.class);
         testClass = new LBToECSRoutingBuilder(rateLimiter, resourceMapper, targetGroupLBMapProvider,
-                awsClientProvider, accountProvider);
+                awsClientProvider, accountProvider, ecsClusterProvider);
     }
 
     @Test
@@ -98,9 +99,14 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
                 .regions(ImmutableSet.of("region"))
                 .name("test-account")
                 .build();
+
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(awsClientProvider.getECSClient("region", awsAccount)).andReturn(ecsClient);
+
+        expect(ecsClusterProvider.getClusters(awsAccount, "region")).andReturn(ImmutableSet.of(cluster));
+
         expect(ecsClient.listServices(ListServicesRequest.builder()
+                .cluster(cluster.getName())
                 .build())).andReturn(ListServicesResponse.builder()
                 .nextToken("token1")
                 .serviceArns("service-arn")
@@ -108,6 +114,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
 
         expect(ecsClient.listServices(ListServicesRequest.builder()
+                .cluster(cluster.getName())
                 .nextToken("token1")
                 .build())).andReturn(ListServicesResponse.builder()
                 .nextToken("token1")
@@ -131,7 +138,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
 
         expect(ecsClient.describeServices(request)).andReturn(response);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
-        expect(resourceMapper.map("service-arn")).andReturn(Optional.of(service)).times(3);
+        expect(resourceMapper.map("service-arn")).andReturn(Optional.of(service)).times(2);
         expect(resourceMapper.map("tg-arn")).andReturn(Optional.of(tg));
 
         expect(targetGroupLBMapProvider.getTgToLB()).andReturn(tgToLb);
