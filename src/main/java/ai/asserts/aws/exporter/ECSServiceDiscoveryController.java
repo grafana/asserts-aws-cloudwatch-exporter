@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,14 +20,14 @@ import static org.springframework.web.bind.annotation.RequestMethod.GET;
 @AllArgsConstructor
 @Slf4j
 public class ECSServiceDiscoveryController {
-    private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    private final ECSTaskProvider ecsTaskProvider;
 
     @RequestMapping(
             path = "/ecs-sd-config",
             produces = {APPLICATION_JSON_VALUE},
             method = GET)
     public ResponseEntity<List<StaticConfig>> getECSSDConfig() {
-        List<StaticConfig> targets = ecsServiceDiscoveryExporter.getTargets();
+        List<StaticConfig> targets = ecsTaskProvider.getScrapeTargets();
         return ResponseEntity.ok(targets);
     }
 }

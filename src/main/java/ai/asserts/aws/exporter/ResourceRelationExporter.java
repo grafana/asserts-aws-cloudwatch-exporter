@@ -19,23 +19,23 @@ import java.util.TreeMap;
 @Component
 @Slf4j
 public class ResourceRelationExporter extends Collector implements MetricProvider {
-    private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final LBToASGRelationBuilder lbToASGRelationBuilder;
     private final LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder;
+    private final LBToECSRoutingBuilder lbToECSRoutingBuilder;
     private final EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter;
     private final ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder;
     private final MetricSampleBuilder sampleBuilder;
     private volatile List<MetricFamilySamples> metrics = new ArrayList<>();
 
-    public ResourceRelationExporter(ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
-                                    LBToASGRelationBuilder lbToASGRelationBuilder,
+    public ResourceRelationExporter(LBToASGRelationBuilder lbToASGRelationBuilder,
                                     LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder,
+                                    LBToECSRoutingBuilder lbToECSRoutingBuilder,
                                     EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter,
                                     ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder,
                                     MetricSampleBuilder sampleBuilder) {
-        this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
         this.lbToASGRelationBuilder = lbToASGRelationBuilder;
         this.lbToLambdaRoutingBuilder = lbToLambdaRoutingBuilder;
+        this.lbToECSRoutingBuilder = lbToECSRoutingBuilder;
         this.ec2ToEBSVolumeExporter = ec2ToEBSVolumeExporter;
         this.apiGatewayToLambdaBuilder = apiGatewayToLambdaBuilder;
         this.sampleBuilder = sampleBuilder;
@@ -52,7 +52,7 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
         try {
             List<MetricFamilySamples> familySamples = new ArrayList<>();
             List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-            Set<ResourceRelation> relations = new HashSet<>(ecsServiceDiscoveryExporter.getRouting());
+            Set<ResourceRelation> relations = new HashSet<>(lbToECSRoutingBuilder.getRouting());
             relations.addAll(lbToASGRelationBuilder.getRoutingConfigs());
             relations.addAll(lbToLambdaRoutingBuilder.getRoutings());
             relations.addAll(ec2ToEBSVolumeExporter.getAttachedVolumes());

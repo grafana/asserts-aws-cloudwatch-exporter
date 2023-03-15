@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AccountProvider.AWSAccount;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
@@ -15,6 +16,8 @@ import ai.asserts.aws.exporter.Labels.LabelsBuilder;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSortedMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,6 +32,7 @@ import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
+import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -36,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -53,7 +58,13 @@ public class ECSTaskUtil {
     private final ResourceMapper resourceMapper;
     private final RateLimiter rateLimiter;
 
+    private final TagUtil tagUtil;
+
     private final String envName;
+
+    public final Cache<String, TaskDefinition> taskDefsByARN = CacheBuilder.newBuilder()
+            .expireAfterAccess(30, TimeUnit.MINUTES)
+            .build();
 
     private final Map<String, String> subnetIdMap = new ConcurrentHashMap<>();
     private final Map<String, SubnetDetails> taskSubnetMap = new ConcurrentHashMap<>();
@@ -63,10 +74,13 @@ public class ECSTaskUtil {
     public static final String PROMETHEUS_PORT_DOCKER_LABEL = "PROMETHEUS_EXPORTER_PORT";
     public static final String PROMETHEUS_METRIC_PATH_DOCKER_LABEL = "PROMETHEUS_EXPORTER_PATH";
 
-    public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper, RateLimiter rateLimiter) {
+
+    public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper, RateLimiter rateLimiter,
+                       TagUtil tagUtil) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
+        this.tagUtil = tagUtil;
         // If the exporter's environment name is marked, use this for ECS metrics
         envName = getInstallEnvName();
     }
@@ -92,14 +106,13 @@ public class ECSTaskUtil {
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
-                                                 Resource cluster, Optional<Resource> service, Task task) {
-        return buildScrapeTargets(scrapeConfig, ecsClient, cluster, service, task, Collections.emptyMap());
-    }
+                                                 Resource cluster, Optional<String> service, Task task) {
+        Map<String, String> tagLabels =
+                tagUtil.tagLabels(
+                        task.tags().stream()
+                                .map(_tag -> Tag.builder().key(_tag.key()).value(_tag.value()).build())
+                                .collect(Collectors.toList()));
 
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
-                                                 Resource cluster, Optional<Resource> service, Task task,
-                                                 Map<String, String> tagLabels) {
         Map<Labels, StaticConfig> targetsByLabel = new LinkedHashMap<>();
 
         String ipAddress;
@@ -112,9 +125,9 @@ public class ECSTaskUtil {
         taskSubnetMap.computeIfAbsent(taskResource.getName(), k -> getSubnetDetails(task, taskResource));
         if (service.isPresent()) {
             labelsBuilder = Labels.builder()
-                    .workload(service.get().getName())
+                    .workload(service.get())
                     .taskId(taskResource.getName())
-                    .pod(service.get().getName() + "-" + taskResource.getName())
+                    .pod(service.get() + "-" + taskResource.getName())
                     .vpcId(taskSubnetMap.get(taskResource.getName()).getVpcId())
                     .subnetId(taskSubnetMap.get(taskResource.getName()).getSubnetId())
                     .accountId(cluster.getAccount())
@@ -154,19 +167,20 @@ public class ECSTaskUtil {
             return Collections.emptyList();
         }
 
+
         try {
             String operationName = "EcsClient/describeTaskDefinition";
-            TaskDefinition taskDefinition = rateLimiter.doWithRateLimit(operationName,
-                    ImmutableSortedMap.of(
-                            SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
-                            SCRAPE_REGION_LABEL, cluster.getRegion(),
-                            SCRAPE_OPERATION_LABEL, operationName,
-                            SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
-                    ), () ->
-                            ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
+            TaskDefinition taskDefinition = taskDefsByARN.get(task.taskDefinitionArn(), () ->
+                    rateLimiter.doWithRateLimit(operationName,
+                            ImmutableSortedMap.of(
+                                    SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
+                                    SCRAPE_REGION_LABEL, cluster.getRegion(),
+                                    SCRAPE_OPERATION_LABEL, operationName,
+                                    SCRAPE_NAMESPACE_LABEL, "AWS/ECS"
+                            ),
+                            () -> ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
                                     .taskDefinition(task.taskDefinitionArn())
-                                    .build()).taskDefinition()
-            );
+                                    .build()).taskDefinition()));
 
             Map<String, Map<Integer, ECSTaskDefScrapeConfig>> configs = scrapeConfig.getECSConfigByNameAndPort();
             if (taskDefinition.hasContainerDefinitions()) {
@@ -219,6 +233,7 @@ public class ECSTaskUtil {
                                 .metricsPath(pathFromLabel.get())
                                 .container(cD.name())
                                 .build();
+
                         labels.populateMapEntries();
                         labels.putAll(tagLabels);
                         Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);

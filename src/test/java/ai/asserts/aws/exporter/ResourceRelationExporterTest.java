@@ -24,11 +24,11 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ResourceRelationExporterTest extends EasyMockSupport {
-    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private LBToASGRelationBuilder lbToASGRelationBuilder;
     private LBToLambdaRoutingBuilder lbToLambdaRoutingBuilder;
     private EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter;
     private ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder;
+    private LBToECSRoutingBuilder lbToECSRoutingBuilder;
     private MetricSampleBuilder sampleBuilder;
     private Resource fromResource;
     private Resource toResource;
@@ -38,7 +38,6 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         lbToASGRelationBuilder = mock(LBToASGRelationBuilder.class);
         lbToLambdaRoutingBuilder = mock(LBToLambdaRoutingBuilder.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
@@ -48,14 +47,16 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
         familySamples = mock(Collector.MetricFamilySamples.class);
         ec2ToEBSVolumeExporter = mock(EC2ToEBSVolumeExporter.class);
         apiGatewayToLambdaBuilder = mock(ApiGatewayToLambdaBuilder.class);
-        testClass = new ResourceRelationExporter(ecsServiceDiscoveryExporter,
-                lbToASGRelationBuilder, lbToLambdaRoutingBuilder, ec2ToEBSVolumeExporter, apiGatewayToLambdaBuilder,
+        lbToECSRoutingBuilder = mock(LBToECSRoutingBuilder.class);
+        testClass = new ResourceRelationExporter(
+                lbToASGRelationBuilder, lbToLambdaRoutingBuilder, lbToECSRoutingBuilder, ec2ToEBSVolumeExporter,
+                apiGatewayToLambdaBuilder,
                 sampleBuilder);
     }
 
     @Test
     public void update() {
-        expect(ecsServiceDiscoveryExporter.getRouting()).andReturn(ImmutableSet.of(ResourceRelation.builder()
+        expect(lbToECSRoutingBuilder.getRouting()).andReturn(ImmutableSet.of(ResourceRelation.builder()
                 .from(fromResource)
                 .to(toResource)
                 .name("name1")

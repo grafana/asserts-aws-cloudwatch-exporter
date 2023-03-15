@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
@@ -63,6 +64,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     private Resource task;
     private Resource taskDef;
 
+    private TagUtil tagUtil;
+
     @BeforeEach
     public void setup() {
         resourceMapper = mock(ResourceMapper.class);
@@ -71,8 +74,11 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         taskDefScrapeConfig = mock(ECSTaskDefScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
+        tagUtil = mock(TagUtil.class);
         Ec2Client ec2Client = mock(Ec2Client.class);
-        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector));
+
+
+        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector), tagUtil);
 
         expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
         expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
@@ -156,9 +162,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
         expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
+
+        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                Optional.of(service), Task.builder()
+                Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -234,9 +243,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
         expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
+
+        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                Optional.of(service), Task.builder()
+                Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -332,9 +344,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
         expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
+
+        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                Optional.of(service), Task.builder()
+                Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -396,6 +411,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
     @Test
     public void discoverAllTasksSpecificConfigForSpecificPorts() {
+
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
         expect(scrapeConfig.isDiscoverAllECSTasksByDefault()).andReturn(true).anyTimes();
@@ -440,9 +456,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
         expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
+
+        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                Optional.of(service), Task.builder()
+                Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
@@ -556,16 +575,19 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
         expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
+
+        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+
         replayAll();
 
-        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector)) {
+        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector), tagUtil) {
             @Override
             String getInstallEnvName() {
                 return "Dev";
             }
         };
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                Optional.of(service), Task.builder()
+                Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
                         .lastStatus("RUNNING")
