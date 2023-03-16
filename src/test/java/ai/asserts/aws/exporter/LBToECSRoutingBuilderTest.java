@@ -24,6 +24,7 @@ import software.amazon.awssdk.services.ecs.model.ListServicesResponse;
 import software.amazon.awssdk.services.ecs.model.LoadBalancer;
 import software.amazon.awssdk.services.ecs.model.Service;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -65,7 +66,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
     }
 
     @Test
-    public void getRoutings() {
+    public void run() {
         Resource cluster = Resource.builder()
                 .account(SCRAPE_ACCOUNT_ID_LABEL)
                 .region("region")
@@ -109,7 +110,9 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
                 .cluster(cluster.getName())
                 .build())).andReturn(ListServicesResponse.builder()
                 .nextToken("token1")
-                .serviceArns("service-arn")
+                .serviceArns("service-arn", "service-arn1", "service-arn2", "service-arn3", "service-arn4",
+                        "service-arn5", "service-arn6", "service-arn7", "service-arn8", "service-arn9",
+                        "service-arn10")
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
 
@@ -123,7 +126,8 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
 
         DescribeServicesRequest request = DescribeServicesRequest.builder()
                 .cluster("cluster")
-                .services("service-arn")
+                .services("service-arn", "service-arn1", "service-arn10", "service-arn2", "service-arn3",
+                        "service-arn4", "service-arn5", "service-arn6", "service-arn7", "service-arn8")
                 .build();
 
         DescribeServicesResponse response = DescribeServicesResponse.builder()
@@ -135,9 +139,21 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
                                 .build())
                         .build())
                 .build();
-
         expect(ecsClient.describeServices(request)).andReturn(response);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+
+        request = DescribeServicesRequest.builder()
+                .cluster("cluster")
+                .services("service-arn9")
+                .build();
+
+        response = DescribeServicesResponse.builder()
+                .services(Collections.emptyList())
+                .build();
+        expect(ecsClient.describeServices(request)).andReturn(response);
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+
+
         expect(resourceMapper.map("service-arn")).andReturn(Optional.of(service)).times(2);
         expect(resourceMapper.map("tg-arn")).andReturn(Optional.of(tg));
 

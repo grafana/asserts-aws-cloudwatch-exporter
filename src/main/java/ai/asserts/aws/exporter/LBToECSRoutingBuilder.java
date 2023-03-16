@@ -24,6 +24,9 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -91,41 +94,52 @@ public class LBToECSRoutingBuilder implements Runnable {
 
     private void discoverRelationships(Set<ResourceRelation> newRouting, AccountProvider.AWSAccount awsAccount,
                                        String region, EcsClient ecsClient, Resource cluster, Set<String> serviceARNs) {
-        try {
-            String api = "EcsClient/describeServices";
-            DescribeServicesResponse response = rateLimiter.doWithRateLimit(api,
-                    ImmutableSortedMap.of(
-                            SCRAPE_REGION_LABEL, region,
-                            SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                            SCRAPE_OPERATION_LABEL, api
-                    )
-                    , () -> ecsClient.describeServices(DescribeServicesRequest.builder()
-                            .cluster(cluster.getName())
-                            .services(serviceARNs)
-                            .build()));
-            if (response.hasServices()) {
-                response.services().stream()
-                        .filter(service -> resourceMapper.map(service.serviceArn()).isPresent())
-                        .forEach(service -> {
-                            Optional<Resource> servResOpt = resourceMapper.map(service.serviceArn());
-                            servResOpt.ifPresent(
-                                    servRes -> newRouting.addAll(service.loadBalancers().stream()
-                                            .map(loadBalancer -> resourceMapper.map(
-                                                    loadBalancer.targetGroupArn()))
-                                            .filter(Optional::isPresent).map(Optional::get)
-                                            .map(tg -> targetGroupLBMapProvider.getTgToLB().get(tg))
-                                            .filter(Objects::nonNull)
-                                            .map(lb -> ResourceRelation.builder()
-                                                    .from(lb)
-                                                    .to(servRes)
-                                                    .name("ROUTES_TO")
-                                                    .build())
-                                            .collect(Collectors.toSet())));
-                        });
+        SortedSet<String> orderedARNs = new TreeSet<>(serviceARNs);
+        while (orderedARNs.size() > 0) {
+            SortedSet<String> nextBatch = new TreeSet<>();
+            for(String nextARN : orderedARNs) {
+                if( nextBatch.size()==10) {
+                    break;
+                } else {
+                    nextBatch.add(nextARN);
+                }
             }
-        } catch (Exception e) {
-            log.error("Failed to build resource relations", e);
+            orderedARNs.removeAll(nextBatch);
+            try {
+                String api = "EcsClient/describeServices";
+                DescribeServicesResponse response = rateLimiter.doWithRateLimit(api,
+                        ImmutableSortedMap.of(
+                                SCRAPE_REGION_LABEL, region,
+                                SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
+                                SCRAPE_OPERATION_LABEL, api
+                        )
+                        , () -> ecsClient.describeServices(DescribeServicesRequest.builder()
+                                .cluster(cluster.getName())
+                                .services(nextBatch)
+                                .build()));
+                if (response.hasServices()) {
+                    response.services().stream()
+                            .filter(service -> resourceMapper.map(service.serviceArn()).isPresent())
+                            .forEach(service -> {
+                                Optional<Resource> servResOpt = resourceMapper.map(service.serviceArn());
+                                servResOpt.ifPresent(
+                                        servRes -> newRouting.addAll(service.loadBalancers().stream()
+                                                .map(loadBalancer -> resourceMapper.map(
+                                                        loadBalancer.targetGroupArn()))
+                                                .filter(Optional::isPresent).map(Optional::get)
+                                                .map(tg -> targetGroupLBMapProvider.getTgToLB().get(tg))
+                                                .filter(Objects::nonNull)
+                                                .map(lb -> ResourceRelation.builder()
+                                                        .from(lb)
+                                                        .to(servRes)
+                                                        .name("ROUTES_TO")
+                                                        .build())
+                                                .collect(Collectors.toSet())));
+                            });
+                }
+            } catch (Exception e) {
+                log.error("Failed to build resource relations", e);
+            }
         }
     }
-
 }
