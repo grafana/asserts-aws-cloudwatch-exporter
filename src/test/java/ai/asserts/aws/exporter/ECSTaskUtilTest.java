@@ -27,13 +27,11 @@ import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionResponse;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
-import software.amazon.awssdk.services.ecs.model.PortMapping;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.exporter.ECSTaskUtil.ENI;
@@ -139,7 +137,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     public void containerWithDockerLabels() {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
-        expect(scrapeConfig.getECSConfigByNameAndPort()).andReturn(ImmutableMap.of());
 
         TaskDefinition taskDefinition = TaskDefinition.builder()
                 .containerDefinitions(ContainerDefinition.builder()
@@ -201,140 +198,18 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     }
 
     @Test
-    public void discoverAllTasksNoConfig() {
+    public void containerWithoutDockerLabels() {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
-        expect(scrapeConfig.isDiscoverAllECSTasksByDefault()).andReturn(true).anyTimes();
-        expect(scrapeConfig.getECSConfigByNameAndPort()).andReturn(ImmutableMap.of());
-
-        expect(taskDefScrapeConfig.getMetricPath()).andReturn("/prometheus/metrics").anyTimes();
 
         TaskDefinition taskDefinition = TaskDefinition.builder()
-                .containerDefinitions(
-                        ContainerDefinition.builder()
-                                .name("model-builder")
-                                .image("image")
-                                .portMappings(PortMapping.builder()
-                                        .hostPort(52341)
-                                        .containerPort(8080)
-                                        .build())
-                                .build(),
-                        ContainerDefinition.builder()
-                                .name("api-server")
-                                .image("image")
-                                .portMappings(
-                                        PortMapping.builder()
-                                                .hostPort(52342)
-                                                .containerPort(8081)
-                                                .build(),
-                                        PortMapping.builder()
-                                                .hostPort(52343)
-                                                .containerPort(8082)
-                                                .build()
-                                ).build()
-                ).build();
+                .containerDefinitions(ContainerDefinition.builder()
+                        .name("model-builder")
+                        .image("image")
+                        .build())
+                .build();
 
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-
-        expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
-                .taskDefinition("task-def-arn")
-                .build())).andReturn(DescribeTaskDefinitionResponse.builder()
-                .taskDefinition(taskDefinition)
-                .build());
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
-
-        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
-
-        replayAll();
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                Optional.of(service.getName()), Task.builder()
-                        .taskArn("task-arn")
-                        .taskDefinitionArn("task-def-arn")
-                        .lastStatus("RUNNING")
-                        .attachments(Attachment.builder()
-                                .type(ENI)
-                                .details(KeyValuePair.builder()
-                                                .name(PRIVATE_IPv4ADDRESS)
-                                                .value("10.20.30.40")
-                                                .build(),
-                                        KeyValuePair.builder()
-                                                .name(SUBNET_ID)
-                                                .value("subnet-id")
-                                                .build())
-                                .build())
-                        .build());
-        assertEquals(2, staticConfigs.size());
-        assertAll(
-                () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
-                () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
-                () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
-                () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getPod()),
-                () -> assertEquals("/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
-                () -> assertEquals("vpc-id", staticConfigs.get(0).getLabels().getVpcId()),
-
-                () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
-                () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
-                () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
-                () -> assertEquals("service-task-id", staticConfigs.get(1).getLabels().getPod()),
-                () -> assertEquals("/metrics", staticConfigs.get(1).getLabels().getMetricsPath()),
-                () -> assertEquals("vpc-id", staticConfigs.get(0).getLabels().getVpcId()),
-                () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
-                        .map(sc -> sc.getLabels().getJob())
-                        .collect(Collectors.toSet())),
-                () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
-                        .map(sc -> sc.getLabels().getContainer())
-                        .collect(Collectors.toSet())),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:52342", "10.20.30.40:52343"),
-                        staticConfigs.stream()
-                                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
-                                .map(StaticConfig::getTargets)
-                                .findFirst().get()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:52341"),
-                        staticConfigs.stream()
-                                .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
-                                .map(StaticConfig::getTargets)
-                                .findFirst().get())
-        );
-        verifyAll();
-    }
-
-    @Test
-    public void discoverAllTasksSomeWithConfig() {
-        expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
-        expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
-        expect(scrapeConfig.isDiscoverAllECSTasksByDefault()).andReturn(true).anyTimes();
-        expect(scrapeConfig.getECSConfigByNameAndPort()).andReturn(
-                ImmutableMap.of("api-server",
-                        ImmutableMap.of(-1, taskDefScrapeConfig)));
-
-        expect(taskDefScrapeConfig.getMetricPath()).andReturn("/prometheus/metrics").anyTimes();
-
-        TaskDefinition taskDefinition = TaskDefinition.builder()
-                .containerDefinitions(
-                        ContainerDefinition.builder()
-                                .name("model-builder")
-                                .image("image")
-                                .portMappings(PortMapping.builder()
-                                        .hostPort(52341)
-                                        .containerPort(8080)
-                                        .build())
-                                .build(),
-                        ContainerDefinition.builder()
-                                .name("api-server")
-                                .image("image")
-                                .portMappings(
-                                        PortMapping.builder()
-                                                .hostPort(52342)
-                                                .containerPort(8081)
-                                                .build(),
-                                        PortMapping.builder()
-                                                .hostPort(52343)
-                                                .containerPort(8082)
-                                                .build()
-                                ).build()
-                ).build();
-
+        // For Describe Subnets call
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
         expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
@@ -366,259 +241,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 )
                                 .build())
                         .build());
-        assertEquals(2, staticConfigs.size());
-        assertAll(
-                () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
-                () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
-                () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
-                () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getPod()),
-                () -> assertEquals("vpc-id", staticConfigs.get(0).getLabels().getVpcId()),
-
-                () -> assertEquals("cluster", staticConfigs.get(1).getLabels().getCluster()),
-                () -> assertEquals("task-def", staticConfigs.get(1).getLabels().getTaskDefName()),
-                () -> assertEquals("5", staticConfigs.get(1).getLabels().getTaskDefVersion()),
-                () -> assertEquals("service-task-id", staticConfigs.get(1).getLabels().getPod()),
-                () -> assertEquals("vpc-id", staticConfigs.get(0).getLabels().getVpcId()),
-                () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
-                        .map(sc -> sc.getLabels().getJob())
-                        .collect(Collectors.toSet())),
-                () -> assertEquals(ImmutableSet.of("api-server", "model-builder"), staticConfigs.stream()
-                        .map(sc -> sc.getLabels().getContainer())
-                        .collect(Collectors.toSet())),
-                () -> assertEquals("/prometheus/metrics",
-                        staticConfigs.stream()
-                                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
-                                .map(sc -> sc.getLabels().getMetricsPath())
-                                .findFirst().get()),
-                () -> assertEquals("/metrics",
-                        staticConfigs.stream()
-                                .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
-                                .map(sc -> sc.getLabels().getMetricsPath())
-                                .findFirst().get()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:52342", "10.20.30.40:52343"),
-                        staticConfigs.stream()
-                                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
-                                .map(StaticConfig::getTargets)
-                                .findFirst().get()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:52341"),
-                        staticConfigs.stream()
-                                .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
-                                .map(StaticConfig::getTargets)
-                                .findFirst().get())
-        );
+        assertEquals(0, staticConfigs.size());
         verifyAll();
     }
-
-    @Test
-    public void discoverAllTasksSpecificConfigForSpecificPorts() {
-
-        expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
-        expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
-        expect(scrapeConfig.isDiscoverAllECSTasksByDefault()).andReturn(true).anyTimes();
-        expect(scrapeConfig.getECSConfigByNameAndPort()).andReturn(
-                ImmutableMap.of("api-server",
-                        ImmutableMap.of(8081, taskDefScrapeConfig)));
-
-        expect(taskDefScrapeConfig.getMetricPath()).andReturn("/prometheus/metrics").anyTimes();
-
-        TaskDefinition taskDefinition = TaskDefinition.builder()
-                .containerDefinitions(
-                        ContainerDefinition.builder()
-                                .name("model-builder")
-                                .image("image")
-                                .portMappings(PortMapping.builder()
-                                        .hostPort(52341)
-                                        .containerPort(8080)
-                                        .build())
-                                .build(),
-                        ContainerDefinition.builder()
-                                .image("image")
-                                .name("api-server")
-                                .portMappings(
-                                        PortMapping.builder()
-                                                .hostPort(52342)
-                                                .containerPort(8081)
-                                                .build(),
-                                        PortMapping.builder()
-                                                .hostPort(52343)
-                                                .containerPort(8082)
-                                                .build()
-                                ).build()
-                ).build();
-
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-
-        expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
-                .taskDefinition("task-def-arn")
-                .build())).andReturn(DescribeTaskDefinitionResponse.builder()
-                .taskDefinition(taskDefinition)
-                .build());
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-
-        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
-
-        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
-
-        replayAll();
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                Optional.of(service.getName()), Task.builder()
-                        .taskArn("task-arn")
-                        .taskDefinitionArn("task-def-arn")
-                        .lastStatus("RUNNING")
-                        .attachments(Attachment.builder()
-                                .type(ENI)
-                                .details(KeyValuePair.builder()
-                                                .name(PRIVATE_IPv4ADDRESS)
-                                                .value("10.20.30.40")
-                                                .build(),
-                                        KeyValuePair.builder()
-                                                .name(SUBNET_ID)
-                                                .value("subnet-id")
-                                                .build()
-                                )
-                                .build())
-                        .build());
-        assertEquals(3, staticConfigs.size());
-
-        Optional<StaticConfig> apiServer_8081 = staticConfigs.stream()
-                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
-                .filter(sc -> sc.getTargets().contains("10.20.30.40:52342"))
-                .findFirst();
-
-        Optional<StaticConfig> apiServer_8082 = staticConfigs.stream()
-                .filter(sc -> sc.getLabels().getContainer().equals("api-server"))
-                .filter(sc -> sc.getTargets().contains("10.20.30.40:52343"))
-                .findFirst();
-
-        Optional<StaticConfig> modelBuilder = staticConfigs.stream()
-                .filter(sc -> sc.getLabels().getContainer().equals("model-builder"))
-                .filter(sc -> sc.getTargets().contains("10.20.30.40:52341"))
-                .findFirst();
-
-        assertAll(
-                () -> assertTrue(apiServer_8081.isPresent()),
-                () -> assertEquals("account", apiServer_8081.get().getLabels().getEnv()),
-                () -> assertEquals("us-west-2", staticConfigs.get(0).getLabels().getSite()),
-                () -> assertEquals("cluster", apiServer_8081.get().getLabels().getCluster()),
-                () -> assertEquals("api-server", apiServer_8081.get().getLabels().getJob()),
-                () -> assertEquals("task-def", apiServer_8081.get().getLabels().getTaskDefName()),
-                () -> assertEquals("5", apiServer_8081.get().getLabels().getTaskDefVersion()),
-                () -> assertEquals("service-task-id", apiServer_8081.get().getLabels().getPod()),
-                () -> assertEquals("/prometheus/metrics", apiServer_8081.get().getLabels().getMetricsPath())
-        );
-        assertAll(
-                () -> assertTrue(apiServer_8082.isPresent()),
-                () -> assertEquals("account", apiServer_8081.get().getLabels().getEnv()),
-                () -> assertEquals("us-west-2", staticConfigs.get(0).getLabels().getSite()),
-                () -> assertEquals("cluster", apiServer_8082.get().getLabels().getCluster()),
-                () -> assertEquals("api-server", apiServer_8082.get().getLabels().getJob()),
-                () -> assertEquals("task-def", apiServer_8082.get().getLabels().getTaskDefName()),
-                () -> assertEquals("5", apiServer_8082.get().getLabels().getTaskDefVersion()),
-                () -> assertEquals("service-task-id", apiServer_8082.get().getLabels().getPod()),
-                () -> assertEquals("/metrics", apiServer_8082.get().getLabels().getMetricsPath())
-        );
-        assertAll(
-                () -> assertTrue(modelBuilder.isPresent()),
-                () -> assertEquals("account", apiServer_8081.get().getLabels().getEnv()),
-                () -> assertEquals("us-west-2", staticConfigs.get(0).getLabels().getSite()),
-                () -> assertEquals("cluster", modelBuilder.get().getLabels().getCluster()),
-                () -> assertEquals("model-builder", modelBuilder.get().getLabels().getJob()),
-                () -> assertEquals("task-def", modelBuilder.get().getLabels().getTaskDefName()),
-                () -> assertEquals("5", modelBuilder.get().getLabels().getTaskDefVersion()),
-                () -> assertEquals("service-task-id", modelBuilder.get().getLabels().getPod()),
-                () -> assertEquals("/metrics", modelBuilder.get().getLabels().getMetricsPath())
-        );
-        verifyAll();
-    }
-
-    @Test
-    public void discoverOnlyConfiguredTasks() {
-        expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
-        expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
-        expect(scrapeConfig.isDiscoverAllECSTasksByDefault()).andReturn(false).anyTimes();
-        expect(scrapeConfig.getECSConfigByNameAndPort()).andReturn(
-                ImmutableMap.of("api-server", ImmutableMap.of(8081, taskDefScrapeConfig)));
-
-        expect(taskDefScrapeConfig.getMetricPath()).andReturn("/prometheus/metrics").anyTimes();
-
-        TaskDefinition taskDefinition = TaskDefinition.builder()
-                .containerDefinitions(
-                        ContainerDefinition.builder()
-                                .name("model-builder")
-                                .image("image")
-                                .portMappings(PortMapping.builder()
-                                        .hostPort(52341)
-                                        .containerPort(8080)
-                                        .build())
-                                .build(),
-                        ContainerDefinition.builder()
-                                .name("api-server")
-                                .image("image")
-                                .portMappings(
-                                        PortMapping.builder()
-                                                .hostPort(52342)
-                                                .containerPort(8081)
-                                                .build(),
-                                        PortMapping.builder()
-                                                .hostPort(52343)
-                                                .containerPort(8082)
-                                                .build()
-                                ).build()
-                ).build();
-
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-
-        expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
-                .taskDefinition("task-def-arn")
-                .build())).andReturn(DescribeTaskDefinitionResponse.builder()
-                .taskDefinition(taskDefinition)
-                .build());
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
-
-        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
-
-        replayAll();
-
-        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector), tagUtil) {
-            @Override
-            String getInstallEnvName() {
-                return "Dev";
-            }
-        };
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                Optional.of(service.getName()), Task.builder()
-                        .taskArn("task-arn")
-                        .taskDefinitionArn("task-def-arn")
-                        .lastStatus("RUNNING")
-                        .attachments(Attachment.builder()
-                                .type(ENI)
-                                .details(KeyValuePair.builder()
-                                                .name(PRIVATE_IPv4ADDRESS)
-                                                .value("10.20.30.40")
-                                                .build(),
-                                        KeyValuePair.builder()
-                                                .name(SUBNET_ID)
-                                                .value("subnet-id")
-                                                .build()
-                                )
-                                .build())
-                        .build());
-        assertEquals(1, staticConfigs.size());
-        assertAll(
-                () -> assertEquals("Dev", staticConfigs.get(0).getLabels().getEnv()),
-                () -> assertEquals("us-west-2", staticConfigs.get(0).getLabels().getSite()),
-                () -> assertEquals("cluster", staticConfigs.get(0).getLabels().getCluster()),
-                () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getJob()),
-                () -> assertEquals("task-def", staticConfigs.get(0).getLabels().getTaskDefName()),
-                () -> assertEquals("5", staticConfigs.get(0).getLabels().getTaskDefVersion()),
-                () -> assertEquals("service-task-id", staticConfigs.get(0).getLabels().getPod()),
-                () -> assertEquals("/prometheus/metrics", staticConfigs.get(0).getLabels().getMetricsPath()),
-                () -> assertEquals("api-server", staticConfigs.get(0).getLabels().getContainer()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:52342"),
-                        staticConfigs.get(0).getTargets())
-        );
-        verifyAll();
-    }
-
 }

@@ -6,17 +6,19 @@ package ai.asserts.aws.exporter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
-import java.util.TreeMap;
+import java.util.HashMap;
 
 import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
 
 @Getter
 @Builder
 @ToString
-public class Labels extends TreeMap<String, String> {
+@EqualsAndHashCode(callSuper = true)
+public class Labels extends HashMap<String, String> {
     @JsonProperty("__metrics_path__")
     private String metricsPath;
     private String workload;

@@ -291,8 +291,8 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .build())).andReturn(DescribeTasksResponse.builder()
                 .tasks(task1, task2)
                 .build());
-        expect(ecsTaskUtil.hasAllInfo(task1)).andReturn(true).times(2);
-        expect(ecsTaskUtil.hasAllInfo(task2)).andReturn(true).times(2);
+        expect(ecsTaskUtil.hasAllInfo(task1)).andReturn(true);
+        expect(ecsTaskUtil.hasAllInfo(task2)).andReturn(true);
         basicMetricCollector.recordLatency(eq("aws_exporter_milliseconds"), anyObject(SortedMap.class), anyLong());
 
         Resource task1Resource = Resource.builder().name("task1").build();
@@ -320,8 +320,8 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .tasks(task3, task4)
                 .build());
 
-        expect(ecsTaskUtil.hasAllInfo(task3)).andReturn(true).times(2);
-        expect(ecsTaskUtil.hasAllInfo(task4)).andReturn(true).times(2);
+        expect(ecsTaskUtil.hasAllInfo(task3)).andReturn(true);
+        expect(ecsTaskUtil.hasAllInfo(task4)).andReturn(true);
 
         Resource task3Resource = Resource.builder().name("task3").build();
         Resource task4Resource = Resource.builder().name("task4").build();
