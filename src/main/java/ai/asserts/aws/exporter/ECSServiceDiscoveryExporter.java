@@ -201,6 +201,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
 
     @Builder
     @Getter
+    @ToString
     public static class StaticConfig {
         private final Set<String> targets = new TreeSet<>();
         private final Labels labels;
