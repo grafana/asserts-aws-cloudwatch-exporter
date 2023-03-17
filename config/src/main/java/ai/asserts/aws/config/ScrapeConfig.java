@@ -65,8 +65,8 @@ public class ScrapeConfig {
     @Builder.Default
     private AuthConfig authConfig = new AuthConfig();
 
-    @Builder.Default
-    private String ecsTargetSDFile = "/opt/asserts/ecs-scrape-targets.yml";
+    public static final String SD_FILE_PATH = "/opt/asserts/ecs-scrape-targets.yml";
+    public static final String SD_FILE_PATH_SECURE = "/opt/asserts/ecs-scrape-targets-https.yml";
 
     @Builder.Default
     private Integer logScrapeDelaySeconds = 15;
@@ -87,10 +87,10 @@ public class ScrapeConfig {
     private boolean discoverOnlySubnetTasks = false;
 
     @Builder.Default
-    private Set<String> discoverResourceTypes = new TreeSet<>();
+    private boolean useHTTPSToScrapeECSTask = false;
 
     @Builder.Default
-    private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs = new ArrayList<>();
+    private Set<String> discoverResourceTypes = new TreeSet<>();
 
     private TagExportConfig tagExportConfig;
 
@@ -146,6 +146,10 @@ public class ScrapeConfig {
 
     public boolean isDiscoverECSTasks() {
         return discoverECSTasks;
+    }
+
+    public String getEcsTargetSDFile() {
+        return useHTTPSToScrapeECSTask ? SD_FILE_PATH_SECURE : SD_FILE_PATH;
     }
 
     public boolean shouldExportTag(String tagName, String tagValue) {
@@ -210,10 +214,6 @@ public class ScrapeConfig {
             }
         }
 
-        if (!CollectionUtils.isEmpty(getEcsTaskScrapeConfigs())) {
-            getEcsTaskScrapeConfigs().forEach(ECSTaskDefScrapeConfig::validate);
-        }
-
         if (getTagExportConfig() != null) {
             getTagExportConfig().compile();
         }
@@ -244,21 +244,6 @@ public class ScrapeConfig {
             labels = config.addReplacements(metricName, labels);
         }
         return labels;
-    }
-
-    @JsonIgnore
-    public Map<String, Map<Integer, ECSTaskDefScrapeConfig>> getECSConfigByNameAndPort() {
-        Map<String, Map<Integer, ECSTaskDefScrapeConfig>> configs = new TreeMap<>();
-        ecsTaskScrapeConfigs.forEach(c -> {
-            String containerName = c.getContainerDefinitionName();
-            Map<Integer, ECSTaskDefScrapeConfig> map = configs.computeIfAbsent(containerName, k -> new TreeMap<>());
-            if (c.getContainerPort() != null) {
-                map.put(c.getContainerPort(), c);
-            } else {
-                map.put(-1, c);
-            }
-        });
-        return configs;
     }
 
     @EqualsAndHashCode

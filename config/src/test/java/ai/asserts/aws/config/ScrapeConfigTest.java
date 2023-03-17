@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.config.ScrapeConfig.SD_FILE_PATH;
+import static ai.asserts.aws.config.ScrapeConfig.SD_FILE_PATH_SECURE;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -100,7 +102,7 @@ public class ScrapeConfigTest extends EasyMockSupport {
         replayAll();
         Map<String, String> labels = scrapeConfig.getEntityLabels("AWS/S3", ImmutableMap.of(
                 "namespace", "AWS/S3", "BucketName", "TestBucket"));
-        assertEquals(ImmutableMap.of( "job", "TestBucket"), labels);
+        assertEquals(ImmutableMap.of("job", "TestBucket"), labels);
         verifyAll();
     }
 
@@ -166,26 +168,11 @@ public class ScrapeConfigTest extends EasyMockSupport {
     }
 
     @Test
-    void getECSScrapeConfigByNameAndPort() {
-        ECSTaskDefScrapeConfig withoutPort = new ECSTaskDefScrapeConfig()
-                .withContainerDefinitionName("container")
-                .withMetricPath("/metric/path");
-        ECSTaskDefScrapeConfig withPort = new ECSTaskDefScrapeConfig()
-                .withContainerDefinitionName("container")
-                .withContainerPort(8080)
-                .withMetricPath("/metric/path1");
+    public void serviceDiscoveryFilePath() {
+        ScrapeConfig scrapeConfig = new ScrapeConfig();
+        assertEquals(SD_FILE_PATH, scrapeConfig.getEcsTargetSDFile());
 
-        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
-                .ecsTaskScrapeConfigs(ImmutableList.of(withoutPort, withPort))
-                .build();
-
-        replayAll();
-        assertEquals(ImmutableMap.of(
-                "container", ImmutableMap.of(
-                        -1, withoutPort,
-                        8080, withPort
-                )
-        ), scrapeConfig.getECSConfigByNameAndPort());
-        verifyAll();
+        scrapeConfig.setUseHTTPSToScrapeECSTask(true);
+        assertEquals(SD_FILE_PATH_SECURE, scrapeConfig.getEcsTargetSDFile());
     }
 }

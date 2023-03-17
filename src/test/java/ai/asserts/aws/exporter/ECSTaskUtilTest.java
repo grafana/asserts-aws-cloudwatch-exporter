@@ -7,7 +7,6 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
-import ai.asserts.aws.config.ECSTaskDefScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
@@ -55,7 +54,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private EcsClient ecsClient;
     private ScrapeConfig scrapeConfig;
-    private ECSTaskDefScrapeConfig taskDefScrapeConfig;
     private ECSTaskUtil testClass;
     private Resource cluster;
     private Resource service;
@@ -70,7 +68,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
         ecsClient = mock(EcsClient.class);
         scrapeConfig = mock(ScrapeConfig.class);
-        taskDefScrapeConfig = mock(ECSTaskDefScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
         Ec2Client ec2Client = mock(Ec2Client.class);
