@@ -164,28 +164,4 @@ public class ScrapeConfigTest extends EasyMockSupport {
         assertFalse(scrapeConfig.keepMetric("metric", labels));
         verifyAll();
     }
-
-    @Test
-    void getECSScrapeConfigByNameAndPort() {
-        ECSTaskDefScrapeConfig withoutPort = new ECSTaskDefScrapeConfig()
-                .withContainerDefinitionName("container")
-                .withMetricPath("/metric/path");
-        ECSTaskDefScrapeConfig withPort = new ECSTaskDefScrapeConfig()
-                .withContainerDefinitionName("container")
-                .withContainerPort(8080)
-                .withMetricPath("/metric/path1");
-
-        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
-                .ecsTaskScrapeConfigs(ImmutableList.of(withoutPort, withPort))
-                .build();
-
-        replayAll();
-        assertEquals(ImmutableMap.of(
-                "container", ImmutableMap.of(
-                        -1, withoutPort,
-                        8080, withPort
-                )
-        ), scrapeConfig.getECSConfigByNameAndPort());
-        verifyAll();
-    }
 }

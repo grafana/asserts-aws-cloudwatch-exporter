@@ -89,9 +89,6 @@ public class ScrapeConfig {
     @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
 
-    @Builder.Default
-    private List<ECSTaskDefScrapeConfig> ecsTaskScrapeConfigs = new ArrayList<>();
-
     private TagExportConfig tagExportConfig;
 
     private String alertForwardUrl;
@@ -210,10 +207,6 @@ public class ScrapeConfig {
             }
         }
 
-        if (!CollectionUtils.isEmpty(getEcsTaskScrapeConfigs())) {
-            getEcsTaskScrapeConfigs().forEach(ECSTaskDefScrapeConfig::validate);
-        }
-
         if (getTagExportConfig() != null) {
             getTagExportConfig().compile();
         }
@@ -244,21 +237,6 @@ public class ScrapeConfig {
             labels = config.addReplacements(metricName, labels);
         }
         return labels;
-    }
-
-    @JsonIgnore
-    public Map<String, Map<Integer, ECSTaskDefScrapeConfig>> getECSConfigByNameAndPort() {
-        Map<String, Map<Integer, ECSTaskDefScrapeConfig>> configs = new TreeMap<>();
-        ecsTaskScrapeConfigs.forEach(c -> {
-            String containerName = c.getContainerDefinitionName();
-            Map<Integer, ECSTaskDefScrapeConfig> map = configs.computeIfAbsent(containerName, k -> new TreeMap<>());
-            if (c.getContainerPort() != null) {
-                map.put(c.getContainerPort(), c);
-            } else {
-                map.put(-1, c);
-            }
-        });
-        return configs;
     }
 
     @EqualsAndHashCode
