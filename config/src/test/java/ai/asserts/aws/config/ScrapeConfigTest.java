@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.config.ScrapeConfig.SD_FILE_PATH;
+import static ai.asserts.aws.config.ScrapeConfig.SD_FILE_PATH_SECURE;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -100,7 +102,7 @@ public class ScrapeConfigTest extends EasyMockSupport {
         replayAll();
         Map<String, String> labels = scrapeConfig.getEntityLabels("AWS/S3", ImmutableMap.of(
                 "namespace", "AWS/S3", "BucketName", "TestBucket"));
-        assertEquals(ImmutableMap.of( "job", "TestBucket"), labels);
+        assertEquals(ImmutableMap.of("job", "TestBucket"), labels);
         verifyAll();
     }
 
@@ -163,5 +165,14 @@ public class ScrapeConfigTest extends EasyMockSupport {
 
         assertFalse(scrapeConfig.keepMetric("metric", labels));
         verifyAll();
+    }
+
+    @Test
+    public void serviceDiscoveryFilePath() {
+        ScrapeConfig scrapeConfig = new ScrapeConfig();
+        assertEquals(SD_FILE_PATH, scrapeConfig.getEcsTargetSDFile());
+
+        scrapeConfig.setUseHTTPSToScrapeECSTask(true);
+        assertEquals(SD_FILE_PATH_SECURE, scrapeConfig.getEcsTargetSDFile());
     }
 }

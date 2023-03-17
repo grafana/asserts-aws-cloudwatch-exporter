@@ -4,3 +4,9 @@ scrape_configs:
     file_sd_configs:
       - files:
           - '/opt/asserts/ecs-scrape-targets.yml'
+  - job_name: 'ecs-service-discovery-https'
+    honor_labels: true
+    scheme: https
+    file_sd_configs:
+      - files:
+          - '/opt/asserts/ecs-scrape-targets-https.yml'
