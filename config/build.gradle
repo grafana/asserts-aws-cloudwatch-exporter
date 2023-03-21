@@ -10,6 +10,11 @@ repositories {
     mavenCentral()
 }
 
+compileJava   {
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+}
+
 dependencies {
     implementation(
             "org.springframework:spring-core:$springCoreVersion",
