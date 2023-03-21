@@ -65,6 +65,9 @@ public class ScrapeConfig {
     @Builder.Default
     private AuthConfig authConfig = new AuthConfig();
 
+    public static final String SD_FILE_PATH = "/opt/asserts/ecs-scrape-targets.yml";
+    public static final String SD_FILE_PATH_SECURE = "/opt/asserts/ecs-scrape-targets-https.yml";
+
     @Builder.Default
     private Integer logScrapeDelaySeconds = 15;
 
@@ -140,6 +143,10 @@ public class ScrapeConfig {
 
     public boolean isDiscoverECSTasks() {
         return discoverECSTasks;
+    }
+
+    public String getEcsTargetSDFile() {
+        return "true".equals(getEnv("USE_TLS")) ? SD_FILE_PATH_SECURE : SD_FILE_PATH;
     }
 
     @VisibleForTesting
