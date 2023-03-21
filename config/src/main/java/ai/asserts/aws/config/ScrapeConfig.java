@@ -87,9 +87,6 @@ public class ScrapeConfig {
     private boolean discoverOnlySubnetTasks = false;
 
     @Builder.Default
-    private boolean useHTTPSToScrapeECSTask = false;
-
-    @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
 
     private TagExportConfig tagExportConfig;
@@ -149,7 +146,12 @@ public class ScrapeConfig {
     }
 
     public String getEcsTargetSDFile() {
-        return useHTTPSToScrapeECSTask ? SD_FILE_PATH_SECURE : SD_FILE_PATH;
+        return "true".equals(getEnv("USE_TLS")) ? SD_FILE_PATH_SECURE : SD_FILE_PATH;
+    }
+
+    @VisibleForTesting
+    String getEnv(String varName) {
+        return System.getenv(varName);
     }
 
     public boolean shouldExportTag(String tagName, String tagValue) {

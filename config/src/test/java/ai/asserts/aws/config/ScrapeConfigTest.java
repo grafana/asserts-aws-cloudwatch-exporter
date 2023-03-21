@@ -172,7 +172,12 @@ public class ScrapeConfigTest extends EasyMockSupport {
         ScrapeConfig scrapeConfig = new ScrapeConfig();
         assertEquals(SD_FILE_PATH, scrapeConfig.getEcsTargetSDFile());
 
-        scrapeConfig.setUseHTTPSToScrapeECSTask(true);
+        scrapeConfig = new ScrapeConfig() {
+            @Override
+            String getEnv(String varName) {
+                return "true";
+            }
+        };
         assertEquals(SD_FILE_PATH_SECURE, scrapeConfig.getEcsTargetSDFile());
     }
 }
