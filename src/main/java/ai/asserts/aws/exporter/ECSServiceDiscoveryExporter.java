@@ -30,6 +30,7 @@ import org.springframework.web.client.RestTemplate;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,9 @@ import static org.springframework.util.StringUtils.hasLength;
 public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     public static final String ECS_CONTAINER_METADATA_URI_V4 = "ECS_CONTAINER_METADATA_URI_V4";
     public static final String SCRAPE_ECS_SUBNETS = "SCRAPE_ECS_SUBNETS";
+    public static final String SCRAPE_OVER_TLS = "SCRAPE_OVER_TLS";
+    public static final String SD_FILE_PATH = "/opt/asserts/ecs-scrape-targets.yml";
+    public static final String SD_FILE_PATH_SECURE = "/opt/asserts/ecs-scrape-targets-https.yml";
     private final RestTemplate restTemplate;
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
@@ -92,7 +96,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     @Override
     public void afterPropertiesSet() throws Exception {
         ClassPathResource classPathResource = new ClassPathResource("/dummy-ecs-targets.yml");
-        File out = new File(scrapeConfigProvider.getScrapeConfig().getEcsTargetSDFile());
+        File out = new File(SD_FILE_PATH);
         String src = classPathResource.getURI().toString();
         String dest = out.getAbsolutePath();
         try {
@@ -140,20 +144,36 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     public void run() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         if (scrapeConfig.isDiscoverECSTasks()) {
-            List<StaticConfig> targets = ecsTaskProvider.getScrapeTargets();
-            try {
-                File resultFile = new File(scrapeConfig.getEcsTargetSDFile());
-                ObjectWriter objectWriter = objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter();
-                objectWriter.writeValue(resultFile, targets);
-                if (scrapeConfig.isLogECSTargets()) {
-                    String targetsFileContent = objectWriter.writeValueAsString(targets);
-                    log.info("Wrote ECS scrape target SD file {}\n{}\n", resultFile.toURI(), targetsFileContent);
-                } else {
-                    log.info("Wrote ECS scrape target SD file {}", resultFile.toURI());
-                }
-            } catch (IOException e) {
-                log.error("Failed to write ECS SD file", e);
+            List<StaticConfig> targets = new ArrayList<>(ecsTaskProvider.getScrapeTargets());
+            // If scrapes need to happen over TLS, split the configs into TLS and non-TLS.
+            // The self scrape of the aws-exporter is a local scrape so doesn't need TLS
+            if ("true".equalsIgnoreCase(getSSLFlag())) {
+                List<StaticConfig> exporterTarget = targets.stream()
+                        .filter(config -> config.getLabels().getContainer().equals("cloudwatch-exporter"))
+                        .collect(Collectors.toList());
+                targets.removeAll(exporterTarget);
+                writeFile(scrapeConfig, exporterTarget, SD_FILE_PATH);
+                writeFile(scrapeConfig, targets, SD_FILE_PATH_SECURE);
+            } else {
+                writeFile(scrapeConfig, targets, SD_FILE_PATH);
             }
+        }
+    }
+
+    @VisibleForTesting
+    void writeFile(ScrapeConfig scrapeConfig, List<StaticConfig> targets, String filePath) {
+        try {
+            File resultFile = new File(filePath);
+            ObjectWriter objectWriter = objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter();
+            objectWriter.writeValue(resultFile, targets);
+            if (scrapeConfig.isLogECSTargets()) {
+                String targetsFileContent = objectWriter.writeValueAsString(targets);
+                log.info("Wrote ECS scrape target SD file {}\n{}\n", resultFile.toURI(), targetsFileContent);
+            } else {
+                log.info("Wrote ECS scrape target SD file {}", resultFile.toURI());
+            }
+        } catch (IOException e) {
+            log.error("Failed to write ECS SD file", e);
         }
     }
 
@@ -197,6 +217,11 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
                 log.warn("Env variables ['ECS_CONTAINER_METADATA_URI_V4','ECS_CONTAINER_METADATA_URI'] not found");
             }
         }
+    }
+
+    @VisibleForTesting
+    String getSSLFlag() {
+        return System.getenv(SCRAPE_OVER_TLS);
     }
 
     @Builder
