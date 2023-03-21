@@ -23,13 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import static ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.SD_FILE_PATH;
-import static ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.SD_FILE_PATH_SECURE;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
@@ -249,6 +244,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     @Test
     public void run() throws Exception {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfig.getEcsTargetSDFile()).andReturn("ecs-sd-file.yml");
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
 
         expect(ecsTaskProvider.getScrapeTargets()).andReturn(ImmutableList.of(mockStaticConfig, mockStaticConfig));
@@ -277,49 +273,6 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         testClass.getSubnetDetails().set(SubnetDetails.builder().vpcId("vpc-id").subnetId("subnet-id").build());
         testClass.run();
 
-        verifyAll();
-    }
-
-    @Test
-    public void runTLSEnabled() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
-
-        StaticConfig exporterContainer = mock(StaticConfig.class);
-        expect(ecsTaskProvider.getScrapeTargets()).andReturn(ImmutableList.of(
-                mockStaticConfig, mockStaticConfig, exporterContainer));
-
-        expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
-        expect(exporterContainer.getLabels()).andReturn(mockLabels);
-        expect(mockLabels.getContainer()).andReturn("some-container").times(2);
-        expect(mockLabels.getContainer()).andReturn("cloudwatch-exporter");
-        expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
-        expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();
-
-        replayAll();
-
-        Map<String, List<StaticConfig>> writes = new HashMap<>();
-        ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
-                restTemplate, accountProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider) {
-            @Override
-            void writeFile(ScrapeConfig scrapeConfig, List<StaticConfig> targets, String filePath) {
-                writes.put(filePath, targets);
-            }
-
-            @Override
-            String getSSLFlag() {
-                return "true";
-            }
-        };
-        testClass.getSubnetDetails().set(SubnetDetails.builder().vpcId("vpc-id").subnetId("subnet-id").build());
-        testClass.run();
-
-        assertEquals(2, writes.size());
-        assertTrue(writes.containsKey(SD_FILE_PATH));
-        assertEquals(ImmutableList.of(exporterContainer), writes.get(SD_FILE_PATH));
-        assertTrue(writes.containsKey(SD_FILE_PATH_SECURE));
-        assertEquals(ImmutableList.of(mockStaticConfig, mockStaticConfig), writes.get(SD_FILE_PATH_SECURE));
         verifyAll();
     }
 }
