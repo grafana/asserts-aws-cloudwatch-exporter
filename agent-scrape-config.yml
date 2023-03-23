@@ -7,6 +7,8 @@ scrape_configs:
   - job_name: 'ecs-service-discovery-https'
     honor_labels: true
     scheme: https
+    tls_config:
+      insecure_skip_verify: %{SKIP_TLS_VERIFY}
     file_sd_configs:
       - files:
           - '/opt/asserts/ecs-scrape-targets-https.yml'

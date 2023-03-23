@@ -4,4 +4,6 @@ FROM victoriametrics/vmagent:$VM_VERSION
 WORKDIR /
 COPY ./agent-scrape-config.yml /etc/agent-scrape-config.yml
 
+ENV SKIP_TLS_VERIFY=true
+
 CMD ["-envflag.enable", "-promscrape.config=/etc/agent-scrape-config.yml"]
