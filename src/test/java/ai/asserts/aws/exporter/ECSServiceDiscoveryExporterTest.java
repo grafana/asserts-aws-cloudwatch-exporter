@@ -250,6 +250,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     public void run() throws Exception {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
+        expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
 
         expect(ecsTaskProvider.getScrapeTargets()).andReturn(ImmutableList.of(mockStaticConfig, mockStaticConfig));
 
@@ -257,7 +258,6 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
         expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
         expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();
-
 
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
         expect(objectMapper.writerWithDefaultPrettyPrinter()).andReturn(objectWriter);
@@ -284,6 +284,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     public void runTLSEnabled() {
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
+        expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
 
         StaticConfig exporterContainer = mock(StaticConfig.class);
         expect(ecsTaskProvider.getScrapeTargets()).andReturn(ImmutableList.of(
