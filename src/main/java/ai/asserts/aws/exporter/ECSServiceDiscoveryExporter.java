@@ -165,11 +165,12 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
         try {
             File resultFile = new File(filePath);
             ObjectWriter objectWriter = objectMapperFactory.getObjectMapper().writerWithDefaultPrettyPrinter();
-            objectWriter.writeValue(resultFile, targets.stream()
+            List<StaticConfig> filteredTargets = targets.stream()
                     .filter(staticConfig -> shouldScrapeTargets(scrapeConfig, staticConfig))
-                    .collect(Collectors.toList()));
+                    .collect(Collectors.toList());
+            objectWriter.writeValue(resultFile, filteredTargets);
             if (scrapeConfig.isLogECSTargets()) {
-                String targetsFileContent = objectWriter.writeValueAsString(targets);
+                String targetsFileContent = objectWriter.writeValueAsString(filteredTargets);
                 log.info("Wrote ECS scrape target SD file {}\n{}\n", resultFile.toURI(), targetsFileContent);
             } else {
                 log.info("Wrote ECS scrape target SD file {}", resultFile.toURI());
