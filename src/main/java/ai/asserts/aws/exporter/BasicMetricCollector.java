@@ -6,6 +6,8 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.AtomicDouble;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -23,6 +25,8 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -31,12 +35,24 @@ import java.util.concurrent.atomic.AtomicLong;
 public class BasicMetricCollector extends Collector {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private Map<Key, Double> gaugeValues = new ConcurrentHashMap<>();
-    private final Map<Key, AtomicLong> counters = new ConcurrentHashMap<>();
-    private final Map<Key, LatencyCounter> latencyCounters = new ConcurrentHashMap<>();
-    private final Map<Key, Histogram> histograms = new ConcurrentHashMap<>();
+    private final Cache<Key, AtomicLong> counters;
+    private final Cache<Key, LatencyCounter> latencyCounters;
+    private final Cache<Key, Histogram> histograms;
 
     public BasicMetricCollector(ScrapeConfigProvider scrapeConfigProvider) {
         this.scrapeConfigProvider = scrapeConfigProvider;
+
+        counters = CacheBuilder.newBuilder()
+                .expireAfterAccess(10, TimeUnit.MINUTES)
+                .build();
+
+        latencyCounters = CacheBuilder.newBuilder()
+                .expireAfterAccess(10, TimeUnit.MINUTES)
+                .build();
+
+        histograms = CacheBuilder.newBuilder()
+                .expireAfterAccess(10, TimeUnit.MINUTES)
+                .build();
     }
 
     @Override
@@ -53,14 +69,14 @@ public class BasicMetricCollector extends Collector {
             gaugeValues = new ConcurrentHashMap<>();
 
             Map<String, List<Sample>> counterSamples = new TreeMap<>();
-            counters.forEach((key, value) ->
+            counters.asMap().forEach((key, value) ->
                     counterSamples.computeIfAbsent(key.metricName, k -> new ArrayList<>())
                             .add(new Sample(key.metricName, key.labelNames, key.labelValues, value.get())));
             counterSamples.forEach((name, samples) ->
                     familySamples.add(new MetricFamilySamples(name, Type.COUNTER, "", samples)));
 
             Map<String, List<Sample>> latencySamples = new TreeMap<>();
-            latencyCounters.forEach((key, latencyCounter) -> {
+            latencyCounters.asMap().forEach((key, latencyCounter) -> {
                 int count = latencyCounter.getCount();
                 double value = latencyCounter.getValue();
                 latencySamples.computeIfAbsent(key.metricName + "_count", k -> new ArrayList<>())
@@ -69,7 +85,7 @@ public class BasicMetricCollector extends Collector {
                         .add(new Sample(key.metricName + "_sum", key.labelNames, key.labelValues, value));
             });
 
-            histograms.values().forEach(histogram -> familySamples.addAll(histogram.collect()));
+            histograms.asMap().values().forEach(histogram -> familySamples.addAll(histogram.collect()));
 
             latencySamples.forEach((name, samples) ->
                     familySamples.add(new MetricFamilySamples(name, Type.COUNTER, "", samples)));
@@ -101,10 +117,15 @@ public class BasicMetricCollector extends Collector {
                     .labelNames(new ArrayList<>(labels.keySet()))
                     .labelValues(new ArrayList<>(labels.values()))
                     .build();
-            counters.computeIfAbsent(key, k -> {
-                log.info("Creating counter {}{}", key.metricName, labels);
-                return new AtomicLong();
-            }).addAndGet(value);
+            try {
+                AtomicLong atomicLong = counters.get(key, () -> {
+                    log.info("Creating counter {}{}", key.metricName, labels);
+                    return new AtomicLong();
+                });
+                atomicLong.addAndGet(value);
+            } catch (ExecutionException e) {
+                log.error("Failed to get counter", e);
+            }
         }
     }
 
@@ -117,11 +138,15 @@ public class BasicMetricCollector extends Collector {
                     .labelNames(new ArrayList<>(labels.keySet()))
                     .labelValues(new ArrayList<>(labels.values()))
                     .build();
-            latencyCounters.computeIfAbsent(key, k -> {
-                log.info("Creating latency count counter {}{}", key.metricName + "_count", labels);
-                log.info("Creating latency total counter {}{}", key.metricName + "_sum", labels);
-                return new LatencyCounter();
-            }).increment(value);
+            try {
+                latencyCounters.get(key, ()-> {
+                    log.info("Creating latency count counter {}{}", key.metricName + "_count", labels);
+                    log.info("Creating latency total counter {}{}", key.metricName + "_sum", labels);
+                    return new LatencyCounter();
+                }).increment(value);
+            } catch (ExecutionException e) {
+                log.error("Failed to get latency counter", e);
+            }
         }
     }
 
@@ -134,14 +159,18 @@ public class BasicMetricCollector extends Collector {
                     .labelNames(new ArrayList<>(labels.keySet()))
                     .labelValues(new ArrayList<>(labels.values()))
                     .build();
-            histograms.computeIfAbsent(key, k -> {
-                log.info("Creating histogram {}{}", key.metricName + "_count", labels);
-                return Histogram.build()
-                        .name(key.metricName)
-                        .labelNames(key.labelNames.toArray(new String[0]))
-                        .help("Histogram metric for " + key.metricName)
-                        .create();
-            }).labels(key.labelValues.toArray(new String[0])).observe(value);
+            try {
+                histograms.get(key, () -> {
+                    log.info("Creating histogram {}{}", key.metricName + "_count", labels);
+                    return Histogram.build()
+                            .name(key.metricName)
+                            .labelNames(key.labelNames.toArray(new String[0]))
+                            .help("Histogram metric for " + key.metricName)
+                            .create();
+                }).labels(key.labelValues.toArray(new String[0])).observe(value);
+            } catch (ExecutionException e) {
+                log.error("Failed to get counter", e);
+            }
         }
     }
 
