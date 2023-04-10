@@ -10,9 +10,11 @@ import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
+import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.model.CWNamespace;
+import ai.asserts.aws.model.MetricStat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
@@ -31,8 +33,10 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
@@ -124,13 +128,39 @@ public class MetricStreamController {
         try {
             CloudWatchMetrics metrics =
                     objectMapperFactory.getObjectMapper().readValue(decodedData, CloudWatchMetrics.class);
-            metrics.getMetrics().forEach(m -> {
-                publishMetric(m);
-                log.debug("Metric Name{} - Namespace {}", m.getMetric_name(), m.getNamespace());
-            });
+            metrics.getMetrics().stream()
+                    .filter(this::shouldCaptureMetric)
+                    .forEach(m -> {
+                        publishMetric(m);
+                        log.debug("Metric Name{} - Namespace {}", m.getMetric_name(), m.getNamespace());
+                    });
         } catch (JsonProcessingException jsp) {
             log.error("Error processing JSON {}-{}", decodedData, jsp.getMessage());
         }
+    }
+
+    boolean shouldCaptureMetric(CloudWatchMetric metric) {
+        return scrapeConfigProvider.getScrapeConfig().getNamespaces().stream()
+                .anyMatch(ns -> isMetricConfigured(metric, ns));
+    }
+
+    private boolean isMetricConfigured(CloudWatchMetric metric, NamespaceConfig ns) {
+        boolean nsMatch = ns.getName().equals(metric.getNamespace());
+        return nsMatch && ns.getMetrics().stream().anyMatch(m -> {
+            String lName = m.getName();
+            boolean nameMatch = lName.equalsIgnoreCase(metric.getMetric_name());
+            Map<String, Float> lStats = metric.getValue();
+            boolean statsMatch = m.getStats().stream().anyMatch(stat -> lStats.containsKey(stat.getShortForm()));
+            if (nameMatch && statsMatch) {
+                // Remove unwanted stats.
+                Set<String> statNames = m.getStats().stream()
+                        .map(MetricStat::getShortForm)
+                        .collect(Collectors.toSet());
+                lStats.entrySet().removeIf(entry -> !statNames.contains(entry.getKey()));
+                return true;
+            }
+            return false;
+        });
     }
 
     private void publishMetric(CloudWatchMetric metric) {

@@ -142,11 +142,6 @@ public class ScrapeConfig {
         return discoverECSTasks;
     }
 
-    @VisibleForTesting
-    String getEnv(String varName) {
-        return System.getenv(varName);
-    }
-
     public boolean shouldExportTag(String tagName, String tagValue) {
         if (tagExportConfig != null) {
             return tagExportConfig.shouldCaptureTag(tagName, tagValue);

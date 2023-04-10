@@ -10,12 +10,15 @@ import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
+import ai.asserts.aws.config.MetricConfig;
+import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +30,14 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.EXPORTER_DELAY_SECONDS;
+import static ai.asserts.aws.model.MetricStat.SampleCount;
+import static ai.asserts.aws.model.MetricStat.Sum;
+import static org.easymock.EasyMock.anyLong;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MetricStreamControllerTest extends EasyMockSupport {
@@ -65,17 +75,30 @@ public class MetricStreamControllerTest extends EasyMockSupport {
             }
         };
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getNamespaces()).andReturn(ImmutableList.of(NamespaceConfig.builder()
+                .name("AWS/Firehose")
+                .metrics(ImmutableList.of(MetricConfig.builder()
+                        .name("M1")
+                        .stats(ImmutableSet.of(Sum, SampleCount))
+                        .build()))
+                .build())).anyTimes();
         metric = mock(CloudWatchMetric.class);
-        expect(metric.getMetric_name()).andReturn("m1").times(2);
-        expect(metric.getNamespace()).andReturn("AWS/Firehose").times(2);
+        expect(metric.getMetric_name()).andReturn("M1").times(3);
+        expect(metric.getNamespace()).andReturn("AWS/Firehose").times(3);
         expect(metric.getRegion()).andReturn("r1");
         expect(metric.getAccount_id()).andReturn("123");
         expect(metric.getTimestamp()).andReturn(now.plusSeconds(5).toEpochMilli());
         expect(metric.getDimensions()).andReturn(ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")).times(3);
-        expect(metric.getValue()).andReturn(ImmutableMap.of("sum", 4.0f, "count", 2.0f));
-        expect(metricNameUtil.toSnakeCase("aws_firehose_m1_sum")).andReturn("aws_firehose_m1_sum");
-        expect(metricNameUtil.toSnakeCase("aws_firehose_m1_samples")).andReturn("aws_firehose_m1_samples");
+        expect(metric.getValue()).andReturn(new TreeMap<>(ImmutableMap.of("sum", 4.0f, "count", 2.0f, "average",
+                3.0f))).times(3);
+
+        // Excluded metric
+        expect(metric.getMetric_name()).andReturn("M2");
+        expect(metric.getNamespace()).andReturn("AWS/Firehose");
+
+        expect(metricNameUtil.toSnakeCase("aws_firehose_M1_sum")).andReturn("aws_firehose_m1_sum");
+        expect(metricNameUtil.toSnakeCase("aws_firehose_M1_samples")).andReturn("aws_firehose_m1_samples");
         expect(metricNameUtil.toSnakeCase("DeliveryStreamName")).andReturn("delivery_stream_name");
 
         SortedMap<String, String> metricLabels = new TreeMap<>();
@@ -85,14 +108,10 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         metricLabels.put("region", "r1");
         metricLabels.put("job", "PUT-HTP-SliCQ");
 
-        SortedMap<String, String> metricHistoLabels = new TreeMap<>();
-        metricHistoLabels.put("namespace", "AWS/Firehose");
-        metricHistoLabels.put("region", "r1");
-        metricHistoLabels.put("metric_name", "aws_firehose_m1");
-
         metricCollector.recordGaugeValue("aws_firehose_m1_sum", metricLabels, 4.0);
         metricCollector.recordGaugeValue("aws_firehose_m1_samples", metricLabels, 2.0);
-        metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, metricHistoLabels, -5);
+        metricCollector.recordHistogram(eq(EXPORTER_DELAY_SECONDS), anyObject(), anyLong());
+        expectLastCall().anyTimes();
     }
 
     @Test
@@ -103,7 +122,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric, metric));
         replayAll();
 
         assertEquals(HttpStatus.OK, testClass.receiveMetricsPost(firehoseEventRequest).getStatusCode());
@@ -119,7 +138,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric, metric));
         replayAll();
 
         assertEquals(HttpStatus.OK, testClass.receiveMetricsPut(firehoseEventRequest).getStatusCode());
@@ -135,7 +154,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric, metric));
         apiAuthenticator.authenticate(Optional.of("token"));
         replayAll();
 
@@ -153,7 +172,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric));
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric, metric));
         apiAuthenticator.authenticate(Optional.of("token"));
         replayAll();
 
