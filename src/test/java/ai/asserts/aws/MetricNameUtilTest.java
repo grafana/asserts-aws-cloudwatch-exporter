@@ -26,7 +26,7 @@ public class MetricNameUtilTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        util = new MetricNameUtil(scrapeConfigProvider);
+        util = new MetricNameUtil(scrapeConfigProvider, new SnakeCaseUtil());
     }
 
     @Test

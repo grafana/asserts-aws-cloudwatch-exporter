@@ -50,14 +50,17 @@ public class ScrapeConfigProvider {
     private final ResourceLoader resourceLoader = new FileSystemResourceLoader();
     private final ScrapeConfig NOOP_CONFIG = new ScrapeConfig();
     private final RestTemplate restTemplate;
+    private final SnakeCaseUtil snakeCaseUtil;
     private volatile ScrapeConfig configCache;
 
     public ScrapeConfigProvider(ObjectMapperFactory objectMapperFactory,
                                 @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile,
-                                RestTemplate restTemplate) {
+                                RestTemplate restTemplate,
+                                SnakeCaseUtil snakeCaseUtil) {
         this.objectMapperFactory = objectMapperFactory;
         this.scrapeConfigFile = scrapeConfigFile;
         this.restTemplate = restTemplate;
+        this.snakeCaseUtil = snakeCaseUtil;
         loadAndBuildLookups();
     }
 
@@ -90,6 +93,7 @@ public class ScrapeConfigProvider {
                 byNamespace.put(namespace.getNamespace(), namespace);
                 byServiceName.put(namespace.getServiceName(), namespace);
             });
+            buildMetricLookupMap(configCache);
         } catch (Exception e) {
             log.error("Failed to load config", e);
         } finally {
@@ -211,6 +215,18 @@ public class ScrapeConfigProvider {
             log.error("Failed to load aws exporter configuration", e);
             return NOOP_CONFIG;
         }
+    }
+
+    private void buildMetricLookupMap(ScrapeConfig finalScrapeConfig) {
+        finalScrapeConfig.getNamespaces().forEach(ns -> ns.getMetrics().forEach(metricConfig -> {
+            CWNamespace cwNamespace = byNamespace.get(metricConfig.getNamespace().getName());
+            String prefix = cwNamespace.getMetricPrefix() +
+                    "_" + metricConfig.getName();
+            metricConfig.getStats().forEach(stat -> {
+                String metricName = snakeCaseUtil.toSnakeCase(prefix + "_" + stat.getShortForm());
+                finalScrapeConfig.getMetricsToCapture().put(metricName, metricConfig);
+            });
+        }));
     }
 
     private boolean assertsEndpointConfigured(Map<String, String> envVariables) {

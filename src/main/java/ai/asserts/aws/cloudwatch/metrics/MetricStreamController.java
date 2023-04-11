@@ -10,11 +10,9 @@ import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
-import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.model.CWNamespace;
-import ai.asserts.aws.model.MetricStat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
@@ -33,10 +31,8 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
@@ -140,30 +136,20 @@ public class MetricStreamController {
     }
 
     boolean shouldCaptureMetric(CloudWatchMetric metric) {
-        return scrapeConfigProvider.getScrapeConfig().getNamespaces().stream()
-                .anyMatch(ns -> isMetricConfigured(metric, ns));
+        Optional<CWNamespace> ns = scrapeConfigProvider.getStandardNamespace(metric.getNamespace());
+        if (ns.isPresent()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            String nsPrefix = ns.get().getMetricPrefix();
+            return metric.getValue().keySet().stream()
+                    .map(stat -> metricNameUtil.toSnakeCase(nsPrefix + "_" + metric.getMetric_name() + "_" + stat))
+                    .anyMatch(metricName -> scrapeConfig.getMetricsToCapture().containsKey(metricName));
+        }
+        return false;
     }
 
-    private boolean isMetricConfigured(CloudWatchMetric metric, NamespaceConfig ns) {
-        boolean nsMatch = ns.getName().equals(metric.getNamespace());
-        return nsMatch && ns.getMetrics().stream().anyMatch(m -> {
-            String lName = m.getName();
-            boolean nameMatch = lName.equalsIgnoreCase(metric.getMetric_name());
-            Map<String, Float> lStats = metric.getValue();
-            boolean statsMatch = m.getStats().stream().anyMatch(stat -> lStats.containsKey(stat.getShortForm()));
-            if (nameMatch && statsMatch) {
-                // Remove unwanted stats.
-                Set<String> statNames = m.getStats().stream()
-                        .map(MetricStat::getShortForm)
-                        .collect(Collectors.toSet());
-                lStats.entrySet().removeIf(entry -> !statNames.contains(entry.getKey()));
-                return true;
-            }
-            return false;
-        });
-    }
 
     private void publishMetric(CloudWatchMetric metric) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         SortedMap<String, String> metricMap = new TreeMap<>();
         String metricNamespace = metric.getNamespace();
         metricMap.put("namespace", metricNamespace);
@@ -176,20 +162,20 @@ public class MetricStreamController {
                 Arrays.stream(CWNamespace.values()).filter(f -> f.getNamespace().equals(metricNamespace))
                         .findFirst();
         namespaceOpt.ifPresent(namespace -> {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             Map<String, String> dimensions = new TreeMap<>();
             Map<String, String> entityLabels =
                     new TreeMap<>(scrapeConfig.getEntityLabels(namespace.getNormalizedNamespace(),
                             metric.getDimensions()));
-
             metricMap.putAll(entityLabels);
 
             String prefix = namespace.getMetricPrefix();
             String metricName = prefix + "_" + metric.getMetric_name();
             recordHistogram(metricMap, metric.getTimestamp(), metricName);
             metric.getValue().forEach((key, value) -> {
-                String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + mapStat(key));
-                metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
+                String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + key);
+                if (scrapeConfig.getMetricsToCapture().containsKey(gaugeMetricName)) {
+                    metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
+                }
             });
         });
     }
@@ -206,12 +192,5 @@ public class MetricStreamController {
     @VisibleForTesting
     Instant now() {
         return Instant.now();
-    }
-
-    String mapStat(String stat) {
-        if ("count".equals(stat)) {
-            return "samples";
-        }
-        return stat;
     }
 }
