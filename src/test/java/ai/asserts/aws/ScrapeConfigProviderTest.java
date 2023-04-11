@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ScrapeConfigProviderTest extends EasyMockSupport {
     private S3Client s3Client;
     private RestTemplate restTemplate;
+    private SnakeCaseUtil snakeCaseUtil;
     private static List<RelabelConfig> relabelConfigs;
 
     @BeforeAll
@@ -62,6 +63,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
     public void setup() {
         s3Client = mock(S3Client.class);
         restTemplate = mock(RestTemplate.class);
+        snakeCaseUtil = new SnakeCaseUtil();
     }
 
     @Test
@@ -153,11 +155,15 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
-                restTemplate);
+                restTemplate, snakeCaseUtil);
         assertNotNull(testClass.getScrapeConfig());
         assertEquals(ImmutableSet.of("us-west-2"), testClass.getScrapeConfig().getRegions());
         assertTrue(testClass.getScrapeConfig().isDiscoverECSTasks());
         assertFalse(testClass.getScrapeConfig().getDimensionToLabels().isEmpty());
+        Map<String, MetricConfig> metricsToCapture = testClass.getScrapeConfig().getMetricsToCapture();
+        assertEquals(17, metricsToCapture.size());
+        assertTrue(metricsToCapture.containsKey("aws_lambda_invocations_sum"));
+        assertTrue(metricsToCapture.containsKey("aws_lambda_errors_sum"));
     }
 
     @Test
@@ -165,7 +171,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
-                restTemplate) {
+                restTemplate, snakeCaseUtil) {
             @Override
             Map<String, String> getGetenv() {
                 return ImmutableMap.of("REGIONS", "us-east-1,us-east-2", "ENABLE_ECS_SD", "false");
@@ -194,7 +200,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
-                restTemplate) {
+                restTemplate, snakeCaseUtil) {
             @Override
             Map<String, String> getGetenv() {
                 return ImmutableMap.of("CONFIG_S3_BUCKET", "bucket", "CONFIG_S3_KEY", "key");
@@ -237,7 +243,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
         ScrapeConfigProvider testClass = new ScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
-                restTemplate) {
+                restTemplate, snakeCaseUtil) {
             @Override
             Map<String, String> getGetenv() {
                 return ImmutableMap.of("ASSERTS_API_SERVER_URL", "host", "ASSERTS_USER", "user",

@@ -124,16 +124,32 @@ public class MetricStreamController {
         try {
             CloudWatchMetrics metrics =
                     objectMapperFactory.getObjectMapper().readValue(decodedData, CloudWatchMetrics.class);
-            metrics.getMetrics().forEach(m -> {
-                publishMetric(m);
-                log.debug("Metric Name{} - Namespace {}", m.getMetric_name(), m.getNamespace());
-            });
+            metrics.getMetrics().stream()
+                    .filter(this::shouldCaptureMetric)
+                    .forEach(m -> {
+                        publishMetric(m);
+                        log.debug("Metric Name{} - Namespace {}", m.getMetric_name(), m.getNamespace());
+                    });
         } catch (JsonProcessingException jsp) {
             log.error("Error processing JSON {}-{}", decodedData, jsp.getMessage());
         }
     }
 
+    boolean shouldCaptureMetric(CloudWatchMetric metric) {
+        Optional<CWNamespace> ns = scrapeConfigProvider.getStandardNamespace(metric.getNamespace());
+        if (ns.isPresent()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            String nsPrefix = ns.get().getMetricPrefix();
+            return metric.getValue().keySet().stream()
+                    .map(stat -> metricNameUtil.toSnakeCase(nsPrefix + "_" + metric.getMetric_name() + "_" + stat))
+                    .anyMatch(metricName -> scrapeConfig.getMetricsToCapture().containsKey(metricName));
+        }
+        return false;
+    }
+
+
     private void publishMetric(CloudWatchMetric metric) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         SortedMap<String, String> metricMap = new TreeMap<>();
         String metricNamespace = metric.getNamespace();
         metricMap.put("namespace", metricNamespace);
@@ -146,20 +162,20 @@ public class MetricStreamController {
                 Arrays.stream(CWNamespace.values()).filter(f -> f.getNamespace().equals(metricNamespace))
                         .findFirst();
         namespaceOpt.ifPresent(namespace -> {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             Map<String, String> dimensions = new TreeMap<>();
             Map<String, String> entityLabels =
                     new TreeMap<>(scrapeConfig.getEntityLabels(namespace.getNormalizedNamespace(),
                             metric.getDimensions()));
-
             metricMap.putAll(entityLabels);
 
             String prefix = namespace.getMetricPrefix();
             String metricName = prefix + "_" + metric.getMetric_name();
             recordHistogram(metricMap, metric.getTimestamp(), metricName);
             metric.getValue().forEach((key, value) -> {
-                String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + mapStat(key));
-                metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
+                String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + key);
+                if (scrapeConfig.getMetricsToCapture().containsKey(gaugeMetricName)) {
+                    metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
+                }
             });
         });
     }
@@ -176,12 +192,5 @@ public class MetricStreamController {
     @VisibleForTesting
     Instant now() {
         return Instant.now();
-    }
-
-    String mapStat(String stat) {
-        if ("count".equals(stat)) {
-            return "samples";
-        }
-        return stat;
     }
 }

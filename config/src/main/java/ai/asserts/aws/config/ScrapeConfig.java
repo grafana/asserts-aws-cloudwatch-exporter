@@ -43,6 +43,10 @@ public class ScrapeConfig {
 
     @Builder.Default
     private List<NamespaceConfig> namespaces = new ArrayList<>();
+    // Build lookup map by metric names from the configured metrics
+    @Builder.Default
+    @JsonIgnore
+    private Map<String, MetricConfig> metricsToCapture = new TreeMap<>();
 
     @Builder.Default
     private Integer scrapeInterval = 60;
@@ -140,11 +144,6 @@ public class ScrapeConfig {
 
     public boolean isDiscoverECSTasks() {
         return discoverECSTasks;
-    }
-
-    @VisibleForTesting
-    String getEnv(String varName) {
-        return System.getenv(varName);
     }
 
     public boolean shouldExportTag(String tagName, String tagValue) {
