@@ -108,6 +108,9 @@ public class ScrapeConfig {
     private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
 
     @Builder.Default
+    private boolean fetchCWMetrics = true;
+
+    @Builder.Default
     private boolean pullCWAlarms = true;
 
     @Builder.Default

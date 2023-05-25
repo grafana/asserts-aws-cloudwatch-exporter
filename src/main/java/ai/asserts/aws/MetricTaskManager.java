@@ -8,7 +8,6 @@ import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -53,17 +52,17 @@ public class MetricTaskManager implements InitializingBean {
     @SuppressWarnings("unused")
     @Scheduled(fixedRateString = "${aws.metric.scrape.manager.task.fixedDelay:60000}",
             initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
-    @Timed(description = "Time spent scraping cloudwatch metrics from all regions", histogram = true)
-    public void triggerScrapes() {
-        if (ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+    public void triggerCWPullOperations() {
+        ExecutorService executorService = taskThreadPool.getExecutorService();
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        if (ecsServiceDiscoveryExporter.isPrimaryExporter() && scrapeConfig.isFetchCWMetrics()) {
             updateScrapeTasks();
-            ExecutorService executorService = taskThreadPool.getExecutorService();
             metricScrapeTasks.values().stream()
                     .flatMap(map -> map.values().stream())
                     .flatMap(map -> map.values().stream())
                     .forEach(task -> executorService.submit(() -> rateLimiter.runTask(task::update)));
-            executorService.submit(() -> rateLimiter.runTask(alarmFetcher::update));
         }
+        executorService.submit(() -> rateLimiter.runTask(alarmFetcher::update));
     }
 
     @VisibleForTesting
