@@ -1,5 +1,5 @@
 # Stage 1 - Build
-FROM gradle:jdk8 as builder
+FROM gradle:7.6.1-jdk8 as builder
 RUN gradle --version && java -version
 RUN apt-get install git && git --version
 
@@ -20,7 +20,7 @@ COPY --chown=gradle:gradle ./.git /home/gradle/app/.git
 COPY --chown=gradle:gradle ./src /home/gradle/app/src
 COPY --chown=gradle:gradle ./config /home/gradle/app/config
 RUN gradle build --no-daemon > /dev/null 2>&1 || true
-RUN gradle bootJar --no-daemon
+RUN gradle bootJar --no-daemon --stacktrace
 
 
 # Stage 2 - Create a size optimized Image for our Service with only what we need to run
