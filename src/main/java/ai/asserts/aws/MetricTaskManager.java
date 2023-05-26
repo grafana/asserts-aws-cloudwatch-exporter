@@ -53,16 +53,18 @@ public class MetricTaskManager implements InitializingBean {
     @Scheduled(fixedRateString = "${aws.metric.scrape.manager.task.fixedDelay:60000}",
             initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
     public void triggerCWPullOperations() {
-        ExecutorService executorService = taskThreadPool.getExecutorService();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (ecsServiceDiscoveryExporter.isPrimaryExporter() && scrapeConfig.isFetchCWMetrics()) {
-            updateScrapeTasks();
-            metricScrapeTasks.values().stream()
-                    .flatMap(map -> map.values().stream())
-                    .flatMap(map -> map.values().stream())
-                    .forEach(task -> executorService.submit(() -> rateLimiter.runTask(task::update)));
+        if (ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+            ExecutorService executorService = taskThreadPool.getExecutorService();
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            if (scrapeConfig.isFetchCWMetrics()) {
+                updateScrapeTasks();
+                metricScrapeTasks.values().stream()
+                        .flatMap(map -> map.values().stream())
+                        .flatMap(map -> map.values().stream())
+                        .forEach(task -> executorService.submit(() -> rateLimiter.runTask(task::update)));
+            }
+            executorService.submit(() -> rateLimiter.runTask(alarmFetcher::update));
         }
-        executorService.submit(() -> rateLimiter.runTask(alarmFetcher::update));
     }
 
     @VisibleForTesting

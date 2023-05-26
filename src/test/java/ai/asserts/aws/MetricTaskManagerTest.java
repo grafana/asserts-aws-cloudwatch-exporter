@@ -139,4 +139,26 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         verifyAll();
     }
+
+    @Test
+    void triggerScrapes_notPrimaryExporter() {
+        testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
+                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter,
+                new RateLimiter(metricCollector)) {
+            @Override
+            void updateScrapeTasks() {
+            }
+        };
+        testClass.getMetricScrapeTasks().put("account", ImmutableMap.of(
+                "region1", ImmutableMap.of(300, metricScrapeTask),
+                "region2", ImmutableMap.of(300, metricScrapeTask)
+        ));
+
+        Capture<Runnable> capture1 = newCapture();
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
+
+        replayAll();
+        testClass.triggerCWPullOperations();
+        verifyAll();
+    }
 }
