@@ -89,7 +89,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
     }
 
     @Test
-    void getMetricQueries() {
+    void getMetricQueries_CWMetricPullEnabled() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
@@ -162,6 +162,22 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         expect(resourceTagHelper.getFilteredResources(accountRegion, "region1", namespaceConfig))
                 .andThrow(new RuntimeException());
 
+        replayAll();
+        testClass.getMetricQueries();
+        verifyAll();
+    }
+
+    @Test
+    void getMetricQueries_CWMetricPullDisabled() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
+        expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
+        ScrapeConfig scrapeConfig = ScrapeConfig.builder()
+                .regions(ImmutableSet.of("region1"))
+                .namespaces(ImmutableList.of(namespaceConfig))
+                .fetchCWMetrics(false)
+                .build();
+
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         replayAll();
         testClass.getMetricQueries();
         verifyAll();

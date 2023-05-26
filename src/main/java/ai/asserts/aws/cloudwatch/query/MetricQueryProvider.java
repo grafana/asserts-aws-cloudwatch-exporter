@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.cloudwatch.model.ListMetricsResponse;
 import software.amazon.awssdk.services.cloudwatch.model.Metric;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -76,10 +77,13 @@ public class MetricQueryProvider {
     }
 
     Map<String, Map<String, Map<Integer, List<MetricQuery>>>> getQueriesInternal() {
-        log.info("Will discover metrics and build metric queries");
         Map<String, Map<String, Map<Integer, List<MetricQuery>>>> queriesByAccount = new TreeMap<>();
-
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        if( !scrapeConfig.isFetchCWMetrics()) {
+            log.info("CW Metric pull is disabled. Not discovering metric queries");
+            return Collections.emptyMap();
+        }
+        log.info("Will discover metrics and build metric queries");
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             String account = accountRegion.getAccountId();
             accountRegion.getRegions().forEach(region -> scrapeConfig.getNamespaces().stream()

@@ -70,7 +70,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     }
 
     @Test
-    void triggerScrapes() {
+    void triggerScrapes_fetchMetricsTrue() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
                 taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter,
                 new RateLimiter(metricCollector)) {
@@ -88,6 +88,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture3 = newCapture();
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchCWMetrics()).andReturn(true);
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
 
         expect(executorService.submit(capture(capture1))).andReturn(null);
@@ -99,11 +100,42 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
         alarmFetcher.update();
         replayAll();
-        testClass.triggerScrapes();
+        testClass.triggerCWPullOperations();
 
         capture1.getValue().run();
         capture2.getValue().run();
         capture3.getValue().run();
+
+        verifyAll();
+    }
+
+    @Test
+    void triggerScrapes_fetchMetricsFalse() {
+        testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
+                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter,
+                new RateLimiter(metricCollector)) {
+            @Override
+            void updateScrapeTasks() {
+            }
+        };
+        testClass.getMetricScrapeTasks().put("account", ImmutableMap.of(
+                "region1", ImmutableMap.of(300, metricScrapeTask),
+                "region2", ImmutableMap.of(300, metricScrapeTask)
+        ));
+
+        Capture<Runnable> capture1 = newCapture();
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
+        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchCWMetrics()).andReturn(false);
+        expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
+
+        expect(executorService.submit(capture(capture1))).andReturn(null);
+
+        alarmFetcher.update();
+        replayAll();
+        testClass.triggerCWPullOperations();
+
+        capture1.getValue().run();
 
         verifyAll();
     }
