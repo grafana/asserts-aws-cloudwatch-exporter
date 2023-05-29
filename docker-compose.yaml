@@ -1,0 +1,11 @@
+version: '3'
+services:
+  aws-cloudwatch-exporter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: asserts/aws-cloudwatch-exporter:latest
+    ports:
+      - "8010:8010"
+    env_file:
+      - env.properties

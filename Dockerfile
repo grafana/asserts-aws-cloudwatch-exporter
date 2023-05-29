@@ -41,7 +41,7 @@ COPY --from=builder /home/gradle/app/build/resources/main/*.xml ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.properties ./
 # COPY jmx_prometheus_javaagent-0.16.1.jar ./
 # COPY httpserver_config.yml ./
-CMD ["/bin/sh", "-c", "java -jar app-*.jar --spring.config.location=application.properties"]
+CMD ["/bin/sh", "-c", "java -Ddeployment.mode=$DEPLOYMENT_MODE -Dhekate.enable=$HEKATE_ENABLE -Dhekate.cluster.seed.cloudstore.enable=$HEKATE_CLOUDSTORE_ENABLE -Dhekate.cluster.seed.cloudstore.provider=$HEKATE_CLOUDSTORE_PROVIDER -Dhekate.cluster.seed.cloudstore.container=$HEKATE_CLOUDSTORE_CONTAINER -Dhekate.cluster.namespace=aws-exporter -jar app-*.jar --spring.config.location=application.properties"]
 # CMD ["/bin/sh", "-c", "java -javaagent:./jmx_prometheus_javaagent-0.16.1.jar=8095:httpserver_config.yml -jar app-*.jar --spring.config.location=application.properties"]
 
 LABEL "PROMETHEUS_EXPORTER_PORT"="8010"

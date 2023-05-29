@@ -1,6 +1,7 @@
 
 package ai.asserts.aws;
 
+import io.hekate.spring.boot.EnableHekate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ComponentScan(basePackages = {"ai.asserts"})
 @ConfigurationPropertiesScan(basePackages = {"ai.asserts"})
 @EnableScheduling
+@EnableHekate
 public class CloudWatchExporterApplication {
     public static void main(String[] args) {
         SpringApplication springApplication = new SpringApplication(CloudWatchExporterApplication.class);
