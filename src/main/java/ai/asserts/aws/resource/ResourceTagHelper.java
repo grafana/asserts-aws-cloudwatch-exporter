@@ -5,7 +5,7 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;

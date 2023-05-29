@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws.lambda;
 
-import ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.config.LogScrapeConfig;
 import ai.asserts.aws.config.NamespaceConfig;

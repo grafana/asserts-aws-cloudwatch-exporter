@@ -5,8 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -23,7 +24,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -45,7 +45,7 @@ public class LBToLambdaRoutingBuilder {
         log.info("LB To Lambda routing relation builder about to build relations");
         Set<ResourceRelation> routing = new HashSet<>();
         Set<Resource> missingTgs = new HashSet<>();
-        for (AccountProvider.AWSAccount accountRegion : accountProvider.getAccounts()) {
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region -> {
                 try {
                     ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region, accountRegion);

@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.exporter.AccountIDProvider;
 import org.easymock.Capture;
 import org.easymock.EasyMockSupport;

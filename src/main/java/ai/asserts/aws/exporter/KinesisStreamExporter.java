@@ -5,9 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
@@ -18,7 +18,6 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.ListStreamsResponse;
-import software.amazon.awssdk.services.sns.model.Topic;
 
 import java.util.ArrayList;
 import java.util.List;

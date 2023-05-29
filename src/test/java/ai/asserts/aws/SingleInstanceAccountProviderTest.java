@@ -4,8 +4,9 @@
  */
 package ai.asserts.aws;
 
-import ai.asserts.aws.AccountProvider.AWSAccount;
-import ai.asserts.aws.AccountProvider.CloudwatchConfigs;
+import ai.asserts.aws.account.SingleInstanceAccountProvider;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.SingleInstanceAccountProvider.CloudwatchConfigs;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableList;
@@ -22,13 +23,13 @@ import org.springframework.web.client.RestTemplate;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class AccountProviderTest extends EasyMockSupport {
+public class SingleInstanceAccountProviderTest extends EasyMockSupport {
     private AccountIDProvider accountIDProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
     private HttpEntity<String> mockEntity;
     private RestTemplate restTemplate;
-    private AccountProvider testClass;
+    private SingleInstanceAccountProvider testClass;
 
     @BeforeEach
     public void setup() {
@@ -37,7 +38,7 @@ public class AccountProviderTest extends EasyMockSupport {
         mockEntity = mock(HttpEntity.class);
         scrapeConfig = mock(ScrapeConfig.class);
         restTemplate = mock(RestTemplate.class);
-        testClass = new AccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate);
+        testClass = new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate);
     }
 
     @Test

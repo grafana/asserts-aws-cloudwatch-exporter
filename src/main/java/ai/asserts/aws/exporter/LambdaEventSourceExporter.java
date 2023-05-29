@@ -2,10 +2,11 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
@@ -89,7 +90,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Optional<NamespaceConfig> lambdaConfig = scrapeConfig.getLambdaConfig();
         lambdaConfig.ifPresent(namespaceConfig -> {
-            for (AccountProvider.AWSAccount accountRegion : accountProvider.getAccounts()) {
+            for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region -> {
                     try {
                         LambdaClient client = awsClientProvider.getLambdaClient(region, accountRegion);
