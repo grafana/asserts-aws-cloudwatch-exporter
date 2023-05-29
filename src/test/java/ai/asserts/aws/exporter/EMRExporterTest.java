@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,7 +27,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import static ai.asserts.aws.AccountProvider.AWSAccount;
+import ai.asserts.aws.account.AWSAccount;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.easymock.EasyMock.anyDouble;

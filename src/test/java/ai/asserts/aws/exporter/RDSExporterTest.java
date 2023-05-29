@@ -5,7 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountProvider;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.resource.Resource;
@@ -41,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class RDSExporterTest extends EasyMockSupport {
 
     public CollectorRegistry collectorRegistry;
-    private AccountProvider.AWSAccount accountRegion;
+    private AWSAccount accountRegion;
     private AWSClientProvider awsClientProvider;
     private RateLimiter rateLimiter;
     private MetricSampleBuilder sampleBuilder;
@@ -55,7 +56,7 @@ public class RDSExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AccountProvider.AWSAccount("account1", "", "",
+        accountRegion = new AWSAccount("account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         sampleBuilder = mock(MetricSampleBuilder.class);

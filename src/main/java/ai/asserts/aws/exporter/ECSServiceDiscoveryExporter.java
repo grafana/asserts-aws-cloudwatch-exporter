@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -55,7 +54,6 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     public static final String SD_FILE_PATH = "/opt/asserts/ecs-scrape-targets.yml";
     public static final String SD_FILE_PATH_SECURE = "/opt/asserts/ecs-scrape-targets-https.yml";
     private final RestTemplate restTemplate;
-    private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ResourceMapper resourceMapper;
     private final ECSTaskUtil ecsTaskUtil;
@@ -63,23 +61,25 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
 
     private final ECSTaskProvider ecsTaskProvider;
 
+    private final AccountIDProvider accountIDProvider;
+
     @Getter
     private final AtomicReference<SubnetDetails> subnetDetails = new AtomicReference<>(null);
 
     @Getter
     protected final Set<String> subnetsToScrape = new TreeSet<>();
 
-    public ECSServiceDiscoveryExporter(RestTemplate restTemplate, AccountProvider accountProvider,
-                                       ScrapeConfigProvider scrapeConfigProvider, ResourceMapper resourceMapper,
-                                       ECSTaskUtil ecsTaskUtil, ObjectMapperFactory objectMapperFactory,
-                                       ECSTaskProvider ecsTaskProvider) {
+    public ECSServiceDiscoveryExporter(RestTemplate restTemplate, AccountIDProvider accountIDProvider,
+                                       ScrapeConfigProvider scrapeConfigProvider,
+                                       ResourceMapper resourceMapper, ECSTaskUtil ecsTaskUtil,
+                                       ObjectMapperFactory objectMapperFactory, ECSTaskProvider ecsTaskProvider) {
         this.restTemplate = restTemplate;
-        this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.resourceMapper = resourceMapper;
         this.ecsTaskUtil = ecsTaskUtil;
         this.objectMapperFactory = objectMapperFactory;
         this.ecsTaskProvider = ecsTaskProvider;
+        this.accountIDProvider = accountIDProvider;
         identifySubnetsToScrape();
     }
 
@@ -120,7 +120,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     public boolean isPrimaryExporter() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Map<String, SubnetDetails> primaryExportersByAccount = scrapeConfig.getPrimaryExporterByAccount();
-        SubnetDetails primaryConfig = primaryExportersByAccount.get(accountProvider.getCurrentAccountId());
+        SubnetDetails primaryConfig = primaryExportersByAccount.get(accountIDProvider.getAccountId());
         return primaryConfig == null ||
                 (!hasLength(primaryConfig.getVpcId()) || runningInVPC(primaryConfig.getVpcId())) &&
                         (!hasLength(primaryConfig.getSubnetId()) || runningInSubnet(primaryConfig.getSubnetId()));

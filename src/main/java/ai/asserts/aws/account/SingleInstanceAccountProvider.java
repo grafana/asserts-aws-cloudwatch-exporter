@@ -2,22 +2,19 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws;
+package ai.asserts.aws.account;
 
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Suppliers;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -36,7 +33,8 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @Component
 @Slf4j
 @AllArgsConstructor
-public class AccountProvider {
+@ConditionalOnProperty(name = "deployment.mode", havingValue = "single", matchIfMissing = true)
+public class SingleInstanceAccountProvider implements AccountProvider {
     private final AccountIDProvider accountIDProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RestTemplate restTemplate;
@@ -47,6 +45,7 @@ public class AccountProvider {
         return accountIDProvider.getAccountId();
     }
 
+    @Override
     public Set<AWSAccount> getAccounts() {
         return accountsCache.get();
     }
@@ -81,10 +80,10 @@ public class AccountProvider {
                     response.getBody().getCloudWatchConfigs()
                             .stream()
                             .filter(awsAccount -> {
-                                if (awsAccount.paused) {
-                                    log.info("Account {} is paused", awsAccount.accountId);
+                                if (awsAccount.isPaused()) {
+                                    log.info("Account {} is paused", awsAccount.getAccountId());
                                 }
-                                return !awsAccount.paused;
+                                return !awsAccount.isPaused();
                             })
                             .forEach(awsAccount -> {
                                 awsAccount.getRegions().addAll(finalRegions);
@@ -103,57 +102,5 @@ public class AccountProvider {
     @ToString
     public static class CloudwatchConfigs {
         List<AWSAccount> cloudWatchConfigs;
-    }
-
-    @AllArgsConstructor
-    @Getter
-    @EqualsAndHashCode
-    @ToString
-    @SuperBuilder
-    public static class AWSAccount {
-        // Use different json field name to match property from API Response
-        @JsonProperty("accountID")
-        private final String accountId;
-        private final String name;
-        @ToString.Exclude
-        private final String accessId;
-        @ToString.Exclude
-        private final String secretKey;
-        // Use different json field name to match property from API Response
-        @JsonProperty("assumeRoleARN")
-        private final String assumeRole;
-        private final String externalId;
-        private final boolean paused;
-        @Builder.Default
-        private final Set<String> regions = new TreeSet<>();
-
-        public AWSAccount(String accountId, String accessId, String secretKey, String assumeRole, Set<String> regions) {
-            this(accountId, null, accessId, secretKey, assumeRole, null, false, regions);
-        }
-    }
-
-    @Getter
-    @Setter
-    @ToString
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    @EqualsAndHashCode
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class AccountConfig {
-        private String accountID;
-        @ToString.Exclude
-        private String accessKey;
-        @ToString.Exclude
-        private String secretKey;
-        private String assumeRoleARN;
-    }
-
-    @Getter
-    @Setter
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class ResponseDto {
-        private List<AccountConfig> cloudWatchConfigs;
     }
 }

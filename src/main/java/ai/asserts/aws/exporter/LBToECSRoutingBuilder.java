@@ -5,8 +5,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.AccountProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -24,7 +25,6 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -92,7 +92,7 @@ public class LBToECSRoutingBuilder implements Runnable {
         routing = newRouting;
     }
 
-    private void discoverRelationships(Set<ResourceRelation> newRouting, AccountProvider.AWSAccount awsAccount,
+    private void discoverRelationships(Set<ResourceRelation> newRouting, AWSAccount awsAccount,
                                        String region, EcsClient ecsClient, Resource cluster, Set<String> serviceARNs) {
         SortedSet<String> orderedARNs = new TreeSet<>(serviceARNs);
         while (orderedARNs.size() > 0) {
