@@ -22,4 +22,5 @@ import lombok.ToString;
 public class MetricResponse {
     private String requestId;
     private Long timestamp;
+    private String errorMessage;
 }

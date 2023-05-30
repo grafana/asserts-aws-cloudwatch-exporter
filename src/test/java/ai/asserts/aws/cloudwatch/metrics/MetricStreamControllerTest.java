@@ -42,6 +42,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 public class MetricStreamControllerTest extends EasyMockSupport {
     private CloudWatchMetrics metrics;
@@ -58,6 +59,8 @@ public class MetricStreamControllerTest extends EasyMockSupport {
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
 
+    private ObjectMapperFactory objectMapperFactory;
+
     @BeforeEach
     public void setup() {
         firehoseEventRequest = mock(FirehoseEventRequest.class);
@@ -69,7 +72,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         apiAuthenticator = mock(ApiAuthenticator.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
-        ObjectMapperFactory objectMapperFactory = mock(ObjectMapperFactory.class);
+        objectMapperFactory = mock(ObjectMapperFactory.class);
         now = Instant.now();
         testClass = new MetricStreamController(objectMapperFactory, metricCollector, metricNameUtil, apiAuthenticator
                 , scrapeConfigProvider) {
@@ -78,6 +81,199 @@ public class MetricStreamControllerTest extends EasyMockSupport {
                 return now;
             }
         };
+    }
+
+    @Test
+    public void receiveMetricsPost() throws JsonProcessingException {
+        expectedCallsWhileProcessingData();
+        expect(scrapeConfig.getEntityLabels("AWS/Firehose",
+                ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")))
+                .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
+        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
+        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
+        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
+        replayAll();
+
+        ResponseEntity<MetricResponse> metricResponseResponseEntity =
+                testClass.receiveMetricsPost(firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertNotNull(body.getTimestamp());
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPut() throws JsonProcessingException {
+        expectedCallsWhileProcessingData();
+        expect(scrapeConfig.getEntityLabels("AWS/Firehose",
+                ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")))
+                .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
+        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
+        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
+        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
+        replayAll();
+
+        ResponseEntity<MetricResponse> metricResponseResponseEntity =
+                testClass.receiveMetricsPut(firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertNotNull(body.getTimestamp());
+
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPost_InternalServerError() {
+        testClass = new MetricStreamController(objectMapperFactory, metricCollector, metricNameUtil, apiAuthenticator
+                , scrapeConfigProvider) {
+            @Override
+            Instant now() {
+                return now;
+            }
+
+            @Override
+            void processRequest(FirehoseEventRequest firehoseEventRequest) {
+                throw new RuntimeException("Error Message");
+            }
+        };
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
+        replayAll();
+
+        ResponseEntity<MetricResponse> metricResponseResponseEntity =
+                testClass.receiveMetricsPost(firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertEquals("Error Message", body.getErrorMessage());
+        assertNotNull(body.getTimestamp());
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPut_InternalServerError() {
+        testClass = new MetricStreamController(objectMapperFactory, metricCollector, metricNameUtil, apiAuthenticator
+                , scrapeConfigProvider) {
+            @Override
+            Instant now() {
+                return now;
+            }
+
+            @Override
+            void processRequest(FirehoseEventRequest firehoseEventRequest) {
+                throw new RuntimeException("Error Message");
+            }
+        };
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
+        replayAll();
+
+        ResponseEntity<MetricResponse> metricResponseResponseEntity =
+                testClass.receiveMetricsPut(firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertEquals("Error Message", body.getErrorMessage());
+        assertNotNull(body.getTimestamp());
+
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPostSecure() throws JsonProcessingException {
+        expectedCallsWhileProcessingData();
+        expect(scrapeConfig.getEntityLabels("AWS/Firehose",
+                ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")))
+                .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
+        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
+        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
+        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
+        apiAuthenticator.authenticate(Optional.of("token"));
+        replayAll();
+
+        ResponseEntity<MetricResponse> metricResponseResponseEntity = testClass.receiveMetricsPostSecure("token",
+                firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertNotNull(body.getTimestamp());
+
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPutSecure() throws JsonProcessingException {
+        expectedCallsWhileProcessingData();
+        expect(scrapeConfig.getEntityLabels("AWS/Firehose",
+                ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")))
+                .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
+        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
+        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
+        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
+        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
+        apiAuthenticator.authenticate(Optional.of("token"));
+        replayAll();
+
+        ResponseEntity<MetricResponse> metricResponseResponseEntity = testClass.receiveMetricsPutSecure("token",
+                firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertNotNull(body.getTimestamp());
+
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPostSecure_AuthFailure() {
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
+        apiAuthenticator.authenticate(Optional.of("token"));
+        expectLastCall().andThrow(new RuntimeException());
+        replayAll();
+
+        ResponseEntity<MetricResponse> metricResponseResponseEntity = testClass.receiveMetricsPostSecure("token",
+                firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(UNAUTHORIZED, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertEquals("Authentication Failure", body.getErrorMessage());
+        assertNotNull(body.getTimestamp());
+        verifyAll();
+    }
+
+    @Test
+    public void receiveMetricsPutSecure_AuthFailure() {
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
+        apiAuthenticator.authenticate(Optional.of("token"));
+        expectLastCall().andThrow(new RuntimeException());
+        replayAll();
+
+        ResponseEntity<MetricResponse> metricResponseResponseEntity = testClass.receiveMetricsPutSecure("token",
+                firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(UNAUTHORIZED, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertEquals("Authentication Failure", body.getErrorMessage());
+        assertNotNull(body.getTimestamp());
+        verifyAll();
+    }
+
+    private void expectedCallsWhileProcessingData() {
         expect(objectMapperFactory.getObjectMapper()).andReturn(objectMapper);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfigProvider.getStandardNamespace("AWS/Firehose"))
@@ -136,98 +332,5 @@ public class MetricStreamControllerTest extends EasyMockSupport {
         metricCollector.recordGaugeValue("aws_firehose_m1_count", metricLabels, 2.0);
         metricCollector.recordHistogram(eq(EXPORTER_DELAY_SECONDS), anyObject(), anyLong());
         expectLastCall().anyTimes();
-    }
-
-    @Test
-    public void receiveMetricsPost() throws JsonProcessingException {
-        expect(scrapeConfig.getEntityLabels("AWS/Firehose",
-                ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")))
-                .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
-        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
-        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
-        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
-        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
-        replayAll();
-
-        ResponseEntity<MetricResponse> metricResponseResponseEntity =
-                testClass.receiveMetricsPost(firehoseEventRequest);
-        MetricResponse body = metricResponseResponseEntity.getBody();
-        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
-        assertNotNull(body);
-        assertEquals("request-id", body.getRequestId());
-        assertNotNull(body.getTimestamp());
-        verifyAll();
-    }
-
-    @Test
-    public void receiveMetricsPut() throws JsonProcessingException {
-        expect(scrapeConfig.getEntityLabels("AWS/Firehose",
-                ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")))
-                .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
-        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
-        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
-        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
-        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
-        replayAll();
-
-        ResponseEntity<MetricResponse> metricResponseResponseEntity =
-                testClass.receiveMetricsPut(firehoseEventRequest);
-        MetricResponse body = metricResponseResponseEntity.getBody();
-        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
-        assertNotNull(body);
-        assertEquals("request-id", body.getRequestId());
-        assertNotNull(body.getTimestamp());
-
-        verifyAll();
-    }
-
-    @Test
-    public void receiveMetricsPostSecure() throws JsonProcessingException {
-        expect(scrapeConfig.getEntityLabels("AWS/Firehose",
-                ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")))
-                .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
-        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
-        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
-        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
-        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
-        apiAuthenticator.authenticate(Optional.of("token"));
-        replayAll();
-
-        ResponseEntity<MetricResponse> metricResponseResponseEntity = testClass.receiveMetricsPostSecure("token",
-                firehoseEventRequest);
-        MetricResponse body = metricResponseResponseEntity.getBody();
-        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
-        assertNotNull(body);
-        assertEquals("request-id", body.getRequestId());
-        assertNotNull(body.getTimestamp());
-
-        verifyAll();
-    }
-
-    @Test
-    public void receiveMetricsPutSecure() throws JsonProcessingException {
-        expect(scrapeConfig.getEntityLabels("AWS/Firehose",
-                ImmutableMap.of("DeliveryStreamName", "PUT-HTP-SliCQ")))
-                .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
-        expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
-        expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
-        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
-        expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
-        expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
-        apiAuthenticator.authenticate(Optional.of("token"));
-        replayAll();
-
-        ResponseEntity<MetricResponse> metricResponseResponseEntity = testClass.receiveMetricsPutSecure("token",
-                firehoseEventRequest);
-        MetricResponse body = metricResponseResponseEntity.getBody();
-        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
-        assertNotNull(body);
-        assertEquals("request-id", body.getRequestId());
-        assertNotNull(body.getTimestamp());
-
-        verifyAll();
     }
 }
