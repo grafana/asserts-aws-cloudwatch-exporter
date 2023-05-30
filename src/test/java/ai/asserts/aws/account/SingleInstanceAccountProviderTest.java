@@ -2,8 +2,9 @@
  *  Copyright © 2020.
  *  Asserts, Inc. - All Rights Reserved
  */
-package ai.asserts.aws;
+package ai.asserts.aws.account;
 
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.account.SingleInstanceAccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.SingleInstanceAccountProvider.CloudwatchConfigs;
@@ -215,14 +216,6 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
                         .regions(ImmutableSet.of("us-west-2"))
                         .build()
         ), testClass.getAccounts());
-        verifyAll();
-    }
-
-    @Test
-    public void getCurrentAccountId() {
-        expect(accountIDProvider.getAccountId()).andReturn("account-id").anyTimes();
-        replayAll();
-        assertEquals("account-id", testClass.getCurrentAccountId());
         verifyAll();
     }
 }

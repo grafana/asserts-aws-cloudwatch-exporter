@@ -27,6 +27,8 @@ dependencies {
             project(":config"),
             "com.google.guava:guava:$guavaVersion",
             "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
+            "io.hekate:hekate-spring-boot:$hekateVersion",
+            "io.hekate:hekate-jclouds-aws:$hekateVersion",
             "io.prometheus:simpleclient:$prometheusVersion",
             "io.prometheus:simpleclient_common:$prometheusVersion",
             "org.aspectj:aspectjweaver:1.9.6",
@@ -90,6 +92,18 @@ bootJar {
 				"Implementation-Version": archiveVersion)
 	}
 }
+
+// To test Hekate locally
+//bootRun {
+//    jvmArgs = [
+//            "-Dhekate.enable=false"
+//            "-Dhekate.cluster.seed.cloudstore.enable=true",
+//            "-Dhekate.cluster.seed.cloudstore.provider=aws-s3",
+//            "-Dhekate.cluster.seed.cloudstore.container=asserts-hekate-cluster",
+//            "-Ddeployment.mode=distributed",
+//            "-Dhekate.cluster.namespace=aws-exporter"
+//    ]
+//}
 
 jar {
 	enabled = true
