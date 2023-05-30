@@ -185,6 +185,7 @@ public class MetricStreamController {
         try {
             CloudWatchMetrics metrics =
                     objectMapperFactory.getObjectMapper().readValue(decodedData, CloudWatchMetrics.class);
+            log.info("Received metrics {}", metrics);
             metrics.getMetrics().stream()
                     .filter(this::shouldCaptureMetric)
                     .forEach(m -> {
@@ -201,9 +202,11 @@ public class MetricStreamController {
         if (ns.isPresent()) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             String nsPrefix = ns.get().getMetricPrefix();
-            return metric.getValue().keySet().stream()
+            boolean capture = metric.getValue().keySet().stream()
                     .map(stat -> metricNameUtil.toSnakeCase(nsPrefix + "_" + metric.getMetric_name() + "_" + stat))
                     .anyMatch(metricName -> scrapeConfig.getMetricsToCapture().containsKey(metricName));
+            log.info("shouldCaptureMetric({}) => {}", metric, capture);
+            return capture;
         }
         return false;
     }
@@ -234,8 +237,12 @@ public class MetricStreamController {
             recordHistogram(metricMap, metric.getTimestamp(), metricName);
             metric.getValue().forEach((key, value) -> {
                 String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + key);
+                log.info("Check if metrics to capture contains {}", gaugeMetricName);
                 if (scrapeConfig.getMetricsToCapture().containsKey(gaugeMetricName)) {
                     metricCollector.recordGaugeValue(gaugeMetricName, metricMap, Double.valueOf(value));
+                    log.info("Record Gauge {}{} {}", gaugeMetricName, metricMap, value);
+                } else {
+                    log.info("Skip {}", gaugeMetricName);
                 }
             });
         });
