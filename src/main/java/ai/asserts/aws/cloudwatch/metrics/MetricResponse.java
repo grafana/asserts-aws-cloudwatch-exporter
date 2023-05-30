@@ -20,5 +20,7 @@ import lombok.ToString;
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MetricResponse {
-    private String status;
+    private String requestId;
+    private Long timestamp;
+    private String errorMessage;
 }

@@ -34,6 +34,8 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @AllArgsConstructor
@@ -57,10 +59,20 @@ public class MetricStreamController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<MetricResponse> receiveMetricsPost(
             @RequestBody FirehoseEventRequest metricRequest) {
-        processRequest(metricRequest);
-        return ResponseEntity.ok(MetricResponse.builder()
-                .status("Success")
-                .build());
+        try {
+            processRequest(metricRequest);
+            return ResponseEntity.ok(MetricResponse.builder()
+                    .requestId(metricRequest.getRequestId())
+                    .timestamp(System.currentTimeMillis())
+                    .build());
+        } catch (Throwable e) {
+            return ResponseEntity.status(INTERNAL_SERVER_ERROR)
+                    .body(MetricResponse.builder()
+                            .requestId(metricRequest.getRequestId())
+                            .timestamp(System.currentTimeMillis())
+                            .errorMessage(e.getMessage())
+                            .build());
+        }
     }
 
     @PutMapping(
@@ -69,10 +81,20 @@ public class MetricStreamController {
             consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<MetricResponse> receiveMetricsPut(
             @RequestBody FirehoseEventRequest metricRequest) {
-        processRequest(metricRequest);
-        return ResponseEntity.ok(MetricResponse.builder()
-                .status("Success")
-                .build());
+        try {
+            processRequest(metricRequest);
+            return ResponseEntity.ok(MetricResponse.builder()
+                    .requestId(metricRequest.getRequestId())
+                    .timestamp(System.currentTimeMillis())
+                    .build());
+        } catch (Throwable e) {
+            return ResponseEntity.status(INTERNAL_SERVER_ERROR)
+                    .body(MetricResponse.builder()
+                            .requestId(metricRequest.getRequestId())
+                            .timestamp(System.currentTimeMillis())
+                            .errorMessage(e.getMessage())
+                            .build());
+        }
     }
 
     @PostMapping(
@@ -82,11 +104,30 @@ public class MetricStreamController {
     public ResponseEntity<MetricResponse> receiveMetricsPostSecure(
             @RequestHeader("X-Amz-Firehose-Access-Key") String apiToken,
             @RequestBody FirehoseEventRequest metricRequest) {
-        apiAuthenticator.authenticate(Optional.of(apiToken));
-        processRequest(metricRequest);
-        return ResponseEntity.ok(MetricResponse.builder()
-                .status("Success")
-                .build());
+        try {
+            apiAuthenticator.authenticate(Optional.of(apiToken));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(UNAUTHORIZED)
+                    .body(MetricResponse.builder()
+                            .requestId(metricRequest.getRequestId())
+                            .timestamp(System.currentTimeMillis())
+                            .errorMessage("Authentication Failure")
+                            .build());
+        }
+        try {
+            processRequest(metricRequest);
+            return ResponseEntity.ok(MetricResponse.builder()
+                    .requestId(metricRequest.getRequestId())
+                    .timestamp(System.currentTimeMillis())
+                    .build());
+        } catch (Throwable e) {
+            return ResponseEntity.status(INTERNAL_SERVER_ERROR)
+                    .body(MetricResponse.builder()
+                            .requestId(metricRequest.getRequestId())
+                            .timestamp(System.currentTimeMillis())
+                            .errorMessage(e.getMessage())
+                            .build());
+        }
     }
 
     @PutMapping(
@@ -96,14 +137,34 @@ public class MetricStreamController {
     public ResponseEntity<MetricResponse> receiveMetricsPutSecure(
             @RequestHeader("X-Amz-Firehose-Access-Key") String apiToken,
             @RequestBody FirehoseEventRequest metricRequest) {
-        apiAuthenticator.authenticate(Optional.of(apiToken));
-        processRequest(metricRequest);
-        return ResponseEntity.ok(MetricResponse.builder()
-                .status("Success")
-                .build());
+        try {
+            apiAuthenticator.authenticate(Optional.of(apiToken));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(UNAUTHORIZED)
+                    .body(MetricResponse.builder()
+                            .requestId(metricRequest.getRequestId())
+                            .timestamp(System.currentTimeMillis())
+                            .errorMessage("Authentication Failure")
+                            .build());
+        }
+        try {
+            processRequest(metricRequest);
+            return ResponseEntity.ok(MetricResponse.builder()
+                    .requestId(metricRequest.getRequestId())
+                    .timestamp(System.currentTimeMillis())
+                    .build());
+        } catch (Throwable e) {
+            return ResponseEntity.status(INTERNAL_SERVER_ERROR)
+                    .body(MetricResponse.builder()
+                            .requestId(metricRequest.getRequestId())
+                            .timestamp(System.currentTimeMillis())
+                            .errorMessage(e.getMessage())
+                            .build());
+        }
     }
 
-    private void processRequest(FirehoseEventRequest firehoseEventRequest) {
+    @VisibleForTesting
+    void processRequest(FirehoseEventRequest firehoseEventRequest) {
         try {
             if (!CollectionUtils.isEmpty(firehoseEventRequest.getRecords())) {
                 for (RecordData recordData : firehoseEventRequest.getRecords()) {
