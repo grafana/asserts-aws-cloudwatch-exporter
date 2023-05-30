@@ -24,6 +24,7 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.time.Instant;
 import java.util.Base64;
@@ -40,6 +41,7 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class MetricStreamControllerTest extends EasyMockSupport {
     private CloudWatchMetrics metrics;
@@ -143,12 +145,18 @@ public class MetricStreamControllerTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
         expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
         expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
         replayAll();
 
-        assertEquals(HttpStatus.OK, testClass.receiveMetricsPost(firehoseEventRequest).getStatusCode());
-
+        ResponseEntity<MetricResponse> metricResponseResponseEntity =
+                testClass.receiveMetricsPost(firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertNotNull(body.getTimestamp());
         verifyAll();
     }
 
@@ -159,11 +167,18 @@ public class MetricStreamControllerTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
         expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
         expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
         replayAll();
 
-        assertEquals(HttpStatus.OK, testClass.receiveMetricsPut(firehoseEventRequest).getStatusCode());
+        ResponseEntity<MetricResponse> metricResponseResponseEntity =
+                testClass.receiveMetricsPut(firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertNotNull(body.getTimestamp());
 
         verifyAll();
     }
@@ -175,13 +190,19 @@ public class MetricStreamControllerTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
         expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
         expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
         apiAuthenticator.authenticate(Optional.of("token"));
         replayAll();
 
-        assertEquals(HttpStatus.OK, testClass.receiveMetricsPostSecure("token",
-                firehoseEventRequest).getStatusCode());
+        ResponseEntity<MetricResponse> metricResponseResponseEntity = testClass.receiveMetricsPostSecure("token",
+                firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertNotNull(body.getTimestamp());
 
         verifyAll();
     }
@@ -193,13 +214,19 @@ public class MetricStreamControllerTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of("job", "PUT-HTP-SliCQ"));
         expect(firehoseEventRequest.getRecords()).andReturn(ImmutableList.of(recordData)).times(2);
         expect(recordData.getData()).andReturn(Base64.getEncoder().encodeToString("test".getBytes()));
+        expect(firehoseEventRequest.getRequestId()).andReturn("request-id");
         expect(objectMapper.readValue("{\"metrics\":[test]}", CloudWatchMetrics.class)).andReturn(metrics);
         expect(metrics.getMetrics()).andReturn(ImmutableList.of(metric1, metric2));
         apiAuthenticator.authenticate(Optional.of("token"));
         replayAll();
 
-        assertEquals(HttpStatus.OK, testClass.receiveMetricsPutSecure("token",
-                firehoseEventRequest).getStatusCode());
+        ResponseEntity<MetricResponse> metricResponseResponseEntity = testClass.receiveMetricsPutSecure("token",
+                firehoseEventRequest);
+        MetricResponse body = metricResponseResponseEntity.getBody();
+        assertEquals(HttpStatus.OK, metricResponseResponseEntity.getStatusCode());
+        assertNotNull(body);
+        assertEquals("request-id", body.getRequestId());
+        assertNotNull(body.getTimestamp());
 
         verifyAll();
     }

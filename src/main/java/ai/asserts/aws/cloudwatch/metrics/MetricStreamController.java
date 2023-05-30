@@ -59,7 +59,8 @@ public class MetricStreamController {
             @RequestBody FirehoseEventRequest metricRequest) {
         processRequest(metricRequest);
         return ResponseEntity.ok(MetricResponse.builder()
-                .status("Success")
+                .requestId(metricRequest.getRequestId())
+                .timestamp(System.currentTimeMillis())
                 .build());
     }
 
@@ -71,7 +72,8 @@ public class MetricStreamController {
             @RequestBody FirehoseEventRequest metricRequest) {
         processRequest(metricRequest);
         return ResponseEntity.ok(MetricResponse.builder()
-                .status("Success")
+                .requestId(metricRequest.getRequestId())
+                .timestamp(System.currentTimeMillis())
                 .build());
     }
 
@@ -85,7 +87,8 @@ public class MetricStreamController {
         apiAuthenticator.authenticate(Optional.of(apiToken));
         processRequest(metricRequest);
         return ResponseEntity.ok(MetricResponse.builder()
-                .status("Success")
+                .requestId(metricRequest.getRequestId())
+                .timestamp(System.currentTimeMillis())
                 .build());
     }
 
@@ -99,7 +102,8 @@ public class MetricStreamController {
         apiAuthenticator.authenticate(Optional.of(apiToken));
         processRequest(metricRequest);
         return ResponseEntity.ok(MetricResponse.builder()
-                .status("Success")
+                .requestId(metricRequest.getRequestId())
+                .timestamp(System.currentTimeMillis())
                 .build());
     }
 
