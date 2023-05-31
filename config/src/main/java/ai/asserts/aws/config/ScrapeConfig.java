@@ -37,76 +37,6 @@ import static org.springframework.util.StringUtils.hasLength;
 @EqualsAndHashCode
 @ToString
 public class ScrapeConfig {
-    @Setter
-    @Builder.Default
-    private Set<String> regions = new TreeSet<>();
-
-    @Builder.Default
-    private List<NamespaceConfig> namespaces = new ArrayList<>();
-    // Build lookup map by metric names from the configured metrics
-    @Builder.Default
-    @JsonIgnore
-    private Map<String, MetricConfig> metricsToCapture = new TreeMap<>();
-
-    @Builder.Default
-    private Integer scrapeInterval = 60;
-
-    @Builder.Default
-    private Integer delay = 0;
-
-    @Builder.Default
-    private Integer listMetricsResultCacheTTLMinutes = 10;
-
-    @Builder.Default
-    private Integer listFunctionsResultCacheTTLMinutes = 5;
-
-    @Builder.Default
-    private Integer getResourcesResultCacheTTLMinutes = 5;
-
-    @Builder.Default
-    private Integer numTaskThreads = 5;
-
-    @Builder.Default
-    private AuthConfig authConfig = new AuthConfig();
-
-    @Builder.Default
-    private Integer logScrapeDelaySeconds = 15;
-
-    @Builder.Default
-    @Setter
-    private boolean discoverECSTasks = false;
-
-    @Builder.Default
-    @Setter
-    private boolean discoverAllECSTasksByDefault = true;
-
-    @Builder.Default
-    @Setter
-    private boolean discoverECSTasksAcrossVPCs = true;
-
-    @Builder.Default
-    private boolean discoverOnlySubnetTasks = false;
-
-    @Builder.Default
-    private Set<String> discoverResourceTypes = new TreeSet<>();
-
-    private TagExportConfig tagExportConfig;
-
-    private String alertForwardUrl;
-
-    private String tenant;
-
-    private String assumeRole;
-
-    @Builder.Default
-    private Map<String, SubnetDetails> primaryExporterByAccount = new TreeMap<>();
-
-    @Builder.Default
-    private List<RelabelConfig> relabelConfigs = new ArrayList<>();
-
-    @Builder.Default
-    private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
-
     @Builder.Default
     private boolean fetchCWMetrics = true;
 
@@ -130,6 +60,73 @@ public class ScrapeConfig {
 
     @Builder.Default
     private boolean fetchAccountConfigs = false;
+    @Builder.Default
+    @Setter
+    private boolean discoverECSTasks = false;
+
+    @Builder.Default
+    @Setter
+    private boolean discoverAllECSTasksByDefault = true;
+
+    @Builder.Default
+    @Setter
+    private boolean discoverECSTasksAcrossVPCs = true;
+
+    @Builder.Default
+    private boolean discoverOnlySubnetTasks = false;
+
+    @Builder.Default
+    private Map<String, SubnetDetails> primaryExporterByAccount = new TreeMap<>();
+
+    @Builder.Default
+    private Integer listMetricsResultCacheTTLMinutes = 10;
+
+    @Builder.Default
+    private Integer listFunctionsResultCacheTTLMinutes = 5;
+
+    @Builder.Default
+    private Integer getResourcesResultCacheTTLMinutes = 5;
+
+    @Builder.Default
+    private Integer numTaskThreads = 5;
+
+    @Builder.Default
+    private AuthConfig authConfig = new AuthConfig();
+
+    @Builder.Default
+    private Integer scrapeInterval = 60;
+
+    @Builder.Default
+    private Integer delay = 0;
+
+    @Builder.Default
+    private Integer logScrapeDelaySeconds = 15;
+
+    private TagExportConfig tagExportConfig;
+
+    private String alertForwardUrl;
+
+    private String tenant;
+
+    @Setter
+    @Builder.Default
+    private Set<String> regions = new TreeSet<>();
+
+    @Builder.Default
+    private List<NamespaceConfig> namespaces = new ArrayList<>();
+    // Build lookup map by metric names from the configured metrics
+    @Builder.Default
+    @JsonIgnore
+    private Map<String, MetricConfig> metricsToCapture = new TreeMap<>();
+
+    @Builder.Default
+    private Set<String> discoverResourceTypes = new TreeSet<>();
+
+    @Builder.Default
+    private List<RelabelConfig> relabelConfigs = new ArrayList<>();
+
+    @Builder.Default
+    private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
 
     @JsonIgnore
     public Optional<NamespaceConfig> getLambdaConfig() {
