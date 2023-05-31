@@ -179,8 +179,9 @@ public class MetricStreamController {
     }
 
     private void accept(RecordData data) {
-        log.info("Raw payload \n{}\n", data.getData());
-        String decodedData = new String(Base64.getDecoder().decode(data.getData()));
+        String rawData = data.getData();
+        log.info("Raw payload \n{}\n", rawData);
+        String decodedData = new String(Base64.getDecoder().decode(rawData));
         decodedData = decodedData.replace("}\n{", "},{");
         decodedData = "{\"metrics\":[" + decodedData + "]}";
         try {
