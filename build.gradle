@@ -96,11 +96,11 @@ bootJar {
 // To test Hekate locally
 //bootRun {
 //    jvmArgs = [
-//            "-Dhekate.enable=false"
-//            "-Dhekate.cluster.seed.cloudstore.enable=true",
+//            "-Dhekate.enable=false",
+//            "-Dhekate.cluster.seed.cloudstore.enable=false",
 //            "-Dhekate.cluster.seed.cloudstore.provider=aws-s3",
 //            "-Dhekate.cluster.seed.cloudstore.container=asserts-hekate-cluster",
-//            "-Ddeployment.mode=distributed",
+//            "-Ddeployment.mode=single",
 //            "-Dhekate.cluster.namespace=aws-exporter"
 //    ]
 //}

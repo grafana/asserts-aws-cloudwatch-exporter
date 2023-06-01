@@ -3,17 +3,16 @@ package ai.asserts.aws;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
-import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.annotations.VisibleForTesting;
 import io.prometheus.client.CollectorRegistry;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -27,17 +26,14 @@ import java.util.stream.Collectors;
 
 @Component
 @Slf4j
-@AllArgsConstructor
 public class MetricTaskManager implements InitializingBean {
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final CollectorRegistry collectorRegistry;
     private final AutowireCapableBeanFactory beanFactory;
     private final TaskThreadPool taskThreadPool;
-    private final AlarmMetricExporter alarmMetricExporter;
     private final AlarmFetcher alarmFetcher;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
-    private final RateLimiter rateLimiter;
 
     /**
      * Maintains the last scrape time for all the metrics of a given scrape interval. The scrapes are
@@ -46,8 +42,20 @@ public class MetricTaskManager implements InitializingBean {
     @Getter
     private final Map<String, Map<String, Map<Integer, MetricScrapeTask>>> metricScrapeTasks = new TreeMap<>();
 
+    public MetricTaskManager(AccountProvider accountProvider, ScrapeConfigProvider scrapeConfigProvider,
+                             CollectorRegistry collectorRegistry, AutowireCapableBeanFactory beanFactory,
+                             @Qualifier("metric-task-trigger-thread-pool") TaskThreadPool taskThreadPool,
+                             AlarmFetcher alarmFetcher, ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter) {
+        this.accountProvider = accountProvider;
+        this.scrapeConfigProvider = scrapeConfigProvider;
+        this.collectorRegistry = collectorRegistry;
+        this.beanFactory = beanFactory;
+        this.taskThreadPool = taskThreadPool;
+        this.alarmFetcher = alarmFetcher;
+        this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
+    }
+
     public void afterPropertiesSet() {
-        alarmMetricExporter.register(collectorRegistry);
     }
 
     @SuppressWarnings("unused")
@@ -62,9 +70,9 @@ public class MetricTaskManager implements InitializingBean {
                 metricScrapeTasks.values().stream()
                         .flatMap(map -> map.values().stream())
                         .flatMap(map -> map.values().stream())
-                        .forEach(task -> executorService.submit(() -> rateLimiter.runTask(task::update)));
+                        .forEach(task -> executorService.submit(task::update));
             }
-            executorService.submit(() -> rateLimiter.runTask(alarmFetcher::update));
+            executorService.submit(alarmFetcher::update);
         }
     }
 
@@ -78,9 +86,9 @@ public class MetricTaskManager implements InitializingBean {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<AWSAccount> allAccounts = accountProvider.getAccounts();
         allAccounts.forEach(awsAccount -> {
-            log.info("Updating Scrape task for AWS Account {}", awsAccount);
+            log.debug("Updating Scrape task for AWS Account {}", awsAccount);
             awsAccount.getRegions().forEach(region -> {
-                log.info("Updating Scrape task for region {}", region);
+                log.debug("Updating Scrape task for region {}", region);
                 metricScrapeTasks.computeIfAbsent(awsAccount.getAccountId(), k -> new TreeMap<>())
                         .computeIfAbsent(region, k -> new TreeMap<>());
                 scrapeConfig.getNamespaces().stream()

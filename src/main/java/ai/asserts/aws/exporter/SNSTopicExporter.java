@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -43,12 +45,13 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
     private final ResourceMapper resourceMapper;
     private final ResourceTagHelper resourceTagHelper;
     private final TagUtil tagUtil;
+    private final TenantUtil tenantUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public SNSTopicExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
             RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceMapper resourceMapper,
-            ResourceTagHelper resourceTagHelper, TagUtil tagUtil) {
+            ResourceTagHelper resourceTagHelper, TagUtil tagUtil, TenantUtil tenantUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -57,6 +60,7 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
         this.resourceMapper = resourceMapper;
         this.resourceTagHelper = resourceTagHelper;
         this.tagUtil = tagUtil;
+        this.tenantUtil = tenantUtil;
     }
 
     @Override
@@ -73,49 +77,55 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
         log.info("Exporting SNS Topic Resources");
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try {
-                SnsClient client = awsClientProvider.getSnsClient(region, account);
-                String api = "SnsClient/listTopics";
-                ListTopicsResponse resp = rateLimiter.doWithRateLimit(
-                        api, ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
-                                SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, api
-                        ), client::listTopics);
-                if (resp.hasTopics()) {
-                    Map<String, Resource> byName = resourceTagHelper.getResourcesWithTag(account, region, "sns:topic",
-                            resp.topics().stream()
-                                    .map(Topic::topicArn)
-                                    .map(resourceMapper::map)
+        List<Future<?>> futures = new ArrayList<>();
+        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
+                futures.add(tenantUtil.executeTenantTask(account.getTenant(), () -> {
+                    try {
+                        SnsClient client = awsClientProvider.getSnsClient(region, account);
+                        String api = "SnsClient/listTopics";
+                        ListTopicsResponse resp = rateLimiter.doWithRateLimit(
+                                api, ImmutableSortedMap.of(
+                                        SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
+                                        SCRAPE_REGION_LABEL, region,
+                                        SCRAPE_OPERATION_LABEL, api
+                                ), client::listTopics);
+                        if (resp.hasTopics()) {
+                            Map<String, Resource> byName =
+                                    resourceTagHelper.getResourcesWithTag(account, region, "sns:topic",
+                                            resp.topics().stream()
+                                                    .map(Topic::topicArn)
+                                                    .map(resourceMapper::map)
+                                                    .filter(Optional::isPresent)
+                                                    .map(opt -> opt.get().getName())
+                                                    .collect(Collectors.toList()));
+                            List<MetricFamilySamples.Sample> regionTopics = resp.topics().stream()
+                                    .map(topic -> resourceMapper.map(topic.topicArn()))
                                     .filter(Optional::isPresent)
-                                    .map(opt -> opt.get().getName())
-                                    .collect(Collectors.toList()));
-                    samples.addAll(resp.topics().stream()
-                            .map(topic -> resourceMapper.map(topic.topicArn()))
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .map(topicResource -> {
-                                Map<String, String> labels = new TreeMap<>();
-                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
-                                labels.put(SCRAPE_REGION_LABEL, region);
-                                labels.put("aws_resource_type", "AWS::SNS::Topic");
-                                labels.put("job", topicResource.getName());
-                                labels.put("name", topicResource.getName());
-                                labels.put("namespace", "AWS/SNS");
-                                if (byName.containsKey(topicResource.getName())) {
-                                    labels.putAll(tagUtil.tagLabels(byName.get(topicResource.getName()).getTags()));
-                                }
-                                return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
-                            })
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(Collectors.toList()));
-                }
-            } catch (Exception e) {
-                log.error("Failed to update", e);
-            }
-        }));
+                                    .map(Optional::get)
+                                    .map(topicResource -> {
+                                        Map<String, String> labels = new TreeMap<>();
+                                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
+                                        labels.put(SCRAPE_REGION_LABEL, region);
+                                        labels.put("aws_resource_type", "AWS::SNS::Topic");
+                                        labels.put("job", topicResource.getName());
+                                        labels.put("name", topicResource.getName());
+                                        labels.put("namespace", "AWS/SNS");
+                                        if (byName.containsKey(topicResource.getName())) {
+                                            labels.putAll(
+                                                    tagUtil.tagLabels(byName.get(topicResource.getName()).getTags()));
+                                        }
+                                        return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                                    })
+                                    .filter(Optional::isPresent)
+                                    .map(Optional::get)
+                                    .collect(Collectors.toList());
+                            samples.addAll(regionTopics);
+                        }
+                    } catch (Throwable e) {
+                        log.error("Failed to update", e);
+                    }
+                }))));
+        tenantUtil.awaitAll(futures);
         sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }

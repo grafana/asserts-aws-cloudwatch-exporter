@@ -2,9 +2,7 @@ package ai.asserts.aws;
 
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.cloudwatch.alarms.AlarmFetcher;
-import ai.asserts.aws.cloudwatch.alarms.AlarmMetricExporter;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
 import ai.asserts.aws.exporter.MetricScrapeTask;
 import com.google.common.collect.ImmutableMap;
@@ -32,9 +30,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private MetricScrapeTask metricScrapeTask;
     private TaskThreadPool taskThreadPool;
     private ExecutorService executorService;
-    private AlarmMetricExporter alarmMetricExporter;
     private AlarmFetcher alarmFetcher;
-    private BasicMetricCollector metricCollector;
 
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
 
@@ -48,14 +44,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         taskThreadPool = mock(TaskThreadPool.class);
         executorService = mock(ExecutorService.class);
-        alarmMetricExporter = mock(AlarmMetricExporter.class);
         alarmFetcher = mock(AlarmFetcher.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
-        metricCollector = mock(BasicMetricCollector.class);
         replayAll();
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter
-                , new RateLimiter(metricCollector));
+                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter);
         verifyAll();
         resetAll();
     }
@@ -64,7 +57,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @SuppressWarnings("all")
     void afterPropertiesSet() {
         int delay = 60;
-        expect(alarmMetricExporter.register(collectorRegistry)).andReturn(null);
         replayAll();
         testClass.afterPropertiesSet();
         verifyAll();
@@ -73,8 +65,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes_fetchMetricsTrue() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter,
-                new RateLimiter(metricCollector)) {
+                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter) {
             @Override
             void updateScrapeTasks() {
             }
@@ -113,8 +104,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes_fetchMetricsFalse() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter,
-                new RateLimiter(metricCollector)) {
+                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter) {
             @Override
             void updateScrapeTasks() {
             }
@@ -144,8 +134,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     @Test
     void triggerScrapes_notPrimaryExporter() {
         testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
-                taskThreadPool, alarmMetricExporter, alarmFetcher, ecsServiceDiscoveryExporter,
-                new RateLimiter(metricCollector)) {
+                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter) {
             @Override
             void updateScrapeTasks() {
             }

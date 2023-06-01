@@ -5,6 +5,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -55,6 +57,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
     private final MetricSampleBuilder metricSampleBuilder;
     private final MetricNameUtil metricNameUtil;
     private final ECSServiceDiscoveryExporter ecsSDExporter;
+    private final TenantUtil tenantUtil;
     private final Supplier<Map<String, Map<String, Map<String, LambdaFunction>>>> functionsByRegion;
     private final boolean filterLambdaByEnvironment;
     private List<MetricFamilySamples> cache;
@@ -65,7 +68,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
             ResourceTagHelper resourceTagHelper,
             LambdaFunctionBuilder fnBuilder, RateLimiter rateLimiter,
             MetricSampleBuilder metricSampleBuilder, MetricNameUtil metricNameUtil,
-            ECSServiceDiscoveryExporter ecsSDExporter) {
+            ECSServiceDiscoveryExporter ecsSDExporter, TenantUtil tenantUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -74,6 +77,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
         this.rateLimiter = rateLimiter;
         this.metricSampleBuilder = metricSampleBuilder;
         this.metricNameUtil = metricNameUtil;
+        this.tenantUtil = tenantUtil;
         this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions,
                 scrapeConfigProvider.getScrapeConfig().getListFunctionsResultCacheTTLMinutes(), MINUTES);
         this.ecsSDExporter = ecsSDExporter;
@@ -135,40 +139,42 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
         Optional<NamespaceConfig> lambdaNSOpt = scrapeConfig.getNamespaces().stream()
                 .filter(ns -> lambda.getNamespace().equals(ns.getName()))
                 .findFirst();
+        List<Future<?>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            lambdaNSOpt.ifPresent(lambdaNS -> accountRegion.getRegions().forEach(region -> {
-                try {
-                    LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, accountRegion);
-                    // Get all the functions
-                    ListFunctionsResponse response = rateLimiter.doWithRateLimit(
-                            "LambdaClient/listFunctions",
-                            ImmutableSortedMap.of(
-                                    SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_NAMESPACE_LABEL, "AWS/Lambda",
-                                    SCRAPE_OPERATION_LABEL, "listFunctions"
-                            ),
-                            lambdaClient::listFunctions);
-                    if (response.hasFunctions()) {
-                        Set<Resource> resources =
-                                resourceTagHelper.getFilteredResources(accountRegion, region, lambdaNS);
-                        response.functions().stream()
-                                .filter(this::isLambdaInSameEnvironment)
-                                .forEach(fnConfig -> {
-                                    Optional<Resource> fnResourceOpt = findFnResource(resources, fnConfig);
-                                    functionsByRegion
-                                            .computeIfAbsent(accountRegion.getAccountId(), k -> new TreeMap<>())
-                                            .computeIfAbsent(region, k -> new TreeMap<>())
-                                            .computeIfAbsent(fnConfig.functionArn(), k ->
-                                                    fnBuilder.buildFunction(region, fnConfig, fnResourceOpt));
-                                });
-                    }
-                } catch (Exception e) {
-                    log.error("Failed to retrieve lambda functions", e);
-                }
-            }));
+            lambdaNSOpt.ifPresent(lambdaNS -> accountRegion.getRegions().forEach(region ->
+                    tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
+                        try {
+                            LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, accountRegion);
+                            // Get all the functions
+                            ListFunctionsResponse response = rateLimiter.doWithRateLimit(
+                                    "LambdaClient/listFunctions",
+                                    ImmutableSortedMap.of(
+                                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                                            SCRAPE_REGION_LABEL, region,
+                                            SCRAPE_NAMESPACE_LABEL, "AWS/Lambda",
+                                            SCRAPE_OPERATION_LABEL, "listFunctions"
+                                    ),
+                                    lambdaClient::listFunctions);
+                            if (response.hasFunctions()) {
+                                Set<Resource> resources =
+                                        resourceTagHelper.getFilteredResources(accountRegion, region, lambdaNS);
+                                response.functions().stream()
+                                        .filter(this::isLambdaInSameEnvironment)
+                                        .forEach(fnConfig -> {
+                                            Optional<Resource> fnResourceOpt = findFnResource(resources, fnConfig);
+                                            functionsByRegion
+                                                    .computeIfAbsent(accountRegion.getAccountId(), k -> new TreeMap<>())
+                                                    .computeIfAbsent(region, k -> new TreeMap<>())
+                                                    .computeIfAbsent(fnConfig.functionArn(), k ->
+                                                            fnBuilder.buildFunction(region, fnConfig, fnResourceOpt));
+                                        });
+                            }
+                        } catch (Exception e) {
+                            log.error("Failed to retrieve lambda functions", e);
+                        }
+                    })));
         }
-
+        tenantUtil.awaitAll(futures);
         return functionsByRegion;
     }
 

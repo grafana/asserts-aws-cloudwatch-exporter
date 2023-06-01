@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -20,10 +21,13 @@ import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTarg
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTargetHealthResponse;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetGroupNotFoundException;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Future;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -40,13 +44,16 @@ public class LBToLambdaRoutingBuilder {
     private final ResourceMapper resourceMapper;
     private final AccountProvider accountProvider;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
+    private final TenantUtil tenantUtil;
 
     public Set<ResourceRelation> getRoutings() {
         log.info("LB To Lambda routing relation builder about to build relations");
         Set<ResourceRelation> routing = new HashSet<>();
         Set<Resource> missingTgs = new HashSet<>();
+        List<Future<?>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            accountRegion.getRegions().forEach(region -> {
+            accountRegion.getRegions().forEach(region ->
+                   futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
                 try {
                     ElasticLoadBalancingV2Client elbV2Client = awsClientProvider.getELBV2Client(region, accountRegion);
                     Map<Resource, Resource> tgToLB = targetGroupLBMapProvider.getTgToLB();
@@ -89,8 +96,9 @@ public class LBToLambdaRoutingBuilder {
                 } catch (Exception e) {
                     log.error("Error " + accountRegion, e);
                 }
-            });
+            })));
         }
+        tenantUtil.awaitAll(futures);
         if (missingTgs.size() > 0) {
             targetGroupLBMapProvider.handleMissingTgs(missingTgs);
         }

@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
@@ -55,7 +57,7 @@ public class SNSTopicExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account1", "", "",
+        accountRegion = new AWSAccount("acme", "account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
@@ -68,9 +70,11 @@ public class SNSTopicExporterTest extends EasyMockSupport {
         resourceMapper = mock(ResourceMapper.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         tagUtil = mock(TagUtil.class);
+        BasicMetricCollector metricCollector = mock(BasicMetricCollector.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new SNSTopicExporter(accountProvider, awsClientProvider, collectorRegistry,
-                rateLimiter, sampleBuilder, resourceMapper, resourceTagHelper, tagUtil);
+                rateLimiter, sampleBuilder, resourceMapper, resourceTagHelper, tagUtil,
+                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
     }
 
     @Test

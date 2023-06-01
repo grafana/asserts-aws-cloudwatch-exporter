@@ -5,6 +5,8 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
@@ -64,7 +66,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account", "", "",
+        accountRegion = new AWSAccount("tenant", "account", "", "",
                 "role", ImmutableSet.of("region1", "region2"));
         accountProvider = mock(AccountProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
@@ -91,7 +93,8 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
                 resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
-                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter);
+                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
+                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -133,7 +136,8 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
                 resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
-                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter) {
+                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
+                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector))) {
             @Override
             public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
                 return functions;

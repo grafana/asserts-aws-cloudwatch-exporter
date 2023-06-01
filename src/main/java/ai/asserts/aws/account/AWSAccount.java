@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 
@@ -21,6 +22,8 @@ import java.util.TreeSet;
 @ToString
 @SuperBuilder
 public class AWSAccount {
+    @Setter
+    private String tenant;
     // Use different json field name to match property from API Response
     @JsonProperty("accountID")
     private final String accountId;
@@ -37,7 +40,8 @@ public class AWSAccount {
     @Builder.Default
     private final Set<String> regions = new TreeSet<>();
 
-    public AWSAccount(String accountId, String accessId, String secretKey, String assumeRole, Set<String> regions) {
-        this(accountId, null, accessId, secretKey, assumeRole, null, false, regions);
+    public AWSAccount(String tenant, String accountId, String accessId, String secretKey, String assumeRole,
+                      Set<String> regions) {
+        this(tenant, accountId, null, accessId, secretKey, assumeRole, null, false, regions);
     }
 }

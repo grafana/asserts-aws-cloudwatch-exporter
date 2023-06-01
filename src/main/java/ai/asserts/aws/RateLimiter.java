@@ -5,60 +5,55 @@
 package ai.asserts.aws;
 
 import ai.asserts.aws.exporter.BasicMetricCollector;
-import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
-import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
-import software.amazon.awssdk.services.config.ConfigClient;
-import software.amazon.awssdk.services.ecs.EcsClient;
-import software.amazon.awssdk.services.lambda.LambdaClient;
-import software.amazon.awssdk.services.resourcegroupstaggingapi.ResourceGroupsTaggingApiClient;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
 
 import static ai.asserts.aws.MetricNameUtil.ASSERTS_ERROR_TYPE;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 @Component
 @Slf4j
 @AllArgsConstructor
 public class RateLimiter {
-    private final Semaphore defaultSemaphore = new Semaphore(2);
     private final BasicMetricCollector metricCollector;
 
     private final ThreadLocal<Map<String, Integer>> apiCallCounts = ThreadLocal.withInitial(TreeMap::new);
 
-    private final Map<String, Semaphore> semaphores = new ImmutableMap.Builder<String, Semaphore>()
-            .put(LambdaClient.class.getSimpleName(), new Semaphore(2))
-            .put(EcsClient.class.getSimpleName(), new Semaphore(2))
-            .put(CloudWatchClient.class.getSimpleName(), new Semaphore(2))
-            .put(ResourceGroupsTaggingApiClient.class.getSimpleName(), new Semaphore(2))
-            .put(CloudWatchLogsClient.class.getSimpleName(), new Semaphore(1))
-            .put(ConfigClient.class.getSimpleName(), new Semaphore(1))
-            .build();
+    private final Map<String, Semaphore> semaphores = new LinkedHashMap<>();
 
     public <K extends AWSAPICall<V>, V> V doWithRateLimit(String api, SortedMap<String, String> labels, K k) {
-        Semaphore theSemaphore = semaphores.getOrDefault(api.split("/")[0], defaultSemaphore);
+        String accountId = labels.get(SCRAPE_ACCOUNT_ID_LABEL);
+        String region = labels.get(SCRAPE_REGION_LABEL);
+        String clientType = api.split("/")[0];
+        String regionKey = accountId + "/" + region;
+        String fullKey = regionKey + "/" + clientType;
+        Semaphore theSemaphore = semaphores.computeIfAbsent(fullKey, s -> new Semaphore(2));
         long tick = System.currentTimeMillis();
         try {
             theSemaphore.acquire();
             Map<String, Integer> callCounts = apiCallCounts.get();
             String operationName = labels.getOrDefault(SCRAPE_OPERATION_LABEL, "unknown");
-            Integer count = callCounts.getOrDefault(operationName, 0);
+            String callCountKey = regionKey + "/" + operationName;
+            Integer count = callCounts.getOrDefault(callCountKey, 0);
             count++;
-            callCounts.put(operationName, count);
+            callCounts.put(callCountKey, count);
             tick = System.currentTimeMillis();
             return k.makeCall();
         } catch (Throwable e) {
             log.error("Exception", e);
-            log.info("AWS API Call Counts {}", apiCallCounts.get());
             SortedMap<String, String> errorLabels = new TreeMap<>(labels);
             errorLabels.put(ASSERTS_ERROR_TYPE, e.getClass().getSimpleName());
             metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
@@ -74,10 +69,16 @@ public class RateLimiter {
         try {
             runnable.run();
         } finally {
-            Map<String, Integer> callCounts = apiCallCounts.get();
-            log.info("AWS API Call Counts {}", callCounts);
-            callCounts.clear();
+            logAPICallCountsAndClear();
         }
+    }
+
+    public void logAPICallCountsAndClear() {
+        log.info("AWS API Call Counts \n\n{}\n",
+                apiCallCounts.get().entrySet().stream()
+                        .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
+                        .collect(joining("\n")));
+        apiCallCounts.get().clear();
     }
 
     public interface AWSAPICall<V> {

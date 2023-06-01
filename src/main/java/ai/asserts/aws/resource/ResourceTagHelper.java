@@ -5,16 +5,14 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import io.micrometer.core.instrument.util.StringUtils;
 import lombok.Builder;
@@ -62,35 +60,14 @@ public class ResourceTagHelper {
     private final LoadingCache<Key, Set<Resource>> resourceCache;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RateLimiter rateLimiter;
-    private final TagUtil tagUtil;
-    private final Map<String, Set<String>> configServiceToServiceNames = new TreeMap<>();
 
     public ResourceTagHelper(ScrapeConfigProvider scrapeConfigProvider,
                              AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
-                             RateLimiter rateLimiter, TagUtil tagUtil) {
+                             RateLimiter rateLimiter) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
-        this.tagUtil = tagUtil;
-
-        configServiceToServiceNames.put("AWS::SQS::Queue", ImmutableSet.of("sqs:queue"));
-        configServiceToServiceNames.put("AWS::DynamoDB::Table", ImmutableSet.of("dynamodb:table"));
-        configServiceToServiceNames.put("AWS::Lambda::Function", ImmutableSet.of("lambda:function"));
-        configServiceToServiceNames.put("AWS::S3::Bucket", ImmutableSet.of("s3:bucket"));
-        configServiceToServiceNames.put("AWS::SNS::Topic", ImmutableSet.of("sns:topic"));
-        configServiceToServiceNames.put("AWS::ECS::Cluster", ImmutableSet.of("ecs:cluster"));
-        configServiceToServiceNames.put("AWS::ECS::Service", ImmutableSet.of("ecs:service"));
-        configServiceToServiceNames.put("AWS::ElasticLoadBalancingV2::LoadBalancer",
-                ImmutableSet.of("elasticloadbalancing:loadbalancer/app", "elasticloadbalancing:loadbalancer/net"));
-        configServiceToServiceNames.put("AWS::ElasticLoadBalancing::LoadBalancer",
-                ImmutableSet.of("elasticloadbalancing:loadbalancer"));
-        configServiceToServiceNames.put("AWS::RDS::DBCluster", ImmutableSet.of("rds:cluster"));
-        configServiceToServiceNames.put("AWS::RDS::DBInstance", ImmutableSet.of("rds:db"));
-        configServiceToServiceNames.put("AWS::ApiGateway::RestApi", ImmutableSet.of("apigateway:restapi"));
-        configServiceToServiceNames.put("AWS::ApiGatewayV2::Api", ImmutableSet.of("apigateway:api"));
-        configServiceToServiceNames.put("AWS::EC2::Instance", ImmutableSet.of("ec2:instance"));
-        configServiceToServiceNames.put("AWS::Kinesis::Stream", ImmutableSet.of("kinesis:stream"));
 
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         resourceCache = CacheBuilder.newBuilder()
@@ -123,10 +100,10 @@ public class ResourceTagHelper {
                         .map(type -> format("%s:%s", cwNamespace.getServiceNameForTagApi(), type))
                         .collect(Collectors.toSet());
                 builder = builder.resourceTypeFilters(resourceTypeFilters);
-                log.info("Applying resource type filters {}", resourceTypeFilters);
+                log.debug("Applying resource type filters {}", resourceTypeFilters);
             } else {
                 builder = builder.resourceTypeFilters(cwNamespace.getServiceNameForTagApi());
-                log.info("Applying resource type filters {}", cwNamespace.getServiceNameForTagApi());
+                log.debug("Applying resource type filters {}", cwNamespace.getServiceNameForTagApi());
             }
 
             if (key.getNamespace().hasTagFilters()) {
@@ -144,12 +121,14 @@ public class ResourceTagHelper {
                     SCRAPE_OPERATION_LABEL, "ResourceGroupsTaggingApiClient/getResources"
             );
             resources.addAll(getResourcesWithTag(key.accountRegion, key.region, labels, builder));
-            log.info("Found {}", resources.stream()
-                    .collect(groupingBy(Resource::getType))
-                    .entrySet()
-                    .stream()
-                    .map(entry -> format("%d %s(s)", entry.getValue().size(), entry.getKey().name()))
-                    .collect(joining(", ")));
+            if (resources.size() > 0) {
+                log.info("Found {}", resources.stream()
+                        .collect(groupingBy(Resource::getType))
+                        .entrySet()
+                        .stream()
+                        .map(entry -> format("%d %s(s)", entry.getValue().size(), entry.getKey().name()))
+                        .collect(joining(", ")));
+            }
         });
         return resources;
     }

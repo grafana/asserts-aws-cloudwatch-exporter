@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
@@ -53,7 +55,6 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
     private MetricSampleBuilder metricSampleBuilder;
     private MetricFamilySamples metricFamilySamples;
     private Sample sample;
-    private CollectorRegistry collectorRegistry;
     private TagUtil tagUtil;
     private LBToASGRelationBuilder testClass;
 
@@ -69,18 +70,19 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
         accountProvider = mock(AccountProvider.class);
         metricSampleBuilder = mock(MetricSampleBuilder.class);
-        collectorRegistry = mock(CollectorRegistry.class);
+        CollectorRegistry collectorRegistry = mock(CollectorRegistry.class);
         metricFamilySamples = mock(MetricFamilySamples.class);
         sample = mock(Sample.class);
         tagUtil = mock(TagUtil.class);
         testClass = new LBToASGRelationBuilder(awsClientProvider, resourceMapper,
                 targetGroupLBMapProvider, new RateLimiter(metricCollector),
-                accountProvider, metricSampleBuilder, collectorRegistry, tagUtil);
+                accountProvider, metricSampleBuilder, collectorRegistry, tagUtil,
+                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
     }
 
     @Test
     void updateRouting() {
-        AWSAccount awsAccount = new AWSAccount("123123123", "accessId", "secretKey", "role", ImmutableSet.of("region"));
+        AWSAccount awsAccount = new AWSAccount("tenant", "123123123", "accessId", "secretKey", "role", ImmutableSet.of("region"));
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(awsClientProvider.getAutoScalingClient("region", awsAccount)).andReturn(autoScalingClient);
         expect(autoScalingClient.describeAutoScalingGroups()).andReturn(DescribeAutoScalingGroupsResponse.builder()

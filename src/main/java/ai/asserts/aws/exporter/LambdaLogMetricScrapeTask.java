@@ -3,6 +3,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.LogScrapeConfig;
@@ -44,19 +45,21 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
     private final LambdaFunctionScraper lambdaFunctionScraper;
     private final LogEventScraper logEventScraper;
     private final LogEventMetricEmitter logEventMetricEmitter;
+    private final TenantUtil tenantUtil;
 
     private volatile Map<FunctionLogScrapeConfig, FilteredLogEvent> cache;
 
     public LambdaLogMetricScrapeTask(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                      ScrapeConfigProvider scrapeConfigProvider,
                                      LambdaFunctionScraper lambdaFunctionScraper, LogEventScraper logEventScraper,
-                                     LogEventMetricEmitter logEventMetricEmitter) {
+                                     LogEventMetricEmitter logEventMetricEmitter, TenantUtil tenantUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.lambdaFunctionScraper = lambdaFunctionScraper;
         this.logEventScraper = logEventScraper;
         this.logEventMetricEmitter = logEventMetricEmitter;
+        this.tenantUtil = tenantUtil;
         this.cache = new HashMap<>();
     }
 
@@ -97,8 +100,11 @@ public class LambdaLogMetricScrapeTask extends Collector implements MetricProvid
                         byAccountByRegion.containsKey(account)) {
                     log.info("BEGIN lambda log scrape for account {}", account);
                     Map<String, Map<String, LambdaFunction>> byRegion = byAccountByRegion.get(account);
-                    accountRegion.getRegions().forEach(region -> scrapeLogs(accountRegion, map, scrapeConfig, nc,
-                            byRegion, region));
+                    accountRegion.getRegions().forEach(region ->
+                            tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> scrapeLogs(accountRegion, map,
+                                    scrapeConfig,
+                                    nc,
+                                    byRegion, region)));
                 } else {
                     log.info("No functions found for account {}", account);
                 }

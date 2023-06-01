@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -49,8 +51,8 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
     private final AccountProvider accountProvider;
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
-
     private final TagUtil tagUtil;
+    private final TenantUtil tenantUtil;
     @Getter
     private volatile Set<ResourceRelation> routingConfigs = new HashSet<>();
     private volatile List<MetricFamilySamples> asgResourceMetrics = new ArrayList<>();
@@ -59,7 +61,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                                   ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider,
                                   RateLimiter rateLimiter, AccountProvider accountProvider,
                                   MetricSampleBuilder metricSampleBuilder, CollectorRegistry collectorRegistry,
-                                  TagUtil tagUtil) {
+                                  TagUtil tagUtil, TenantUtil tenantUtil) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
@@ -68,6 +70,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         this.metricSampleBuilder = metricSampleBuilder;
         this.collectorRegistry = collectorRegistry;
         this.tagUtil = tagUtil;
+        this.tenantUtil = tenantUtil;
     }
 
     @Override
@@ -85,8 +88,10 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         Set<ResourceRelation> newConfigs = new HashSet<>();
         List<MetricFamilySamples> newMetrics = new ArrayList<>();
         List<Sample> samples = new ArrayList<>();
+        List<Future<?>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            accountRegion.getRegions().forEach(region -> {
+            accountRegion.getRegions().forEach(region ->
+                    futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
                 try {
                     AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion);
                     DescribeAutoScalingGroupsResponse resp = rateLimiter.doWithRateLimit(
@@ -157,13 +162,12 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                 } catch (Exception e) {
                     log.error("Failed to build LB to ASG relationship for " + accountRegion, e);
                 }
-            });
+            })));
         }
-
+        tenantUtil.awaitAll(futures);
         if (samples.size() > 0) {
             metricSampleBuilder.buildFamily(samples).ifPresent(newMetrics::add);
         }
-
         routingConfigs = newConfigs;
         asgResourceMetrics = newMetrics;
     }

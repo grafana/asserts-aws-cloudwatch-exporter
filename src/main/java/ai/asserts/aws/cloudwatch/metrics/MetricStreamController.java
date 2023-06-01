@@ -8,6 +8,7 @@ import ai.asserts.aws.ApiAuthenticator;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.account.AccountTenantMapper;
 import ai.asserts.aws.cloudwatch.alarms.FirehoseEventRequest;
 import ai.asserts.aws.cloudwatch.alarms.RecordData;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -50,8 +51,8 @@ public class MetricStreamController {
     private final BasicMetricCollector metricCollector;
     private final MetricNameUtil metricNameUtil;
     private final ApiAuthenticator apiAuthenticator;
-
     private final ScrapeConfigProvider scrapeConfigProvider;
+    private final AccountTenantMapper accountTenantMapper;
 
     @PostMapping(
             path = METRICS,
@@ -213,9 +214,12 @@ public class MetricStreamController {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         SortedMap<String, String> metricMap = new TreeMap<>();
         String metricNamespace = metric.getNamespace();
-        metricMap.put("namespace", metricNamespace);
-        metricMap.put("region", metric.getRegion());
+
+        metricMap.put("tenant", accountTenantMapper.getTenantName(metric.getAccount_id()));
         metricMap.put("account_id", metric.getAccount_id());
+        metricMap.put("region", metric.getRegion());
+        metricMap.put("namespace", metricNamespace);
+
         if (!CollectionUtils.isEmpty(metric.getDimensions())) {
             metric.getDimensions().forEach((k, v) -> metricMap.put(metricNameUtil.toSnakeCase(k), v));
         }

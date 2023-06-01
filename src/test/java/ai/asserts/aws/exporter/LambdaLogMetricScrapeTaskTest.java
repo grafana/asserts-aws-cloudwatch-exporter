@@ -2,6 +2,9 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.ScrapeConfigProvider;
@@ -50,12 +53,11 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         region = "region1";
-        accountRegion = new AWSAccount("account", "", "", "role",
+        accountRegion = new AWSAccount("acme", "account", "", "", "role",
                 ImmutableSet.of(region));
 
         logScrapeConfig = mock(LogScrapeConfig.class);
         lambdaFunction = mock(LambdaFunction.class);
-
         accountProvider = mock(AccountProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
@@ -64,13 +66,13 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
         logEventScraper = mock(LogEventScraper.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         logEventMetricEmitter = mock(LogEventMetricEmitter.class);
-
+        BasicMetricCollector basicMetricCollector = mock(BasicMetricCollector.class);
         scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
 
-
         testClass = new LambdaLogMetricScrapeTask(accountProvider, awsClientProvider, scrapeConfigProvider,
-                lambdaFunctionScraper, logEventScraper, logEventMetricEmitter);
+                lambdaFunctionScraper, logEventScraper, logEventMetricEmitter,
+                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector)));
     }
 
     @Test
@@ -91,11 +93,12 @@ public class LambdaLogMetricScrapeTaskTest extends EasyMockSupport {
                 .build();
         expect(logEventScraper.findLogEvent(cloudWatchLogsClient, lambdaFunction, logScrapeConfig))
                 .andReturn(Optional.of(filteredLogEvent));
-        expect(logEventMetricEmitter.getSample(namespaceConfig, LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
-                .account(accountRegion)
-                .lambdaFunction(lambdaFunction)
-                .logScrapeConfig(logScrapeConfig)
-                .build(), filteredLogEvent)).andReturn(Optional.of(sample));
+        expect(logEventMetricEmitter.getSample(namespaceConfig,
+                LambdaLogMetricScrapeTask.FunctionLogScrapeConfig.builder()
+                        .account(accountRegion)
+                        .lambdaFunction(lambdaFunction)
+                        .logScrapeConfig(logScrapeConfig)
+                        .build(), filteredLogEvent)).andReturn(Optional.of(sample));
         replayAll();
         testClass.update();
         assertEquals(ImmutableList.of(

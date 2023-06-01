@@ -141,7 +141,7 @@ public class ECSTaskUtil {
                     labelsBuilder.availabilityZone(task.availabilityZone());
                     String jobName = cD.name();
                     if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
-                        log.info("Found prometheus port={}, path={} from docker labels for container {}/{}",
+                        log.debug("Found prometheus port={}, path={} from docker labels for container {}/{}",
                                 portFromLabel.get(),
                                 pathFromLabel.get(),
                                 taskDefinition.taskDefinitionArn(),
@@ -177,7 +177,7 @@ public class ECSTaskUtil {
         List<StaticConfig> targets = targetsByLabel.values().stream()
                 .filter(config -> config.getTargets().size() > 0)
                 .collect(Collectors.toList());
-        log.info("Discovered targets for task {}, {}", task.taskArn(), targets);
+        log.debug("Discovered targets for task {}, {}", task.taskArn(), targets);
         return targets;
     }
 

@@ -59,7 +59,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account", "", "", "role",
+        accountRegion = new AWSAccount("tenant", "account", "", "", "role",
                 ImmutableSet.of("role1"));
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);

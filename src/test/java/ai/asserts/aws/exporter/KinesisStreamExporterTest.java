@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
@@ -47,12 +49,13 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples familySamples;
     private KinesisClient kinesisClient;
     private ResourceTagHelper resourceTagHelper;
+    private BasicMetricCollector basicMetricCollector;
     private TagUtil tagUtil;
     private KinesisStreamExporter testClass;
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account1", "", "",
+        accountRegion = new AWSAccount("tenant", "account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
@@ -66,7 +69,8 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
         tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new KinesisStreamExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, resourceTagHelper, tagUtil);
+                sampleBuilder, resourceTagHelper, tagUtil, new TenantUtil(new TestTaskThreadPool(),
+                new RateLimiter(basicMetricCollector)));
     }
 
     @Test

@@ -1,0 +1,55 @@
+/*
+ *  Copyright © 2020.
+ *  Asserts, Inc. - All Rights Reserved
+ */
+package ai.asserts.aws;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+@Component
+@Slf4j
+public class TenantUtil {
+    private final TaskThreadPool taskThreadPool;
+
+    private final RateLimiter rateLimiter;
+    private static final ThreadLocal<String> tenantName = new ThreadLocal<>();
+
+
+    public TenantUtil(@Qualifier("aws-api-calls-thread-pool") TaskThreadPool taskThreadPool, RateLimiter rateLimiter) {
+        this.taskThreadPool = taskThreadPool;
+        this.rateLimiter = rateLimiter;
+    }
+
+    public Future<?> executeTenantTask(String tenant, Runnable runnable) {
+        return taskThreadPool.getExecutorService().submit(() -> {
+            tenantName.set(tenant);
+            try {
+                rateLimiter.runTask(runnable);
+            } finally {
+                tenantName.remove();
+            }
+        });
+    }
+
+    public void awaitAll(List<Future<?>> futures) {
+        futures.forEach(f -> {
+            try {
+                f.get(30, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                log.error("AWS API call error ", e);
+            }
+        });
+    }
+
+    public String getTenant() {
+        return tenantName.get();
+    }
+}

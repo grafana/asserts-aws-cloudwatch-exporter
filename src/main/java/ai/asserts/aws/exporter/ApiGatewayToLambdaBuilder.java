@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,6 +55,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
     private final MetricNameUtil metricNameUtil;
+    private final TenantUtil tenantUtil;
     private final Pattern LAMBDA_URI_PATTERN = Pattern.compile(
             "arn:aws:apigateway:(.+?):lambda:path/.+?/functions/arn:aws:lambda:(.+?):(.+?):function:(.+)/invocations");
 
@@ -63,13 +66,15 @@ public class ApiGatewayToLambdaBuilder extends Collector
     public ApiGatewayToLambdaBuilder(AWSClientProvider awsClientProvider,
                                      RateLimiter rateLimiter, AccountProvider accountProvider,
                                      MetricSampleBuilder metricSampleBuilder,
-                                     CollectorRegistry collectorRegistry, MetricNameUtil metricNameUtil) {
+                                     CollectorRegistry collectorRegistry, MetricNameUtil metricNameUtil,
+                                     TenantUtil tenantUtil) {
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
         this.accountProvider = accountProvider;
         this.metricSampleBuilder = metricSampleBuilder;
         this.collectorRegistry = collectorRegistry;
         this.metricNameUtil = metricNameUtil;
+        this.tenantUtil = tenantUtil;
     }
 
     @Override
@@ -88,50 +93,56 @@ public class ApiGatewayToLambdaBuilder extends Collector
         List<MetricFamilySamples> newMetrics = new ArrayList<>();
         List<Sample> samples = new ArrayList<>();
         try {
+            List<Future<?>> futures = new ArrayList<>();
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-                accountRegion.getRegions().forEach(region -> {
-                    try {
-                        ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, accountRegion);
-                        SortedMap<String, String> labels = new TreeMap<>();
-                        String getRestApis = "ApiGatewayClient/getRestApis";
-                        labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
-                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
-                        labels.put(SCRAPE_REGION_LABEL, region);
-                        GetRestApisResponse restApis =
-                                rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
-                        if (restApis.hasItems()) {
-                            restApis.items().forEach(restApi -> {
-                                String getResources = "ResourceGroupsTaggingApiClient/getResources";
-                                labels.put(SCRAPE_OPERATION_LABEL, getResources);
-                                GetResourcesResponse resources = rateLimiter.doWithRateLimit(getResources, labels,
-                                        () -> client.getResources(GetResourcesRequest.builder()
-                                                .restApiId(restApi.id())
-                                                .build()));
-                                if (resources.hasItems()) {
-                                    resources.items().forEach(resource -> {
-                                        captureIntegrations(client, newIntegrations, accountRegion.getAccountId(),
-                                                labels, region, restApi, resource);
-                                        Map<String, String> apiResourceLabels = new TreeMap<>();
-                                        apiResourceLabels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
-                                        apiResourceLabels.put(SCRAPE_REGION_LABEL, region);
-                                        apiResourceLabels.put("aws_resource_type", "AWS::ApiGateway::RestApi");
-                                        apiResourceLabels.put("namespace", "AWS/ApiGateway");
-                                        apiResourceLabels.put("name", restApi.name());
-                                        apiResourceLabels.put("id", restApi.id());
-                                        apiResourceLabels.put("job", restApi.name());
-                                        restApi.tags().forEach((key, value) -> apiResourceLabels.put(
-                                                "tag_" + metricNameUtil.toSnakeCase(key), value));
-                                        metricSampleBuilder.buildSingleSample("aws_resource",
-                                                apiResourceLabels, 1.0d).ifPresent(samples::add);
+                accountRegion.getRegions().forEach(region ->
+                        futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
+                            try {
+                                ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, accountRegion);
+                                SortedMap<String, String> labels = new TreeMap<>();
+                                String getRestApis = "ApiGatewayClient/getRestApis";
+                                labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
+                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
+                                labels.put(SCRAPE_REGION_LABEL, region);
+                                GetRestApisResponse restApis =
+                                        rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
+                                if (restApis.hasItems()) {
+                                    restApis.items().forEach(restApi -> {
+                                        String getResources = "ResourceGroupsTaggingApiClient/getResources";
+                                        labels.put(SCRAPE_OPERATION_LABEL, getResources);
+                                        GetResourcesResponse resources =
+                                                rateLimiter.doWithRateLimit(getResources, labels,
+                                                        () -> client.getResources(GetResourcesRequest.builder()
+                                                                .restApiId(restApi.id())
+                                                                .build()));
+                                        if (resources.hasItems()) {
+                                            resources.items().forEach(resource -> {
+                                                captureIntegrations(client, newIntegrations,
+                                                        accountRegion.getAccountId(),
+                                                        labels, region, restApi, resource);
+                                                Map<String, String> apiResourceLabels = new TreeMap<>();
+                                                apiResourceLabels.put(SCRAPE_ACCOUNT_ID_LABEL,
+                                                        accountRegion.getAccountId());
+                                                apiResourceLabels.put(SCRAPE_REGION_LABEL, region);
+                                                apiResourceLabels.put("aws_resource_type", "AWS::ApiGateway::RestApi");
+                                                apiResourceLabels.put("namespace", "AWS/ApiGateway");
+                                                apiResourceLabels.put("name", restApi.name());
+                                                apiResourceLabels.put("id", restApi.id());
+                                                apiResourceLabels.put("job", restApi.name());
+                                                restApi.tags().forEach((key, value) -> apiResourceLabels.put(
+                                                        "tag_" + metricNameUtil.toSnakeCase(key), value));
+                                                metricSampleBuilder.buildSingleSample("aws_resource",
+                                                        apiResourceLabels, 1.0d).ifPresent(samples::add);
+                                            });
+                                        }
                                     });
                                 }
-                            });
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to discover lambda integrations for " + accountRegion, e);
-                    }
-                });
+                            } catch (Exception e) {
+                                log.error("Failed to discover lambda integrations for " + accountRegion, e);
+                            }
+                        })));
             }
+            tenantUtil.awaitAll(futures);
         } catch (Exception e) {
             log.error("Failed to discover lambda integrations", e);
         }
@@ -165,7 +176,9 @@ public class ApiGatewayToLambdaBuilder extends Collector
                     Matcher matcher = LAMBDA_URI_PATTERN.matcher(uri);
                     if (matcher.matches()) {
                         ResourceRelation resourceRelation = ResourceRelation.builder()
+                                .tenant(tenantUtil.getTenant())
                                 .from(Resource.builder()
+                                        .tenant(tenantUtil.getTenant())
                                         .type(ApiGateway)
                                         .name(restApi.name())
                                         .id(restApi.id())
@@ -173,6 +186,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
                                         .account(accountId)
                                         .build())
                                 .to(Resource.builder()
+                                        .tenant(tenantUtil.getTenant())
                                         .type(LambdaFunction)
                                         .name(matcher.group(4))
                                         .region(matcher.group(2))

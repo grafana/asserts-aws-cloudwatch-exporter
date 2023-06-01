@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -57,8 +58,8 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
     private final ECSClusterProvider ecsClusterProvider;
     private final ECSTaskUtil ecsTaskUtil;
     private final MetricSampleBuilder sampleBuilder;
-
     private final CollectorRegistry collectorRegistry;
+    private final TenantUtil tenantUtil;
 
     @Getter
     @VisibleForTesting
@@ -67,7 +68,8 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
     public ECSTaskProvider(AWSClientProvider awsClientProvider, ScrapeConfigProvider scrapeConfigProvider,
                            AccountProvider accountProvider, RateLimiter rateLimiter, ResourceMapper resourceMapper,
                            ECSClusterProvider ecsClusterProvider, ECSTaskUtil ecsTaskUtil,
-                           MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry) {
+                           MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,
+                           TenantUtil tenantUtil) {
         this.awsClientProvider = awsClientProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.accountProvider = accountProvider;
@@ -77,6 +79,7 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
         this.ecsTaskUtil = ecsTaskUtil;
         this.sampleBuilder = sampleBuilder;
         this.collectorRegistry = collectorRegistry;
+        this.tenantUtil = tenantUtil;
     }
 
     @Override

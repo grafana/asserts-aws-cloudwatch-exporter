@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.MetricStat;
@@ -43,7 +44,9 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         labelBuilder = mock(LabelBuilder.class);
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
-        testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder, scrapeConfigProvider);
+        TenantUtil tenantUtil = mock(TenantUtil.class);
+        testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder, scrapeConfigProvider, tenantUtil);
+        expect(tenantUtil.getTenant()).andReturn("acme").anyTimes();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
     }
 
@@ -71,8 +74,8 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
                         .timestamps(instant, instant.plusSeconds(60))
                         .values(1.0D, 2.0D)
                         .build());
-        List<String> labelNames = Arrays.asList("label1", "label2");
-        List<String> labelValues = Arrays.asList("value1", "value2");
+        List<String> labelNames = Arrays.asList("label1", "label2", "tenant");
+        List<String> labelValues = Arrays.asList("value1", "value2", "acme");
         assertEquals(ImmutableList.of(
                 new Sample("metric", labelNames, labelValues, 1.0D),
                 new Sample("metric", labelNames, labelValues, 2.0D)
@@ -82,8 +85,8 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
 
     @Test
     void buildSingleSample() {
-        List<String> labelNames = Arrays.asList("label1", "label2");
-        List<String> labelValues = Arrays.asList("value1", "value2");
+        List<String> labelNames = Arrays.asList("label1", "label2", "tenant");
+        List<String> labelValues = Arrays.asList("value1", "value2", "acme");
         SortedMap<String, String> labels = new TreeMap<>(
                 ImmutableSortedMap.of("label1", "value1", "label2", "value2"));
         expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
@@ -101,7 +104,7 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
     @Test
     void buildSingleSample_DropMetric() {
         SortedMap<String, String> labels = new TreeMap<>(
-                ImmutableSortedMap.of("label1", "value1", "label2", "value2"));
+                ImmutableSortedMap.of("label1", "value1", "label2", "value2", "tenant", "acme"));
         expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
         expect(scrapeConfig.keepMetric("metric", labels)).andReturn(false);
         replayAll();

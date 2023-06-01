@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import com.google.common.collect.ImmutableList;
@@ -51,6 +53,7 @@ public class EMRExporterTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         account = AWSAccount.builder()
+                .tenant("acme")
                 .accountId("account-id")
                 .regions(ImmutableSet.of("region"))
                 .build();
@@ -63,7 +66,8 @@ public class EMRExporterTest extends EasyMockSupport {
         sample = mock(Sample.class);
         emrClient = mock(EmrClient.class);
         emrExporter = new EMRExporter(accountProvider, awsClientProvider, collectorRegistry,
-                new RateLimiter(basicMetricCollector), metricSampleBuilder);
+                new RateLimiter(basicMetricCollector), metricSampleBuilder,
+                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector)));
     }
 
     @Test

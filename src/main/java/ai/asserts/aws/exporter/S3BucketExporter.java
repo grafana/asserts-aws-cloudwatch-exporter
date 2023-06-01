@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -39,16 +41,15 @@ public class S3BucketExporter extends Collector implements InitializingBean {
     private final AWSClientProvider awsClientProvider;
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
-
     private final ResourceTagHelper resourceTagHelper;
-
     private final TagUtil tagUtil;
+    private final TenantUtil tenantUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public S3BucketExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
             RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceTagHelper resourceTagHelper,
-            TagUtil tagUtil) {
+            TagUtil tagUtil, TenantUtil tenantUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -56,6 +57,7 @@ public class S3BucketExporter extends Collector implements InitializingBean {
         this.sampleBuilder = sampleBuilder;
         this.resourceTagHelper = resourceTagHelper;
         this.tagUtil = tagUtil;
+        this.tenantUtil = tenantUtil;
     }
 
     @Override
@@ -72,43 +74,47 @@ public class S3BucketExporter extends Collector implements InitializingBean {
         log.info("Exporting S3 Bucket Resources");
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try {
-                S3Client client = awsClientProvider.getS3Client(region, account);
-                String api = "S3Client/listBuckets";
-                ListBucketsResponse resp = rateLimiter.doWithRateLimit(
-                        api, ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
-                                SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, api
-                        ), client::listBuckets);
-                if (resp.hasBuckets()) {
-                    Map<String, Resource> byName =
-                            resourceTagHelper.getResourcesWithTag(account, region, "s3:bucket",
-                                    resp.buckets().stream().map(Bucket::name).collect(Collectors.toList()));
-                    samples.addAll(resp.buckets().stream()
-                            .map(bucket -> {
-                                Map<String, String> labels = new TreeMap<>();
-                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
-                                labels.put(SCRAPE_REGION_LABEL, region);
-                                labels.put("aws_resource_type", "AWS::S3::Bucket");
-                                labels.put("job", bucket.name());
-                                labels.put("name", bucket.name());
-                                labels.put("id", bucket.name());
-                                labels.put("namespace", "AWS/S3");
-                                if (byName.containsKey(bucket.name())) {
-                                    labels.putAll(tagUtil.tagLabels(byName.get(bucket.name()).getTags()));
-                                }
-                                return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
-                            })
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(Collectors.toList()));
-                }
-            } catch (Exception e) {
-                log.error("Error " + account, e);
-            }
-        }));
+        List<Future<?>> futures = new ArrayList<>();
+        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
+                futures.add(tenantUtil.executeTenantTask(account.getTenant(), () -> {
+                    try {
+                        S3Client client = awsClientProvider.getS3Client(region, account);
+                        String api = "S3Client/listBuckets";
+                        ListBucketsResponse resp = rateLimiter.doWithRateLimit(
+                                api, ImmutableSortedMap.of(
+                                        SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
+                                        SCRAPE_REGION_LABEL, region,
+                                        SCRAPE_OPERATION_LABEL, api
+                                ), client::listBuckets);
+                        if (resp.hasBuckets()) {
+                            Map<String, Resource> byName =
+                                    resourceTagHelper.getResourcesWithTag(account, region, "s3:bucket",
+                                            resp.buckets().stream().map(Bucket::name).collect(Collectors.toList()));
+                            List<MetricFamilySamples.Sample> regionSamples = resp.buckets().stream()
+                                    .map(bucket -> {
+                                        Map<String, String> labels = new TreeMap<>();
+                                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
+                                        labels.put(SCRAPE_REGION_LABEL, region);
+                                        labels.put("aws_resource_type", "AWS::S3::Bucket");
+                                        labels.put("job", bucket.name());
+                                        labels.put("name", bucket.name());
+                                        labels.put("id", bucket.name());
+                                        labels.put("namespace", "AWS/S3");
+                                        if (byName.containsKey(bucket.name())) {
+                                            labels.putAll(tagUtil.tagLabels(byName.get(bucket.name()).getTags()));
+                                        }
+                                        return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                                    })
+                                    .filter(Optional::isPresent)
+                                    .map(Optional::get)
+                                    .collect(Collectors.toList());
+                            samples.addAll(regionSamples);
+                        }
+                    } catch (Throwable e) {
+                        log.error("Error " + account, e);
+                    }
+                }))));
+        tenantUtil.awaitAll(futures);
         sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }

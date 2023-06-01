@@ -90,7 +90,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
                 SCRAPE_OPERATION_LABEL, "ElasticLoadBalancingV2Client/describeLoadBalancers"
         );
 
-        awsAccount = new AWSAccount("account", "", "", "role",
+        awsAccount = new AWSAccount("tenant", "account", "", "", "role",
                 ImmutableSet.of("region"));
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).anyTimes();
     }

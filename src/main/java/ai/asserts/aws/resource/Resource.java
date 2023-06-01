@@ -39,6 +39,7 @@ public class Resource {
     private final String name;
     private final String region;
     private final String account;
+    private final String tenant;
 
     /**
      * Some ARNs have version of the resource. See {@link ResourceMapper#LAMBDA_ARN_PATTERN}
@@ -75,7 +76,9 @@ public class Resource {
 
     public void addLabels(Map<String, String> labels, String prefix) {
         prefix = StringUtils.hasLength(prefix) ? prefix + "_" : "";
-
+        if (tenant != null) {
+            labels.put("tenant", tenant);
+        }
         if (account != null) {
             labels.put(format("%saccount", prefix), account);
         }

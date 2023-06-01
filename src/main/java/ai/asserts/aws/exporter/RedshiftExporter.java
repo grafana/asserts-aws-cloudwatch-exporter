@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -38,17 +40,19 @@ public class RedshiftExporter extends Collector implements InitializingBean {
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final TagUtil tagUtil;
+    private final TenantUtil tenantUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public RedshiftExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TagUtil tagUtil) {
+            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TagUtil tagUtil, TenantUtil tenantUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
         this.tagUtil = tagUtil;
+        this.tenantUtil = tenantUtil;
     }
 
     @Override
@@ -65,42 +69,45 @@ public class RedshiftExporter extends Collector implements InitializingBean {
         log.info("Exporting Redshift Clusters");
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try {
-                RedshiftClient client = awsClientProvider.getRedshiftClient(region, account);
-                String api = "RedshiftClient/describeClusters";
-                DescribeClustersResponse resp = rateLimiter.doWithRateLimit(
-                        api, ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
-                                SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, api
-                        ), client::describeClusters);
-                if (resp.hasClusters()) {
-                    samples.addAll(resp.clusters().stream()
-                            .map(cluster -> {
-                                Map<String, String> labels = new TreeMap<>();
-                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
-                                labels.put(SCRAPE_REGION_LABEL, region);
-                                labels.put("namespace", "AWS/Redshift");
-                                labels.put("aws_resource_type", "AWS::Redshift::Cluster");
-                                labels.put("job", cluster.clusterIdentifier());
-                                labels.put("name", cluster.clusterIdentifier());
-                                labels.put("id", cluster.clusterIdentifier());
-                                labels.putAll(tagUtil.tagLabels(cluster.tags()
-                                        .stream()
-                                        .map(t -> Tag.builder().key(t.key()).value(t.value()).build())
-                                        .collect(Collectors.toList())
-                                ));
-                                return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
-                            })
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(Collectors.toList()));
-                }
-            } catch (Exception e) {
-                log.error("Error:" + account, e);
-            }
-        }));
+        List<Future<?>> futures = new ArrayList<>();
+        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
+                futures.add(tenantUtil.executeTenantTask(account.getTenant(), () -> {
+                    try {
+                        RedshiftClient client = awsClientProvider.getRedshiftClient(region, account);
+                        String api = "RedshiftClient/describeClusters";
+                        DescribeClustersResponse resp = rateLimiter.doWithRateLimit(
+                                api, ImmutableSortedMap.of(
+                                        SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
+                                        SCRAPE_REGION_LABEL, region,
+                                        SCRAPE_OPERATION_LABEL, api
+                                ), client::describeClusters);
+                        if (resp.hasClusters()) {
+                            samples.addAll(resp.clusters().stream()
+                                    .map(cluster -> {
+                                        Map<String, String> labels = new TreeMap<>();
+                                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
+                                        labels.put(SCRAPE_REGION_LABEL, region);
+                                        labels.put("namespace", "AWS/Redshift");
+                                        labels.put("aws_resource_type", "AWS::Redshift::Cluster");
+                                        labels.put("job", cluster.clusterIdentifier());
+                                        labels.put("name", cluster.clusterIdentifier());
+                                        labels.put("id", cluster.clusterIdentifier());
+                                        labels.putAll(tagUtil.tagLabels(cluster.tags()
+                                                .stream()
+                                                .map(t -> Tag.builder().key(t.key()).value(t.value()).build())
+                                                .collect(Collectors.toList())
+                                        ));
+                                        return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                                    })
+                                    .filter(Optional::isPresent)
+                                    .map(Optional::get)
+                                    .collect(Collectors.toList()));
+                        }
+                    } catch (Exception e) {
+                        log.error("Error:" + account, e);
+                    }
+                }))));
+        tenantUtil.awaitAll(futures);
         sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }

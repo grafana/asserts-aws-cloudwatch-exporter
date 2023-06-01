@@ -144,6 +144,7 @@ public class ResourceTest extends EasyMockSupport {
     @Test
     public void addLabels() {
         Resource resource = Resource.builder()
+                .tenant("acme")
                 .type(LoadBalancer)
                 .subType("app")
                 .account("123")
@@ -156,6 +157,7 @@ public class ResourceTest extends EasyMockSupport {
         resource.addLabels(labels, "prefix");
 
         SortedMap<String, String> expected = new TreeMap<>();
+        expected.put("tenant", "acme");
         expected.put("prefix_type", "LoadBalancer");
         expected.put("prefix_name", "bucket");
         expected.put("prefix_region", "us-west-2");

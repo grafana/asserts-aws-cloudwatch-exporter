@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -55,6 +57,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private final LambdaFunctionScraper functionScraper;
     private final ResourceTagHelper resourceTagHelper;
     private final RateLimiter rateLimiter;
+    private final TenantUtil tenantUtil;
     private volatile List<MetricFamilySamples> cache;
 
     public LambdaCapacityExporter(AccountProvider accountProvider,
@@ -62,7 +65,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                                   MetricNameUtil metricNameUtil,
                                   MetricSampleBuilder sampleBuilder, LambdaFunctionScraper functionScraper,
                                   ResourceTagHelper resourceTagHelper,
-                                  RateLimiter rateLimiter) {
+                                  RateLimiter rateLimiter, TenantUtil tenantUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -71,6 +74,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         this.functionScraper = functionScraper;
         this.resourceTagHelper = resourceTagHelper;
         this.rateLimiter = rateLimiter;
+        this.tenantUtil = tenantUtil;
         this.cache = new ArrayList<>();
     }
 
@@ -101,21 +105,24 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
 
         Map<String, List<Sample>> samples = new TreeMap<>();
         Map<String, Map<String, Map<String, LambdaFunction>>> byAccountByRegion = functionScraper.getFunctions();
+        List<Future<?>> futures = new ArrayList<>();
         optional.ifPresent(lambdaConfig -> {
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 String account = accountRegion.getAccountId();
                 Map<String, Map<String, LambdaFunction>> byRegion = byAccountByRegion.getOrDefault(account,
                         Collections.emptyMap());
-                byRegion.forEach((region, functions) -> {
+                byRegion.forEach((region, functions) -> futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
+
                     log.info(" - Getting Lambda account and provisioned concurrency for region {}", region);
                     try {
                         LambdaClient lambdaClient = awsClientProvider.getLambdaClient(region, accountRegion);
+                        String getAccountSettings = "LambdaClient/getAccountSettings";
                         GetAccountSettingsResponse accountSettings = rateLimiter.doWithRateLimit(
-                                "LambdaClient/getAccountSettings",
+                                getAccountSettings,
                                 ImmutableSortedMap.of(
                                         SCRAPE_ACCOUNT_ID_LABEL, account,
                                         SCRAPE_REGION_LABEL, region,
-                                        SCRAPE_OPERATION_LABEL, "getAccountSettings",
+                                        SCRAPE_OPERATION_LABEL, getAccountSettings,
                                         SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
                                 ),
                                 lambdaClient::getAccountSettings);
@@ -141,12 +148,13 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                         Set<Resource> fnResources =
                                 resourceTagHelper.getFilteredResources(accountRegion, region, lambdaConfig);
                         functions.forEach((functionArn, lambdaFunction) -> {
+                            String getFunctionConcurrency = "LambdaClient/getFunctionConcurrency";
                             GetFunctionConcurrencyResponse fCResponse =
-                                    rateLimiter.doWithRateLimit("LambdaClient/getFunctionConcurrency",
+                                    rateLimiter.doWithRateLimit(getFunctionConcurrency,
                                             ImmutableSortedMap.of(
                                                     SCRAPE_ACCOUNT_ID_LABEL, account,
                                                     SCRAPE_REGION_LABEL, region,
-                                                    SCRAPE_OPERATION_LABEL, "getFunctionConcurrency",
+                                                    SCRAPE_OPERATION_LABEL, getFunctionConcurrency,
                                                     SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
                                             ), () -> lambdaClient.getFunctionConcurrency(
                                                     GetFunctionConcurrencyRequest.builder()
@@ -196,13 +204,14 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                                             .functionName(lambdaFunction.getName())
                                             .build();
 
+                            String provisionedConcurrency = "LambdaClient/listProvisionedConcurrencyConfigs";
                             ListProvisionedConcurrencyConfigsResponse response =
                                     rateLimiter.doWithRateLimit(
-                                            "LambdaClient/listProvisionedConcurrencyConfigs",
+                                            provisionedConcurrency,
                                             ImmutableSortedMap.of(
                                                     SCRAPE_ACCOUNT_ID_LABEL, account,
                                                     SCRAPE_REGION_LABEL, region,
-                                                    SCRAPE_OPERATION_LABEL, "listProvisionedConcurrencyConfigs",
+                                                    SCRAPE_OPERATION_LABEL, provisionedConcurrency,
                                                     SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"
                                             ),
                                             () -> lambdaClient.listProvisionedConcurrencyConfigs(request));
@@ -239,10 +248,10 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                     } catch (Exception e) {
                         log.error("Failed to get lambda provisioned capacity for region " + region, e);
                     }
-                });
+                })));
             }
         });
-
+        tenantUtil.awaitAll(futures);
         return samples.values().stream()
                 .map(sampleBuilder::buildFamily)
                 .filter(Optional::isPresent)

@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
@@ -77,9 +79,9 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        account1 = new AWSAccount("account1", "", "", "role",
+        account1 = new AWSAccount("tenant", "account1", "", "", "role",
                 ImmutableSet.of("region"));
-        account2 = new AWSAccount("account2", "", "", "role",
+        account2 = new AWSAccount("tenant", "account2", "", "", "role",
                 ImmutableSet.of("region"));
 
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
@@ -101,7 +103,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         testClass = new LambdaCapacityExporter(accountProvider,
                 scrapeConfigProvider, awsClientProvider, metricNameUtil,
-                sampleBuilder, functionScraper, resourceTagHelper, new RateLimiter(metricCollector));
+                sampleBuilder, functionScraper, resourceTagHelper, new RateLimiter(metricCollector),
+                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));

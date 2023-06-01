@@ -7,6 +7,8 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -70,8 +72,9 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         metricNameUtil = mock(MetricNameUtil.class);
         testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, new RateLimiter(metricCollector),
-                accountProvider, metricSampleBuilder, collectorRegistry, metricNameUtil);
-        awsAccount = new AWSAccount("account", "accessId",
+                accountProvider, metricSampleBuilder, collectorRegistry, metricNameUtil,
+                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+        awsAccount = new AWSAccount("acme", "account", "accessId",
                 "secretKey", "role", ImmutableSet.of("region"));
     }
 
@@ -137,7 +140,9 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
         testClass.update();
         assertEquals(ImmutableSet.of(
                 ResourceRelation.builder()
+                        .tenant("acme")
                         .from(ai.asserts.aws.resource.Resource.builder()
+                                .tenant("acme")
                                 .account("account")
                                 .region("region")
                                 .type(ApiGateway)
@@ -145,6 +150,8 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
                                 .id("rest-api-id")
                                 .build())
                         .to(ai.asserts.aws.resource.Resource.builder()
+                                .tenant("acme")
+                                .account("account")
                                 .type(LambdaFunction)
                                 .region("us-west-2")
                                 .account("342994379019")

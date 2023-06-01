@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
@@ -82,7 +84,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         mockFamilySamples = mock(Collector.MetricFamilySamples.class);
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector), resourceMapper, ecsClusterProvider, ecsTaskUtil, sampleBuilder,
-                collectorRegistry);
+                collectorRegistry, new TenantUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector)));
     }
 
 
@@ -164,7 +166,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector), resourceMapper, ecsClusterProvider, ecsTaskUtil, sampleBuilder,
-                collectorRegistry) {
+                collectorRegistry, new TenantUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector))) {
             @Override
             void discoverNewTasks(Map<Resource, List<Resource>> clusterWiseNewTasks, EcsClient ecsClient,
                                   Resource cluster) {

@@ -2,11 +2,13 @@
 package ai.asserts.aws.cloudwatch.query;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.account.AccountProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -70,20 +72,21 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         metricQuery = mock(MetricQuery.class);
         metricCollector = mock(BasicMetricCollector.class);
+        TenantUtil tenantUtil = new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector));
 
         metric = Metric.builder()
                 .namespace(lambda.getNamespace())
                 .metricName(metricName)
                 .build();
 
-        accountRegion = new AWSAccount("account", "", "", "role",
+        accountRegion = new AWSAccount("tenant", "account", "", "", "role",
                 ImmutableSet.of("region1"));
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder().build());
         replayAll();
         testClass = new MetricQueryProvider(accountProvider, scrapeConfigProvider, queryIdGenerator, metricNameUtil,
                 awsClientProvider, resourceTagHelper, metricQueryBuilder,
-                new RateLimiter(metricCollector));
+                new RateLimiter(metricCollector), tenantUtil);
         verifyAll();
         resetAll();
     }

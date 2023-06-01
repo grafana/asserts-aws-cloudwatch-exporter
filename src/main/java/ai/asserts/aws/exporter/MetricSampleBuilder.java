@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.config.ScrapeConfig;
 import io.prometheus.client.Collector.MetricFamilySamples;
@@ -30,6 +31,8 @@ public class MetricSampleBuilder {
     private final LabelBuilder labelBuilder;
     private final ScrapeConfigProvider scrapeConfigProvider;
 
+    private final TenantUtil tenantUtil;
+
     public List<Sample> buildSamples(String account, String region, MetricQuery metricQuery,
                                      MetricDataResult metricDataResult) {
         List<Sample> samples = new ArrayList<>();
@@ -38,6 +41,7 @@ public class MetricSampleBuilder {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             Map<String, String> labels = scrapeConfig
                     .additionalLabels(metricName, labelBuilder.buildLabels(account, region, metricQuery));
+            labels.putIfAbsent("tenant", tenantUtil.getTenant());
             labels.entrySet().removeIf(entry -> entry.getValue() == null);
             if (scrapeConfig.keepMetric(metricName, labels)) {
                 for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
@@ -57,6 +61,7 @@ public class MetricSampleBuilder {
                                               Double metric) {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
+        labels.putIfAbsent("tenant", tenantUtil.getTenant());
         labels.entrySet().removeIf(entry -> entry.getValue() == null);
         if (scrapeConfig.keepMetric(metricName, inputLabels)) {
             return Optional.of(new Sample(

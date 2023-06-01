@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
@@ -50,7 +52,7 @@ public class RedshiftExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account1", "", "",
+        accountRegion = new AWSAccount("tenant", "account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
@@ -63,7 +65,7 @@ public class RedshiftExporterTest extends EasyMockSupport {
         tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new RedshiftExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, tagUtil);
+                sampleBuilder, tagUtil, new TenantUtil(new TestTaskThreadPool(), new RateLimiter(null)));
     }
 
     @Test

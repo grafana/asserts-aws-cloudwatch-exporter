@@ -2,6 +2,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
@@ -61,11 +63,12 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         now = Instant.now();
+
         accountId = "account";
         region = "region1";
         interval = 60;
         delay = 0;
-        account = new AWSAccount(accountId, "", "", "role", ImmutableSet.of(region));
+        account = new AWSAccount("tenant", accountId, "", "", "role", ImmutableSet.of(region));
         metricQueryProvider = mock(MetricQueryProvider.class);
         queryBatcher = mock(QueryBatcher.class);
         metricCollector = mock(BasicMetricCollector.class);
@@ -86,6 +89,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass.setTimeWindowBuilder(timeWindowBuilder);
         testClass.setEcsServiceDiscoveryExporter(ecsServiceDiscoveryExporter);
         testClass.setRateLimiter(new RateLimiter(metricCollector));
+        testClass.setTenantUtil(new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
     }
 
     @Test

@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
@@ -58,7 +60,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account", "","",
+        accountRegion = new AWSAccount("tenant", "account", "","",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         fnScraper = mock(LambdaFunctionScraper.class);
@@ -75,7 +77,8 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
 
         testClass = new LambdaInvokeConfigExporter(accountProvider, fnScraper, awsClientProvider, metricNameUtil,
-                scrapeConfigProvider, resourceMapper, metricSampleBuilder, new RateLimiter(metricCollector));
+                scrapeConfigProvider, resourceMapper, metricSampleBuilder, new RateLimiter(metricCollector),
+                 new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
 
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
