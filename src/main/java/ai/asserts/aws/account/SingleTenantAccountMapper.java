@@ -14,7 +14,7 @@ import static ai.asserts.aws.account.SingleInstanceAccountProvider.TSDB_USER_NAM
 
 @Component
 @ConditionalOnProperty(name = "tenant.mode", havingValue = "single", matchIfMissing = true)
-public class SingleTenantAccountMapper implements AccountTenantMapper{
+public class SingleTenantAccountMapper implements AccountTenantMapper {
     @Override
     public String getTenantName(String accountId) {
         return getGetenv().get(TSDB_USER_NAME);
