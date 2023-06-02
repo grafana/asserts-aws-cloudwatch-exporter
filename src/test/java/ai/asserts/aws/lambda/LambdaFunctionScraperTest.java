@@ -109,6 +109,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         Map<String, Map<String, Map<String, LambdaFunction>>> functions = new TreeMap<>();
         functions.put("account_id", ImmutableMap.of("region1", ImmutableMap.of("function",
                 LambdaFunction.builder()
+                        .tenant("acme")
                         .account("account_id")
                         .region("region1")
                         .name("function")
@@ -120,6 +121,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         expect(metricSampleBuilder.buildSingleSample(
                 "aws_resource", new ImmutableMap.Builder<String, String>()
+                        .put("tenant", "acme")
                         .put("account_id", "account_id")
                         .put("aws_resource_type", "AWS::Lambda::Function")
                         .put("namespace", "AWS/Lambda")
