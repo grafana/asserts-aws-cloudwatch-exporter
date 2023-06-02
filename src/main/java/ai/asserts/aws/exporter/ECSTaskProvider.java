@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -103,17 +104,20 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
 
     public List<StaticConfig> getScrapeTargets() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        List<Future<?>> futures = new ArrayList<>();
         for (AWSAccount account : accountProvider.getAccounts()) {
             for (String region : account.getRegions()) {
-                Map<Resource, List<Resource>> clusterWiseNewTasks = new HashMap<>();
-                EcsClient ecsClient = awsClientProvider.getECSClient(region, account);
-                for (Resource cluster : ecsClusterProvider.getClusters(account, region)) {
-                    discoverNewTasks(clusterWiseNewTasks, ecsClient, cluster);
-                }
-                buildNewTargets(account, scrapeConfig, clusterWiseNewTasks, ecsClient);
+                futures.add(tenantUtil.executeTenantTask(account.getTenant(), () -> {
+                    Map<Resource, List<Resource>> clusterWiseNewTasks = new HashMap<>();
+                    EcsClient ecsClient = awsClientProvider.getECSClient(region, account);
+                    for (Resource cluster : ecsClusterProvider.getClusters(account, region)) {
+                        discoverNewTasks(clusterWiseNewTasks, ecsClient, cluster);
+                    }
+                    buildNewTargets(account, scrapeConfig, clusterWiseNewTasks, ecsClient);
+                }));
             }
         }
-
+        tenantUtil.awaitAll(futures);
         return tasksByCluster.values().stream()
                 .flatMap(taskMap -> taskMap.values().stream())
                 .flatMap(Collection::stream)

@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.lambda;
 
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import org.easymock.EasyMockSupport;
@@ -20,23 +21,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class LambdaFunctionBuilderTest extends EasyMockSupport {
     private Resource fnResource;
     private ResourceMapper resourceMapper;
+    private TenantUtil tenantUtil;
     private LambdaFunctionBuilder testClass;
 
     @BeforeEach
     public void setup() {
         fnResource = mock(Resource.class);
         resourceMapper = mock(ResourceMapper.class);
-        testClass = new LambdaFunctionBuilder(resourceMapper);
+        tenantUtil = mock(TenantUtil.class);
+        testClass = new LambdaFunctionBuilder(resourceMapper, tenantUtil);
     }
 
     @Test
     public void buildFunction() {
         expect(resourceMapper.map("fn1:arn")).andReturn(Optional.of(fnResource));
         expect(fnResource.getAccount()).andReturn(SCRAPE_ACCOUNT_ID_LABEL);
+        expect(tenantUtil.getTenant()).andReturn("acme");
         replayAll();
 
         assertEquals(
                 LambdaFunction.builder()
+                        .tenant("acme")
                         .name("fn1")
                         .arn("fn1:arn")
                         .region("region1")

@@ -52,6 +52,8 @@ public class Labels extends HashMap<String, String> {
     @JsonProperty("asserts_site")
     private String site;
 
+    private String tenant;
+
     public void populateMapEntries() {
         if (metricsPath != null) {
             put("__metrics_path__", metricsPath);
@@ -97,6 +99,9 @@ public class Labels extends HashMap<String, String> {
         }
         if (site != null) {
             put("asserts_site", site);
+        }
+        if (tenant != null) {
+            put("tenant", tenant);
         }
     }
 }

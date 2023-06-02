@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
@@ -68,6 +70,8 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private MetricSampleBuilder sampleBuilder;
     private CollectorRegistry collectorRegistry;
+    private RateLimiter rateLimiter;
+    private TenantUtil tenantUtil;
     private Sample mockSample;
     private MetricFamilySamples mockFamilySamples;
     private SortedMap<String, String> labels;
@@ -84,6 +88,8 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         mockSample = mock(Sample.class);
         mockFamilySamples = mock(MetricFamilySamples.class);
+        rateLimiter = new RateLimiter(metricCollector);
+        tenantUtil = new TenantUtil(new TestTaskThreadPool(), rateLimiter);
         labels = ImmutableSortedMap.of(
                 SCRAPE_ACCOUNT_ID_LABEL, "account",
                 SCRAPE_REGION_LABEL, "region",
@@ -99,7 +105,8 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     @Test
     public void afterPropertiesSet() throws Exception{
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry);
+                resourceMapper, rateLimiter, sampleBuilder, collectorRegistry,
+                new TenantUtil(new TestTaskThreadPool(), rateLimiter));
         collectorRegistry.register(testClass);
         replayAll();
         testClass.afterPropertiesSet();
@@ -122,7 +129,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         AtomicInteger sideEffect = new AtomicInteger();
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry) {
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry, tenantUtil) {
             @Override
             List<Sample> mapLB(ElasticLoadBalancingV2Client client,
                                SortedMap<String, String> theLabels,
@@ -170,7 +177,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         AtomicInteger sideEffect = new AtomicInteger();
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry) {
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry, tenantUtil) {
             @Override
             List<Sample> mapListener(ElasticLoadBalancingV2Client theClient,
                                      SortedMap<String, String> labels,
@@ -280,7 +287,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         expect(resourceMapper.map("tg-arn2")).andReturn(Optional.of(tgResource2));
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry);
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry, tenantUtil);
 
         testClass.getMissingTgMap().put(tgResource2, tgResource2);
 
@@ -320,7 +327,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     @Test
     public void handleMissing() {
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry);
+                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry, tenantUtil);
 
         Resource tgResource = Resource.builder()
                 .name("tg")

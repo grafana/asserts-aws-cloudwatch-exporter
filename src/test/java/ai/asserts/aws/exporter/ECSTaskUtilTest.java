@@ -7,6 +7,8 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
@@ -49,7 +51,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ECSTaskUtilTest extends EasyMockSupport {
-    private AWSClientProvider awsClientProvider;
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
     private EcsClient ecsClient;
@@ -68,12 +69,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
         ecsClient = mock(EcsClient.class);
         scrapeConfig = mock(ScrapeConfig.class);
-        awsClientProvider = mock(AWSClientProvider.class);
+        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
+        TenantUtil tenantUtil = new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector));
         Ec2Client ec2Client = mock(Ec2Client.class);
 
 
-        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector), tagUtil);
+        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector), tagUtil,
+                tenantUtil);
 
         expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
         expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()

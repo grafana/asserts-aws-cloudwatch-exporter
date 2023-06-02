@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -63,6 +64,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final CollectorRegistry collectorRegistry;
+    private final TenantUtil tenantUtil;
     @Getter
     private final Map<Resource, Resource> tgToLB = new ConcurrentHashMap<>();
 
@@ -74,13 +76,15 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
 
     public TargetGroupLBMapProvider(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                     ResourceMapper resourceMapper, RateLimiter rateLimiter,
-                                    MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry) {
+                                    MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,
+                                    TenantUtil tenantUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
         this.collectorRegistry = collectorRegistry;
+        this.tenantUtil = tenantUtil;
     }
 
     @Override
@@ -100,7 +104,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
         log.info("Updating TargetGroup to LoadBalancer map");
         List<Sample> newSamples = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            accountRegion.getRegions().forEach(region -> {
+            accountRegion.getRegions().forEach(region -> tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
                 try {
                     ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region, accountRegion);
                     String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
@@ -115,7 +119,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
                 } catch (Exception e) {
                     log.error("Failed to build LB Target Group map", e);
                 }
-            });
+            }));
         }
         sampleBuilder.buildFamily(newSamples).ifPresent(familySamples -> metricFamilySamples = familySamples);
     }
