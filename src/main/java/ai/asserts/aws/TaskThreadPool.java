@@ -40,6 +40,5 @@ public class TaskThreadPool {
                 executorService, name, "",
                 Collections.emptyList());
     }
-
 }
 
