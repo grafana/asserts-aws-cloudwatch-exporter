@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 
 import static ai.asserts.aws.MetricNameUtil.ASSERTS_ERROR_TYPE;
@@ -65,9 +66,9 @@ public class RateLimiter {
         }
     }
 
-    public void runTask(Runnable runnable) {
+    public <T> T call(Callable<T> callable) throws Exception {
         try {
-            runnable.run();
+            return callable.call();
         } finally {
             logAPICallCountsAndClear();
         }

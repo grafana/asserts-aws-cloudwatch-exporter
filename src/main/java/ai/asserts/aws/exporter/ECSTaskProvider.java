@@ -7,7 +7,6 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -39,7 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Future;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -47,8 +46,12 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 
+/**
+ * Builds ECS Task scrape targets. Scraping ECS is best done using the ECS Sidecar.
+ */
 @Component
 @Slf4j
+@Deprecated
 public class ECSTaskProvider extends Collector implements InitializingBean {
     public static final String TASK_META_METRIC = "aws_ecs_task_info";
     private final AWSClientProvider awsClientProvider;
@@ -60,17 +63,15 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
     private final ECSTaskUtil ecsTaskUtil;
     private final MetricSampleBuilder sampleBuilder;
     private final CollectorRegistry collectorRegistry;
-    private final TenantUtil tenantUtil;
 
     @Getter
     @VisibleForTesting
-    private final Map<Resource, Map<Resource, List<StaticConfig>>> tasksByCluster = new HashMap<>();
+    private final Map<Resource, Map<Resource, List<StaticConfig>>> tasksByCluster = new ConcurrentHashMap<>();
 
     public ECSTaskProvider(AWSClientProvider awsClientProvider, ScrapeConfigProvider scrapeConfigProvider,
                            AccountProvider accountProvider, RateLimiter rateLimiter, ResourceMapper resourceMapper,
                            ECSClusterProvider ecsClusterProvider, ECSTaskUtil ecsTaskUtil,
-                           MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,
-                           TenantUtil tenantUtil) {
+                           MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry) {
         this.awsClientProvider = awsClientProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.accountProvider = accountProvider;
@@ -80,7 +81,6 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
         this.ecsTaskUtil = ecsTaskUtil;
         this.sampleBuilder = sampleBuilder;
         this.collectorRegistry = collectorRegistry;
-        this.tenantUtil = tenantUtil;
     }
 
     @Override
@@ -104,20 +104,20 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
 
     public List<StaticConfig> getScrapeTargets() {
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        List<Future<?>> futures = new ArrayList<>();
-        for (AWSAccount account : accountProvider.getAccounts()) {
-            for (String region : account.getRegions()) {
-                futures.add(tenantUtil.executeTenantTask(account.getTenant(), () -> {
+
+        // Scrape target building works only when the exporter is installed in each account
+        if (accountProvider.getAccounts().size() == 1) {
+            for (AWSAccount account : accountProvider.getAccounts()) {
+                for (String region : account.getRegions()) {
                     Map<Resource, List<Resource>> clusterWiseNewTasks = new HashMap<>();
                     EcsClient ecsClient = awsClientProvider.getECSClient(region, account);
                     for (Resource cluster : ecsClusterProvider.getClusters(account, region)) {
                         discoverNewTasks(clusterWiseNewTasks, ecsClient, cluster);
                     }
                     buildNewTargets(account, scrapeConfig, clusterWiseNewTasks, ecsClient);
-                }));
+                }
             }
         }
-        tenantUtil.awaitAll(futures);
         return tasksByCluster.values().stream()
                 .flatMap(taskMap -> taskMap.values().stream())
                 .flatMap(Collection::stream)

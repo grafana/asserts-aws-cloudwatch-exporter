@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -91,68 +92,78 @@ public class ApiGatewayToLambdaBuilder extends Collector
         log.info("Exporting ApiGateway to Lambda relationship");
         Set<ResourceRelation> newIntegrations = new HashSet<>();
         List<MetricFamilySamples> newMetrics = new ArrayList<>();
-        List<Sample> samples = new ArrayList<>();
+        List<Sample> allSamples = new ArrayList<>();
         try {
-            List<Future<?>> futures = new ArrayList<>();
+            List<Future<List<Sample>>> futures = new ArrayList<>();
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region ->
-                        futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
-                            try {
-                                ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, accountRegion);
-                                SortedMap<String, String> labels = new TreeMap<>();
-                                String getRestApis = "ApiGatewayClient/getRestApis";
-                                labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
-                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
-                                labels.put(SCRAPE_REGION_LABEL, region);
-                                GetRestApisResponse restApis =
-                                        rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
-                                if (restApis.hasItems()) {
-                                    restApis.items().forEach(restApi -> {
-                                        String getResources = "ResourceGroupsTaggingApiClient/getResources";
-                                        labels.put(SCRAPE_OPERATION_LABEL, getResources);
-                                        GetResourcesResponse resources =
-                                                rateLimiter.doWithRateLimit(getResources, labels,
-                                                        () -> client.getResources(GetResourcesRequest.builder()
-                                                                .restApiId(restApi.id())
-                                                                .build()));
-                                        if (resources.hasItems()) {
-                                            resources.items().forEach(resource -> {
-                                                captureIntegrations(client, newIntegrations,
-                                                        accountRegion.getAccountId(),
-                                                        labels, region, restApi, resource);
-                                                Map<String, String> apiResourceLabels = new TreeMap<>();
-                                                apiResourceLabels.put(SCRAPE_ACCOUNT_ID_LABEL,
-                                                        accountRegion.getAccountId());
-                                                apiResourceLabels.put(SCRAPE_REGION_LABEL, region);
-                                                apiResourceLabels.put("aws_resource_type", "AWS::ApiGateway::RestApi");
-                                                apiResourceLabels.put("namespace", "AWS/ApiGateway");
-                                                apiResourceLabels.put("name", restApi.name());
-                                                apiResourceLabels.put("id", restApi.id());
-                                                apiResourceLabels.put("job", restApi.name());
-                                                restApi.tags().forEach((key, value) -> apiResourceLabels.put(
-                                                        "tag_" + metricNameUtil.toSnakeCase(key), value));
-                                                metricSampleBuilder.buildSingleSample("aws_resource",
-                                                        apiResourceLabels, 1.0d).ifPresent(samples::add);
-                                            });
-                                        }
-                                    });
-                                }
-                            } catch (Exception e) {
-                                log.error("Failed to discover lambda integrations for " + accountRegion, e);
+                        futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                                new CollectionBuilderTask<Sample>() {
+                            @Override
+                            public List<Sample> call() {
+                                return buildSamples(region, accountRegion, newIntegrations);
                             }
                         })));
             }
-            tenantUtil.awaitAll(futures);
+            tenantUtil.awaitAll(futures, allSamples::addAll);
         } catch (Exception e) {
             log.error("Failed to discover lambda integrations", e);
         }
 
-        if (samples.size() > 0) {
-            metricSampleBuilder.buildFamily(samples).ifPresent(newMetrics::add);
+        if (allSamples.size() > 0) {
+            metricSampleBuilder.buildFamily(allSamples).ifPresent(newMetrics::add);
         }
 
         lambdaIntegrations = newIntegrations;
         apiResourceMetrics = newMetrics;
+    }
+
+    private List<Sample> buildSamples(String region, AWSAccount accountRegion, Set<ResourceRelation> newIntegrations) {
+        List<Sample> samples = new ArrayList<>();
+        try {
+            ApiGatewayClient client = awsClientProvider.getApiGatewayClient(region, accountRegion);
+            SortedMap<String, String> labels = new TreeMap<>();
+            String getRestApis = "ApiGatewayClient/getRestApis";
+            labels.put(SCRAPE_OPERATION_LABEL, getRestApis);
+            labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
+            labels.put(SCRAPE_REGION_LABEL, region);
+            GetRestApisResponse restApis =
+                    rateLimiter.doWithRateLimit(getRestApis, labels, client::getRestApis);
+            if (restApis.hasItems()) {
+                restApis.items().forEach(restApi -> {
+                    String getResources = "ResourceGroupsTaggingApiClient/getResources";
+                    labels.put(SCRAPE_OPERATION_LABEL, getResources);
+                    GetResourcesResponse resources =
+                            rateLimiter.doWithRateLimit(getResources, labels,
+                                    () -> client.getResources(GetResourcesRequest.builder()
+                                            .restApiId(restApi.id())
+                                            .build()));
+                    if (resources.hasItems()) {
+                        resources.items().forEach(resource -> {
+                            captureIntegrations(client, newIntegrations,
+                                    accountRegion.getAccountId(),
+                                    labels, region, restApi, resource);
+                            Map<String, String> apiResourceLabels = new TreeMap<>();
+                            apiResourceLabels.put(SCRAPE_ACCOUNT_ID_LABEL,
+                                    accountRegion.getAccountId());
+                            apiResourceLabels.put(SCRAPE_REGION_LABEL, region);
+                            apiResourceLabels.put("aws_resource_type", "AWS::ApiGateway::RestApi");
+                            apiResourceLabels.put("namespace", "AWS/ApiGateway");
+                            apiResourceLabels.put("name", restApi.name());
+                            apiResourceLabels.put("id", restApi.id());
+                            apiResourceLabels.put("job", restApi.name());
+                            restApi.tags().forEach((key, value) -> apiResourceLabels.put(
+                                    "tag_" + metricNameUtil.toSnakeCase(key), value));
+                            metricSampleBuilder.buildSingleSample("aws_resource",
+                                    apiResourceLabels, 1.0d).ifPresent(samples::add);
+                        });
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.error("Failed to discover lambda integrations for " + accountRegion, e);
+        }
+        return samples;
     }
 
     private void captureIntegrations(ApiGatewayClient client, Set<ResourceRelation> newIntegrations, String accountId,

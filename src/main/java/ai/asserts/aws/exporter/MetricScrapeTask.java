@@ -2,9 +2,10 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
@@ -102,13 +103,18 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
         if (intervalSeconds <= 60 || System.currentTimeMillis() - lastRunTime > intervalSeconds * 1000L) {
             lastRunTime = System.currentTimeMillis();
             try {
-                tenantUtil.executeTenantTask(account.getTenant(), () -> {
-                    try {
-                        cache = fetchMetricsFromCW();
-                    } catch (Exception e) {
-                        log.error("Failed to update", e);
-                    }
-                }).get(15, TimeUnit.SECONDS);
+                cache = tenantUtil.executeTenantTask(account.getTenant(),
+                        new SimpleTenantTask<List<MetricFamilySamples>>() {
+                            @Override
+                            public List<MetricFamilySamples> call() {
+                                try {
+                                    return fetchMetricsFromCW();
+                                } catch (Exception e) {
+                                    log.error("Failed to update", e);
+                                }
+                                return Collections.emptyList();
+                            }
+                        }).get(15, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 log.error("Failed to fetch metrics", e);
             }

@@ -5,12 +5,10 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
-import ai.asserts.aws.TestTaskThreadPool;
-import ai.asserts.aws.account.AccountProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
@@ -84,7 +82,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         mockFamilySamples = mock(Collector.MetricFamilySamples.class);
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector), resourceMapper, ecsClusterProvider, ecsTaskUtil, sampleBuilder,
-                collectorRegistry, new TenantUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector)));
+                collectorRegistry);
     }
 
 
@@ -166,7 +164,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector), resourceMapper, ecsClusterProvider, ecsTaskUtil, sampleBuilder,
-                collectorRegistry, new TenantUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector))) {
+                collectorRegistry) {
             @Override
             void discoverNewTasks(Map<Resource, List<Resource>> clusterWiseNewTasks, EcsClient ecsClient,
                                   Resource cluster) {
@@ -188,7 +186,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
 
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).times(2);
         expect(awsClientProvider.getECSClient("region", awsAccount)).andReturn(ecsClient);
         expect(ecsClusterProvider.getClusters(awsAccount, "region")).andReturn(ImmutableSet.of(cluster1));
         replayAll();

@@ -28,6 +28,12 @@ public class TestTaskThreadPool extends TaskThreadPool {
     }
 
     public static class MockFuture<T> implements Future<T> {
+        private final T t;
+
+        public MockFuture(T t) {
+            this.t = t;
+        }
+
         @Override
         public boolean cancel(boolean mayInterruptIfRunning) {
             return false;
@@ -45,12 +51,12 @@ public class TestTaskThreadPool extends TaskThreadPool {
 
         @Override
         public T get() throws InterruptedException, ExecutionException {
-            return null;
+            return t;
         }
 
         @Override
         public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-            return null;
+            return t;
         }
     }
 
@@ -62,8 +68,6 @@ public class TestTaskThreadPool extends TaskThreadPool {
 
     @SuppressWarnings("all")
     public static class SimpleExecutorService implements ExecutorService {
-        private Future<?> mockFuture = new MockFuture<>();
-
         @Override
         public void shutdown() {
 
@@ -91,7 +95,11 @@ public class TestTaskThreadPool extends TaskThreadPool {
 
         @Override
         public <T> Future<T> submit(Callable<T> task) {
-            return null;
+            try {
+                return new MockFuture<>(task.call());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override
@@ -102,7 +110,7 @@ public class TestTaskThreadPool extends TaskThreadPool {
         @Override
         public Future<?> submit(Runnable task) {
             task.run();
-            return mockFuture;
+            return new MockFuture<>(null);
         }
 
         @Override

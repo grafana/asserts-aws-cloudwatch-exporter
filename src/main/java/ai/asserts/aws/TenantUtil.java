@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 @Component
 @Slf4j
@@ -28,21 +29,24 @@ public class TenantUtil {
         this.rateLimiter = rateLimiter;
     }
 
-    public Future<?> executeTenantTask(String tenant, Runnable runnable) {
+    public <T> Future<T> executeTenantTask(String tenant, TenantTask<T> task) {
         return taskThreadPool.getExecutorService().submit(() -> {
             tenantName.set(tenant);
             try {
-                rateLimiter.runTask(runnable);
+                return rateLimiter.call(task);
+            } catch (Exception e) {
+                log.error("Failed to execute tenant task for tenant:" + tenant, e);
+                return task.getReturnValueWhenError();
             } finally {
                 tenantName.remove();
             }
         });
     }
 
-    public void awaitAll(List<Future<?>> futures) {
+    public <K> void awaitAll(List<Future<K>> futures, Consumer<K> consumer) {
         futures.forEach(f -> {
             try {
-                f.get(30, TimeUnit.SECONDS);
+                consumer.accept(f.get(30, TimeUnit.SECONDS));
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 log.error("AWS API call error ", e);
             }

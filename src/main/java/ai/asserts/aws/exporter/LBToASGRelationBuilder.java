@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TenantUtil;
@@ -87,88 +88,99 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         log.info("Updating LB to ASG Routing relations");
         Set<ResourceRelation> newConfigs = new HashSet<>();
         List<MetricFamilySamples> newMetrics = new ArrayList<>();
-        List<Sample> samples = new ArrayList<>();
-        List<Future<?>> futures = new ArrayList<>();
+        List<Sample> allSamples = new ArrayList<>();
+        List<Future<List<Sample>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region ->
-                    futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
-                try {
-                    AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion);
-                    DescribeAutoScalingGroupsResponse resp = rateLimiter.doWithRateLimit(
-                            "AutoScalingClient/describeAutoScalingGroups",
-                            ImmutableSortedMap.of(
-                                    SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_OPERATION_LABEL, "AutoScalingClient/describeAutoScalingGroups"
-                            ),
-                            asgClient::describeAutoScalingGroups);
-                    List<AutoScalingGroup> groups = resp.autoScalingGroups();
-                    if (!isEmpty(groups)) {
-                        DescribeTagsResponse describeTagsResponse = rateLimiter.doWithRateLimit(
-                                "AutoScalingClient/describeTags",
-                                ImmutableSortedMap.of(
-                                        SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
-                                        SCRAPE_REGION_LABEL, region,
-                                        SCRAPE_OPERATION_LABEL, "AutoScalingClient/describeTags"
-                                ),
-                                asgClient::describeTags);
-
-                        Map<String, List<Tag>>
-                                tagLabelsByName = new TreeMap<>();
-
-                        describeTagsResponse.tags()
-                                .stream()
-                                .filter(td -> "auto-scaling-group".equals(td.resourceType()))
-                                .forEach(td -> tagLabelsByName.computeIfAbsent(td.resourceId(), k -> new ArrayList<>())
-                                        .add(Tag
-                                                .builder().key(td.key()).value(td.value()).build()));
-
-                        groups.forEach(asg -> resourceMapper.map(asg.autoScalingGroupARN()).ifPresent(asgRes -> {
-                            // Only discover Non k8s ASGs. K8S ASGs will be discovered through other means
-                            Map<String, String> tagLabels =
-                                    tagUtil.tagLabels(tagLabelsByName.getOrDefault(asg.autoScalingGroupName(),
-                                            Collections.emptyList()));
-
-                            if (tagLabels.keySet().stream().noneMatch(key -> key.contains("k8s"))) {
-                                Map<String, String> labels = new TreeMap<>();
-                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
-                                labels.put(SCRAPE_REGION_LABEL, region);
-                                labels.put("namespace", "AWS/AutoScaling");
-                                labels.put("aws_resource_type", "AWS::AutoScaling::AutoScalingGroup");
-                                labels.put("job", asgRes.getName());
-                                labels.put("id", asgRes.getId());
-                                labels.put("name", asgRes.getName());
-                                labels.putAll(tagLabels);
-                                Optional<Sample> opt =
-                                        metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
-                                opt.ifPresent(samples::add);
-                            }
-
-                            if (!isEmpty(asg.targetGroupARNs())) {
-                                asg.targetGroupARNs().stream()
-                                        .map(resourceMapper::map)
-                                        .filter(Optional::isPresent)
-                                        .map(Optional::get)
-                                        .filter(tg -> targetGroupLBMapProvider.getTgToLB().containsKey(tg))
-                                        .map(tg -> targetGroupLBMapProvider.getTgToLB().get(tg))
-                                        .forEach(lb -> newConfigs.add(ResourceRelation.builder()
-                                                .from(lb)
-                                                .to(asgRes)
-                                                .name("ROUTES_TO")
-                                                .build()));
-                            }
-                        }));
-                    }
-                } catch (Exception e) {
-                    log.error("Failed to build LB to ASG relationship for " + accountRegion, e);
-                }
-            })));
+                    futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                            new CollectionBuilderTask<Sample>() {
+                                @Override
+                                public List<Sample> call() {
+                                    return buildSamples(region, accountRegion, allSamples, newConfigs);
+                                }
+                            })));
         }
-        tenantUtil.awaitAll(futures);
-        if (samples.size() > 0) {
-            metricSampleBuilder.buildFamily(samples).ifPresent(newMetrics::add);
+        tenantUtil.awaitAll(futures, allSamples::addAll);
+        if (allSamples.size() > 0) {
+            metricSampleBuilder.buildFamily(allSamples).ifPresent(newMetrics::add);
         }
         routingConfigs = newConfigs;
         asgResourceMetrics = newMetrics;
+    }
+
+    private List<Sample> buildSamples(String region, AWSAccount accountRegion, List<Sample> allSamples,
+                                      Set<ResourceRelation> newConfigs) {
+        List<Sample> samples = new ArrayList<>();
+        try {
+            AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion);
+            DescribeAutoScalingGroupsResponse resp = rateLimiter.doWithRateLimit(
+                    "AutoScalingClient/describeAutoScalingGroups",
+                    ImmutableSortedMap.of(
+                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                            SCRAPE_REGION_LABEL, region,
+                            SCRAPE_OPERATION_LABEL, "AutoScalingClient/describeAutoScalingGroups"
+                    ),
+                    asgClient::describeAutoScalingGroups);
+            List<AutoScalingGroup> groups = resp.autoScalingGroups();
+            if (!isEmpty(groups)) {
+                DescribeTagsResponse describeTagsResponse = rateLimiter.doWithRateLimit(
+                        "AutoScalingClient/describeTags",
+                        ImmutableSortedMap.of(
+                                SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                                SCRAPE_REGION_LABEL, region,
+                                SCRAPE_OPERATION_LABEL, "AutoScalingClient/describeTags"
+                        ),
+                        asgClient::describeTags);
+
+                Map<String, List<Tag>>
+                        tagLabelsByName = new TreeMap<>();
+
+                describeTagsResponse.tags()
+                        .stream()
+                        .filter(td -> "auto-scaling-group".equals(td.resourceType()))
+                        .forEach(td -> tagLabelsByName.computeIfAbsent(td.resourceId(), k -> new ArrayList<>())
+                                .add(Tag
+                                        .builder().key(td.key()).value(td.value()).build()));
+
+                groups.forEach(asg -> resourceMapper.map(asg.autoScalingGroupARN()).ifPresent(asgRes -> {
+                    // Only discover Non k8s ASGs. K8S ASGs will be discovered through other means
+                    Map<String, String> tagLabels =
+                            tagUtil.tagLabels(tagLabelsByName.getOrDefault(asg.autoScalingGroupName(),
+                                    Collections.emptyList()));
+
+                    if (tagLabels.keySet().stream().noneMatch(key -> key.contains("k8s"))) {
+                        Map<String, String> labels = new TreeMap<>();
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId());
+                        labels.put(SCRAPE_REGION_LABEL, region);
+                        labels.put("namespace", "AWS/AutoScaling");
+                        labels.put("aws_resource_type", "AWS::AutoScaling::AutoScalingGroup");
+                        labels.put("job", asgRes.getName());
+                        labels.put("id", asgRes.getId());
+                        labels.put("name", asgRes.getName());
+                        labels.putAll(tagLabels);
+                        Optional<Sample> opt =
+                                metricSampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                        opt.ifPresent(allSamples::add);
+                    }
+
+                    if (!isEmpty(asg.targetGroupARNs())) {
+                        asg.targetGroupARNs().stream()
+                                .map(resourceMapper::map)
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
+                                .filter(tg -> targetGroupLBMapProvider.getTgToLB().containsKey(tg))
+                                .map(tg -> targetGroupLBMapProvider.getTgToLB().get(tg))
+                                .forEach(lb -> newConfigs.add(ResourceRelation.builder()
+                                        .from(lb)
+                                        .to(asgRes)
+                                        .name("ROUTES_TO")
+                                        .build()));
+                    }
+                }));
+            }
+        } catch (Exception e) {
+            log.error("Failed to build LB to ASG relationship for " + accountRegion, e);
+        }
+        return samples;
     }
 }

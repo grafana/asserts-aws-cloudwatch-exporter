@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
@@ -45,6 +46,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
@@ -103,25 +105,37 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
     public void update() {
         log.info("Updating TargetGroup to LoadBalancer map");
         List<Sample> newSamples = new ArrayList<>();
+        List<Future<List<Sample>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            accountRegion.getRegions().forEach(region -> tenantUtil.executeTenantTask(accountRegion.getTenant(), () -> {
-                try {
-                    ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region, accountRegion);
-                    String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
-                    ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
-                            SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
-                            SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api);
-                    DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(api, labels,
-                            lbClient::describeLoadBalancers);
-                    if (resp.hasLoadBalancers()) {
-                        resp.loadBalancers().forEach(lb -> newSamples.addAll(mapLB(lbClient, labels, lb)));
-                    }
-                } catch (Exception e) {
-                    log.error("Failed to build LB Target Group map", e);
-                }
-            }));
+            accountRegion.getRegions().forEach(region -> futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                    new CollectionBuilderTask<Sample>() {
+                        @Override
+                        public List<Sample> call() {
+                            return buildSamples(region, accountRegion);
+                        }
+                    })));
         }
+        tenantUtil.awaitAll(futures, newSamples::addAll);
         sampleBuilder.buildFamily(newSamples).ifPresent(familySamples -> metricFamilySamples = familySamples);
+    }
+
+    private List<Sample> buildSamples(String region, AWSAccount accountRegion) {
+        List<Sample> newSamples = new ArrayList<>();
+        try {
+            ElasticLoadBalancingV2Client lbClient = awsClientProvider.getELBV2Client(region, accountRegion);
+            String api = "ElasticLoadBalancingV2Client/describeLoadBalancers";
+            ImmutableSortedMap<String, String> labels = ImmutableSortedMap.of(
+                    SCRAPE_ACCOUNT_ID_LABEL, accountRegion.getAccountId(),
+                    SCRAPE_REGION_LABEL, region, SCRAPE_OPERATION_LABEL, api);
+            DescribeLoadBalancersResponse resp = rateLimiter.doWithRateLimit(api, labels,
+                    lbClient::describeLoadBalancers);
+            if (resp.hasLoadBalancers()) {
+                resp.loadBalancers().forEach(lb -> newSamples.addAll(mapLB(lbClient, labels, lb)));
+            }
+        } catch (Exception e) {
+            log.error("Failed to build LB Target Group map", e);
+        }
+        return newSamples;
     }
 
     public void handleMissingTgs(Set<Resource> missingTgs) {

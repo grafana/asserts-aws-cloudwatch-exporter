@@ -96,7 +96,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     @SuppressWarnings("unchecked")
     public void updateCollect() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
-        expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client);
+        expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client).anyTimes();
 
         DescribeInstancesRequest request = DescribeInstancesRequest.builder()
                 .filters(Filter.builder()

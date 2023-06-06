@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -66,37 +67,47 @@ public class LBToECSRoutingBuilder implements Runnable {
 
     public void run() {
         Set<ResourceRelation> newRouting = new HashSet<>();
-        List<Future<?>> futures = new ArrayList<>();
+        List<Future<Set<ResourceRelation>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region ->
-                futures.add(tenantUtil.executeTenantTask(awsAccount.getTenant(), () -> {
-                    EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount);
-                    Set<Resource> clusters = ecsClusterProvider.getClusters(awsAccount, region);
-                    clusters.forEach(cluster -> {
-                        Set<String> serviceARNs = new HashSet<>();
-                        Paginator paginator = new Paginator();
-                        do {
-                            String api = "EcsClient/listServices";
-                            ListServicesResponse response = rateLimiter.doWithRateLimit(api, ImmutableSortedMap.of(
-                                    SCRAPE_REGION_LABEL, region,
-                                    SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
-                                    SCRAPE_OPERATION_LABEL, api
-                            ), () -> ecsClient.listServices(ListServicesRequest.builder()
-                                    .cluster(cluster.getName())
-                                    .nextToken(paginator.getNextToken())
-                                    .build()));
-                            if (response.hasServiceArns()) {
-                                serviceARNs.addAll(response.serviceArns());
+                futures.add(tenantUtil.executeTenantTask(awsAccount.getTenant(),
+                        new SimpleTenantTask<Set<ResourceRelation>>() {
+                            @Override
+                            public Set<ResourceRelation> call() {
+                                return buildRelationships(region, awsAccount);
                             }
-                            paginator.nextToken(response.nextToken());
-                        } while (paginator.hasNext());
-
-                        if (!serviceARNs.isEmpty()) {
-                            discoverRelationships(newRouting, awsAccount, region, ecsClient, cluster, serviceARNs);
-                        }
-                    });
-                }))));
-        tenantUtil.awaitAll(futures);
+                        }))));
+        tenantUtil.awaitAll(futures, newRouting::addAll);
         routing = newRouting;
+    }
+
+    private Set<ResourceRelation> buildRelationships(String region, AWSAccount awsAccount) {
+        Set<ResourceRelation> newRouting = new HashSet<>();
+        EcsClient ecsClient = awsClientProvider.getECSClient(region, awsAccount);
+        Set<Resource> clusters = ecsClusterProvider.getClusters(awsAccount, region);
+        clusters.forEach(cluster -> {
+            Set<String> serviceARNs = new HashSet<>();
+            Paginator paginator = new Paginator();
+            do {
+                String api = "EcsClient/listServices";
+                ListServicesResponse response = rateLimiter.doWithRateLimit(api, ImmutableSortedMap.of(
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_ACCOUNT_ID_LABEL, awsAccount.getAccountId(),
+                        SCRAPE_OPERATION_LABEL, api
+                ), () -> ecsClient.listServices(ListServicesRequest.builder()
+                        .cluster(cluster.getName())
+                        .nextToken(paginator.getNextToken())
+                        .build()));
+                if (response.hasServiceArns()) {
+                    serviceARNs.addAll(response.serviceArns());
+                }
+                paginator.nextToken(response.nextToken());
+            } while (paginator.hasNext());
+
+            if (!serviceARNs.isEmpty()) {
+                discoverRelationships(newRouting, awsAccount, region, ecsClient, cluster, serviceARNs);
+            }
+        });
+        return newRouting;
     }
 
     private void discoverRelationships(Set<ResourceRelation> newRouting, AWSAccount awsAccount,

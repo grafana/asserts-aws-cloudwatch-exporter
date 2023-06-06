@@ -14,7 +14,6 @@ import ai.asserts.aws.exporter.LBToECSRoutingBuilder;
 import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
-import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.LoadBalancerExporter;
 import ai.asserts.aws.exporter.RDSExporter;
 import ai.asserts.aws.exporter.RedshiftExporter;
@@ -26,16 +25,11 @@ import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Component
 @Slf4j
@@ -45,7 +39,6 @@ public class MetadataTaskManager implements InitializingBean {
     private final LambdaCapacityExporter lambdaCapacityExporter;
     private final LambdaEventSourceExporter lambdaEventSourceExporter;
     private final LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
-    private final LambdaLogMetricScrapeTask lambdaLogScrapeTask;
     private final BasicMetricCollector metricCollector;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final ResourceRelationExporter relationExporter;
@@ -68,14 +61,12 @@ public class MetadataTaskManager implements InitializingBean {
     private final SNSTopicExporter snsTopicExporter;
 
     private final EMRExporter emrExporter;
-    @Getter
-    private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
 
     public MetadataTaskManager(CollectorRegistry collectorRegistry, LambdaFunctionScraper lambdaFunctionScraper,
                                LambdaCapacityExporter lambdaCapacityExporter,
                                LambdaEventSourceExporter lambdaEventSourceExporter,
                                LambdaInvokeConfigExporter lambdaInvokeConfigExporter,
-                               LambdaLogMetricScrapeTask lambdaLogScrapeTask, BasicMetricCollector metricCollector,
+                                BasicMetricCollector metricCollector,
                                TargetGroupLBMapProvider targetGroupLBMapProvider,
                                ResourceRelationExporter relationExporter,
                                LBToASGRelationBuilder lbToASGRelationBuilder,
@@ -96,7 +87,6 @@ public class MetadataTaskManager implements InitializingBean {
         this.lambdaCapacityExporter = lambdaCapacityExporter;
         this.lambdaEventSourceExporter = lambdaEventSourceExporter;
         this.lambdaInvokeConfigExporter = lambdaInvokeConfigExporter;
-        this.lambdaLogScrapeTask = lambdaLogScrapeTask;
         this.metricCollector = metricCollector;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
         this.relationExporter = relationExporter;
@@ -129,12 +119,6 @@ public class MetadataTaskManager implements InitializingBean {
             metricCollector.register(collectorRegistry);
             relationExporter.register(collectorRegistry);
             loadBalancerExporter.register(collectorRegistry);
-
-            scrapeConfigProvider.getScrapeConfig().getLambdaConfig().ifPresent(nc -> {
-                if (!CollectionUtils.isEmpty(nc.getLogs())) {
-                    logScrapeTasks.add(lambdaLogScrapeTask);
-                }
-            });
         } else {
             log.info("Not primary exporter. Will skip scraping meta data information");
         }
@@ -170,8 +154,6 @@ public class MetadataTaskManager implements InitializingBean {
         taskThreadPool.getExecutorService().submit(rdsExporter::update);
         taskThreadPool.getExecutorService().submit(dynamoDBExporter::update);
         taskThreadPool.getExecutorService().submit(snsTopicExporter::update);
-        taskThreadPool.getExecutorService().submit(() ->
-                logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update));
         taskThreadPool.getExecutorService().submit(emrExporter::update);
     }
 
