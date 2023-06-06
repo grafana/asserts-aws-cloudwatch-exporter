@@ -13,7 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Getter
 @Slf4j
@@ -29,13 +31,14 @@ public class TaskThreadPool {
     }
 
     @VisibleForTesting
-    ExecutorService buildExecutorService(String name, int numThreads, MeterRegistry meterRegistry) {
-        final ExecutorService executorService;
-        executorService = ExecutorServiceMetrics.monitor(
-                meterRegistry, Executors.newFixedThreadPool(numThreads, new NamedThreadFactory(name)),
-                name,
+    ExecutorService buildExecutorService(String name, int nThreads, MeterRegistry meterRegistry) {
+        ExecutorService executorService = new ThreadPoolExecutor(nThreads, nThreads,
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory(name));
+        return ExecutorServiceMetrics.monitor(meterRegistry,
+                executorService, name, "",
                 Collections.emptyList());
-        return executorService;
     }
 
 }

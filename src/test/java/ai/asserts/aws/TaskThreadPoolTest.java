@@ -20,9 +20,9 @@ public class TaskThreadPoolTest extends EasyMockSupport {
         replayAll();
         new TaskThreadPool("test pool", 1, mockMeterRegistry) {
             @Override
-            ExecutorService buildExecutorService(String name, int numThreads, MeterRegistry meterRegistry) {
+            ExecutorService buildExecutorService(String name, int nThreads, MeterRegistry meterRegistry) {
                 assertEquals("test pool", name);
-                assertEquals(1, numThreads);
+                assertEquals(1, nThreads);
                 return mockService;
             }
         };

@@ -23,7 +23,7 @@ public class TestTaskThreadPool extends TaskThreadPool {
     }
 
     @Override
-    ExecutorService buildExecutorService(String name, int numThreads, MeterRegistry meterRegistry) {
+    ExecutorService buildExecutorService(String name, int nThreads, MeterRegistry meterRegistry) {
         return executorService;
     }
 
