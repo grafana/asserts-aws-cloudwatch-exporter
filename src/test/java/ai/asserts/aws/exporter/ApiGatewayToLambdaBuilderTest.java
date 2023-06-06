@@ -7,7 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -73,7 +73,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
         metricNameUtil = mock(MetricNameUtil.class);
         testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, new RateLimiter(metricCollector),
                 accountProvider, metricSampleBuilder, collectorRegistry, metricNameUtil,
-                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
         awsAccount = new AWSAccount("acme", "account", "accessId",
                 "secretKey", "role", ImmutableSet.of("region"));
     }

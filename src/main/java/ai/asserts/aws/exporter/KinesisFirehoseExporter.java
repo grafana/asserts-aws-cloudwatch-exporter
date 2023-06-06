@@ -8,7 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -50,13 +50,13 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
     private final MetricSampleBuilder sampleBuilder;
     private final ResourceTagHelper resourceTagHelper;
     private final TagUtil tagUtil;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public KinesisFirehoseExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
             ResourceMapper resourceMapper, RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder,
-            ResourceTagHelper resourceTagHelper, TagUtil tagUtil, TenantUtil tenantUtil) {
+            ResourceTagHelper resourceTagHelper, TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -65,7 +65,7 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
         this.sampleBuilder = sampleBuilder;
         this.resourceTagHelper = resourceTagHelper;
         this.tagUtil = tagUtil;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     @Override
@@ -84,13 +84,13 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
         List<Sample> allSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
-                futures.add(tenantUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                futures.add(taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
                     @Override
                     public List<Sample> call()  {
                         return buildMetricSamples(region, account);
                     }
                 }))));
-        tenantUtil.awaitAll(futures, allSamples::addAll);
+        taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }

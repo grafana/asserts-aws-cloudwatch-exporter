@@ -7,7 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -66,7 +66,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
     private final RateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final CollectorRegistry collectorRegistry;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     @Getter
     private final Map<Resource, Resource> tgToLB = new ConcurrentHashMap<>();
 
@@ -79,14 +79,14 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
     public TargetGroupLBMapProvider(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                     ResourceMapper resourceMapper, RateLimiter rateLimiter,
                                     MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,
-                                    TenantUtil tenantUtil) {
+                                    TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
         this.collectorRegistry = collectorRegistry;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     @Override
@@ -107,7 +107,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
         List<Sample> newSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            accountRegion.getRegions().forEach(region -> futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+            accountRegion.getRegions().forEach(region -> futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                     new CollectionBuilderTask<Sample>() {
                         @Override
                         public List<Sample> call() {
@@ -115,7 +115,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
                         }
                     })));
         }
-        tenantUtil.awaitAll(futures, newSamples::addAll);
+        taskExecutorUtil.awaitAll(futures, newSamples::addAll);
         sampleBuilder.buildFamily(newSamples).ifPresent(familySamples -> metricFamilySamples = familySamples);
     }
 

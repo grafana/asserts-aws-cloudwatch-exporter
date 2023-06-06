@@ -6,7 +6,7 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.MetricConfig;
@@ -53,7 +53,7 @@ public class MetricQueryProvider {
     private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<String, Map<Integer, List<MetricQuery>>>>> metricQueryCache;
     private final RateLimiter rateLimiter;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
 
     public MetricQueryProvider(AccountProvider accountProvider,
                                ScrapeConfigProvider scrapeConfigProvider,
@@ -63,7 +63,7 @@ public class MetricQueryProvider {
                                ResourceTagHelper resourceTagHelper,
                                MetricQueryBuilder metricQueryBuilder,
                                RateLimiter rateLimiter,
-                               TenantUtil tenantUtil) {
+                               TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
@@ -72,7 +72,7 @@ public class MetricQueryProvider {
         this.resourceTagHelper = resourceTagHelper;
         this.metricQueryBuilder = metricQueryBuilder;
         this.rateLimiter = rateLimiter;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
         metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
                 scrapeConfigProvider.getScrapeConfig().getListMetricsResultCacheTTLMinutes(), MINUTES);
         log.info("Initialized..");
@@ -94,7 +94,7 @@ public class MetricQueryProvider {
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             String account = accountRegion.getAccountId();
             accountRegion.getRegions().forEach(region -> futures.add(
-                    tenantUtil.executeTenantTask(accountRegion.getTenant(), new SimpleTenantTask<Object>() {
+                    taskExecutorUtil.executeTenantTask(accountRegion.getTenant(), new SimpleTenantTask<Object>() {
                         @Override
                         public Object call() {
                             buildQueries(scrapeConfig, region, accountRegion, account, queriesByAccount);
@@ -102,7 +102,7 @@ public class MetricQueryProvider {
                         }
                     })));
         }
-        tenantUtil.awaitAll(futures, (object) -> {
+        taskExecutorUtil.awaitAll(futures, (object) -> {
         });
 
         Set<String> metricNames = new HashSet<>();

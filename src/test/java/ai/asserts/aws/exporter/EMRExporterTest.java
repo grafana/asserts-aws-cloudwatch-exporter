@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
@@ -67,7 +67,7 @@ public class EMRExporterTest extends EasyMockSupport {
         emrClient = mock(EmrClient.class);
         emrExporter = new EMRExporter(accountProvider, awsClientProvider, collectorRegistry,
                 new RateLimiter(basicMetricCollector), metricSampleBuilder,
-                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector)));
     }
 
     @Test

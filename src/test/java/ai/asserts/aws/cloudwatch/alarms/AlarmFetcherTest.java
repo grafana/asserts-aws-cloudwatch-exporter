@@ -7,7 +7,7 @@ package ai.asserts.aws.cloudwatch.alarms;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -78,7 +78,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         testClass = new AlarmFetcher(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, alarmMetricConverter, scrapeConfigProvider,
-                ecsServiceDiscoveryExporter, new TenantUtil(new TestTaskThreadPool(), new RateLimiter(null)));
+                ecsServiceDiscoveryExporter, new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(null)));
     }
 
     @Test

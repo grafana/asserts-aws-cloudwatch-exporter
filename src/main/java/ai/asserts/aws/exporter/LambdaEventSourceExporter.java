@@ -6,7 +6,7 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
@@ -52,7 +52,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
     private final ResourceTagHelper resourceTagHelper;
     private final MetricSampleBuilder sampleBuilder;
     private final RateLimiter rateLimiter;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     private volatile List<MetricFamilySamples> metrics;
 
     public LambdaEventSourceExporter(AccountProvider accountProvider,
@@ -61,7 +61,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                                      ResourceMapper resourceMapper,
                                      ResourceTagHelper resourceTagHelper,
                                      MetricSampleBuilder sampleBuilder,
-                                     RateLimiter rateLimiter, TenantUtil tenantUtil) {
+                                     RateLimiter rateLimiter, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -70,7 +70,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         this.resourceTagHelper = resourceTagHelper;
         this.sampleBuilder = sampleBuilder;
         this.rateLimiter = rateLimiter;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
         this.metrics = new ArrayList<>();
     }
 
@@ -96,7 +96,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
         lambdaConfig.ifPresent(namespaceConfig -> {
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region ->
-                        futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                        futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                                 new SimpleTenantTask<Map<String, List<Sample>>>() {
                                     @Override
                                     public Map<String, List<Sample>> call() {
@@ -105,7 +105,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
                                 })));
             }
         });
-        tenantUtil.awaitAll(futures, (byName) -> byName.forEach((name, samples) ->
+        taskExecutorUtil.awaitAll(futures, (byName) -> byName.forEach((name, samples) ->
                 samplesByName.computeIfAbsent(name, k -> new ArrayList<>()).addAll(samples)));
         return samplesByName.values().stream()
                 .map(sampleBuilder::buildFamily)

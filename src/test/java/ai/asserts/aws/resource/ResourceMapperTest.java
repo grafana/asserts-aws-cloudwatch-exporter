@@ -1,7 +1,7 @@
 
 package ai.asserts.aws.resource;
 
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,9 +38,9 @@ public class ResourceMapperTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        TenantUtil tenantUtil = mock(TenantUtil.class);
-        testClass = new ResourceMapper(tenantUtil);
-        expect(tenantUtil.getTenant()).andReturn("acme").anyTimes();
+        TaskExecutorUtil taskExecutorUtil = mock(TaskExecutorUtil.class);
+        testClass = new ResourceMapper(taskExecutorUtil);
+        expect(taskExecutorUtil.getTenant()).andReturn("acme").anyTimes();
     }
 
     @Test

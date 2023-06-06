@@ -8,7 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -53,7 +53,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
     private final TagUtil tagUtil;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     @Getter
     private volatile Set<ResourceRelation> routingConfigs = new HashSet<>();
     private volatile List<MetricFamilySamples> asgResourceMetrics = new ArrayList<>();
@@ -62,7 +62,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                                   ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider,
                                   RateLimiter rateLimiter, AccountProvider accountProvider,
                                   MetricSampleBuilder metricSampleBuilder, CollectorRegistry collectorRegistry,
-                                  TagUtil tagUtil, TenantUtil tenantUtil) {
+                                  TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
@@ -71,7 +71,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         this.metricSampleBuilder = metricSampleBuilder;
         this.collectorRegistry = collectorRegistry;
         this.tagUtil = tagUtil;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     @Override
@@ -92,7 +92,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         List<Future<List<Sample>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region ->
-                    futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                             new CollectionBuilderTask<Sample>() {
                                 @Override
                                 public List<Sample> call() {
@@ -100,7 +100,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                                 }
                             })));
         }
-        tenantUtil.awaitAll(futures, allSamples::addAll);
+        taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         if (allSamples.size() > 0) {
             metricSampleBuilder.buildFamily(allSamples).ifPresent(newMetrics::add);
         }

@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
@@ -65,7 +65,7 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
 
         testClass = new LBToLambdaRoutingBuilder(awsClientProvider, new RateLimiter(metricCollector),
                 resourceMapper, accountProvider, targetGroupLBMapProvider,
-                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
 
         AWSAccount awsAccount = new AWSAccount("tenant", "account", "accessId", "secretKey", "role",
                 ImmutableSet.of("region"));

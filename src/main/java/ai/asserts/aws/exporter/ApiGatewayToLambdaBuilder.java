@@ -8,7 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -56,7 +56,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
     private final MetricNameUtil metricNameUtil;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     private final Pattern LAMBDA_URI_PATTERN = Pattern.compile(
             "arn:aws:apigateway:(.+?):lambda:path/.+?/functions/arn:aws:lambda:(.+?):(.+?):function:(.+)/invocations");
 
@@ -68,14 +68,14 @@ public class ApiGatewayToLambdaBuilder extends Collector
                                      RateLimiter rateLimiter, AccountProvider accountProvider,
                                      MetricSampleBuilder metricSampleBuilder,
                                      CollectorRegistry collectorRegistry, MetricNameUtil metricNameUtil,
-                                     TenantUtil tenantUtil) {
+                                     TaskExecutorUtil taskExecutorUtil) {
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
         this.accountProvider = accountProvider;
         this.metricSampleBuilder = metricSampleBuilder;
         this.collectorRegistry = collectorRegistry;
         this.metricNameUtil = metricNameUtil;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     @Override
@@ -97,7 +97,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
             List<Future<List<Sample>>> futures = new ArrayList<>();
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region ->
-                        futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                        futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                                 new CollectionBuilderTask<Sample>() {
                             @Override
                             public List<Sample> call() {
@@ -105,7 +105,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
                             }
                         })));
             }
-            tenantUtil.awaitAll(futures, allSamples::addAll);
+            taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         } catch (Exception e) {
             log.error("Failed to discover lambda integrations", e);
         }
@@ -187,9 +187,9 @@ public class ApiGatewayToLambdaBuilder extends Collector
                     Matcher matcher = LAMBDA_URI_PATTERN.matcher(uri);
                     if (matcher.matches()) {
                         ResourceRelation resourceRelation = ResourceRelation.builder()
-                                .tenant(tenantUtil.getTenant())
+                                .tenant(taskExecutorUtil.getTenant())
                                 .from(Resource.builder()
-                                        .tenant(tenantUtil.getTenant())
+                                        .tenant(taskExecutorUtil.getTenant())
                                         .type(ApiGateway)
                                         .name(restApi.name())
                                         .id(restApi.id())
@@ -197,7 +197,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
                                         .account(accountId)
                                         .build())
                                 .to(Resource.builder()
-                                        .tenant(tenantUtil.getTenant())
+                                        .tenant(taskExecutorUtil.getTenant())
                                         .type(LambdaFunction)
                                         .name(matcher.group(4))
                                         .region(matcher.group(2))

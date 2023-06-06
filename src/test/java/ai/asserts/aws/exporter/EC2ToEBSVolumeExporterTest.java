@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
@@ -81,7 +81,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         tagUtil = mock(TagUtil.class);
         testClass = new EC2ToEBSVolumeExporter(accountProvider, awsClientProvider, metricSampleBuilder,
                 collectorRegistry, new RateLimiter(metricCollector), tagUtil, ecsServiceDiscoveryExporter,
-                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
     }
 
     @Test

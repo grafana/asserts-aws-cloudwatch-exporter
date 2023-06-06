@@ -2,7 +2,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
@@ -89,7 +89,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass.setTimeWindowBuilder(timeWindowBuilder);
         testClass.setEcsServiceDiscoveryExporter(ecsServiceDiscoveryExporter);
         testClass.setRateLimiter(new RateLimiter(metricCollector));
-        testClass.setTenantUtil(new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+        testClass.setTaskExecutorUtil(new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
     }
 
     @Test

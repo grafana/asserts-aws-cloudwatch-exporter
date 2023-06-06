@@ -9,7 +9,7 @@ import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
@@ -55,7 +55,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder metricSampleBuilder;
     private final RateLimiter rateLimiter;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     private volatile List<MetricFamilySamples> cache;
 
     public LambdaInvokeConfigExporter(
@@ -64,7 +64,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
             MetricNameUtil metricNameUtil,
             ScrapeConfigProvider scrapeConfigProvider, ResourceMapper resourceMapper,
             MetricSampleBuilder metricSampleBuilder,
-            RateLimiter rateLimiter, TenantUtil tenantUtil) {
+            RateLimiter rateLimiter, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.fnScraper = fnScraper;
         this.awsClientProvider = awsClientProvider;
@@ -73,7 +73,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
         this.resourceMapper = resourceMapper;
         this.metricSampleBuilder = metricSampleBuilder;
         this.rateLimiter = rateLimiter;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
         this.cache = Collections.emptyList();
     }
 
@@ -108,7 +108,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                     Map<String, Map<String, LambdaFunction>> byRegion =
                             new ConcurrentHashMap<>(byAccountByRegion.get(account));
                     byRegion.forEach((region, byARN) ->
-                            futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                            futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                                     new CollectionBuilderTask<Sample>() {
                                         @Override
                                         public List<Sample> call() {
@@ -118,7 +118,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                 }
             }
         });
-        tenantUtil.awaitAll(futures, allSamples::addAll);
+        taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         return ImmutableList.of(new MetricFamilySamples(metricName, Type.GAUGE, "", allSamples));
     }
 

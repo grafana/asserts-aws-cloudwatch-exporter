@@ -7,7 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
@@ -43,20 +43,20 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
     private final RateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public KinesisAnalyticsExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                     CollectorRegistry collectorRegistry, ResourceMapper resourceMapper,
                                     RateLimiter rateLimiter,
-                                    MetricSampleBuilder sampleBuilder, TenantUtil tenantUtil) {
+                                    MetricSampleBuilder sampleBuilder, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     @Override
@@ -75,7 +75,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
         List<Sample> allSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
-                futures.add(tenantUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                futures.add(taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
                     @Override
                     public List<Sample> call() {
                         List<Sample> samples = new ArrayList<>();
@@ -119,7 +119,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
                         return samples;
                     }
                 }))));
-        tenantUtil.awaitAll(futures, allSamples::addAll);
+        taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }

@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -74,7 +74,7 @@ public class RDSExporterTest extends EasyMockSupport {
         BasicMetricCollector metricCollector = mock(BasicMetricCollector.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new RDSExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter, sampleBuilder,
-                resourceTagHelper, tagUtil, new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
     }
 
     @Test

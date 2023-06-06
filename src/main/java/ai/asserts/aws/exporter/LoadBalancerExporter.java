@@ -10,7 +10,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TagUtil;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -56,14 +56,14 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
     private final MetricNameUtil metricNameUtil;
     private final RateLimiter rateLimiter;
     private final TagUtil tagUtil;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
 
     private volatile List<Collector.MetricFamilySamples> resourceMetrics;
 
     public LoadBalancerExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                 MetricSampleBuilder metricSampleBuilder, ResourceMapper resourceMapper,
                                 ScrapeConfigProvider scrapeConfigProvider, MetricNameUtil metricNameUtil,
-                                RateLimiter rateLimiter, TagUtil tagUtil, TenantUtil tenantUtil) {
+                                RateLimiter rateLimiter, TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricSampleBuilder = metricSampleBuilder;
@@ -72,7 +72,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
         this.metricNameUtil = metricNameUtil;
         this.rateLimiter = rateLimiter;
         this.tagUtil = tagUtil;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
         this.resourceMetrics = new ArrayList<>();
     }
 
@@ -85,7 +85,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
         try {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region ->
-                    futures.add(tenantUtil.executeTenantTask(awsAccount.getTenant(),
+                    futures.add(taskExecutorUtil.executeTenantTask(awsAccount.getTenant(),
                             new SimpleTenantTask<Pair<List<Sample>, List<Sample>>>() {
                                 @Override
                                 public Pair<List<Sample>, List<Sample>> call() {
@@ -95,7 +95,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
         } catch (Exception e) {
             log.error("Failed to build Load Balancer metrics", e);
         }
-        tenantUtil.awaitAll(futures, (pair) -> {
+        taskExecutorUtil.awaitAll(futures, (pair) -> {
             samples.addAll(pair.left());
             elbEC2RelSamples.addAll(pair.right());
         });

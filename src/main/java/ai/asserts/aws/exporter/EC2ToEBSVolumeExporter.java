@@ -8,7 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -59,7 +59,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
     private final RateLimiter rateLimiter;
     private final TagUtil tagUtil;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
 
     @Getter
     private volatile Set<ResourceRelation> attachedVolumes = new HashSet<>();
@@ -69,7 +69,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                                   AWSClientProvider awsClientProvider, MetricSampleBuilder metricSampleBuilder,
                                   CollectorRegistry collectorRegistry, RateLimiter rateLimiter, TagUtil tagUtil,
                                   ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
-                                  TenantUtil tenantUtil) {
+                                  TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricSampleBuilder = metricSampleBuilder;
@@ -77,7 +77,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
         this.rateLimiter = rateLimiter;
         this.tagUtil = tagUtil;
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     @Override
@@ -98,22 +98,22 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
         List<Future<List<Sample>>> futures = new ArrayList<>();
         List<Future<List<ResourceRelation>>> volumeFutures = new ArrayList<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
-            futures.add(tenantUtil.executeTenantTask(awsAccount.getTenant(), new CollectionBuilderTask<Sample>() {
+            futures.add(taskExecutorUtil.executeTenantTask(awsAccount.getTenant(), new CollectionBuilderTask<Sample>() {
                 @Override
                 public List<Sample> call() {
                     return buildEC2InstanceMetrics(region, awsAccount);
                 }
             }));
             volumeFutures.add(
-                    tenantUtil.executeTenantTask(awsAccount.getTenant(), new CollectionBuilderTask<ResourceRelation>() {
+                    taskExecutorUtil.executeTenantTask(awsAccount.getTenant(), new CollectionBuilderTask<ResourceRelation>() {
                         @Override
                         public List<ResourceRelation> call() {
                             return buildResourceRelations(awsAccount, region);
                         }
                     }));
         }));
-        tenantUtil.awaitAll(futures, allSamples::addAll);
-        tenantUtil.awaitAll(volumeFutures, newAttachedVolumes::addAll);
+        taskExecutorUtil.awaitAll(futures, allSamples::addAll);
+        taskExecutorUtil.awaitAll(volumeFutures, newAttachedVolumes::addAll);
         if (allSamples.size() > 0) {
             metricSampleBuilder.buildFamily(allSamples).ifPresent(newMetrics::add);
         }
@@ -145,16 +145,16 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                             .flatMap(volume -> volume.attachments().stream())
                             .map(volumeAttachment -> {
                                 Resource ec2Instance = Resource.builder()
-                                        .tenant(tenantUtil.getTenant())
+                                        .tenant(taskExecutorUtil.getTenant())
                                         .account(accountId)
                                         .region(region)
                                         .type(EC2Instance)
                                         .name(volumeAttachment.instanceId())
                                         .build();
                                 return ResourceRelation.builder()
-                                        .tenant(tenantUtil.getTenant())
+                                        .tenant(taskExecutorUtil.getTenant())
                                         .from(Resource.builder()
-                                                .tenant(tenantUtil.getTenant())
+                                                .tenant(taskExecutorUtil.getTenant())
                                                 .account(accountId)
                                                 .region(region)
                                                 .type(EBSVolume)

@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws.lambda;
 
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import lombok.AllArgsConstructor;
@@ -23,7 +23,7 @@ import java.util.Optional;
 @Slf4j
 public class LambdaFunctionBuilder {
     private final ResourceMapper resourceMapper;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public LambdaFunction buildFunction(String region, FunctionConfiguration functionConfiguration,
@@ -31,7 +31,7 @@ public class LambdaFunctionBuilder {
 
         Optional<Resource> resourceFromARN = resourceMapper.map(functionConfiguration.functionArn());
         LambdaFunction.LambdaFunctionBuilder<?, ?> builder = LambdaFunction.builder()
-                .tenant(tenantUtil.getTenant())
+                .tenant(taskExecutorUtil.getTenant())
                 .region(region)
                 .name(functionConfiguration.functionName())
                 .arn(functionConfiguration.functionArn())

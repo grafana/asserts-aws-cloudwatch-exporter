@@ -7,7 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.SimpleTenantTask;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -46,7 +46,7 @@ public class LBToLambdaRoutingBuilder {
     private final ResourceMapper resourceMapper;
     private final AccountProvider accountProvider;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
 
     public Set<ResourceRelation> getRoutings() {
         log.info("LB To Lambda routing relation builder about to build relations");
@@ -55,7 +55,7 @@ public class LBToLambdaRoutingBuilder {
         List<Future<Pair<Set<ResourceRelation>, Set<Resource>>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region ->
-                    futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                             new SimpleTenantTask<Pair<Set<ResourceRelation>, Set<Resource>>>() {
                                 @Override
                                 public Pair<Set<ResourceRelation>, Set<Resource>> call() {
@@ -63,7 +63,7 @@ public class LBToLambdaRoutingBuilder {
                                 }
                             })));
         }
-        tenantUtil.awaitAll(futures, (pair) -> {
+        taskExecutorUtil.awaitAll(futures, (pair) -> {
             routing.addAll(pair.left());
             missingTgs.addAll(pair.right());
         });

@@ -7,7 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
@@ -71,12 +71,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
-        TenantUtil tenantUtil = new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector));
+        TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector));
         Ec2Client ec2Client = mock(Ec2Client.class);
 
 
         testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector), tagUtil,
-                tenantUtil);
+                taskExecutorUtil);
 
         expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
         expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()

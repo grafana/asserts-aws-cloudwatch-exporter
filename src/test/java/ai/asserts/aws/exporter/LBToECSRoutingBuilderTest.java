@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
@@ -64,7 +64,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
         accountProvider = mock(AccountProvider.class);
         ecsClusterProvider = mock(ECSClusterProvider.class);
         testClass = new LBToECSRoutingBuilder(rateLimiter, resourceMapper, targetGroupLBMapProvider,
-                awsClientProvider, accountProvider, ecsClusterProvider, new TenantUtil(new TestTaskThreadPool(),
+                awsClientProvider, accountProvider, ecsClusterProvider, new TaskExecutorUtil(new TestTaskThreadPool(),
                 new RateLimiter(metricCollector)));
     }
 

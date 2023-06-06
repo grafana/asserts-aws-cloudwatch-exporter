@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
@@ -78,7 +78,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
 
         testClass = new LambdaInvokeConfigExporter(accountProvider, fnScraper, awsClientProvider, metricNameUtil,
                 scrapeConfigProvider, resourceMapper, metricSampleBuilder, new RateLimiter(metricCollector),
-                 new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                 new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
 
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));

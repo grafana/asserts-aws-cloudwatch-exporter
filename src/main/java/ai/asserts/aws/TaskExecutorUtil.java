@@ -17,14 +17,14 @@ import java.util.function.Consumer;
 
 @Component
 @Slf4j
-public class TenantUtil {
+public class TaskExecutorUtil {
     private final TaskThreadPool taskThreadPool;
 
     private final RateLimiter rateLimiter;
     private static final ThreadLocal<String> tenantName = new ThreadLocal<>();
 
 
-    public TenantUtil(@Qualifier("aws-api-calls-thread-pool") TaskThreadPool taskThreadPool, RateLimiter rateLimiter) {
+    public TaskExecutorUtil(@Qualifier("aws-api-calls-thread-pool") TaskThreadPool taskThreadPool, RateLimiter rateLimiter) {
         this.taskThreadPool = taskThreadPool;
         this.rateLimiter = rateLimiter;
     }

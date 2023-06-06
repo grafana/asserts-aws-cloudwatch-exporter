@@ -6,7 +6,7 @@ import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
@@ -58,7 +58,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
     private final MetricSampleBuilder metricSampleBuilder;
     private final MetricNameUtil metricNameUtil;
     private final ECSServiceDiscoveryExporter ecsSDExporter;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     private final Supplier<Map<String, Map<String, Map<String, LambdaFunction>>>> functionsByRegion;
     private final boolean filterLambdaByEnvironment;
     private List<MetricFamilySamples> cache;
@@ -69,7 +69,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
             ResourceTagHelper resourceTagHelper,
             LambdaFunctionBuilder fnBuilder, RateLimiter rateLimiter,
             MetricSampleBuilder metricSampleBuilder, MetricNameUtil metricNameUtil,
-            ECSServiceDiscoveryExporter ecsSDExporter, TenantUtil tenantUtil) {
+            ECSServiceDiscoveryExporter ecsSDExporter, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
@@ -78,7 +78,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
         this.rateLimiter = rateLimiter;
         this.metricSampleBuilder = metricSampleBuilder;
         this.metricNameUtil = metricNameUtil;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
         this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions,
                 scrapeConfigProvider.getScrapeConfig().getListFunctionsResultCacheTTLMinutes(), MINUTES);
         this.ecsSDExporter = ecsSDExporter;
@@ -145,7 +145,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
         LambdaFunctionScraper scraper = this;
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             lambdaNSOpt.ifPresent(lambdaNS -> accountRegion.getRegions().forEach(region ->
-                    futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                             new SimpleTenantTask<Map<String, Map<String, Map<String, LambdaFunction>>>>() {
                                 @Override
                                 public Map<String, Map<String, Map<String, LambdaFunction>>> call() {
@@ -153,7 +153,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
                                 }
                             }))));
         }
-        tenantUtil.awaitAll(futures, (srcByAccount) -> srcByAccount.forEach((srcAccount, srcByRegion) -> {
+        taskExecutorUtil.awaitAll(futures, (srcByAccount) -> srcByAccount.forEach((srcAccount, srcByRegion) -> {
             Map<String, Map<String, LambdaFunction>> byRegion =
                     byAccountByRegion.computeIfAbsent(srcAccount, k -> new TreeMap<>());
             srcByRegion.forEach((region, byName) ->

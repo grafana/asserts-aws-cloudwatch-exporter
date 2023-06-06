@@ -4,7 +4,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.SimpleTenantTask;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
@@ -76,7 +76,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     @Autowired
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     @Autowired
-    private TenantUtil tenantUtil;
+    private TaskExecutorUtil taskExecutorUtil;
 
     private final AWSAccount account;
     private final String region;
@@ -103,7 +103,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
         if (intervalSeconds <= 60 || System.currentTimeMillis() - lastRunTime > intervalSeconds * 1000L) {
             lastRunTime = System.currentTimeMillis();
             try {
-                cache = tenantUtil.executeTenantTask(account.getTenant(),
+                cache = taskExecutorUtil.executeTenantTask(account.getTenant(),
                         new SimpleTenantTask<List<MetricFamilySamples>>() {
                             @Override
                             public List<MetricFamilySamples> call() {

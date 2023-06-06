@@ -5,7 +5,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -72,7 +72,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         metricQuery = mock(MetricQuery.class);
         metricCollector = mock(BasicMetricCollector.class);
-        TenantUtil tenantUtil = new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector));
+        TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector));
 
         metric = Metric.builder()
                 .namespace(lambda.getNamespace())
@@ -86,7 +86,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         replayAll();
         testClass = new MetricQueryProvider(accountProvider, scrapeConfigProvider, queryIdGenerator, metricNameUtil,
                 awsClientProvider, resourceTagHelper, metricQueryBuilder,
-                new RateLimiter(metricCollector), tenantUtil);
+                new RateLimiter(metricCollector), taskExecutorUtil);
         verifyAll();
         resetAll();
     }

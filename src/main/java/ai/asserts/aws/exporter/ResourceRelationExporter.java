@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.TenantUtil;
 import ai.asserts.aws.resource.ResourceRelation;
 import io.prometheus.client.Collector;
 import lombok.extern.slf4j.Slf4j;

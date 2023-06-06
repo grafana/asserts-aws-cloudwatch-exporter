@@ -8,7 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -51,7 +51,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     private final MetricSampleBuilder sampleBuilder;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public AlarmFetcher(AccountProvider accountProvider,
@@ -62,7 +62,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                         AlarmMetricConverter alarmMetricConverter,
                         ScrapeConfigProvider scrapeConfigProvider,
                         ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
-                        TenantUtil tenantUtil) {
+                        TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -71,7 +71,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
         this.alarmMetricConverter = alarmMetricConverter;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     @Override
@@ -101,7 +101,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
             log.info("Start Fetching alarms");
             for (AWSAccount accountRegion : accountProvider.getAccounts()) {
                 accountRegion.getRegions().forEach(region ->
-                        futures.add(tenantUtil.executeTenantTask(accountRegion.getTenant(),
+                        futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                                 new CollectionBuilderTask<Sample>() {
                                     @Override
                                     public List<Sample> call() {
@@ -121,7 +121,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                                     }
                                 })));
             }
-            tenantUtil.awaitAll(futures, allSamples::addAll);
+            taskExecutorUtil.awaitAll(futures, allSamples::addAll);
             if (exposeAsMetric) {
                 sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
                 metricFamilySamples = newFamily;

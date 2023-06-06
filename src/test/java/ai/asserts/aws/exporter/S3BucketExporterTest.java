@@ -7,7 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -70,7 +70,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
         tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new S3BucketExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, resourceTagHelper, tagUtil, new TenantUtil(new TestTaskThreadPool(),
+                sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
                 new RateLimiter(basicMetricCollector)));
     }
 

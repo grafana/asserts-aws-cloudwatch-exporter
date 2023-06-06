@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.MetricStat;
@@ -44,9 +44,9 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         labelBuilder = mock(LabelBuilder.class);
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
-        TenantUtil tenantUtil = mock(TenantUtil.class);
-        testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder, scrapeConfigProvider, tenantUtil);
-        expect(tenantUtil.getTenant()).andReturn("acme").anyTimes();
+        TaskExecutorUtil taskExecutorUtil = mock(TaskExecutorUtil.class);
+        testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder, scrapeConfigProvider, taskExecutorUtil);
+        expect(taskExecutorUtil.getTenant()).andReturn("acme").anyTimes();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
     }
 

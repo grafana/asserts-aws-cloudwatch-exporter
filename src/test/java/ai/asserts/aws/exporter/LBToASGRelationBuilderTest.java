@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
@@ -77,7 +77,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         testClass = new LBToASGRelationBuilder(awsClientProvider, resourceMapper,
                 targetGroupLBMapProvider, new RateLimiter(metricCollector),
                 accountProvider, metricSampleBuilder, collectorRegistry, tagUtil,
-                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
     }
 
     @Test

@@ -5,7 +5,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -94,7 +94,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 scrapeConfigProvider, awsClientProvider,
                 resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
                 metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
-                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -139,7 +139,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                 scrapeConfigProvider, awsClientProvider,
                 resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
                 metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
-                new TenantUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector))) {
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector))) {
             @Override
             public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
                 return functions;

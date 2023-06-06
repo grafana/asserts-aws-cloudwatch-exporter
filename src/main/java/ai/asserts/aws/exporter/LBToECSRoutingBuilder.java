@@ -7,7 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.SimpleTenantTask;
-import ai.asserts.aws.TenantUtil;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -47,7 +47,7 @@ public class LBToECSRoutingBuilder implements Runnable {
     private final AWSClientProvider awsClientProvider;
     private final AccountProvider accountProvider;
     private final ECSClusterProvider ecsClusterProvider;
-    private final TenantUtil tenantUtil;
+    private final TaskExecutorUtil taskExecutorUtil;
 
     @Getter
     private volatile Set<ResourceRelation> routing = new HashSet<>();
@@ -55,28 +55,28 @@ public class LBToECSRoutingBuilder implements Runnable {
     public LBToECSRoutingBuilder(RateLimiter rateLimiter, ResourceMapper resourceMapper,
                                  TargetGroupLBMapProvider targetGroupLBMapProvider,
                                  AWSClientProvider awsClientProvider, AccountProvider accountProvider,
-                                 ECSClusterProvider ecsClusterProvider, TenantUtil tenantUtil) {
+                                 ECSClusterProvider ecsClusterProvider, TaskExecutorUtil taskExecutorUtil) {
         this.rateLimiter = rateLimiter;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
         this.awsClientProvider = awsClientProvider;
         this.accountProvider = accountProvider;
         this.ecsClusterProvider = ecsClusterProvider;
-        this.tenantUtil = tenantUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     public void run() {
         Set<ResourceRelation> newRouting = new HashSet<>();
         List<Future<Set<ResourceRelation>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region ->
-                futures.add(tenantUtil.executeTenantTask(awsAccount.getTenant(),
+                futures.add(taskExecutorUtil.executeTenantTask(awsAccount.getTenant(),
                         new SimpleTenantTask<Set<ResourceRelation>>() {
                             @Override
                             public Set<ResourceRelation> call() {
                                 return buildRelationships(region, awsAccount);
                             }
                         }))));
-        tenantUtil.awaitAll(futures, newRouting::addAll);
+        taskExecutorUtil.awaitAll(futures, newRouting::addAll);
         routing = newRouting;
     }
 
