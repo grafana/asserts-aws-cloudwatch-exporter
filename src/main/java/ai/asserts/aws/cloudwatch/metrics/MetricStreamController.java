@@ -216,7 +216,10 @@ public class MetricStreamController {
         SortedMap<String, String> metricMap = new TreeMap<>();
         String metricNamespace = metric.getNamespace();
 
-        metricMap.put(TENANT, accountTenantMapper.getTenantName(metric.getAccount_id()));
+        String tenantName = accountTenantMapper.getTenantName(metric.getAccount_id());
+        if (tenantName != null) {
+            metricMap.put(TENANT, tenantName);
+        }
         metricMap.put("account_id", metric.getAccount_id());
         metricMap.put("region", metric.getRegion());
         metricMap.put("namespace", metricNamespace);
@@ -236,7 +239,7 @@ public class MetricStreamController {
 
             String prefix = namespace.getMetricPrefix();
             String metricName = prefix + "_" + metric.getMetric_name();
-            recordHistogram(metricMap, metric.getTimestamp(), metricName);
+            recordHistogram(tenantName, metricMap, metric.getTimestamp(), metricName);
             metric.getValue().forEach((key, value) -> {
                 String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + key);
                 if (scrapeConfig.getMetricsToCapture().containsKey(gaugeMetricName)) {
@@ -246,11 +249,14 @@ public class MetricStreamController {
         });
     }
 
-    private void recordHistogram(Map<String, String> labels, Long timestamp, String metric_name) {
+    private void recordHistogram(String tenant, Map<String, String> labels, Long timestamp, String metric_name) {
         SortedMap<String, String> histogramLabels = new TreeMap<>();
         histogramLabels.put("namespace", labels.get("namespace"));
         histogramLabels.put("region", labels.get("region"));
         histogramLabels.put("metric_name", metric_name);
+        if (tenant != null) {
+            histogramLabels.put(TENANT, tenant);
+        }
         long diff = (now().toEpochMilli() - timestamp) / 1000;
         this.metricCollector.recordHistogram(MetricNameUtil.EXPORTER_DELAY_SECONDS, histogramLabels, diff);
     }
