@@ -7,6 +7,7 @@ package ai.asserts.aws.account;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Sets;
 import lombok.AllArgsConstructor;
@@ -37,6 +38,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @AllArgsConstructor
 @ConditionalOnProperty(name = "deployment.mode", havingValue = "single", matchIfMissing = true)
 public class SingleInstanceAccountProvider implements AccountProvider {
+    public static final String TSDB_USER_NAME = "remoteWrite_basicAuth_username";
     private final AccountIDProvider accountIDProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RestTemplate restTemplate;
@@ -49,6 +51,7 @@ public class SingleInstanceAccountProvider implements AccountProvider {
     }
 
     private Set<AWSAccount> getAccountsInternal() {
+        String tenantName = getTenantName();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Map<String, AWSAccount> accountRegions = new HashMap<>();
         Set<String> regions = scrapeConfig.getRegions();
@@ -58,7 +61,7 @@ public class SingleInstanceAccountProvider implements AccountProvider {
         }
         if (scrapeConfig.isScrapeCurrentAccount()) {
             String accountId = accountIDProvider.getAccountId();
-            AWSAccount ac = new AWSAccount(accountId, null, null, null, regions);
+            AWSAccount ac = new AWSAccount(tenantName, accountId, null, null, null, regions);
             accountRegions.put(ac.getAccountId(), ac);
             log.info("Scraping AWS Accounts {}", accountRegions);
         }
@@ -85,6 +88,7 @@ public class SingleInstanceAccountProvider implements AccountProvider {
                             })
                             .forEach(awsAccount -> {
                                 awsAccount.getRegions().addAll(finalRegions);
+                                awsAccount.setTenant(tenantName);
                                 accountRegions.putIfAbsent(awsAccount.getAccountId(), awsAccount);
                             });
                 }
@@ -92,6 +96,11 @@ public class SingleInstanceAccountProvider implements AccountProvider {
             }
         }
         return Sets.newHashSet(accountRegions.values());
+    }
+
+    @VisibleForTesting
+    String getTenantName() {
+        return System.getenv(TSDB_USER_NAME);
     }
 
     @EqualsAndHashCode

@@ -66,10 +66,6 @@ public class ScrapeConfig {
 
     @Builder.Default
     @Setter
-    private boolean discoverAllECSTasksByDefault = true;
-
-    @Builder.Default
-    @Setter
     private boolean discoverECSTasksAcrossVPCs = true;
 
     @Builder.Default

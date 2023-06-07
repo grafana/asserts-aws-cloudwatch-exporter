@@ -5,6 +5,8 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
@@ -43,6 +45,7 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings("unchecked")
 public class LambdaFunctionScraperTest extends EasyMockSupport {
     private AccountProvider accountProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
@@ -64,7 +67,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account", "", "",
+        accountRegion = new AWSAccount("tenant", "account", "", "",
                 "role", ImmutableSet.of("region1", "region2"));
         accountProvider = mock(AccountProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
@@ -90,8 +93,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         lambdaFunctionScraper = new LambdaFunctionScraper(
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
-                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
-                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter);
+                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector, (account) -> "tenant"),
+                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
+                new TaskExecutorUtil(new TestTaskThreadPool(),
+                        new RateLimiter(metricCollector, (account) -> "tenant")));
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -106,6 +111,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         Map<String, Map<String, Map<String, LambdaFunction>>> functions = new TreeMap<>();
         functions.put("account_id", ImmutableMap.of("region1", ImmutableMap.of("function",
                 LambdaFunction.builder()
+                        .tenant("acme")
                         .account("account_id")
                         .region("region1")
                         .name("function")
@@ -117,6 +123,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
 
         expect(metricSampleBuilder.buildSingleSample(
                 "aws_resource", new ImmutableMap.Builder<String, String>()
+                        .put("tenant", "acme")
                         .put("account_id", "account_id")
                         .put("aws_resource_type", "AWS::Lambda::Function")
                         .put("namespace", "AWS/Lambda")
@@ -132,8 +139,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         lambdaFunctionScraper = new LambdaFunctionScraper(
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
-                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
-                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter) {
+                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector, (account) -> "tenant"),
+                metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
+                new TaskExecutorUtil(new TestTaskThreadPool(),
+                        new RateLimiter(metricCollector, (account) -> "tenant"))) {
             @Override
             public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
                 return functions;

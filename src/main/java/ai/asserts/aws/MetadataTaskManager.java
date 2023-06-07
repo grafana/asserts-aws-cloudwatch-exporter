@@ -14,7 +14,6 @@ import ai.asserts.aws.exporter.LBToECSRoutingBuilder;
 import ai.asserts.aws.exporter.LambdaCapacityExporter;
 import ai.asserts.aws.exporter.LambdaEventSourceExporter;
 import ai.asserts.aws.exporter.LambdaInvokeConfigExporter;
-import ai.asserts.aws.exporter.LambdaLogMetricScrapeTask;
 import ai.asserts.aws.exporter.LoadBalancerExporter;
 import ai.asserts.aws.exporter.RDSExporter;
 import ai.asserts.aws.exporter.RedshiftExporter;
@@ -26,19 +25,13 @@ import ai.asserts.aws.exporter.TargetGroupLBMapProvider;
 import ai.asserts.aws.lambda.LambdaFunctionScraper;
 import io.micrometer.core.annotation.Timed;
 import io.prometheus.client.CollectorRegistry;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Component
-@AllArgsConstructor
 @Slf4j
 public class MetadataTaskManager implements InitializingBean {
     private final CollectorRegistry collectorRegistry;
@@ -46,7 +39,6 @@ public class MetadataTaskManager implements InitializingBean {
     private final LambdaCapacityExporter lambdaCapacityExporter;
     private final LambdaEventSourceExporter lambdaEventSourceExporter;
     private final LambdaInvokeConfigExporter lambdaInvokeConfigExporter;
-    private final LambdaLogMetricScrapeTask lambdaLogScrapeTask;
     private final BasicMetricCollector metricCollector;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final ResourceRelationExporter relationExporter;
@@ -69,10 +61,54 @@ public class MetadataTaskManager implements InitializingBean {
     private final SNSTopicExporter snsTopicExporter;
 
     private final EMRExporter emrExporter;
-    private final RateLimiter rateLimiter;
 
-    @Getter
-    private final List<LambdaLogMetricScrapeTask> logScrapeTasks = new ArrayList<>();
+    public MetadataTaskManager(CollectorRegistry collectorRegistry, LambdaFunctionScraper lambdaFunctionScraper,
+                               LambdaCapacityExporter lambdaCapacityExporter,
+                               LambdaEventSourceExporter lambdaEventSourceExporter,
+                               LambdaInvokeConfigExporter lambdaInvokeConfigExporter,
+                                BasicMetricCollector metricCollector,
+                               TargetGroupLBMapProvider targetGroupLBMapProvider,
+                               ResourceRelationExporter relationExporter,
+                               LBToASGRelationBuilder lbToASGRelationBuilder,
+                               LBToECSRoutingBuilder lbToECSRoutingBuilder,
+                               EC2ToEBSVolumeExporter ec2ToEBSVolumeExporter,
+                               ApiGatewayToLambdaBuilder apiGatewayToLambdaBuilder,
+                               KinesisAnalyticsExporter kinesisAnalyticsExporter,
+                               KinesisFirehoseExporter kinesisFirehoseExporter, S3BucketExporter s3BucketExporter,
+                               @Qualifier("metadata-trigger-thread-pool") TaskThreadPool taskThreadPool,
+                               ScrapeConfigProvider scrapeConfigProvider,
+                               ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
+                               RedshiftExporter redshiftExporter, SQSQueueExporter sqsQueueExporter,
+                               KinesisStreamExporter kinesisStreamExporter, LoadBalancerExporter loadBalancerExporter
+            , RDSExporter rdsExporter, DynamoDBExporter dynamoDBExporter, SNSTopicExporter snsTopicExporter,
+                               EMRExporter emrExporter) {
+        this.collectorRegistry = collectorRegistry;
+        this.lambdaFunctionScraper = lambdaFunctionScraper;
+        this.lambdaCapacityExporter = lambdaCapacityExporter;
+        this.lambdaEventSourceExporter = lambdaEventSourceExporter;
+        this.lambdaInvokeConfigExporter = lambdaInvokeConfigExporter;
+        this.metricCollector = metricCollector;
+        this.targetGroupLBMapProvider = targetGroupLBMapProvider;
+        this.relationExporter = relationExporter;
+        this.lbToASGRelationBuilder = lbToASGRelationBuilder;
+        this.lbToECSRoutingBuilder = lbToECSRoutingBuilder;
+        this.ec2ToEBSVolumeExporter = ec2ToEBSVolumeExporter;
+        this.apiGatewayToLambdaBuilder = apiGatewayToLambdaBuilder;
+        this.kinesisAnalyticsExporter = kinesisAnalyticsExporter;
+        this.kinesisFirehoseExporter = kinesisFirehoseExporter;
+        this.s3BucketExporter = s3BucketExporter;
+        this.taskThreadPool = taskThreadPool;
+        this.scrapeConfigProvider = scrapeConfigProvider;
+        this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
+        this.redshiftExporter = redshiftExporter;
+        this.sqsQueueExporter = sqsQueueExporter;
+        this.kinesisStreamExporter = kinesisStreamExporter;
+        this.loadBalancerExporter = loadBalancerExporter;
+        this.rdsExporter = rdsExporter;
+        this.dynamoDBExporter = dynamoDBExporter;
+        this.snsTopicExporter = snsTopicExporter;
+        this.emrExporter = emrExporter;
+    }
 
     public void afterPropertiesSet() {
         if (ecsServiceDiscoveryExporter.isPrimaryExporter()) {
@@ -83,12 +119,6 @@ public class MetadataTaskManager implements InitializingBean {
             metricCollector.register(collectorRegistry);
             relationExporter.register(collectorRegistry);
             loadBalancerExporter.register(collectorRegistry);
-
-            scrapeConfigProvider.getScrapeConfig().getLambdaConfig().ifPresent(nc -> {
-                if (!CollectionUtils.isEmpty(nc.getLogs())) {
-                    logScrapeTasks.add(lambdaLogScrapeTask);
-                }
-            });
         } else {
             log.info("Not primary exporter. Will skip scraping meta data information");
         }
@@ -104,29 +134,27 @@ public class MetadataTaskManager implements InitializingBean {
             return;
         }
 
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaFunctionScraper::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaCapacityExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaEventSourceExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lambdaInvokeConfigExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(targetGroupLBMapProvider::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lbToASGRelationBuilder::updateRouting));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(lbToECSRoutingBuilder));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(relationExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(ec2ToEBSVolumeExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(apiGatewayToLambdaBuilder::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(kinesisAnalyticsExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(kinesisFirehoseExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(s3BucketExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(redshiftExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(sqsQueueExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(kinesisStreamExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(loadBalancerExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(rdsExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(dynamoDBExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(snsTopicExporter::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(() ->
-                logScrapeTasks.forEach(LambdaLogMetricScrapeTask::update)));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(emrExporter::update));
+        taskThreadPool.getExecutorService().submit(lambdaFunctionScraper::update);
+        taskThreadPool.getExecutorService().submit(lambdaCapacityExporter::update);
+        taskThreadPool.getExecutorService().submit(lambdaEventSourceExporter::update);
+        taskThreadPool.getExecutorService().submit(lambdaInvokeConfigExporter::update);
+        taskThreadPool.getExecutorService().submit(targetGroupLBMapProvider::update);
+        taskThreadPool.getExecutorService().submit(lbToASGRelationBuilder::updateRouting);
+        taskThreadPool.getExecutorService().submit(lbToECSRoutingBuilder);
+        taskThreadPool.getExecutorService().submit(relationExporter::update);
+        taskThreadPool.getExecutorService().submit(ec2ToEBSVolumeExporter::update);
+        taskThreadPool.getExecutorService().submit(apiGatewayToLambdaBuilder::update);
+        taskThreadPool.getExecutorService().submit(kinesisAnalyticsExporter::update);
+        taskThreadPool.getExecutorService().submit(kinesisFirehoseExporter::update);
+        taskThreadPool.getExecutorService().submit(s3BucketExporter::update);
+        taskThreadPool.getExecutorService().submit(redshiftExporter::update);
+        taskThreadPool.getExecutorService().submit(sqsQueueExporter::update);
+        taskThreadPool.getExecutorService().submit(kinesisStreamExporter::update);
+        taskThreadPool.getExecutorService().submit(loadBalancerExporter::update);
+        taskThreadPool.getExecutorService().submit(rdsExporter::update);
+        taskThreadPool.getExecutorService().submit(dynamoDBExporter::update);
+        taskThreadPool.getExecutorService().submit(snsTopicExporter::update);
+        taskThreadPool.getExecutorService().submit(emrExporter::update);
     }
 
     @SuppressWarnings("unused")
@@ -134,7 +162,7 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(scrapeConfigProvider::update));
-        taskThreadPool.getExecutorService().submit(() -> rateLimiter.runTask(ecsServiceDiscoveryExporter));
+        taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
+        taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
     }
 }

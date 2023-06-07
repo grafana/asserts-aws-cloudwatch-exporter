@@ -7,32 +7,37 @@ package ai.asserts.aws;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
+import io.micrometer.core.instrument.util.NamedThreadFactory;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
-@Component
 @Getter
 @Slf4j
 public class TaskThreadPool {
-    private final ScrapeConfigProvider scrapeConfigProvider;
+    private final String name;
+    private final int numThreads;
     private final ExecutorService executorService;
 
-    public TaskThreadPool(ScrapeConfigProvider scrapeConfigProvider, MeterRegistry meterRegistry) {
-        this.scrapeConfigProvider = scrapeConfigProvider;
-        Integer numTaskThreads = scrapeConfigProvider.getScrapeConfig().getNumTaskThreads();
-        executorService = executorService(meterRegistry, numTaskThreads);
+    public TaskThreadPool(String name, int numThreads, MeterRegistry meterRegistry) {
+        this.name = name;
+        this.numThreads = numThreads;
+        executorService = buildExecutorService(name, numThreads, meterRegistry);
     }
 
     @VisibleForTesting
-    ExecutorService executorService(MeterRegistry meterRegistry, Integer numTaskThreads) {
-        return ExecutorServiceMetrics.monitor(
-                meterRegistry, Executors.newFixedThreadPool(numTaskThreads),
-                "aws-api-calls-threadpool",
+    ExecutorService buildExecutorService(String name, int nThreads, MeterRegistry meterRegistry) {
+        ExecutorService executorService = new ThreadPoolExecutor(nThreads, nThreads,
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory(name));
+        return ExecutorServiceMetrics.monitor(meterRegistry,
+                executorService, name, "",
                 Collections.emptyList());
     }
 }

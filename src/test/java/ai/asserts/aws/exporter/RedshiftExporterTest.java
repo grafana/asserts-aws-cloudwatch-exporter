@@ -5,10 +5,12 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
@@ -23,47 +25,52 @@ import software.amazon.awssdk.services.redshift.model.DescribeClustersResponse;
 import software.amazon.awssdk.services.redshift.model.Tag;
 import software.amazon.awssdk.utils.ImmutableMap;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class RedshiftExporterTest extends EasyMockSupport {
 
     public CollectorRegistry collectorRegistry;
     private AWSAccount accountRegion;
     private AWSClientProvider awsClientProvider;
-    private RateLimiter rateLimiter;
     private MetricSampleBuilder sampleBuilder;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
     private RedshiftClient redshiftClient;
     private TagUtil tagUtil;
+    private BasicMetricCollector metricCollector;
     private RedshiftExporter testClass;
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account1", "", "",
+        accountRegion = new AWSAccount("tenant", "account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         awsClientProvider = mock(AWSClientProvider.class);
-        rateLimiter = mock(RateLimiter.class);
         collectorRegistry = mock(CollectorRegistry.class);
         redshiftClient = mock(RedshiftClient.class);
         tagUtil = mock(TagUtil.class);
+        metricCollector = mock(BasicMetricCollector.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
         testClass = new RedshiftExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, tagUtil);
+                sampleBuilder, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
     }
 
     @Test
@@ -87,10 +94,9 @@ public class RedshiftExporterTest extends EasyMockSupport {
                         .build())
                 .build();
         Capture<RateLimiter.AWSAPICall<DescribeClustersResponse>> callbackCapture = Capture.newInstance();
-
-        expect(rateLimiter.doWithRateLimit(eq("RedshiftClient/describeClusters"),
-                anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         expect(awsClientProvider.getRedshiftClient("region1", accountRegion)).andReturn(redshiftClient);
+        expect(redshiftClient.describeClusters()).andReturn(response);
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expect(tagUtil.tagLabels(
                 ImmutableList.of(software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag.builder()
                         .key("k").value("v")

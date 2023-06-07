@@ -7,6 +7,8 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
@@ -37,6 +39,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class S3BucketExporterTest extends EasyMockSupport {
 
     public CollectorRegistry collectorRegistry;
@@ -48,12 +51,13 @@ public class S3BucketExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples familySamples;
     private S3Client s3Client;
     private ResourceTagHelper resourceTagHelper;
+    private BasicMetricCollector basicMetricCollector;
     private TagUtil tagUtil;
     private S3BucketExporter testClass;
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account1", "", "",
+        accountRegion = new AWSAccount("acme", "account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
@@ -67,7 +71,8 @@ public class S3BucketExporterTest extends EasyMockSupport {
         tagUtil = mock(TagUtil.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new S3BucketExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, resourceTagHelper, tagUtil);
+                sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
+                new RateLimiter(basicMetricCollector, (account) -> "acme")));
     }
 
     @Test

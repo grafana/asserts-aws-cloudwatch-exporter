@@ -25,7 +25,6 @@ import java.util.Optional;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @Slf4j
-@RestController
 @AllArgsConstructor
 @SuppressWarnings("unused")
 public class AlarmController {

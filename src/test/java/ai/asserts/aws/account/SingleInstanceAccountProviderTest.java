@@ -21,6 +21,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Map;
+
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -39,7 +41,12 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
         mockEntity = mock(HttpEntity.class);
         scrapeConfig = mock(ScrapeConfig.class);
         restTemplate = mock(RestTemplate.class);
-        testClass = new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate);
+        testClass = new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate) {
+            @Override
+            String getTenantName() {
+                return "acme";
+            }
+        };
     }
 
     @Test
@@ -93,6 +100,7 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
         replayAll();
         assertEquals(ImmutableSet.of(
                 AWSAccount.builder()
+                        .tenant("acme")
                         .accountId("default-account")
                         .regions(ImmutableSet.of("us-west-2"))
                         .build()
@@ -124,6 +132,7 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
 
         replayAll();
         assertEquals(ImmutableSet.of(AWSAccount.builder()
+                .tenant("acme")
                 .accountId("account-1")
                 .name("dev")
                 .assumeRole("role")
@@ -159,10 +168,12 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
         replayAll();
         assertEquals(ImmutableSet.of(
                 AWSAccount.builder()
+                        .tenant("acme")
                         .accountId("default-account")
                         .regions(ImmutableSet.of("us-west-2"))
                         .build(),
                 AWSAccount.builder()
+                        .tenant("acme")
                         .accountId("account-1")
                         .name("dev")
                         .assumeRole("role")
@@ -205,10 +216,12 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
         replayAll();
         assertEquals(ImmutableSet.of(
                 AWSAccount.builder()
+                        .tenant("acme")
                         .accountId("default-account")
                         .regions(ImmutableSet.of("us-west-2"))
                         .build(),
                 AWSAccount.builder()
+                        .tenant("acme")
                         .accountId("account-1")
                         .name("dev")
                         .assumeRole("role")

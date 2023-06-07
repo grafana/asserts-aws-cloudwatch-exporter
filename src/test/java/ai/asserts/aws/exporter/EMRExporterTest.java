@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +30,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import ai.asserts.aws.account.AWSAccount;
+
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.easymock.EasyMock.anyDouble;
@@ -51,6 +54,7 @@ public class EMRExporterTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         account = AWSAccount.builder()
+                .tenant("acme")
                 .accountId("account-id")
                 .regions(ImmutableSet.of("region"))
                 .build();
@@ -63,7 +67,9 @@ public class EMRExporterTest extends EasyMockSupport {
         sample = mock(Sample.class);
         emrClient = mock(EmrClient.class);
         emrExporter = new EMRExporter(accountProvider, awsClientProvider, collectorRegistry,
-                new RateLimiter(basicMetricCollector), metricSampleBuilder);
+                new RateLimiter(basicMetricCollector, (account) -> "acme"), metricSampleBuilder,
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector,
+                        (account) -> "acme")));
     }
 
     @Test

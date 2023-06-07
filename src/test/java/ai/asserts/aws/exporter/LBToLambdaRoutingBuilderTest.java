@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
@@ -34,14 +36,14 @@ import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
     private ElasticLoadBalancingV2Client elbV2Client;
     private BasicMetricCollector metricCollector;
     private ResourceMapper resourceMapper;
     private Resource targetGroupResource;
     private Resource targetGroupResource2;
-    private Resource lbRsource;
-    private Resource lbRsource2;
+    private Resource lbResource;
     private Resource lambdaResource;
     TargetGroupLBMapProvider targetGroupLBMapProvider;
     private LBToLambdaRoutingBuilder testClass;
@@ -58,19 +60,22 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
 
         targetGroupResource = mock(Resource.class);
         targetGroupResource2 = mock(Resource.class);
-        lbRsource = mock(Resource.class);
-        lbRsource2 = mock(Resource.class);
+        lbResource = mock(Resource.class);
+        Resource lbResource2 = mock(Resource.class);
         lambdaResource = mock(Resource.class);
 
-        testClass = new LBToLambdaRoutingBuilder(awsClientProvider, new RateLimiter(metricCollector),
-                resourceMapper, accountProvider, targetGroupLBMapProvider);
+        testClass = new LBToLambdaRoutingBuilder(awsClientProvider,
+                new RateLimiter(metricCollector, (account) -> "acme"),
+                resourceMapper, accountProvider, targetGroupLBMapProvider,
+                new TaskExecutorUtil(new TestTaskThreadPool(),
+                        new RateLimiter(metricCollector, (account) -> "acme")));
 
-        AWSAccount awsAccount = new AWSAccount("account", "accessId", "secretKey", "role",
+        AWSAccount awsAccount = new AWSAccount("tenant", "account", "accessId", "secretKey", "role",
                 ImmutableSet.of("region"));
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).anyTimes();
         expect(awsClientProvider.getELBV2Client("region", awsAccount)).andReturn(elbV2Client).anyTimes();
         expect(targetGroupLBMapProvider.getTgToLB()).andReturn(ImmutableMap.of(
-                targetGroupResource, lbRsource, targetGroupResource2, lbRsource2)).anyTimes();
+                targetGroupResource, lbResource, targetGroupResource2, lbResource2)).anyTimes();
     }
 
     @Test
@@ -99,7 +104,7 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
         replayAll();
         assertEquals(
                 ImmutableSet.of(ResourceRelation.builder()
-                        .from(lbRsource)
+                        .from(lbResource)
                         .to(lambdaResource)
                         .name("ROUTES_TO")
                         .build()),

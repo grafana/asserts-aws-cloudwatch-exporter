@@ -28,6 +28,7 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class ECSClusterProviderTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private EcsClient ecsClient;
@@ -45,7 +46,8 @@ public class ECSClusterProviderTest extends EasyMockSupport {
         ecsClient = mock(EcsClient.class);
         clusterResource1 = mock(Resource.class);
         clusterResource2 = mock(Resource.class);
-        testClass = new ECSClusterProvider(awsClientProvider, new RateLimiter(metricCollector), resourceMapper);
+        testClass = new ECSClusterProvider(awsClientProvider,
+                new RateLimiter(metricCollector, (account) -> "acme"), resourceMapper);
     }
 
     @Test

@@ -12,3 +12,10 @@ scrape_configs:
     file_sd_configs:
       - files:
           - '/opt/asserts/ecs-scrape-targets-https.yml'
+    relabel_configs:
+      - source_labels: [ "__name__" ]
+        regex: .+
+        target_label: tenant
+        action: replace
+        replacement: %{remoteWrite_basicAuth_username}
+

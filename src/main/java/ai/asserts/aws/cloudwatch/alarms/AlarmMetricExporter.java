@@ -12,7 +12,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Component
 public class AlarmMetricExporter extends Collector {
     private final MetricSampleBuilder sampleBuilder;
     private final BasicMetricCollector basicMetricCollector;

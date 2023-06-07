@@ -39,9 +39,9 @@ public class BasicMetricCollector extends Collector {
     private final Cache<Key, LatencyCounter> latencyCounters;
     private final Cache<Key, Histogram> histograms;
 
+
     public BasicMetricCollector(ScrapeConfigProvider scrapeConfigProvider) {
         this.scrapeConfigProvider = scrapeConfigProvider;
-
         counters = CacheBuilder.newBuilder()
                 .expireAfterAccess(10, TimeUnit.MINUTES)
                 .build();
@@ -119,7 +119,7 @@ public class BasicMetricCollector extends Collector {
                     .build();
             try {
                 AtomicLong atomicLong = counters.get(key, () -> {
-                    log.info("Creating counter {}{}", key.metricName, labels);
+                    log.debug("Creating counter {}{}", key.metricName, labels);
                     return new AtomicLong();
                 });
                 atomicLong.addAndGet(value);
@@ -140,8 +140,8 @@ public class BasicMetricCollector extends Collector {
                     .build();
             try {
                 latencyCounters.get(key, ()-> {
-                    log.info("Creating latency count counter {}{}", key.metricName + "_count", labels);
-                    log.info("Creating latency total counter {}{}", key.metricName + "_sum", labels);
+                    log.debug("Creating latency count counter {}{}", key.metricName + "_count", labels);
+                    log.debug("Creating latency total counter {}{}", key.metricName + "_sum", labels);
                     return new LatencyCounter();
                 }).increment(value);
             } catch (ExecutionException e) {
@@ -161,7 +161,7 @@ public class BasicMetricCollector extends Collector {
                     .build();
             try {
                 histograms.get(key, () -> {
-                    log.info("Creating histogram {}{}", key.metricName + "_count", labels);
+                    log.debug("Creating histogram {}{}", key.metricName + "_count", labels);
                     return Histogram.build()
                             .name(key.metricName)
                             .labelNames(key.labelNames.toArray(new String[0]))

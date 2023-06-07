@@ -12,6 +12,7 @@ import lombok.ToString;
 
 import java.util.HashMap;
 
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
 
 @Getter
@@ -51,6 +52,8 @@ public class Labels extends HashMap<String, String> {
     private String env;
     @JsonProperty("asserts_site")
     private String site;
+
+    private String tenant;
 
     public void populateMapEntries() {
         if (metricsPath != null) {
@@ -97,6 +100,9 @@ public class Labels extends HashMap<String, String> {
         }
         if (site != null) {
             put("asserts_site", site);
+        }
+        if (tenant != null) {
+            put(TENANT, tenant);
         }
     }
 }

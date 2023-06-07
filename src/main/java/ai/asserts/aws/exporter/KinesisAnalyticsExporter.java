@@ -5,11 +5,15 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import io.prometheus.client.CollectorRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
@@ -24,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -39,18 +44,20 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
     private final RateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
+    private final TaskExecutorUtil taskExecutorUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public KinesisAnalyticsExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                     CollectorRegistry collectorRegistry, ResourceMapper resourceMapper,
                                     RateLimiter rateLimiter,
-                                    MetricSampleBuilder sampleBuilder) {
+                                    MetricSampleBuilder sampleBuilder, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
         this.sampleBuilder = sampleBuilder;
+        this.taskExecutorUtil = taskExecutorUtil;
     }
 
     @Override
@@ -66,48 +73,57 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
     public void update() {
         log.info("Exporting Kinesis Analytics Resources");
         List<MetricFamilySamples> newFamily = new ArrayList<>();
-        List<MetricFamilySamples.Sample> samples = new ArrayList<>();
-        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region -> {
-            try {
-                KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region, account);
-                String api = "KinesisAnalyticsV2Client/listApplications";
-                ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
-                        api, ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
-                                SCRAPE_REGION_LABEL, region,
-                                SCRAPE_OPERATION_LABEL, api
-                        ), client::listApplications);
-                if (resp.hasApplicationSummaries()) {
-                    samples.addAll(resp.applicationSummaries().stream()
-                            .map(ApplicationSummary::applicationARN)
-                            .map(resourceMapper::map)
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .map(resource -> {
-                                Map<String, String> labels = new TreeMap<>();
-                                resource.addLabels(labels, "");
-                                labels.put("aws_resource_type", labels.get("type"));
-                                if (StringUtils.hasLength(resource.getAccount())) {
-                                    labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
-                                    labels.remove("account");
-                                }
-                                labels.remove("type");
-                                if (labels.containsKey("name")) {
-                                    labels.put("job", labels.get("name"));
-                                }
-                                labels.put("namespace", "AWS/KinesisAnalytics");
-                                return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
-                            })
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(Collectors.toList()));
-                }
-            } catch (Exception e) {
-                log.error("Error " + account, e);
-            }
-        }));
-        sampleBuilder.buildFamily(samples).ifPresent(newFamily::add);
+        List<Sample> allSamples = new ArrayList<>();
+        List<Future<List<Sample>>> futures = new ArrayList<>();
+        accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
+                futures.add(
+                        taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                            @Override
+                            public List<Sample> call() {
+                                return buildSamples(region, account);
+                            }
+                        }))));
+        taskExecutorUtil.awaitAll(futures, allSamples::addAll);
+        sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
+    }
+
+    private List<Sample> buildSamples(String region, AWSAccount account) {
+        List<Sample> samples = new ArrayList<>();
+        KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region, account);
+        String api = "KinesisAnalyticsV2Client/listApplications";
+        ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
+                api, ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, api
+                ), client::listApplications);
+        if (resp.hasApplicationSummaries()) {
+            samples.addAll(resp.applicationSummaries().stream()
+                    .map(ApplicationSummary::applicationARN)
+                    .map(resourceMapper::map)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .map(resource -> {
+                        Map<String, String> labels = new TreeMap<>();
+                        resource.addLabels(labels, "");
+                        labels.put("aws_resource_type", labels.get("type"));
+                        if (StringUtils.hasLength(resource.getAccount())) {
+                            labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
+                            labels.remove("account");
+                        }
+                        labels.remove("type");
+                        if (labels.containsKey("name")) {
+                            labels.put("job", labels.get("name"));
+                        }
+                        labels.put("namespace", "AWS/KinesisAnalytics");
+                        return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                    })
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(Collectors.toList()));
+        }
+        return samples;
     }
 }
 

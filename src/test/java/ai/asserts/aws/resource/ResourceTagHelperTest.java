@@ -5,10 +5,9 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
@@ -53,13 +52,13 @@ public class ResourceTagHelperTest extends EasyMockSupport {
     private Resource resource;
     private NamespaceConfig namespaceConfig;
     private BasicMetricCollector metricCollector;
-    private TagUtil tagUtil;
     private AWSAccount accountRegion;
+    private RateLimiter rateLimiter;
     private ResourceTagHelper testClass;
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account", "", "", "role",
+        accountRegion = new AWSAccount("tenant", "account", "", "", "role",
                 ImmutableSet.of("role1"));
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
@@ -70,14 +69,12 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         resource = mock(Resource.class);
         metricCollector = mock(BasicMetricCollector.class);
         elbClient = mock(ElasticLoadBalancingClient.class);
-        tagUtil = mock(TagUtil.class);
-
+        rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
         ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
         replayAll();
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                new RateLimiter(metricCollector), tagUtil);
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter);
         verifyAll();
         resetAll();
     }
@@ -227,8 +224,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         replayAll();
 
         ImmutableList<String> resourceName = ImmutableList.of("resourceName");
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                new RateLimiter(metricCollector), tagUtil) {
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter) {
             @Override
             public Set<Resource> getResourcesWithTag(AWSAccount _passedValue, String region, SortedMap<String,
                     String> labels,
@@ -285,8 +281,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         replayAll();
 
         ImmutableList<String> resourceName = ImmutableList.of("resourceName");
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                new RateLimiter(metricCollector), tagUtil) {
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter) {
             @Override
             public Set<Resource> getResourcesWithTag(AWSAccount _passed, String region,
                                                      SortedMap<String, String> labels,

@@ -5,10 +5,12 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
@@ -16,14 +18,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
-import org.easymock.Capture;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.rds.RdsClient;
 import software.amazon.awssdk.services.rds.model.DBCluster;
 import software.amazon.awssdk.services.rds.model.DBInstance;
+import software.amazon.awssdk.services.rds.model.DescribeDbClustersRequest;
 import software.amazon.awssdk.services.rds.model.DescribeDbClustersResponse;
+import software.amazon.awssdk.services.rds.model.DescribeDbInstancesRequest;
 import software.amazon.awssdk.services.rds.model.DescribeDbInstancesResponse;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
@@ -32,19 +35,20 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
+import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class RDSExporterTest extends EasyMockSupport {
 
     public CollectorRegistry collectorRegistry;
     private AWSAccount accountRegion;
     private AWSClientProvider awsClientProvider;
-    private RateLimiter rateLimiter;
     private MetricSampleBuilder sampleBuilder;
     private Collector.MetricFamilySamples.Sample sample1;
     private Collector.MetricFamilySamples.Sample sample2;
@@ -52,11 +56,12 @@ public class RDSExporterTest extends EasyMockSupport {
     private RdsClient rdsClient;
     private ResourceTagHelper resourceTagHelper;
     private TagUtil tagUtil;
+    private BasicMetricCollector metricCollector;
     private RDSExporter testClass;
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account1", "", "",
+        accountRegion = new AWSAccount("tenant", "account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
@@ -64,14 +69,17 @@ public class RDSExporterTest extends EasyMockSupport {
         sample2 = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         awsClientProvider = mock(AWSClientProvider.class);
-        rateLimiter = mock(RateLimiter.class);
+        metricCollector = mock(BasicMetricCollector.class);
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
         collectorRegistry = mock(CollectorRegistry.class);
         rdsClient = mock(RdsClient.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         tagUtil = mock(TagUtil.class);
+
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new RDSExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter, sampleBuilder,
-                resourceTagHelper, tagUtil);
+                resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
+                rateLimiter));
     }
 
     @Test
@@ -101,19 +109,16 @@ public class RDSExporterTest extends EasyMockSupport {
                 .builder()
                 .dbClusters(DBCluster.builder().dbClusterIdentifier("cluster1").build())
                 .build();
-        Capture<RateLimiter.AWSAPICall<DescribeDbClustersResponse>> callbackCapture1 = Capture.newInstance();
 
         DescribeDbInstancesResponse responseInstance = DescribeDbInstancesResponse
                 .builder()
                 .dbInstances(DBInstance.builder().dbInstanceIdentifier("db1").build())
                 .build();
-        Capture<RateLimiter.AWSAPICall<DescribeDbInstancesResponse>> callbackCapture2 = Capture.newInstance();
 
-
-        expect(rateLimiter.doWithRateLimit(eq("RdsClient/describeDBClusters"),
-                anyObject(SortedMap.class), capture(callbackCapture1))).andReturn(responseCluster);
-        expect(rateLimiter.doWithRateLimit(eq("RdsClient/describeDBInstances"),
-                anyObject(SortedMap.class), capture(callbackCapture2))).andReturn(responseInstance);
+        expect(rdsClient.describeDBClusters(DescribeDbClustersRequest.builder().build())).andReturn(responseCluster);
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
+        expect(rdsClient.describeDBInstances(DescribeDbInstancesRequest.builder().build())).andReturn(responseInstance);
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         ImmutableList<Tag> tags = ImmutableList.of(Tag.builder().key("k").value("v").build());
         expect(resourceTagHelper.getResourcesWithTag(accountRegion, "region1", "rds:cluster", ImmutableList.of(
                 "cluster1")))

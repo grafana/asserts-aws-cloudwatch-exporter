@@ -5,6 +5,8 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.SimpleTenantTask;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.MetricConfig;
@@ -30,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -50,6 +53,7 @@ public class MetricQueryProvider {
     private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<String, Map<Integer, List<MetricQuery>>>>> metricQueryCache;
     private final RateLimiter rateLimiter;
+    private final TaskExecutorUtil taskExecutorUtil;
 
     public MetricQueryProvider(AccountProvider accountProvider,
                                ScrapeConfigProvider scrapeConfigProvider,
@@ -58,7 +62,8 @@ public class MetricQueryProvider {
                                AWSClientProvider awsClientProvider,
                                ResourceTagHelper resourceTagHelper,
                                MetricQueryBuilder metricQueryBuilder,
-                               RateLimiter rateLimiter) {
+                               RateLimiter rateLimiter,
+                               TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
@@ -67,6 +72,7 @@ public class MetricQueryProvider {
         this.resourceTagHelper = resourceTagHelper;
         this.metricQueryBuilder = metricQueryBuilder;
         this.rateLimiter = rateLimiter;
+        this.taskExecutorUtil = taskExecutorUtil;
         metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
                 scrapeConfigProvider.getScrapeConfig().getListMetricsResultCacheTTLMinutes(), MINUTES);
         log.info("Initialized..");
@@ -79,71 +85,26 @@ public class MetricQueryProvider {
     Map<String, Map<String, Map<Integer, List<MetricQuery>>>> getQueriesInternal() {
         Map<String, Map<String, Map<Integer, List<MetricQuery>>>> queriesByAccount = new TreeMap<>();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if( !scrapeConfig.isFetchCWMetrics()) {
+        if (!scrapeConfig.isFetchCWMetrics()) {
             log.info("CW Metric pull is disabled. Not discovering metric queries");
             return Collections.emptyMap();
         }
         log.info("Will discover metrics and build metric queries");
+        List<Future<Void>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             String account = accountRegion.getAccountId();
-            accountRegion.getRegions().forEach(region -> scrapeConfig.getNamespaces().stream()
-                    .filter(NamespaceConfig::isEnabled)
-                    .forEach(ns -> {
-                        try {
-                            CloudWatchClient cloudWatchClient =
-                                    awsClientProvider.getCloudWatchClient(region, accountRegion);
-                            Set<Resource> tagFilteredResources =
-                                    resourceTagHelper.getFilteredResources(accountRegion, region, ns);
-                            if (!ns.hasTagFilters() || tagFilteredResources.size() > 0) {
-
-                                Map<String, MetricConfig> configuredMetrics = new TreeMap<>();
-                                ns.getMetrics().forEach(metricConfig -> configuredMetrics.put(metricConfig.getName(),
-                                        metricConfig));
-
-                                String nextToken = null;
-                                do {
-                                    ListMetricsRequest.Builder builder = ListMetricsRequest.builder()
-                                            .nextToken(nextToken);
-                                    Optional<CWNamespace> nsOpt =
-                                            scrapeConfigProvider.getStandardNamespace(ns.getName());
-                                    if (nsOpt.isPresent()) {
-                                        String namespace = nsOpt.get().getNamespace();
-                                        builder = builder.namespace(namespace);
-                                        log.info("Discovering all metrics for region={}, namespace={} ", region,
-                                                namespace);
-                                    } else {
-                                        builder = builder.namespace(ns.getName());
-                                        log.info("Discovering all metrics for region={}, namespace={} ", region,
-                                                ns.getName());
-                                    }
-
-                                    ListMetricsRequest request = builder.build();
-                                    ListMetricsResponse response = rateLimiter.doWithRateLimit(
-                                            "CloudWatchClient/ListMetrics",
-                                            operationLabels(account, region, ns),
-                                            () -> cloudWatchClient.listMetrics(request));
-
-                                    if (response.hasMetrics()) {
-                                        // Check if the metric is on a tag filtered resource
-                                        // Also check if the metric matches any dimension filters that might be
-                                        // specified
-                                        response.metrics()
-                                                .stream()
-                                                .filter(metric -> isAConfiguredMetric(configuredMetrics, metric) &&
-                                                        belongsToFilteredResource(ns, tagFilteredResources, metric))
-                                                .forEach(metric -> buildQueries(queriesByAccount, account, region,
-                                                        tagFilteredResources,
-                                                        configuredMetrics.get(metric.metricName()),
-                                                        metric));
-                                    }
-                                    nextToken = response.nextToken();
-                                } while (nextToken != null);
-                            }
-                        } catch (Exception e) {
-                            log.info("Failed to scrape metrics", e);
+            accountRegion.getRegions().forEach(region -> futures.add(
+                    taskExecutorUtil.executeTenantTask(accountRegion.getTenant(), new SimpleTenantTask<Void>() {
+                        @Override
+                        public Void call() {
+                            buildQueries(scrapeConfig, region, accountRegion, account, queriesByAccount);
+                            return null;
                         }
-                    }));
+                    })));
         }
+
+        taskExecutorUtil.awaitAll(futures, (object) -> {
+        });
 
         Set<String> metricNames = new HashSet<>();
         queriesByAccount.forEach((account, queriesByRegion) ->
@@ -154,7 +115,7 @@ public class MetricQueryProvider {
                                             metricQuery.getMetric(),
                                             metricQuery.getMetricStat());
                                     if (metricNames.add(exportedMetricName)) {
-                                        log.info("Will scrape {} agg over {} seconds every {} seconds",
+                                        log.debug("Will scrape {} agg over {} seconds every {} seconds",
                                                 exportedMetricName,
                                                 metricQuery.getMetricConfig().getEffectiveScrapeInterval(),
                                                 interval);
@@ -163,6 +124,77 @@ public class MetricQueryProvider {
 
 
         return queriesByAccount;
+    }
+
+    private void buildQueries(ScrapeConfig scrapeConfig, String region, AWSAccount accountRegion, String account,
+                              Map<String, Map<String, Map<Integer, List<MetricQuery>>>> queriesByAccount) {
+        scrapeConfig.getNamespaces().stream()
+                .filter(NamespaceConfig::isEnabled)
+                .forEach(ns -> {
+                    try {
+                        CloudWatchClient cloudWatchClient =
+                                awsClientProvider.getCloudWatchClient(region, accountRegion);
+                        Set<Resource> tagFilteredResources =
+                                resourceTagHelper.getFilteredResources(accountRegion, region, ns);
+                        if (!ns.hasTagFilters() || tagFilteredResources.size() > 0) {
+
+                            Map<String, MetricConfig> configuredMetrics = new TreeMap<>();
+                            ns.getMetrics()
+                                    .forEach(metricConfig -> configuredMetrics.put(
+                                            metricConfig.getName(),
+                                            metricConfig));
+
+                            String nextToken = null;
+                            do {
+                                ListMetricsRequest.Builder builder = ListMetricsRequest.builder()
+                                        .nextToken(nextToken);
+                                Optional<CWNamespace> nsOpt =
+                                        scrapeConfigProvider.getStandardNamespace(ns.getName());
+                                if (nsOpt.isPresent()) {
+                                    String namespace = nsOpt.get().getNamespace();
+                                    builder = builder.namespace(namespace);
+                                    log.info("Discovering all metrics for region={}, namespace={} ",
+                                            region,
+                                            namespace);
+                                } else {
+                                    builder = builder.namespace(ns.getName());
+                                    log.info("Discovering all metrics for region={}, namespace={} ",
+                                            region,
+                                            ns.getName());
+                                }
+
+                                ListMetricsRequest request = builder.build();
+                                ListMetricsResponse response = rateLimiter.doWithRateLimit(
+                                        "CloudWatchClient/ListMetrics",
+                                        operationLabels(account, region, ns),
+                                        () -> cloudWatchClient.listMetrics(request));
+
+                                if (response.hasMetrics()) {
+                                    // Check if the metric is on a tag filtered resource
+                                    // Also check if the metric matches any dimension filters that
+                                    // might be
+                                    // specified
+                                    response.metrics()
+                                            .stream()
+                                            .filter(metric -> isAConfiguredMetric(configuredMetrics,
+                                                    metric) &&
+                                                    belongsToFilteredResource(ns,
+                                                            tagFilteredResources,
+                                                            metric))
+                                            .forEach(metric -> buildQueries(queriesByAccount,
+                                                    account,
+                                                    region,
+                                                    tagFilteredResources,
+                                                    configuredMetrics.get(metric.metricName()),
+                                                    metric));
+                                }
+                                nextToken = response.nextToken();
+                            } while (nextToken != null);
+                        }
+                    } catch (Exception e) {
+                        log.info("Failed to scrape metrics", e);
+                    }
+                });
     }
 
     private ImmutableSortedMap<String, String> operationLabels(String account, String region, NamespaceConfig ns) {

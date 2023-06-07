@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
@@ -66,7 +68,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         account = new AWSAccount(
-                "account", "", "", "role", ImmutableSet.of("region"));
+                "acme", "account", "", "", "role", ImmutableSet.of("region"));
         accountProvider = mock(AccountProvider.class);
         awsClientProvider = mock(AWSClientProvider.class);
         ec2Client = mock(Ec2Client.class);
@@ -77,8 +79,10 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         tagUtil = mock(TagUtil.class);
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         testClass = new EC2ToEBSVolumeExporter(accountProvider, awsClientProvider, metricSampleBuilder,
-                collectorRegistry, new RateLimiter(metricCollector), tagUtil, ecsServiceDiscoveryExporter);
+                collectorRegistry, rateLimiter, tagUtil, ecsServiceDiscoveryExporter,
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
     }
 
     @Test
@@ -93,7 +97,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     @SuppressWarnings("unchecked")
     public void updateCollect() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
-        expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client);
+        expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client).anyTimes();
 
         DescribeInstancesRequest request = DescribeInstancesRequest.builder()
                 .filters(Filter.builder()
@@ -201,13 +205,16 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         testClass.update();
         assertEquals(ImmutableSet.of(
                 ResourceRelation.builder()
+                        .tenant("acme")
                         .from(Resource.builder()
+                                .tenant("acme")
                                 .name("volume")
                                 .type(EBSVolume)
                                 .account("account")
                                 .region("region")
                                 .build())
                         .to(Resource.builder()
+                                .tenant("acme")
                                 .name("instance-id")
                                 .region("region")
                                 .account("account")

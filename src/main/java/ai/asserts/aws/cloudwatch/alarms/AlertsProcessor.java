@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -26,7 +25,6 @@ import java.util.stream.Collectors;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.util.StringUtils.hasLength;
 
-@Component
 @Slf4j
 @AllArgsConstructor
 public class AlertsProcessor {

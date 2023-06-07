@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
@@ -38,6 +40,7 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class LBToECSRoutingBuilderTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private ResourceMapper resourceMapper;
@@ -54,7 +57,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         metricCollector = mock(BasicMetricCollector.class);
-        RateLimiter rateLimiter = new RateLimiter(metricCollector);
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         resourceMapper = mock(ResourceMapper.class);
         targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
         ecsClient = mock(EcsClient.class);
@@ -62,7 +65,8 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
         accountProvider = mock(AccountProvider.class);
         ecsClusterProvider = mock(ECSClusterProvider.class);
         testClass = new LBToECSRoutingBuilder(rateLimiter, resourceMapper, targetGroupLBMapProvider,
-                awsClientProvider, accountProvider, ecsClusterProvider);
+                awsClientProvider, accountProvider, ecsClusterProvider, new TaskExecutorUtil(new TestTaskThreadPool(),
+                rateLimiter));
     }
 
     @Test

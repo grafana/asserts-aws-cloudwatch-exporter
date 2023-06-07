@@ -5,10 +5,12 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.account.AccountProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
@@ -45,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings({"unchecked", "deprecation"})
 public class ECSTaskProviderTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
@@ -62,6 +65,8 @@ public class ECSTaskProviderTest extends EasyMockSupport {
     private EcsClient ecsClient;
 
     private StaticConfig mockStaticConfig;
+
+    private TaskExecutorUtil taskExecutorUtil;
     private ECSTaskProvider testClass;
 
     @BeforeEach
@@ -80,9 +85,12 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         mockStaticConfig = mock(StaticConfig.class);
         mockSample = mock(Sample.class);
         mockFamilySamples = mock(Collector.MetricFamilySamples.class);
+        taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
+                new RateLimiter(basicMetricCollector, (accountId) -> "acme"));
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
-                new RateLimiter(basicMetricCollector), resourceMapper, ecsClusterProvider, ecsTaskUtil, sampleBuilder,
-                collectorRegistry);
+                new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
+                ecsTaskUtil, sampleBuilder,
+                collectorRegistry, taskExecutorUtil);
     }
 
 
@@ -163,8 +171,9 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .build();
 
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
-                new RateLimiter(basicMetricCollector), resourceMapper, ecsClusterProvider, ecsTaskUtil, sampleBuilder,
-                collectorRegistry) {
+                new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
+                ecsTaskUtil, sampleBuilder,
+                collectorRegistry, taskExecutorUtil) {
             @Override
             void discoverNewTasks(Map<Resource, List<Resource>> clusterWiseNewTasks, EcsClient ecsClient,
                                   Resource cluster) {
@@ -186,7 +195,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
 
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).times(2);
         expect(awsClientProvider.getECSClient("region", awsAccount)).andReturn(ecsClient);
         expect(ecsClusterProvider.getClusters(awsAccount, "region")).andReturn(ImmutableSet.of(cluster1));
         replayAll();

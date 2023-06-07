@@ -2,6 +2,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
@@ -52,7 +54,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("account1", "", "",
+        accountRegion = new AWSAccount("tenant", "account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         metricNameUtil = mock(MetricNameUtil.class);
@@ -81,9 +83,11 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         expect(awsClientProvider.getLambdaClient("region1", accountRegion)).andReturn(lambdaClient).anyTimes();
 
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         testClass = new LambdaEventSourceExporter(accountProvider, scrapeConfigProvider, awsClientProvider,
                 metricNameUtil, resourceMapper, resourceTagHelper, sampleBuilder,
-                new RateLimiter(metricCollector));
+                rateLimiter,
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
     }
 
     @Test

@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
@@ -59,6 +60,8 @@ public class ECSTaskUtil {
 
     private final TagUtil tagUtil;
 
+    private final TaskExecutorUtil taskExecutorUtil;
+
     private final String envName;
 
     public final Cache<String, TaskDefinition> taskDefsByARN = CacheBuilder.newBuilder()
@@ -75,11 +78,12 @@ public class ECSTaskUtil {
 
 
     public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper, RateLimiter rateLimiter,
-                       TagUtil tagUtil) {
+                       TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
         this.tagUtil = tagUtil;
+        this.taskExecutorUtil = taskExecutorUtil;
         // If the exporter's environment name is marked, use this for ECS metrics
         envName = getInstallEnvName();
     }
@@ -141,7 +145,7 @@ public class ECSTaskUtil {
                     labelsBuilder.availabilityZone(task.availabilityZone());
                     String jobName = cD.name();
                     if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
-                        log.info("Found prometheus port={}, path={} from docker labels for container {}/{}",
+                        log.debug("Found prometheus port={}, path={} from docker labels for container {}/{}",
                                 portFromLabel.get(),
                                 pathFromLabel.get(),
                                 taskDefinition.taskDefinitionArn(),
@@ -177,7 +181,7 @@ public class ECSTaskUtil {
         List<StaticConfig> targets = targetsByLabel.values().stream()
                 .filter(config -> config.getTargets().size() > 0)
                 .collect(Collectors.toList());
-        log.info("Discovered targets for task {}, {}", task.taskArn(), targets);
+        log.debug("Discovered targets for task {}, {}", task.taskArn(), targets);
         return targets;
     }
 
@@ -192,6 +196,7 @@ public class ECSTaskUtil {
         taskSubnetMap.computeIfAbsent(taskResource.getName(), k -> getSubnetDetails(task, taskResource));
         if (service.isPresent()) {
             labelsBuilder = Labels.builder()
+                    .tenant(taskExecutorUtil.getTenant())
                     .workload(service.get())
                     .taskId(taskResource.getName())
                     .pod(service.get() + "-" + taskResource.getName())
@@ -207,6 +212,7 @@ public class ECSTaskUtil {
                     .metricsPath("/metrics");
         } else {
             labelsBuilder = Labels.builder()
+                    .tenant(taskExecutorUtil.getTenant())
                     .workload(taskDefResource.getName())
                     .taskId(taskResource.getName())
                     .pod(taskDefResource.getName() + "-" + taskResource.getName())

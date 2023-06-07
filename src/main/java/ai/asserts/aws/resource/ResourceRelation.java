@@ -14,6 +14,7 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 public class ResourceRelation {
+    private final String tenant;
     private final Resource from;
     private final Resource to;
     private final String name;

@@ -24,6 +24,7 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings("unused")
 public class RateLimiterTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private SortedMap<String, String> labels;
@@ -33,7 +34,8 @@ public class RateLimiterTest extends EasyMockSupport {
     public void setup() {
         metricCollector = mock(BasicMetricCollector.class);
         labels = new TreeMap<>();
-        rateLimiter = new RateLimiter(metricCollector);
+        rateLimiter = new RateLimiter(metricCollector,
+                (accountId) -> "tenant");
     }
 
     @Test

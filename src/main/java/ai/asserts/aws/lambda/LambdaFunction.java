@@ -18,6 +18,7 @@ public class LambdaFunction {
     private final String region;
     @EqualsAndHashCode.Include
     private final String account;
+    private final String tenant;
     private final String arn;
     private final Resource resource;
     private final Integer memoryMB;

@@ -2,8 +2,10 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.SimpleTenantTask;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
@@ -30,6 +32,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -68,9 +73,10 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     private TimeWindowBuilder timeWindowBuilder;
     @Autowired
     private RateLimiter rateLimiter;
-
     @Autowired
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    @Autowired
+    private TaskExecutorUtil taskExecutorUtil;
 
     private final AWSAccount account;
     private final String region;
@@ -95,12 +101,23 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     @Override
     public void update() {
         if (intervalSeconds <= 60 || System.currentTimeMillis() - lastRunTime > intervalSeconds * 1000L) {
-            try {
-                cache = fetchMetricsFromCW();
-            } catch (Exception e) {
-                log.error("Failed to update", e);
-            }
             lastRunTime = System.currentTimeMillis();
+            try {
+                cache = taskExecutorUtil.executeTenantTask(account.getTenant(),
+                        new SimpleTenantTask<List<MetricFamilySamples>>() {
+                            @Override
+                            public List<MetricFamilySamples> call() {
+                                try {
+                                    return fetchMetricsFromCW();
+                                } catch (Exception e) {
+                                    log.error("Failed to update", e);
+                                }
+                                return Collections.emptyList();
+                            }
+                        }).get(15, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                log.error("Failed to fetch metrics", e);
+            }
         }
     }
 
@@ -111,7 +128,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
             return familySamples;
         }
 
-        log.info("BEGIN Scrape for account={} region={} and interval={}", account, region, intervalSeconds);
+        log.debug("BEGIN Scrape for account={} region={} and interval={}", account, region, intervalSeconds);
         Map<String, Map<Integer, List<MetricQuery>>> byRegion = metricQueryProvider.getMetricQueries()
                 .getOrDefault(account.getAccountId(), ImmutableMap.of());
         Map<Integer, List<MetricQuery>> byInterval = byRegion.get(region);
@@ -132,7 +149,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
         Map<String, MetricQuery> queriesById = mapQueriesById(queries);
 
         List<List<MetricQuery>> batches = queryBatcher.splitIntoBatches(queries);
-        log.info("Split metric queries into {} batches", batches.size());
+        log.debug("Split metric queries into {} batches", batches.size());
 
         Map<String, List<MetricFamilySamples.Sample>> samplesByMetric = new TreeMap<>();
 
@@ -144,7 +161,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
                 // These metrics should be configured with a different interval
                 Instant[] timePeriod = s3DailyMetric ? timeWindowBuilder.getDailyMetricTimeWindow(region) :
                         timeWindowBuilder.getTimePeriod(region, intervalSeconds);
-                log.info("Scraping metrics for time period {} - {}", timePeriod[0], timePeriod[1]);
+                log.debug("Scraping metrics for time period {} - {}", timePeriod[0], timePeriod[1]);
                 do {
                     GetMetricDataRequest.Builder requestBuilder = GetMetricDataRequest.builder()
                             .startTime(timePeriod[0].minusSeconds(delaySeconds))
@@ -196,14 +213,14 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
         }
 
         if (samplesByMetric.size() > 0) {
-            log.info("Got samples for {}", samplesByMetric.keySet());
+            log.debug("Got samples for {}", samplesByMetric.keySet());
         } else {
-            log.info("Didn't find any samples for region {} and interval {}", region, intervalSeconds);
+            log.debug("Didn't find any samples for region {} and interval {}", region, intervalSeconds);
         }
         samplesByMetric.forEach((metricName, samples) ->
                 sampleBuilder.buildFamily(samples).ifPresent(familySamples::add));
 
-        log.info("END Scrape for region {} and interval {}", region, intervalSeconds);
+        log.debug("END Scrape for region {} and interval {}", region, intervalSeconds);
         return familySamples;
     }
 
