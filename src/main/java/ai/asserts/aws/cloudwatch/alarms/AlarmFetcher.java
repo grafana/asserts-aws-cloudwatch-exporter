@@ -89,46 +89,42 @@ public class AlarmFetcher extends Collector implements InitializingBean {
             log.info("Not primary exporter. Skip fetching CloudWatch alarms");
             return;
         }
-        try {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            if (!scrapeConfig.isPullCWAlarms()) {
-                return;
-            }
-            boolean exposeAsMetric = scrapeConfig.isCwAlarmAsMetric();
-            List<MetricFamilySamples> newFamily = new ArrayList<>();
-            List<Sample> allSamples = new ArrayList<>();
-            List<Future<List<Sample>>> futures = new ArrayList<>();
-            log.info("Start Fetching alarms");
-            for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-                accountRegion.getRegions().forEach(region ->
-                        futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
-                                new CollectionBuilderTask<Sample>() {
-                                    @Override
-                                    public List<Sample> call() {
-                                        log.info("Fetching alarms from account {} and region {}",
-                                                accountRegion.getAccountId(),
-                                                region);
-                                        List<Map<String, String>> labelsList = getAlarms(accountRegion, region);
-                                        labelsList.forEach(alarmMetricConverter::simplifyAlarmName);
-                                        return labelsList.stream()
-                                                .map(labels -> {
-                                                    labels.remove("timestamp");
-                                                    return sampleBuilder.buildSingleSample(
-                                                            "aws_cloudwatch_alarm", labels, 1.0);
-                                                })
-                                                .filter(Optional::isPresent)
-                                                .map(Optional::get).collect(Collectors.toList());
-                                    }
-                                })));
-            }
-            taskExecutorUtil.awaitAll(futures, allSamples::addAll);
-            if (exposeAsMetric) {
-                sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
-                metricFamilySamples = newFamily;
-                log.info("Exported {} alarms as metrics", allSamples.size());
-            }
-        } catch (Exception e) {
-            log.error("Failed to update", e);
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        if (!scrapeConfig.isPullCWAlarms()) {
+            return;
+        }
+        boolean exposeAsMetric = scrapeConfig.isCwAlarmAsMetric();
+        List<MetricFamilySamples> newFamily = new ArrayList<>();
+        List<Sample> allSamples = new ArrayList<>();
+        List<Future<List<Sample>>> futures = new ArrayList<>();
+        log.info("Start Fetching alarms");
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            accountRegion.getRegions().forEach(region ->
+                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
+                            new CollectionBuilderTask<Sample>() {
+                                @Override
+                                public List<Sample> call() {
+                                    log.info("Fetching alarms from account {} and region {}",
+                                            accountRegion.getAccountId(),
+                                            region);
+                                    List<Map<String, String>> labelsList = getAlarms(accountRegion, region);
+                                    labelsList.forEach(alarmMetricConverter::simplifyAlarmName);
+                                    return labelsList.stream()
+                                            .map(labels -> {
+                                                labels.remove("timestamp");
+                                                return sampleBuilder.buildSingleSample(
+                                                        "aws_cloudwatch_alarm", labels, 1.0);
+                                            })
+                                            .filter(Optional::isPresent)
+                                            .map(Optional::get).collect(Collectors.toList());
+                                }
+                            })));
+        }
+        taskExecutorUtil.awaitAll(futures, allSamples::addAll);
+        if (exposeAsMetric) {
+            sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
+            metricFamilySamples = newFamily;
+            log.info("Exported {} alarms as metrics", allSamples.size());
         }
     }
 

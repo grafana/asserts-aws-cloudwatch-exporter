@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSortedMap;
@@ -75,53 +76,54 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
         List<Sample> allSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
-                futures.add(taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
-                    @Override
-                    public List<Sample> call() {
-                        List<Sample> samples = new ArrayList<>();
-                        try {
-                            KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region, account);
-                            String api = "KinesisAnalyticsV2Client/listApplications";
-                            ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
-                                    api, ImmutableSortedMap.of(
-                                            SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
-                                            SCRAPE_REGION_LABEL, region,
-                                            SCRAPE_OPERATION_LABEL, api
-                                    ), client::listApplications);
-                            if (resp.hasApplicationSummaries()) {
-                                samples.addAll(resp.applicationSummaries().stream()
-                                        .map(ApplicationSummary::applicationARN)
-                                        .map(resourceMapper::map)
-                                        .filter(Optional::isPresent)
-                                        .map(Optional::get)
-                                        .map(resource -> {
-                                            Map<String, String> labels = new TreeMap<>();
-                                            resource.addLabels(labels, "");
-                                            labels.put("aws_resource_type", labels.get("type"));
-                                            if (StringUtils.hasLength(resource.getAccount())) {
-                                                labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
-                                                labels.remove("account");
-                                            }
-                                            labels.remove("type");
-                                            if (labels.containsKey("name")) {
-                                                labels.put("job", labels.get("name"));
-                                            }
-                                            labels.put("namespace", "AWS/KinesisAnalytics");
-                                            return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
-                                        })
-                                        .filter(Optional::isPresent)
-                                        .map(Optional::get)
-                                        .collect(Collectors.toList()));
+                futures.add(
+                        taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                            @Override
+                            public List<Sample> call() {
+                                return buildSamples(region, account);
                             }
-                        } catch (Exception e) {
-                            log.error("Error " + account, e);
-                        }
-                        return samples;
-                    }
-                }))));
+                        }))));
         taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
+    }
+
+    private List<Sample> buildSamples(String region, AWSAccount account) {
+        List<Sample> samples = new ArrayList<>();
+        KinesisAnalyticsV2Client client = awsClientProvider.getKAClient(region, account);
+        String api = "KinesisAnalyticsV2Client/listApplications";
+        ListApplicationsResponse resp = rateLimiter.doWithRateLimit(
+                api, ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, api
+                ), client::listApplications);
+        if (resp.hasApplicationSummaries()) {
+            samples.addAll(resp.applicationSummaries().stream()
+                    .map(ApplicationSummary::applicationARN)
+                    .map(resourceMapper::map)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .map(resource -> {
+                        Map<String, String> labels = new TreeMap<>();
+                        resource.addLabels(labels, "");
+                        labels.put("aws_resource_type", labels.get("type"));
+                        if (StringUtils.hasLength(resource.getAccount())) {
+                            labels.put(SCRAPE_ACCOUNT_ID_LABEL, resource.getAccount());
+                            labels.remove("account");
+                        }
+                        labels.remove("type");
+                        if (labels.containsKey("name")) {
+                            labels.put("job", labels.get("name"));
+                        }
+                        labels.put("namespace", "AWS/KinesisAnalytics");
+                        return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                    })
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(Collectors.toList()));
+        }
+        return samples;
     }
 }
 

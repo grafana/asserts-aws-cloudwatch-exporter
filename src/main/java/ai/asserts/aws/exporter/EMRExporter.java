@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
@@ -69,45 +70,46 @@ public class EMRExporter extends Collector implements InitializingBean {
         List<Sample> allSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
-                futures.add(taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
-                    @Override
-                    public List<Sample> call() {
-                        List<Sample> samples = new ArrayList<>();
-                        try {
-                            EmrClient client = awsClientProvider.getEmrClient(region, account);
-                            String api = "EmrClient/listClusters";
-                            ListClustersResponse resp = rateLimiter.doWithRateLimit(
-                                    api, ImmutableSortedMap.of(
-                                            SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
-                                            SCRAPE_REGION_LABEL, region,
-                                            SCRAPE_OPERATION_LABEL, api
-                                    ), client::listClusters);
-                            if (resp.hasClusters()) {
-                                samples.addAll(resp.clusters().stream()
-                                        .filter(cluster -> cluster.status().state().name().equals("RUNNING"))
-                                        .map(cluster -> {
-                                            Map<String, String> labels = new TreeMap<>();
-                                            labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
-                                            labels.put(SCRAPE_REGION_LABEL, region);
-                                            labels.put("namespace", "AWS/ElasticMapReduce");
-                                            labels.put("aws_resource_type", "AWS::ElasticMapReduce::Cluster");
-                                            labels.put("job", cluster.id());
-                                            labels.put("name", cluster.name());
-                                            labels.put("job_flow_id", cluster.id());
-                                            return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
-                                        })
-                                        .filter(Optional::isPresent)
-                                        .map(Optional::get)
-                                        .collect(Collectors.toList()));
+                futures.add(
+                        taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                            @Override
+                            public List<Sample> call() {
+                                return buildSamples(region, account);
                             }
-                        } catch (Exception e) {
-                            log.error("Error:" + account, e);
-                        }
-                        return samples;
-                    }
-                }))));
+                        }))));
         taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
+    }
+
+    private List<Sample> buildSamples(String region, AWSAccount account) {
+        List<Sample> samples = new ArrayList<>();
+        EmrClient client = awsClientProvider.getEmrClient(region, account);
+        String api = "EmrClient/listClusters";
+        ListClustersResponse resp = rateLimiter.doWithRateLimit(
+                api, ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, api
+                ), client::listClusters);
+        if (resp.hasClusters()) {
+            samples.addAll(resp.clusters().stream()
+                    .filter(cluster -> cluster.status().state().name().equals("RUNNING"))
+                    .map(cluster -> {
+                        Map<String, String> labels = new TreeMap<>();
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
+                        labels.put(SCRAPE_REGION_LABEL, region);
+                        labels.put("namespace", "AWS/ElasticMapReduce");
+                        labels.put("aws_resource_type", "AWS::ElasticMapReduce::Cluster");
+                        labels.put("job", cluster.id());
+                        labels.put("name", cluster.name());
+                        labels.put("job_flow_id", cluster.id());
+                        return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                    })
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(Collectors.toList()));
+        }
+        return samples;
     }
 }

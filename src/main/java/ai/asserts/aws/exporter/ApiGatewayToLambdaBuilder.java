@@ -93,22 +93,18 @@ public class ApiGatewayToLambdaBuilder extends Collector
         Set<ResourceRelation> newIntegrations = new HashSet<>();
         List<MetricFamilySamples> newMetrics = new ArrayList<>();
         List<Sample> allSamples = new ArrayList<>();
-        try {
-            List<Future<List<Sample>>> futures = new ArrayList<>();
-            for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-                accountRegion.getRegions().forEach(region ->
-                        futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
-                                new CollectionBuilderTask<Sample>() {
-                            @Override
-                            public List<Sample> call() {
-                                return buildSamples(region, accountRegion, newIntegrations);
-                            }
-                        })));
-            }
-            taskExecutorUtil.awaitAll(futures, allSamples::addAll);
-        } catch (Exception e) {
-            log.error("Failed to discover lambda integrations", e);
+        List<Future<List<Sample>>> futures = new ArrayList<>();
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            accountRegion.getRegions().forEach(region ->
+                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
+                            new CollectionBuilderTask<Sample>() {
+                                @Override
+                                public List<Sample> call() {
+                                    return buildSamples(region, accountRegion, newIntegrations);
+                                }
+                            })));
         }
+        taskExecutorUtil.awaitAll(futures, allSamples::addAll);
 
         if (allSamples.size() > 0) {
             metricSampleBuilder.buildFamily(allSamples).ifPresent(newMetrics::add);

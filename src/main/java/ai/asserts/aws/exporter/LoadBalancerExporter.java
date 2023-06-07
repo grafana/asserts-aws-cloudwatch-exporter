@@ -82,19 +82,15 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
         List<Sample> samples = new ArrayList<>();
         List<Sample> elbEC2RelSamples = new ArrayList<>();
         List<Future<Pair<List<Sample>, List<Sample>>>> futures = new ArrayList<>();
-        try {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region ->
-                    futures.add(taskExecutorUtil.executeTenantTask(awsAccount.getTenant(),
-                            new SimpleTenantTask<Pair<List<Sample>, List<Sample>>>() {
-                                @Override
-                                public Pair<List<Sample>, List<Sample>> call() {
-                                    return buildSamples(awsAccount, region, scrapeConfig);
-                                }
-                            }))));
-        } catch (Exception e) {
-            log.error("Failed to build Load Balancer metrics", e);
-        }
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region ->
+                futures.add(taskExecutorUtil.executeTenantTask(awsAccount.getTenant(),
+                        new SimpleTenantTask<Pair<List<Sample>, List<Sample>>>() {
+                            @Override
+                            public Pair<List<Sample>, List<Sample>> call() {
+                                return buildSamples(awsAccount, region, scrapeConfig);
+                            }
+                        }))));
         taskExecutorUtil.awaitAll(futures, (pair) -> {
             samples.addAll(pair.left());
             elbEC2RelSamples.addAll(pair.right());

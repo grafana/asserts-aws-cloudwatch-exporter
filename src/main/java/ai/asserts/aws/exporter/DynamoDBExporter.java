@@ -9,6 +9,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -77,54 +78,56 @@ public class DynamoDBExporter extends Collector implements InitializingBean {
         List<Sample> allSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
-                futures.add(taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
-                    @Override
-                    public List<Sample> call() {
-                        List<Sample> samples = new ArrayList<>();
-                        try {
-                            DynamoDbClient client = awsClientProvider.getDynamoDBClient(region, account);
-                            String api = "DynamoDbClient/listTables";
-                            ListTablesResponse resp = rateLimiter.doWithRateLimit(
-                                    api, ImmutableSortedMap.of(
-                                            SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
-                                            SCRAPE_REGION_LABEL, region,
-                                            SCRAPE_OPERATION_LABEL, api
-                                    ), client::listTables);
-                            if (resp.hasTableNames()) {
-                                Map<String, Resource> resourcesWithTag =
-                                        resourceTagHelper.getResourcesWithTag(account, region,
-                                                "dynamodb:table", resp.tableNames());
-
-                                List<Sample> regionTables = resp.tableNames().stream()
-                                        .map(tableName -> {
-                                            Map<String, String> labels = new TreeMap<>();
-                                            labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
-                                            labels.put(SCRAPE_REGION_LABEL, region);
-                                            labels.put("aws_resource_type", "AWS::DynamoDB::Table");
-                                            labels.put("job", tableName);
-                                            labels.put("name", tableName);
-                                            labels.put("id", tableName);
-                                            labels.put("namespace", "AWS/DynamoDB");
-                                            if (resourcesWithTag.containsKey(tableName)) {
-                                                labels.putAll(
-                                                        tagUtil.tagLabels(resourcesWithTag.get(tableName).getTags()));
-                                            }
-
-                                            return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
-                                        })
-                                        .filter(Optional::isPresent)
-                                        .map(Optional::get)
-                                        .collect(Collectors.toList());
-                                allSamples.addAll(regionTables);
+                futures.add(
+                        taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                            @Override
+                            public List<Sample> call() {
+                                return buildSamples(region, account, allSamples);
                             }
-                        } catch (Throwable e) {
-                            log.error("Error : " + account, e);
-                        }
-                        return samples;
-                    }
-                }))));
+                        }))));
         taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
+    }
+
+    private List<Sample> buildSamples(String region, AWSAccount account, List<Sample> allSamples) {
+        List<Sample> samples = new ArrayList<>();
+        DynamoDbClient client = awsClientProvider.getDynamoDBClient(region, account);
+        String api = "DynamoDbClient/listTables";
+        ListTablesResponse resp = rateLimiter.doWithRateLimit(
+                api, ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId(),
+                        SCRAPE_REGION_LABEL, region,
+                        SCRAPE_OPERATION_LABEL, api
+                ), client::listTables);
+        if (resp.hasTableNames()) {
+            Map<String, Resource> resourcesWithTag =
+                    resourceTagHelper.getResourcesWithTag(account, region,
+                            "dynamodb:table", resp.tableNames());
+
+            List<Sample> regionTables = resp.tableNames().stream()
+                    .map(tableName -> {
+                        Map<String, String> labels = new TreeMap<>();
+                        labels.put(SCRAPE_ACCOUNT_ID_LABEL, account.getAccountId());
+                        labels.put(SCRAPE_REGION_LABEL, region);
+                        labels.put("aws_resource_type", "AWS::DynamoDB::Table");
+                        labels.put("job", tableName);
+                        labels.put("name", tableName);
+                        labels.put("id", tableName);
+                        labels.put("namespace", "AWS/DynamoDB");
+                        if (resourcesWithTag.containsKey(tableName)) {
+                            labels.putAll(
+                                    tagUtil.tagLabels(
+                                            resourcesWithTag.get(tableName).getTags()));
+                        }
+
+                        return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
+                    })
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(Collectors.toList());
+            allSamples.addAll(regionTables);
+        }
+        return samples;
     }
 }

@@ -90,18 +90,19 @@ public class MetricQueryProvider {
             return Collections.emptyMap();
         }
         log.info("Will discover metrics and build metric queries");
-        List<Future<Object>> futures = new ArrayList<>();
+        List<Future<Void>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             String account = accountRegion.getAccountId();
             accountRegion.getRegions().forEach(region -> futures.add(
-                    taskExecutorUtil.executeTenantTask(accountRegion.getTenant(), new SimpleTenantTask<Object>() {
+                    taskExecutorUtil.executeTenantTask(accountRegion.getTenant(), new SimpleTenantTask<Void>() {
                         @Override
-                        public Object call() {
+                        public Void call() {
                             buildQueries(scrapeConfig, region, accountRegion, account, queriesByAccount);
                             return null;
                         }
                     })));
         }
+
         taskExecutorUtil.awaitAll(futures, (object) -> {
         });
 
