@@ -72,7 +72,8 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         metricQuery = mock(MetricQuery.class);
         metricCollector = mock(BasicMetricCollector.class);
-        TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector));
+        TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector,
+                (accountId) -> "tenant"));
 
         metric = Metric.builder()
                 .namespace(lambda.getNamespace())
@@ -86,7 +87,8 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         replayAll();
         testClass = new MetricQueryProvider(accountProvider, scrapeConfigProvider, queryIdGenerator, metricNameUtil,
                 awsClientProvider, resourceTagHelper, metricQueryBuilder,
-                new RateLimiter(metricCollector), taskExecutorUtil);
+                new RateLimiter(metricCollector,
+                        (accountId) -> "tenant"), taskExecutorUtil);
         verifyAll();
         resetAll();
     }

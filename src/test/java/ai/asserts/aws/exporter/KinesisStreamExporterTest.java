@@ -38,6 +38,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class KinesisStreamExporterTest extends EasyMockSupport {
 
     public CollectorRegistry collectorRegistry;
@@ -70,7 +71,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new KinesisStreamExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(basicMetricCollector)));
+                new RateLimiter(basicMetricCollector, (account) -> "tenant")));
     }
 
     @Test

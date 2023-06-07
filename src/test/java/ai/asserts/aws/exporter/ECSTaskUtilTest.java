@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings("unchecked")
 public class ECSTaskUtilTest extends EasyMockSupport {
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
@@ -71,11 +72,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
-        TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector));
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
+        TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
+                rateLimiter);
         Ec2Client ec2Client = mock(Ec2Client.class);
 
 
-        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper, new RateLimiter(metricCollector), tagUtil,
+        testClass = new ECSTaskUtil(awsClientProvider, resourceMapper,
+                rateLimiter, tagUtil,
                 taskExecutorUtil);
 
         expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();

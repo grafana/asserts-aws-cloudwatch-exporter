@@ -30,6 +30,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class LogEventScraperTest extends EasyMockSupport {
     private CloudWatchLogsClient cloudWatchLogsClient;
     private LambdaFunction lambdaFunction;
@@ -48,7 +49,8 @@ public class LogEventScraperTest extends EasyMockSupport {
         timeWindowBuilder = mock(TimeWindowBuilder.class);
 
         now = Instant.now();
-        testClass = new LogEventScraper(timeWindowBuilder, new RateLimiter(metricCollector));
+        testClass = new LogEventScraper(timeWindowBuilder, new RateLimiter(metricCollector,
+                (accountId) -> "tenant"));
     }
 
     @Test

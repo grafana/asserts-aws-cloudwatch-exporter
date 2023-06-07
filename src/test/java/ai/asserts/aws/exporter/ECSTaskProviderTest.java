@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings({"unchecked", "deprecation"})
 public class ECSTaskProviderTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
@@ -81,7 +82,8 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         mockSample = mock(Sample.class);
         mockFamilySamples = mock(Collector.MetricFamilySamples.class);
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
-                new RateLimiter(basicMetricCollector), resourceMapper, ecsClusterProvider, ecsTaskUtil, sampleBuilder,
+                new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
+                ecsTaskUtil, sampleBuilder,
                 collectorRegistry);
     }
 
@@ -163,7 +165,8 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .build();
 
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
-                new RateLimiter(basicMetricCollector), resourceMapper, ecsClusterProvider, ecsTaskUtil, sampleBuilder,
+                new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
+                ecsTaskUtil, sampleBuilder,
                 collectorRegistry) {
             @Override
             void discoverNewTasks(Map<Resource, List<Resource>> clusterWiseNewTasks, EcsClient ecsClient,

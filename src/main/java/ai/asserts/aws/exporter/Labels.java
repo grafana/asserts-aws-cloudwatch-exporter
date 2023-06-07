@@ -12,6 +12,7 @@ import lombok.ToString;
 
 import java.util.HashMap;
 
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
 
 @Getter
@@ -101,7 +102,7 @@ public class Labels extends HashMap<String, String> {
             put("asserts_site", site);
         }
         if (tenant != null) {
-            put("tenant", tenant);
+            put(TENANT, tenant);
         }
     }
 }

@@ -88,7 +88,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         mockSample = mock(Sample.class);
         mockFamilySamples = mock(MetricFamilySamples.class);
-        rateLimiter = new RateLimiter(metricCollector);
+        rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
         taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter);
         labels = ImmutableSortedMap.of(
                 SCRAPE_ACCOUNT_ID_LABEL, "account",
@@ -103,7 +103,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
 
 
     @Test
-    public void afterPropertiesSet() throws Exception{
+    public void afterPropertiesSet() throws Exception {
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
                 resourceMapper, rateLimiter, sampleBuilder, collectorRegistry,
                 new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
@@ -129,7 +129,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         AtomicInteger sideEffect = new AtomicInteger();
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry, taskExecutorUtil) {
+                resourceMapper, rateLimiter, sampleBuilder, collectorRegistry, taskExecutorUtil) {
             @Override
             List<Sample> mapLB(ElasticLoadBalancingV2Client client,
                                SortedMap<String, String> theLabels,
@@ -177,7 +177,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         AtomicInteger sideEffect = new AtomicInteger();
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry, taskExecutorUtil) {
+                resourceMapper, rateLimiter, sampleBuilder, collectorRegistry, taskExecutorUtil) {
             @Override
             List<Sample> mapListener(ElasticLoadBalancingV2Client theClient,
                                      SortedMap<String, String> labels,
@@ -287,7 +287,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         expect(resourceMapper.map("tg-arn2")).andReturn(Optional.of(tgResource2));
 
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry, taskExecutorUtil);
+                resourceMapper, rateLimiter, sampleBuilder, collectorRegistry, taskExecutorUtil);
 
         testClass.getMissingTgMap().put(tgResource2, tgResource2);
 
@@ -327,7 +327,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     @Test
     public void handleMissing() {
         TargetGroupLBMapProvider testClass = new TargetGroupLBMapProvider(accountProvider, awsClientProvider,
-                resourceMapper, new RateLimiter(metricCollector), sampleBuilder, collectorRegistry, taskExecutorUtil);
+                resourceMapper, rateLimiter, sampleBuilder, collectorRegistry, taskExecutorUtil);
 
         Resource tgResource = Resource.builder()
                 .name("tg")

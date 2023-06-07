@@ -88,8 +88,10 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass.setSampleBuilder(sampleBuilder);
         testClass.setTimeWindowBuilder(timeWindowBuilder);
         testClass.setEcsServiceDiscoveryExporter(ecsServiceDiscoveryExporter);
-        testClass.setRateLimiter(new RateLimiter(metricCollector));
-        testClass.setTaskExecutorUtil(new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+        testClass.setRateLimiter(new RateLimiter(metricCollector, (account) -> "tenant"));
+        testClass.setTaskExecutorUtil(
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector,
+                        (account) -> "tenant")));
     }
 
     @Test

@@ -78,7 +78,8 @@ public class AlarmFetcherTest extends EasyMockSupport {
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         testClass = new AlarmFetcher(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, alarmMetricConverter, scrapeConfigProvider,
-                ecsServiceDiscoveryExporter, new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(null)));
+                ecsServiceDiscoveryExporter, new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(null,
+                (accountId) -> "tenant")));
     }
 
     @Test

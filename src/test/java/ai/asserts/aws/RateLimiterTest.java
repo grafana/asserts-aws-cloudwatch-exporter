@@ -33,7 +33,8 @@ public class RateLimiterTest extends EasyMockSupport {
     public void setup() {
         metricCollector = mock(BasicMetricCollector.class);
         labels = new TreeMap<>();
-        rateLimiter = new RateLimiter(metricCollector);
+        rateLimiter = new RateLimiter(metricCollector,
+                (accountId) -> "tenant");
     }
 
     @Test

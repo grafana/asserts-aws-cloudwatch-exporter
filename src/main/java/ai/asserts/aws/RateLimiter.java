@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws;
 
+import ai.asserts.aws.account.AccountTenantMapper;
 import ai.asserts.aws.exporter.BasicMetricCollector;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -30,6 +32,7 @@ import static java.util.stream.Collectors.joining;
 @AllArgsConstructor
 public class RateLimiter {
     private final BasicMetricCollector metricCollector;
+    private final AccountTenantMapper accountTenantMapper;
 
     private final ThreadLocal<Map<String, Integer>> apiCallCounts = ThreadLocal.withInitial(TreeMap::new);
 
@@ -57,6 +60,7 @@ public class RateLimiter {
             log.error("Exception", e);
             SortedMap<String, String> errorLabels = new TreeMap<>(labels);
             errorLabels.put(ASSERTS_ERROR_TYPE, e.getClass().getSimpleName());
+            errorLabels.put(TENANT, accountTenantMapper.getTenantName(labels.get(SCRAPE_ACCOUNT_ID_LABEL)));
             metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
             throw new RuntimeException(e);
         } finally {

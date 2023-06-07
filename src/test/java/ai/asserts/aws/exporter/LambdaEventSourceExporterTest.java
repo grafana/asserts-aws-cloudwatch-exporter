@@ -83,10 +83,11 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         expect(awsClientProvider.getLambdaClient("region1", accountRegion)).andReturn(lambdaClient).anyTimes();
 
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         testClass = new LambdaEventSourceExporter(accountProvider, scrapeConfigProvider, awsClientProvider,
                 metricNameUtil, resourceMapper, resourceTagHelper, sampleBuilder,
-                new RateLimiter(metricCollector),
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                rateLimiter,
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
     }
 
     @Test

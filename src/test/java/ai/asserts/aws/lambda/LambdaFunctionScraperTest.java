@@ -45,6 +45,7 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings("unchecked")
 public class LambdaFunctionScraperTest extends EasyMockSupport {
     private AccountProvider accountProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
@@ -92,9 +93,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         lambdaFunctionScraper = new LambdaFunctionScraper(
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
-                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
+                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector, (account) -> "tenant"),
                 metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(),
+                        new RateLimiter(metricCollector, (account) -> "tenant")));
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
@@ -137,9 +139,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         lambdaFunctionScraper = new LambdaFunctionScraper(
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
-                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector),
+                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector, (account) -> "tenant"),
                 metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector))) {
+                new TaskExecutorUtil(new TestTaskThreadPool(),
+                        new RateLimiter(metricCollector, (account) -> "tenant"))) {
             @Override
             public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
                 return functions;

@@ -60,7 +60,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("tenant", "account", "","",
+        accountRegion = new AWSAccount("tenant", "account", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         fnScraper = mock(LambdaFunctionScraper.class);
@@ -76,9 +76,10 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         metricCollector = mock(BasicMetricCollector.class);
 
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         testClass = new LambdaInvokeConfigExporter(accountProvider, fnScraper, awsClientProvider, metricNameUtil,
-                scrapeConfigProvider, resourceMapper, metricSampleBuilder, new RateLimiter(metricCollector),
-                 new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                scrapeConfigProvider, resourceMapper, metricSampleBuilder, rateLimiter,
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
 
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));

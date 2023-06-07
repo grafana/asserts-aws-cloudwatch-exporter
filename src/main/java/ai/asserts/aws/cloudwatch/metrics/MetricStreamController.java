@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
@@ -215,7 +216,7 @@ public class MetricStreamController {
         SortedMap<String, String> metricMap = new TreeMap<>();
         String metricNamespace = metric.getNamespace();
 
-        metricMap.put("tenant", accountTenantMapper.getTenantName(metric.getAccount_id()));
+        metricMap.put(TENANT, accountTenantMapper.getTenantName(metric.getAccount_id()));
         metricMap.put("account_id", metric.getAccount_id());
         metricMap.put("region", metric.getRegion());
         metricMap.put("namespace", metricNamespace);

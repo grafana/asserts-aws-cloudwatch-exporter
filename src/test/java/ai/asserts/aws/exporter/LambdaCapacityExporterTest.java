@@ -52,6 +52,7 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
+@SuppressWarnings("unchecked")
 public class LambdaCapacityExporterTest extends EasyMockSupport {
     private AccountProvider accountProvider;
     private AWSAccount account1;
@@ -101,10 +102,11 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
         resetAll();
 
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         testClass = new LambdaCapacityExporter(accountProvider,
                 scrapeConfigProvider, awsClientProvider, metricNameUtil,
-                sampleBuilder, functionScraper, resourceTagHelper, new RateLimiter(metricCollector),
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                sampleBuilder, functionScraper, resourceTagHelper, rateLimiter,
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
 
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));

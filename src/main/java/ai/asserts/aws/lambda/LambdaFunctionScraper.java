@@ -42,6 +42,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static ai.asserts.aws.model.CWNamespace.lambda;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -105,7 +106,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
                     (accountId, byRegion) -> byRegion.forEach((region, byName) -> byName.forEach((name, details)
                             -> {
                         Map<String, String> labels = new TreeMap<>();
-                        labels.put("tenant", details.getTenant());
+                        labels.put(TENANT, details.getTenant());
                         labels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
                         labels.put(SCRAPE_REGION_LABEL, region);
                         labels.put("aws_resource_type", "AWS::Lambda::Function");

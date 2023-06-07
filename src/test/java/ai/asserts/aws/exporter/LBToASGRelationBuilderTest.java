@@ -42,6 +42,7 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class LBToASGRelationBuilderTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private AutoScalingClient autoScalingClient;
@@ -74,15 +75,17 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         metricFamilySamples = mock(MetricFamilySamples.class);
         sample = mock(Sample.class);
         tagUtil = mock(TagUtil.class);
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
         testClass = new LBToASGRelationBuilder(awsClientProvider, resourceMapper,
-                targetGroupLBMapProvider, new RateLimiter(metricCollector),
+                targetGroupLBMapProvider, rateLimiter,
                 accountProvider, metricSampleBuilder, collectorRegistry, tagUtil,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
     }
 
     @Test
     void updateRouting() {
-        AWSAccount awsAccount = new AWSAccount("tenant", "123123123", "accessId", "secretKey", "role", ImmutableSet.of("region"));
+        AWSAccount awsAccount =
+                new AWSAccount("tenant", "123123123", "accessId", "secretKey", "role", ImmutableSet.of("region"));
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(awsClientProvider.getAutoScalingClient("region", awsAccount)).andReturn(autoScalingClient);
         expect(autoScalingClient.describeAutoScalingGroups()).andReturn(DescribeAutoScalingGroupsResponse.builder()

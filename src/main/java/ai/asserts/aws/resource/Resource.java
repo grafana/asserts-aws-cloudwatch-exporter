@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static java.lang.String.format;
 
 @Getter
@@ -77,7 +78,7 @@ public class Resource {
     public void addLabels(Map<String, String> labels, String prefix) {
         prefix = StringUtils.hasLength(prefix) ? prefix + "_" : "";
         if (tenant != null) {
-            labels.put("tenant", tenant);
+            labels.put(TENANT, tenant);
         }
         if (account != null) {
             labels.put(format("%saccount", prefix), account);

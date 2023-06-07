@@ -40,6 +40,7 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class LBToECSRoutingBuilderTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private ResourceMapper resourceMapper;
@@ -56,7 +57,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         metricCollector = mock(BasicMetricCollector.class);
-        RateLimiter rateLimiter = new RateLimiter(metricCollector);
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         resourceMapper = mock(ResourceMapper.class);
         targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
         ecsClient = mock(EcsClient.class);
@@ -65,7 +66,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
         ecsClusterProvider = mock(ECSClusterProvider.class);
         testClass = new LBToECSRoutingBuilder(rateLimiter, resourceMapper, targetGroupLBMapProvider,
                 awsClientProvider, accountProvider, ecsClusterProvider, new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(metricCollector)));
+                rateLimiter));
     }
 
     @Test

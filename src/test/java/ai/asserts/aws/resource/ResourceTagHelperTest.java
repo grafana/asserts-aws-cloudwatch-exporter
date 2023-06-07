@@ -53,6 +53,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
     private NamespaceConfig namespaceConfig;
     private BasicMetricCollector metricCollector;
     private AWSAccount accountRegion;
+    private RateLimiter rateLimiter;
     private ResourceTagHelper testClass;
 
     @BeforeEach
@@ -68,13 +69,12 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         resource = mock(Resource.class);
         metricCollector = mock(BasicMetricCollector.class);
         elbClient = mock(ElasticLoadBalancingClient.class);
-
+        rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
         ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
         replayAll();
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                new RateLimiter(metricCollector));
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter);
         verifyAll();
         resetAll();
     }
@@ -224,8 +224,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         replayAll();
 
         ImmutableList<String> resourceName = ImmutableList.of("resourceName");
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                new RateLimiter(metricCollector)) {
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter) {
             @Override
             public Set<Resource> getResourcesWithTag(AWSAccount _passedValue, String region, SortedMap<String,
                     String> labels,
@@ -282,8 +281,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         replayAll();
 
         ImmutableList<String> resourceName = ImmutableList.of("resourceName");
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper,
-                new RateLimiter(metricCollector)) {
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter) {
             @Override
             public Set<Resource> getResourcesWithTag(AWSAccount _passed, String region,
                                                      SortedMap<String, String> labels,

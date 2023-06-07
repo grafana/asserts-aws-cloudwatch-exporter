@@ -40,6 +40,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class SNSTopicExporterTest extends EasyMockSupport {
 
     public CollectorRegistry collectorRegistry;
@@ -74,7 +75,7 @@ public class SNSTopicExporterTest extends EasyMockSupport {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new SNSTopicExporter(accountProvider, awsClientProvider, collectorRegistry,
                 rateLimiter, sampleBuilder, resourceMapper, resourceTagHelper, tagUtil,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector, (account) -> "acme")));
     }
 
     @Test

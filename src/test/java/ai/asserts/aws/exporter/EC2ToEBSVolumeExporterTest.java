@@ -79,9 +79,10 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         tagUtil = mock(TagUtil.class);
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         testClass = new EC2ToEBSVolumeExporter(accountProvider, awsClientProvider, metricSampleBuilder,
-                collectorRegistry, new RateLimiter(metricCollector), tagUtil, ecsServiceDiscoveryExporter,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                collectorRegistry, rateLimiter, tagUtil, ecsServiceDiscoveryExporter,
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
     }
 
     @Test

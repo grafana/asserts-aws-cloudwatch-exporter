@@ -71,9 +71,10 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
         sample = mock(Sample.class);
         collectorRegistry = mock(CollectorRegistry.class);
         metricNameUtil = mock(MetricNameUtil.class);
-        testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, new RateLimiter(metricCollector),
+        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
+        testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, rateLimiter,
                 accountProvider, metricSampleBuilder, collectorRegistry, metricNameUtil,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
         awsAccount = new AWSAccount("acme", "account", "accessId",
                 "secretKey", "role", ImmutableSet.of("region"));
     }

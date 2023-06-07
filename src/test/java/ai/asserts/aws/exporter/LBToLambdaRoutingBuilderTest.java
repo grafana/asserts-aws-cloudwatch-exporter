@@ -36,6 +36,7 @@ import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unchecked")
 public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
     private ElasticLoadBalancingV2Client elbV2Client;
     private BasicMetricCollector metricCollector;
@@ -63,9 +64,11 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
         Resource lbResource2 = mock(Resource.class);
         lambdaResource = mock(Resource.class);
 
-        testClass = new LBToLambdaRoutingBuilder(awsClientProvider, new RateLimiter(metricCollector),
+        testClass = new LBToLambdaRoutingBuilder(awsClientProvider,
+                new RateLimiter(metricCollector, (account) -> "acme"),
                 resourceMapper, accountProvider, targetGroupLBMapProvider,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector)));
+                new TaskExecutorUtil(new TestTaskThreadPool(),
+                        new RateLimiter(metricCollector, (account) -> "acme")));
 
         AWSAccount awsAccount = new AWSAccount("tenant", "account", "accessId", "secretKey", "role",
                 ImmutableSet.of("region"));

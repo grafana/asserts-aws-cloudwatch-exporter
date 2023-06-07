@@ -30,6 +30,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import ai.asserts.aws.account.AWSAccount;
+
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 import static org.easymock.EasyMock.anyDouble;
@@ -66,8 +67,9 @@ public class EMRExporterTest extends EasyMockSupport {
         sample = mock(Sample.class);
         emrClient = mock(EmrClient.class);
         emrExporter = new EMRExporter(accountProvider, awsClientProvider, collectorRegistry,
-                new RateLimiter(basicMetricCollector), metricSampleBuilder,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector)));
+                new RateLimiter(basicMetricCollector, (account) -> "acme"), metricSampleBuilder,
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector,
+                        (account) -> "acme")));
     }
 
     @Test
