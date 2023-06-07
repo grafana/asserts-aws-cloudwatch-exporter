@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
@@ -46,6 +47,7 @@ public class RateLimiter {
         String fullKey = regionKey + "/" + clientType;
         Semaphore theSemaphore = semaphores.computeIfAbsent(fullKey, s -> new Semaphore(2));
         long tick = System.currentTimeMillis();
+        String tenantName = accountTenantMapper.getTenantName(labels.get(SCRAPE_ACCOUNT_ID_LABEL));
         try {
             theSemaphore.acquire();
             Map<String, Integer> callCounts = apiCallCounts.get();
@@ -60,11 +62,17 @@ public class RateLimiter {
             log.error("Exception", e);
             SortedMap<String, String> errorLabels = new TreeMap<>(labels);
             errorLabels.put(ASSERTS_ERROR_TYPE, e.getClass().getSimpleName());
-            errorLabels.put(TENANT, accountTenantMapper.getTenantName(labels.get(SCRAPE_ACCOUNT_ID_LABEL)));
+            if (tenantName != null) {
+                errorLabels.put(TENANT, tenantName);
+            }
             metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
             throw new RuntimeException(e);
         } finally {
             tick = System.currentTimeMillis() - tick;
+            labels = new TreeMap<>(labels);
+            if (tenantName != null) {
+                labels.put(TENANT, tenantName);
+            }
             metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, labels, tick);
             theSemaphore.release();
         }

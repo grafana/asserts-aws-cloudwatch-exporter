@@ -7,6 +7,8 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -63,6 +65,8 @@ public class ECSTaskProviderTest extends EasyMockSupport {
     private EcsClient ecsClient;
 
     private StaticConfig mockStaticConfig;
+
+    private TaskExecutorUtil taskExecutorUtil;
     private ECSTaskProvider testClass;
 
     @BeforeEach
@@ -81,10 +85,12 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         mockStaticConfig = mock(StaticConfig.class);
         mockSample = mock(Sample.class);
         mockFamilySamples = mock(Collector.MetricFamilySamples.class);
+        taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
+                new RateLimiter(basicMetricCollector, (accountId) -> "acme"));
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
                 ecsTaskUtil, sampleBuilder,
-                collectorRegistry);
+                collectorRegistry, taskExecutorUtil);
     }
 
 
@@ -167,7 +173,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
                 ecsTaskUtil, sampleBuilder,
-                collectorRegistry) {
+                collectorRegistry, taskExecutorUtil) {
             @Override
             void discoverNewTasks(Map<Resource, List<Resource>> clusterWiseNewTasks, EcsClient ecsClient,
                                   Resource cluster) {
