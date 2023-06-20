@@ -9,3 +9,12 @@ services:
       - "8010:8010"
     env_file:
       - env.properties
+  aws-integration-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    image: asserts/aws-integration-agent:v0.0.14
+    ports:
+      - "8014:8014"
+    env_file:
+      - env_agent.properties

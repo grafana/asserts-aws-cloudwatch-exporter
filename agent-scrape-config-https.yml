@@ -1,0 +1,27 @@
+scrape_configs:
+  - job_name: 'ecs-service-discovery'
+    honor_labels: true
+    file_sd_configs:
+      - files:
+          - '/opt/asserts/ecs-scrape-targets.yml'
+    relabel_configs:
+      - source_labels: [ "__name__" ]
+        regex: .+
+        target_label: tenant
+        action: replace
+        replacement: %{remoteWrite_basicAuth_username}
+  - job_name: 'ecs-service-discovery-https'
+    honor_labels: true
+    scheme: https
+    tls_config:
+      insecure_skip_verify: %{SKIP_TLS_VERIFY}
+    file_sd_configs:
+      - files:
+          - '/opt/asserts/ecs-scrape-targets-https.yml'
+    relabel_configs:
+      - source_labels: [ "__name__" ]
+        regex: .+
+        target_label: tenant
+        action: replace
+        replacement: %{remoteWrite_basicAuth_username}
+
