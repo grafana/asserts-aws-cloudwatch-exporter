@@ -5,5 +5,5 @@ if [ "${SCRAPE_OVER_TLS}" = 'true' ]; then
   /vmagent-prod -envflag.enable -promscrape.config=/etc/agent-scrape-config-https.yml
 else
   echo "Agent will scrape remote targets over http"
-    /vmagent-prod -envflag.enable -promscrape.config=/etc/agent-scrape-config.yml
+  /vmagent-prod -envflag.enable -promscrape.config=/etc/agent-scrape-config.yml
 fi
