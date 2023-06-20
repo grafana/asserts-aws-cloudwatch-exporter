@@ -113,3 +113,20 @@ test {
     useJUnitPlatform()
 }
 
+publishing {
+    repositories {
+        maven {
+            name = "AssertsMavenRepo"
+            url = "s3://asserts-maven-repo"
+            authentication {
+                awsIm(AwsImAuthentication)
+            }
+        }
+    }
+    publications {
+        gpr(MavenPublication) {
+            from(components.java)
+        }
+    }
+}
+
