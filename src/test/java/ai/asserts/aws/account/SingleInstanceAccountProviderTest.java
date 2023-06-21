@@ -5,8 +5,6 @@
 package ai.asserts.aws.account;
 
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.account.SingleInstanceAccountProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.SingleInstanceAccountProvider.CloudwatchConfigs;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
@@ -20,8 +18,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.Map;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;

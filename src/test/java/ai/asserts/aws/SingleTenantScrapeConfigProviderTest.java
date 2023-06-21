@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ScrapeConfigProviderTest extends EasyMockSupport {
+public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
     private S3Client s3Client;
     private RestTemplate restTemplate;
     private SnakeCaseUtil snakeCaseUtil;
@@ -152,7 +152,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
 
     @Test
     void integrationTest() {
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider(
+        SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate, snakeCaseUtil);
@@ -168,7 +168,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
 
     @Test
     void envOverrides() {
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider(
+        SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate, snakeCaseUtil) {
@@ -197,7 +197,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 .key("key")
                 .build())).andReturn(ResponseBytes.fromInputStream(GetObjectResponse.builder().build(), fis));
         replayAll();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider(
+        SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate, snakeCaseUtil) {
@@ -240,7 +240,7 @@ public class ScrapeConfigProviderTest extends EasyMockSupport {
                 }
         )).andReturn(response);
         replayAll();
-        ScrapeConfigProvider testClass = new ScrapeConfigProvider(
+        SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate, snakeCaseUtil) {

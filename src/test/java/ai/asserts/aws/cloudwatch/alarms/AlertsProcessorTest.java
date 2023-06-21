@@ -29,7 +29,6 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.springframework.http.HttpMethod.POST;
 
 public class AlertsProcessorTest extends EasyMockSupport {
@@ -52,6 +51,7 @@ public class AlertsProcessorTest extends EasyMockSupport {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void sendAlerts() {
         SortedMap<String, String> labels1 = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("alertgroup", "cloudwatch")
