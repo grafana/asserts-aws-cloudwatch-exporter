@@ -200,8 +200,7 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
                             .filter(ecsTaskUtil::hasAllInfo)
                             .forEach(task -> resourceMapper.map(task.taskArn()).ifPresent(taskResource -> {
                                 List<StaticConfig> staticConfigs =
-                                        ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
-                                                getService(task), task);
+                                        ecsTaskUtil.buildScrapeTargets(ecsClient, cluster, getService(task), task);
                                 Map<Resource, List<StaticConfig>> clusterTargets =
                                         tasksByCluster.computeIfAbsent(cluster, k -> new HashMap<>());
                                 clusterTargets.put(taskResource, staticConfigs);

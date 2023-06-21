@@ -9,7 +9,6 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -55,7 +54,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
     private EcsClient ecsClient;
-    private ScrapeConfig scrapeConfig;
     private ECSTaskUtil testClass;
     private Resource cluster;
     private Resource service;
@@ -69,7 +67,6 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         resourceMapper = mock(ResourceMapper.class);
         metricCollector = mock(BasicMetricCollector.class);
         ecsClient = mock(EcsClient.class);
-        scrapeConfig = mock(ScrapeConfig.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
         RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
@@ -162,12 +159,11 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
 
         expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
 
         replayAll();
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
+        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(ecsClient, cluster,
                 Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
@@ -222,12 +218,11 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
 
         expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
 
         replayAll();
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
+        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(ecsClient, cluster,
                 Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")

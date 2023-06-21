@@ -1,6 +1,5 @@
 package ai.asserts.aws;
 
-import ai.asserts.aws.config.RelabelConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.CWNamespace;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -25,9 +24,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -191,21 +188,6 @@ public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
             if (envVariables.containsKey("ENABLE_ECS_SD")) {
                 scrapeConfig.setDiscoverECSTasks(isEnabled(System.getenv("ENABLE_ECS_SD")));
             }
-
-            ScrapeConfig finalScrapeConfig = scrapeConfig;
-            Stream.of("default_relabel_rules.yml", "src/dist/conf/default_relabel_rules.yml")
-                    .map(File::new)
-                    .filter(File::exists)
-                    .findFirst().ifPresent(relabel_rules -> {
-                        try {
-                            List<RelabelConfig> rules =
-                                    objectMapper.readValue(relabel_rules, new TypeReference<List<RelabelConfig>>() {
-                                    });
-                            finalScrapeConfig.getRelabelConfigs().addAll(rules);
-                        } catch (IOException e) {
-                            log.error("Failed to load relabel rules", e);
-                        }
-                    });
 
             scrapeConfig.validateConfig();
             return scrapeConfig;

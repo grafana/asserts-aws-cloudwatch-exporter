@@ -43,7 +43,6 @@ public class AlertsProcessor {
                 log.info("Exporting alarms as prometheus alerts");
                 // Add scope labels
                 List<PrometheusAlert> alertList = labelsList.stream()
-                        .map(inputLabels -> scrapeConfig.additionalLabels("asserts:alerts", inputLabels))
                         .map(this::createAlert)
                         .collect(Collectors.toList());
                 PrometheusAlerts alerts = new PrometheusAlerts().withAlerts(alertList);

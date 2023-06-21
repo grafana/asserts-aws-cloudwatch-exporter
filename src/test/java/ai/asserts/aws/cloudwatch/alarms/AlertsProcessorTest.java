@@ -19,11 +19,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
@@ -51,7 +49,6 @@ public class AlertsProcessorTest extends EasyMockSupport {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void sendAlerts() {
         SortedMap<String, String> labels1 = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("alertgroup", "cloudwatch")
@@ -60,18 +57,9 @@ public class AlertsProcessorTest extends EasyMockSupport {
                 .put("asserts_source", "cloudwatch.alarms")
                 .build());
 
-        SortedMap<String, String> labelsWithScope = new TreeMap<>(labels1);
-        labelsWithScope.put("asserts_env", "env");
-        labelsWithScope.put("asserts_site", "site");
-        labelsWithScope.put("state", "ALARM");
-        labelsWithScope.put("timestamp", now.toString());
-
         expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
         expect(scrapeConfig.isCwAlarmAsMetric()).andReturn(false);
         expect(scrapeConfig.getTenant()).andReturn("tenant").anyTimes();
-
-        expect(scrapeConfig.additionalLabels(eq("asserts:alerts"), anyObject(Map.class)))
-                .andReturn(labelsWithScope);
 
         HttpEntity<String> mockEntity = mock(HttpEntity.class);
         HttpHeaders mockHeaders = new HttpHeaders();
@@ -96,7 +84,7 @@ public class AlertsProcessorTest extends EasyMockSupport {
         assertNotNull(body);
         assertEquals(1, body.getAlerts().size());
         assertEquals(PrometheusAlertStatus.firing, body.getAlerts().get(0).getStatus());
-        assertEquals(labelsWithScope, body.getAlerts().get(0).getLabels());
+        assertEquals(labels1, body.getAlerts().get(0).getLabels());
         verifyAll();
     }
 

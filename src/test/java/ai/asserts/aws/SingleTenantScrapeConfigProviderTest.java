@@ -2,17 +2,14 @@ package ai.asserts.aws;
 
 import ai.asserts.aws.config.MetricConfig;
 import ai.asserts.aws.config.NamespaceConfig;
-import ai.asserts.aws.config.RelabelConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.MetricStat;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
@@ -28,10 +25,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 import static ai.asserts.aws.ApiServerConstants.ASSERTS_TENANT_HEADER;
@@ -45,19 +40,6 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
     private S3Client s3Client;
     private RestTemplate restTemplate;
     private SnakeCaseUtil snakeCaseUtil;
-    private static List<RelabelConfig> relabelConfigs;
-
-    @BeforeAll
-    public static void onlyOnce() {
-        try {
-            File file = new File("src/dist/conf/default_relabel_rules.yml");
-            ObjectMapper objectMapper = new ObjectMapperFactory().getObjectMapper();
-            relabelConfigs = objectMapper.readValue(file, new TypeReference<List<RelabelConfig>>() {
-            });
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     @BeforeEach
     public void setup() {
@@ -159,7 +141,6 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
         assertNotNull(testClass.getScrapeConfig());
         assertEquals(ImmutableSet.of("us-west-2"), testClass.getScrapeConfig().getRegions());
         assertTrue(testClass.getScrapeConfig().isDiscoverECSTasks());
-        assertFalse(testClass.getScrapeConfig().getDimensionToLabels().isEmpty());
         Map<String, MetricConfig> metricsToCapture = testClass.getScrapeConfig().getMetricsToCapture();
         assertEquals(17, metricsToCapture.size());
         assertTrue(metricsToCapture.containsKey("aws_lambda_invocations_sum"));
@@ -188,7 +169,6 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
         ScrapeConfig scrapeConfig =
                 new ObjectMapperFactory().getObjectMapper().readValue(fis, new TypeReference<ScrapeConfig>() {
                 });
-        scrapeConfig.getRelabelConfigs().addAll(relabelConfigs);
         scrapeConfig.validateConfig();
 
         fis = new FileInputStream("src/test/resources/cloudwatch_scrape_config.yml");

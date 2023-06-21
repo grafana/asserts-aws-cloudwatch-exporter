@@ -108,7 +108,7 @@ public class ECSTaskUtil {
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
+    public List<StaticConfig> buildScrapeTargets(EcsClient ecsClient,
                                                  Resource cluster, Optional<String> service, Task task) {
         Map<String, String> tagLabels = tagUtil.tagLabels(task.tags().stream()
                 .map(ecsTag -> Tag.builder().key(ecsTag.key()).value(ecsTag.value()).build())
@@ -158,8 +158,6 @@ public class ECSTaskUtil {
 
                         labels.populateMapEntries();
                         labels.putAll(tagLabels);
-                        Map<String, String> afterRelabeling = scrapeConfig.additionalLabels("up", labels);
-                        labels.putAll(afterRelabeling);
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
