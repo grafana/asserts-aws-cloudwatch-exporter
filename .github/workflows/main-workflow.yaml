@@ -172,8 +172,8 @@ jobs:
       - name: Gradle Build
         run: ./gradlew build
 
-      - name: Publish with Gradle
-        run: ./gradlew config:publish
+      - name: Publish Config with Gradle
+        run: ./gradlew publish
 
       - name: Clear session
         run: |
