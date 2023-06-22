@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.AssertsServerUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.util.StringUtils.hasLength;
 
@@ -30,11 +32,15 @@ import static org.springframework.util.StringUtils.hasLength;
 public class AlertsProcessor {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RestTemplate restTemplate;
-
     private final AlarmMetricExporter alarmMetricExporter;
+    private final AssertsServerUtil assertsServerUtil;
 
     public void sendAlerts(List<Map<String, String>> labelsList) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        if (labelsList.isEmpty()) {
+            return;
+        }
+        String tenant = labelsList.get(0).get(TENANT);
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenant);
         if (!CollectionUtils.isEmpty(labelsList)) {
             if (scrapeConfig.isCwAlarmAsMetric()) {
                 log.info("Exporting alarms as metric");
@@ -43,14 +49,13 @@ public class AlertsProcessor {
                 log.info("Exporting alarms as prometheus alerts");
                 // Add scope labels
                 List<PrometheusAlert> alertList = labelsList.stream()
-                        .map(inputLabels -> scrapeConfig.additionalLabels("asserts:alerts", inputLabels))
                         .map(this::createAlert)
                         .collect(Collectors.toList());
                 PrometheusAlerts alerts = new PrometheusAlerts().withAlerts(alertList);
                 HttpEntity<PrometheusAlerts> request = new HttpEntity<>(alerts,
-                        scrapeConfigProvider.createAssertsAuthHeader().getHeaders());
+                        assertsServerUtil.createAssertsAuthHeader().getHeaders());
                 try {
-                    String url = String.format("%s?tenant=%s", scrapeConfigProvider.getAlertForwardUrl(),
+                    String url = String.format("%s?tenant=%s", assertsServerUtil.getAlertForwardUrl(),
                             scrapeConfig.getTenant());
                     log.info("Forwarding {} CloudWatch alarms as alerts to - {}", alertList.size(), url);
                     ResponseEntity<String> responseEntity = restTemplate.exchange(url, POST, request,

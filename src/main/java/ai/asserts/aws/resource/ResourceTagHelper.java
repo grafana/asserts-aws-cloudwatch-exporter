@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountTenantMapper;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.cache.CacheBuilder;
@@ -60,26 +61,26 @@ public class ResourceTagHelper {
     private final LoadingCache<Key, Set<Resource>> resourceCache;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RateLimiter rateLimiter;
+    private final AccountTenantMapper accountTenantMapper;
 
     public ResourceTagHelper(ScrapeConfigProvider scrapeConfigProvider,
                              AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
-                             RateLimiter rateLimiter) {
+                             RateLimiter rateLimiter,
+                             AccountTenantMapper accountTenantMapper) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
+        this.accountTenantMapper = accountTenantMapper;
 
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         resourceCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(scrapeConfig.getGetResourcesResultCacheTTLMinutes(), MINUTES)
+                .expireAfterWrite(5, MINUTES)
                 .build(new CacheLoader<Key, Set<Resource>>() {
                     @Override
                     public Set<Resource> load(@NonNull Key key) {
                         return getResourcesInternal(key);
                     }
                 });
-
-
     }
 
     public Set<Resource> getFilteredResources(AWSAccount accountRegion, String region,
@@ -135,7 +136,9 @@ public class ResourceTagHelper {
 
     public Set<Resource> getResourcesWithTag(AWSAccount accountRegion, String region, SortedMap<String, String> labels,
                                              GetResourcesRequest.Builder builder) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(
+                accountTenantMapper.getTenantName(accountRegion.getAccountId())
+        );
         Set<Resource> resources = new HashSet<>();
         String nextToken = null;
         try {
@@ -169,6 +172,9 @@ public class ResourceTagHelper {
 
     public Map<String, Resource> getResourcesWithTag(AWSAccount accountRegion,
                                                      String region, String resourceType, List<String> resourceNames) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(
+                accountTenantMapper.getTenantName(accountRegion.getAccountId())
+        );
         Map<String, Resource> resourceByName = new TreeMap<>();
         if (CollectionUtils.isEmpty(resourceNames) || resourceNames.stream().noneMatch(StringUtils::isNotEmpty)) {
             return resourceByName;
@@ -182,7 +188,6 @@ public class ResourceTagHelper {
                         SCRAPE_OPERATION_LABEL, "ConfigClient/listDiscoveredResources"
                 ), GetResourcesRequest.builder().resourceTypeFilters(resourceType)));
         if (resourceType.equals("AWS::ElasticLoadBalancing::LoadBalancer")) {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
             try {
                 ElasticLoadBalancingClient elbClient = awsClientProvider.getELBClient(region, accountRegion);
                 DescribeTagsResponse describeTagsResponse = elbClient.describeTags(DescribeTagsRequest.builder()

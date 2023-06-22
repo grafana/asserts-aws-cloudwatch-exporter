@@ -5,10 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.model.MetricStat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -35,19 +33,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class MetricSampleBuilderTest extends EasyMockSupport {
     private MetricNameUtil metricNameUtil;
     private LabelBuilder labelBuilder;
-    private ScrapeConfig scrapeConfig;
     private MetricSampleBuilder testClass;
 
     @BeforeEach
     public void setup() {
         metricNameUtil = mock(MetricNameUtil.class);
         labelBuilder = mock(LabelBuilder.class);
-        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        scrapeConfig = mock(ScrapeConfig.class);
         TaskExecutorUtil taskExecutorUtil = mock(TaskExecutorUtil.class);
-        testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder, scrapeConfigProvider, taskExecutorUtil);
+        testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder, taskExecutorUtil);
         expect(taskExecutorUtil.getTenant()).andReturn("acme").anyTimes();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
     }
 
     @Test
@@ -64,8 +58,6 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
                 "label1", "value1", "label2", "value2"
         ));
         expect(labelBuilder.buildLabels("account", "region", metricQuery)).andReturn(labels);
-        expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
-        expect(scrapeConfig.keepMetric("metric", labels)).andReturn(true);
         replayAll();
 
         List<Sample> samples = testClass.buildSamples("account", "region",
@@ -89,26 +81,8 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         List<String> labelValues = Arrays.asList("value1", "value2", "acme");
         SortedMap<String, String> labels = new TreeMap<>(
                 ImmutableSortedMap.of("label1", "value1", "label2", "value2"));
-        expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
-        expect(scrapeConfig.keepMetric("metric", labels)).andReturn(true);
         replayAll();
         assertEquals(Optional.of(new Sample("metric", labelNames, labelValues, 1.0D)),
-                testClass.buildSingleSample("metric",
-                        labels,
-                        1.0D
-                ));
-
-        verifyAll();
-    }
-
-    @Test
-    void buildSingleSample_DropMetric() {
-        SortedMap<String, String> labels = new TreeMap<>(
-                ImmutableSortedMap.of("label1", "value1", "label2", "value2", "tenant", "acme"));
-        expect(scrapeConfig.additionalLabels("metric", labels)).andReturn(labels);
-        expect(scrapeConfig.keepMetric("metric", labels)).andReturn(false);
-        replayAll();
-        assertEquals(Optional.empty(),
                 testClass.buildSingleSample("metric",
                         labels,
                         1.0D

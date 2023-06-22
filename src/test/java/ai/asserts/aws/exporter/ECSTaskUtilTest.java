@@ -55,23 +55,22 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     private ResourceMapper resourceMapper;
     private BasicMetricCollector metricCollector;
     private EcsClient ecsClient;
-    private ScrapeConfig scrapeConfig;
     private ECSTaskUtil testClass;
     private Resource cluster;
     private Resource service;
     private Resource task;
     private Resource taskDef;
-
     private TagUtil tagUtil;
+    private ScrapeConfig scrapeConfig;
 
     @BeforeEach
     public void setup() {
         resourceMapper = mock(ResourceMapper.class);
         metricCollector = mock(BasicMetricCollector.class);
         ecsClient = mock(EcsClient.class);
-        scrapeConfig = mock(ScrapeConfig.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
                 rateLimiter);
@@ -162,9 +161,9 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
 
-        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+        expect(tagUtil.tagLabels(eq(scrapeConfig), anyObject(List.class))).andReturn(ImmutableMap.of("tag_key",
+                "tag_value"));
 
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
@@ -222,9 +221,9 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .taskDefinition(taskDefinition)
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
-        expect(scrapeConfig.additionalLabels(eq("up"), anyObject())).andReturn(ImmutableMap.of()).anyTimes();
 
-        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+        expect(tagUtil.tagLabels(eq(scrapeConfig), anyObject(List.class))).andReturn(ImmutableMap.of("tag_key",
+                "tag_value"));
 
         replayAll();
         List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,

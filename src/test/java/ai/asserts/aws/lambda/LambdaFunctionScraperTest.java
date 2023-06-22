@@ -84,7 +84,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         metricNameUtil = mock(MetricNameUtil.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(ScrapeConfig.builder()
                 .regions(ImmutableSortedSet.of("region1", "region2"))
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build()).anyTimes();
@@ -99,7 +99,7 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
                         new RateLimiter(metricCollector, (account) -> "tenant")));
         verifyAll();
         resetAll();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder()
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(ScrapeConfig.builder()
                 .regions(ImmutableSortedSet.of("region1", "region2"))
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build()).anyTimes();

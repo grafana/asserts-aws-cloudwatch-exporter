@@ -5,12 +5,14 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +54,8 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
     private ResourceTagHelper resourceTagHelper;
     private BasicMetricCollector basicMetricCollector;
     private TagUtil tagUtil;
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private KinesisStreamExporter testClass;
 
     @BeforeEach
@@ -68,10 +72,12 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
         kinesisClient = mock(KinesisClient.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         tagUtil = mock(TagUtil.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new KinesisStreamExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(basicMetricCollector, (account) -> "tenant")));
+                new RateLimiter(basicMetricCollector, (account) -> "tenant")), scrapeConfigProvider);
     }
 
     @Test
@@ -92,6 +98,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
                 .build();
         Capture<RateLimiter.AWSAPICall<ListStreamsResponse>> callbackCapture = Capture.newInstance();
 
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(rateLimiter.doWithRateLimit(eq("KinesisClient/listStreams"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         expect(awsClientProvider.getKinesisClient("region1", accountRegion)).andReturn(kinesisClient);
@@ -100,7 +107,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
                 ImmutableList.of("stream1"))).andReturn(ImmutableMap.of("stream1", Resource.builder()
                 .tags(tags)
                 .build()));
-        expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v"));
+        expect(tagUtil.tagLabels(scrapeConfig, tags)).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(familySamples));

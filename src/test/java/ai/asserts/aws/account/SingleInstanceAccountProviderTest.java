@@ -4,9 +4,8 @@
  */
 package ai.asserts.aws.account;
 
+import ai.asserts.aws.AssertsServerUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.account.SingleInstanceAccountProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.SingleInstanceAccountProvider.CloudwatchConfigs;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
@@ -21,8 +20,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Map;
-
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -32,6 +29,7 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
     private ScrapeConfig scrapeConfig;
     private HttpEntity<String> mockEntity;
     private RestTemplate restTemplate;
+    private AssertsServerUtil assertsServerUtil;
     private SingleInstanceAccountProvider testClass;
 
     @BeforeEach
@@ -41,7 +39,9 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
         mockEntity = mock(HttpEntity.class);
         scrapeConfig = mock(ScrapeConfig.class);
         restTemplate = mock(RestTemplate.class);
-        testClass = new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate) {
+        assertsServerUtil = mock(AssertsServerUtil.class);
+        testClass = new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate,
+                assertsServerUtil) {
             @Override
             String getTenantName() {
                 return "acme";
@@ -51,7 +51,7 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
 
     @Test
     public void getAccounts_SkipConfiguredAccounts_SkipCurrentAccount() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isFetchAccountConfigs()).andReturn(false);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(false);
@@ -64,13 +64,13 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
 
     @Test
     public void getAccounts_NoConfiguredAccounts_SkipCurrentAccount() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(false);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
-        expect(scrapeConfigProvider.getAssertsTenantBaseUrl()).andReturn("url");
-        expect(scrapeConfigProvider.createAssertsAuthHeader()).andReturn(mockEntity);
+        expect(assertsServerUtil.getAssertsTenantBaseUrl()).andReturn("url");
+        expect(assertsServerUtil.createAssertsAuthHeader()).andReturn(mockEntity);
         expect(restTemplate.exchange("url/api-server/v1/config/cloudwatch", HttpMethod.GET, mockEntity,
                 new ParameterizedTypeReference<CloudwatchConfigs>() {
                 })).andReturn(ResponseEntity.ok(CloudwatchConfigs.builder()
@@ -84,13 +84,13 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
 
     @Test
     public void getAccounts_NoConfiguredAccounts_UseCurrentAccount() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(true);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
-        expect(scrapeConfigProvider.getAssertsTenantBaseUrl()).andReturn("url");
-        expect(scrapeConfigProvider.createAssertsAuthHeader()).andReturn(mockEntity);
+        expect(assertsServerUtil.getAssertsTenantBaseUrl()).andReturn("url");
+        expect(assertsServerUtil.createAssertsAuthHeader()).andReturn(mockEntity);
         expect(restTemplate.exchange("url/api-server/v1/config/cloudwatch", HttpMethod.GET, mockEntity,
                 new ParameterizedTypeReference<CloudwatchConfigs>() {
                 })).andReturn(ResponseEntity.ok(CloudwatchConfigs.builder()
@@ -110,13 +110,13 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
 
     @Test
     public void getAccounts_ConfiguredAccounts_SkipCurrentAccount() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(false);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
-        expect(scrapeConfigProvider.getAssertsTenantBaseUrl()).andReturn("url");
-        expect(scrapeConfigProvider.createAssertsAuthHeader()).andReturn(mockEntity);
+        expect(assertsServerUtil.getAssertsTenantBaseUrl()).andReturn("url");
+        expect(assertsServerUtil.createAssertsAuthHeader()).andReturn(mockEntity);
         expect(restTemplate.exchange("url/api-server/v1/config/cloudwatch", HttpMethod.GET, mockEntity,
                 new ParameterizedTypeReference<CloudwatchConfigs>() {
                 })).andReturn(ResponseEntity.ok(CloudwatchConfigs.builder()
@@ -145,13 +145,13 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
 
     @Test
     public void getAccounts_ConfiguredAccounts_UseCurrentAccount() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(true);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
-        expect(scrapeConfigProvider.getAssertsTenantBaseUrl()).andReturn("url");
-        expect(scrapeConfigProvider.createAssertsAuthHeader()).andReturn(mockEntity);
+        expect(assertsServerUtil.getAssertsTenantBaseUrl()).andReturn("url");
+        expect(assertsServerUtil.createAssertsAuthHeader()).andReturn(mockEntity);
         expect(restTemplate.exchange("url/api-server/v1/config/cloudwatch", HttpMethod.GET, mockEntity,
                 new ParameterizedTypeReference<CloudwatchConfigs>() {
                 })).andReturn(ResponseEntity.ok(CloudwatchConfigs.builder()
@@ -186,13 +186,13 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
 
     @Test
     public void getAccounts_ConfiguredAccounts_SomePaused_UseCurrentAccount() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isFetchAccountConfigs()).andReturn(true);
         expect(scrapeConfig.getRegions()).andReturn(ImmutableSet.of("us-west-2"));
         expect(scrapeConfig.isScrapeCurrentAccount()).andReturn(true);
         expect(accountIDProvider.getAccountId()).andReturn("default-account").anyTimes();
-        expect(scrapeConfigProvider.getAssertsTenantBaseUrl()).andReturn("url");
-        expect(scrapeConfigProvider.createAssertsAuthHeader()).andReturn(mockEntity);
+        expect(assertsServerUtil.getAssertsTenantBaseUrl()).andReturn("url");
+        expect(assertsServerUtil.createAssertsAuthHeader()).andReturn(mockEntity);
         expect(restTemplate.exchange("url/api-server/v1/config/cloudwatch", HttpMethod.GET, mockEntity,
                 new ParameterizedTypeReference<CloudwatchConfigs>() {
                 })).andReturn(ResponseEntity.ok(CloudwatchConfigs.builder()

@@ -42,7 +42,7 @@ public class ApiAuthenticator {
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public void authenticate(Optional<String> apiTokenOpt) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(null);
         AuthConfig authConfig = scrapeConfig.getAuthConfig();
         if (apiTokenOpt.isPresent()) {
             if (authConfig.isAuthenticationRequired() && !getExpectedToken(authConfig).equals(apiTokenOpt.get())) {
@@ -70,6 +70,6 @@ public class ApiAuthenticator {
     }
 
     private String region() {
-        return scrapeConfigProvider.getScrapeConfig().getRegions().iterator().next();
+        return scrapeConfigProvider.getScrapeConfig(null).getRegions().iterator().next();
     }
 }

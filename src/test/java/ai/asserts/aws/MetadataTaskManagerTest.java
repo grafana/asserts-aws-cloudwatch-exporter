@@ -69,6 +69,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private DynamoDBExporter dynamoDBExporter;
     private SNSTopicExporter snsTopicExporter;
     private EMRExporter emrExporter;
+    private DeploymentModeUtil deploymentModeUtil;
     private MetadataTaskManager testClass;
 
     @BeforeEach
@@ -101,6 +102,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         dynamoDBExporter = mock(DynamoDBExporter.class);
         snsTopicExporter = mock(SNSTopicExporter.class);
         emrExporter = mock(EMRExporter.class);
+        deploymentModeUtil = mock(DeploymentModeUtil.class);
 
         testClass = new MetadataTaskManager(
                 collectorRegistry, lambdaFunctionScraper, lambdaCapacityExporter, lambdaEventSourceExporter,
@@ -110,11 +112,13 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
                 apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
                 sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter,
-                snsTopicExporter, emrExporter);
+                snsTopicExporter, emrExporter, deploymentModeUtil);
     }
 
     @Test
     public void afterPropertiesSet_primaryExporter() {
+        expect(deploymentModeUtil.isMultiTenant()).andReturn(false);
+        expect(deploymentModeUtil.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(lambdaFunctionScraper.register(collectorRegistry)).andReturn(null);
         expect(lambdaCapacityExporter.register(collectorRegistry)).andReturn(null);
@@ -130,6 +134,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void afterPropertiesSet_notPrimaryExporter() {
+        expect(deploymentModeUtil.isMultiTenant()).andReturn(false);
+        expect(deploymentModeUtil.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
         replayAll();
         testClass.afterPropertiesSet();
@@ -138,8 +144,9 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void updateMetadata_primaryExporter() {
+        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
@@ -238,6 +245,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     @Test
     @SuppressWarnings("null")
     public void updateMetadata_notPrimaryExporter() {
+        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
 
         replayAll();
@@ -248,12 +256,36 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     }
 
     @Test
-    public void perMinuteTasks() {
+    public void perMinuteTasks_distributedMode() {
+        expect(deploymentModeUtil.isDistributed()).andReturn(true);
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         expect(executorService.submit(capture(capture0))).andReturn(null);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
+        expect(executorService.submit(capture(capture1))).andReturn(null);
+        scrapeConfigProvider.update();
+        ecsServiceDiscoveryExporter.run();
+        replayAll();
+
+        testClass.perMinute();
+
+        capture0.getValue().run();
+        capture1.getValue().run();
+
+        verifyAll();
+    }
+
+    @Test
+    public void perMinuteTasks_singleInstancePrimaryMode() {
+        expect(deploymentModeUtil.isDistributed()).andReturn(false);
+        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
+        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
+        Capture<Runnable> capture0 = newCapture();
+        Capture<Runnable> capture1 = newCapture();
+        expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
+        expect(executorService.submit(capture(capture0))).andReturn(null);
+        expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
         expect(executorService.submit(capture(capture1))).andReturn(null);
         scrapeConfigProvider.update();
         ecsServiceDiscoveryExporter.run();

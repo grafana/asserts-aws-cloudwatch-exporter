@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.account;
 
+import ai.asserts.aws.AssertsServerUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cluster.HekateCluster;
 import ai.asserts.aws.exporter.AccountIDProvider;
@@ -27,6 +28,7 @@ public class HekateDistributedAccountProviderTest extends EasyMockSupport {
     private RestTemplate restTemplate;
     private AccountIDProvider accountIDProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
+    private AssertsServerUtil assertsServerUtil;
     private HekateCluster hekateCluster;
     private ClusterNode clusterNode1;
     private ClusterNode clusterNode2;
@@ -44,6 +46,7 @@ public class HekateDistributedAccountProviderTest extends EasyMockSupport {
     public void setup() {
         accountIDProvider = mock(AccountIDProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        assertsServerUtil = mock(AssertsServerUtil.class);
         restTemplate = mock(RestTemplate.class);
         hekateCluster = mock(HekateCluster.class);
         delegate = mock(SingleInstanceAccountProvider.class);
@@ -76,11 +79,11 @@ public class HekateDistributedAccountProviderTest extends EasyMockSupport {
         testClass = new HekateDistributedAccountProvider(hekateCluster,
                 accountIDProvider,
                 scrapeConfigProvider,
-                restTemplate) {
+                restTemplate, assertsServerUtil) {
             @Override
             SingleInstanceAccountProvider getDelegate(AccountIDProvider accountIDProvider,
                                                       ScrapeConfigProvider scrapeConfigProvider,
-                                                      RestTemplate restTemplate) {
+                                                      RestTemplate restTemplate, AssertsServerUtil assertsServerUtil) {
                 return delegate;
             }
 

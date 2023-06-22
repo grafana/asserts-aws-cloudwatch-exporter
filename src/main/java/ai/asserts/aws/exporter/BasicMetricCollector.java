@@ -4,8 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.AtomicDouble;
@@ -33,15 +31,12 @@ import java.util.concurrent.atomic.AtomicLong;
 @Component
 @Slf4j
 public class BasicMetricCollector extends Collector {
-    private final ScrapeConfigProvider scrapeConfigProvider;
     private Map<Key, Double> gaugeValues = new ConcurrentHashMap<>();
     private final Cache<Key, AtomicLong> counters;
     private final Cache<Key, LatencyCounter> latencyCounters;
     private final Cache<Key, Histogram> histograms;
 
-
-    public BasicMetricCollector(ScrapeConfigProvider scrapeConfigProvider) {
-        this.scrapeConfigProvider = scrapeConfigProvider;
+    public BasicMetricCollector() {
         counters = CacheBuilder.newBuilder()
                 .expireAfterAccess(10, TimeUnit.MINUTES)
                 .build();
@@ -97,80 +92,64 @@ public class BasicMetricCollector extends Collector {
     }
 
     public void recordGaugeValue(String metricName, SortedMap<String, String> inputLabels, Double value) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
-            Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
-            gaugeValues.put(Key.builder()
-                    .metricName(metricName)
-                    .labelNames(new ArrayList<>(labels.keySet()))
-                    .labelValues(new ArrayList<>(labels.values()))
-                    .build(), value);
-        }
+        gaugeValues.put(Key.builder()
+                .metricName(metricName)
+                .labelNames(new ArrayList<>(inputLabels.keySet()))
+                .labelValues(new ArrayList<>(inputLabels.values()))
+                .build(), value);
     }
 
     public void recordCounterValue(String metricName, SortedMap<String, String> inputLabels, int value) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
-            Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
-            Key key = Key.builder()
-                    .metricName(metricName)
-                    .labelNames(new ArrayList<>(labels.keySet()))
-                    .labelValues(new ArrayList<>(labels.values()))
-                    .build();
-            try {
-                AtomicLong atomicLong = counters.get(key, () -> {
-                    log.debug("Creating counter {}{}", key.metricName, labels);
-                    return new AtomicLong();
-                });
-                atomicLong.addAndGet(value);
-            } catch (ExecutionException e) {
-                log.error("Failed to get counter", e);
-            }
+        Key key = Key.builder()
+                .metricName(metricName)
+                .labelNames(new ArrayList<>(inputLabels.keySet()))
+                .labelValues(new ArrayList<>(inputLabels.values()))
+                .build();
+        try {
+            AtomicLong atomicLong = counters.get(key, () -> {
+                log.debug("Creating counter {}{}", key.metricName, inputLabels);
+                return new AtomicLong();
+            });
+            atomicLong.addAndGet(value);
+        } catch (ExecutionException e) {
+            log.error("Failed to get counter", e);
         }
     }
 
     public void recordLatency(String metricName, SortedMap<String, String> inputLabels, double value) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
-            Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
-            Key key = Key.builder()
-                    .metricName(metricName)
-                    .labelNames(new ArrayList<>(labels.keySet()))
-                    .labelValues(new ArrayList<>(labels.values()))
-                    .build();
-            try {
-                latencyCounters.get(key, ()-> {
-                    log.debug("Creating latency count counter {}{}", key.metricName + "_count", labels);
-                    log.debug("Creating latency total counter {}{}", key.metricName + "_sum", labels);
-                    return new LatencyCounter();
-                }).increment(value);
-            } catch (ExecutionException e) {
-                log.error("Failed to get latency counter", e);
-            }
+        Key key = Key.builder()
+                .metricName(metricName)
+                .labelNames(new ArrayList<>(inputLabels.keySet()))
+                .labelValues(new ArrayList<>(inputLabels.values()))
+                .build();
+        try {
+            latencyCounters.get(key, () -> {
+                log.debug("Creating latency count counter {}{}", key.metricName + "_count", inputLabels);
+                log.debug("Creating latency total counter {}{}", key.metricName + "_sum", inputLabels);
+                return new LatencyCounter();
+            }).increment(value);
+        } catch (ExecutionException e) {
+            log.error("Failed to get latency counter", e);
         }
     }
 
-    public void recordHistogram(String metricName, SortedMap<String, String> inputLabels, long value) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
-            Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
-            Key key = Key.builder()
-                    .metricName(metricName)
-                    .labelNames(new ArrayList<>(labels.keySet()))
-                    .labelValues(new ArrayList<>(labels.values()))
-                    .build();
-            try {
-                histograms.get(key, () -> {
-                    log.debug("Creating histogram {}{}", key.metricName + "_count", labels);
-                    return Histogram.build()
-                            .name(key.metricName)
-                            .labelNames(key.labelNames.toArray(new String[0]))
-                            .help("Histogram metric for " + key.metricName)
-                            .create();
-                }).labels(key.labelValues.toArray(new String[0])).observe(value);
-            } catch (ExecutionException e) {
-                log.error("Failed to get counter", e);
-            }
+    public void recordHistogram(String metricName, SortedMap<String, String> inputLabels, double value) {
+        Key key = Key.builder()
+                .metricName(metricName)
+                .labelNames(new ArrayList<>(inputLabels.keySet()))
+                .labelValues(new ArrayList<>(inputLabels.values()))
+                .build();
+        try {
+            histograms.get(key, () -> {
+                log.debug("Creating histogram {}{}", key.metricName + "_count", inputLabels);
+                return Histogram.build()
+                        .name(key.metricName)
+                        .labelNames(key.labelNames.toArray(new String[0]))
+                        .help("Histogram metric for " + key.metricName)
+                        .create();
+            }).labels(key.labelValues.toArray(new String[0])).observe(value);
+        } catch (ExecutionException e) {
+            log.error("Failed to get counter", e);
         }
     }
 

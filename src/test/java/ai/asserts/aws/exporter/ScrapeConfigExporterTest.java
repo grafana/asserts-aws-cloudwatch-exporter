@@ -4,11 +4,14 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
-import ai.asserts.aws.ScrapeConfigProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
 import org.easymock.EasyMockSupport;
@@ -30,6 +33,7 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples metricFamilySamples;
     private CollectorRegistry collectorRegistry;
+    private AccountProvider accountProvider;
     private ScrapeConfigExporter testClass;
 
     @BeforeEach
@@ -42,7 +46,8 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         metricFamilySamples = mock(Collector.MetricFamilySamples.class);
         collectorRegistry = mock(CollectorRegistry.class);
-        testClass = new ScrapeConfigExporter(scrapeConfigProvider, metricSampleBuilder,
+        accountProvider = mock(AccountProvider.class);
+        testClass = new ScrapeConfigExporter(accountProvider, scrapeConfigProvider, metricSampleBuilder,
                 collectorRegistry);
     }
 
@@ -56,7 +61,12 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
 
     @Test
     public void collect() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
+                AWSAccount.builder()
+                        .tenant("tenant")
+                        .build()
+        ));
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(scrapeConfig.getNamespaces()).andReturn(ImmutableList.of(namespaceConfig));
         expect(namespaceConfig.getName()).andReturn("ns1");
         expect(scrapeConfigProvider.getStandardNamespace("ns1")).andReturn(Optional.of(lambda));

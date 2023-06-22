@@ -20,10 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 import static org.springframework.util.StringUtils.hasLength;
 
@@ -118,12 +116,6 @@ public class ScrapeConfig {
     @Builder.Default
     private Set<String> discoverResourceTypes = new TreeSet<>();
 
-    @Builder.Default
-    private List<RelabelConfig> relabelConfigs = new ArrayList<>();
-
-    @Builder.Default
-    private List<DimensionToLabel> dimensionToLabels = new ArrayList<>();
-
     @JsonIgnore
     public Optional<NamespaceConfig> getLambdaConfig() {
         if (CollectionUtils.isEmpty(namespaces)) {
@@ -149,51 +141,6 @@ public class ScrapeConfig {
         return false;
     }
 
-    public Map<String, String> getEntityLabels(String namespace, Map<String, String> dimensions) {
-        boolean unknownNamespace = !dimensionToLabels.stream()
-                .map(DimensionToLabel::getNamespace)
-                .collect(Collectors.toSet())
-                .contains(namespace);
-
-        boolean knownDimension = dimensionToLabels.stream()
-                .map(DimensionToLabel::getDimensionName)
-                .collect(Collectors.toSet())
-                .stream().anyMatch(dimensions::containsKey);
-
-        SortedMap<String, String> labels = new TreeMap<>();
-        dimensionToLabels.stream()
-                .filter(dimensionToLabel -> captureDimension(namespace, dimensions, dimensionToLabel))
-                .forEach(dimensionToLabel -> mapTypeAndName(dimensions, labels, dimensionToLabel));
-
-
-        if (unknownNamespace && knownDimension) {
-            dimensionToLabels.stream()
-                    .filter(d -> dimensions.containsKey(d.getDimensionName()))
-                    .findFirst().ifPresent(dimensionToLabel -> {
-                        mapTypeAndName(dimensions, labels, dimensionToLabel);
-                        labels.put("namespace", dimensionToLabel.getNamespace());
-                    });
-        }
-
-        return labels;
-    }
-
-    private void mapTypeAndName(Map<String, String> alarmDimensions, SortedMap<String, String> labels,
-                                DimensionToLabel dimensionToLabel) {
-        String toLabel = dimensionToLabel.getMapToLabel();
-        String dimensionName = dimensionToLabel.getDimensionName();
-        if (alarmDimensions.containsKey(dimensionName)) {
-            dimensionToLabel.getValue(alarmDimensions.get(dimensionName))
-                    .ifPresent(value -> labels.put(toLabel, value));
-        }
-    }
-
-    private boolean captureDimension(String namespace, Map<String, String> alarmDimensions,
-                                     DimensionToLabel dimensionToLabel) {
-        return (dimensionToLabel.getNamespace().equals(namespace)) &&
-                alarmDimensions.containsKey(dimensionToLabel.getDimensionName());
-    }
-
     @VisibleForTesting
     public void validateConfig() {
         if (!CollectionUtils.isEmpty(getNamespaces())) {
@@ -207,7 +154,6 @@ public class ScrapeConfig {
         if (getTagExportConfig() != null) {
             getTagExportConfig().compile();
         }
-        relabelConfigs.forEach(RelabelConfig::validate);
         if (primaryExporterByAccount != null) {
             primaryExporterByAccount.forEach((accountId, vpcSubnet) -> {
                 if (!vpcSubnet.isValid()) {
@@ -218,22 +164,6 @@ public class ScrapeConfig {
             });
         }
         authConfig.validate();
-
-        dimensionToLabels.forEach(DimensionToLabel::compile);
-    }
-
-    public boolean keepMetric(String metricName, Map<String, String> inputLabels) {
-        return relabelConfigs.stream().noneMatch(c -> c.dropMetric(metricName, inputLabels));
-    }
-
-    public Map<String, String> additionalLabels(String metricName, Map<String, String> inputLabels) {
-        Map<String, String> labels = new TreeMap<>(inputLabels);
-        for (RelabelConfig config : relabelConfigs.stream()
-                .filter(RelabelConfig::actionReplace)
-                .collect(Collectors.toList())) {
-            labels = config.addReplacements(metricName, labels);
-        }
-        return labels;
     }
 
     @EqualsAndHashCode

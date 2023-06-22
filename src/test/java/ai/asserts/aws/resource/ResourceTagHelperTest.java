@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountTenantMapper;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
@@ -54,6 +55,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private AWSAccount accountRegion;
     private RateLimiter rateLimiter;
+    private AccountTenantMapper accountTenantMapper;
     private ResourceTagHelper testClass;
 
     @BeforeEach
@@ -69,21 +71,19 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         resource = mock(Resource.class);
         metricCollector = mock(BasicMetricCollector.class);
         elbClient = mock(ElasticLoadBalancingClient.class);
+        accountTenantMapper = mock(AccountTenantMapper.class);
         rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
-        ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
-        expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(15);
-        replayAll();
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter);
-        verifyAll();
-        resetAll();
+        scrapeConfig = mock(ScrapeConfig.class);
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter,
+                accountTenantMapper);
     }
 
     @Test
     void filterResources() {
+        expect(accountTenantMapper.getTenantName("account")).andReturn("tenant").anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.getName()).andReturn(lambda.name()).anyTimes();
         expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.of(lambda));
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.hasTagFilters()).andReturn(true);
         expect(namespaceConfig.getTagFilters()).andReturn(ImmutableMap.of(
                 "tag", ImmutableSortedSet.of("value1", "value2")
@@ -147,9 +147,10 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
     @Test
     void filterResources_noResourceTypes() {
+        expect(accountTenantMapper.getTenantName("account")).andReturn("tenant").anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.getName()).andReturn(CWNamespace.kafka.name()).anyTimes();
         expect(scrapeConfigProvider.getStandardNamespace("kafka")).andReturn(Optional.of(kafka));
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.hasTagFilters()).andReturn(false);
         expect(awsClientProvider.getResourceTagClient("region", accountRegion)).andReturn(apiClient);
 
@@ -203,9 +204,10 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
     @Test
     void filterResources_customNamespace() {
+        expect(accountTenantMapper.getTenantName("account")).andReturn("tenant").anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig).anyTimes();
         expect(namespaceConfig.getName()).andReturn("lambda");
         expect(scrapeConfigProvider.getStandardNamespace("lambda")).andReturn(Optional.empty());
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
         replayAll();
         assertEquals(ImmutableSet.of(), testClass.getFilteredResources(accountRegion, "region", namespaceConfig));
         verifyAll();
@@ -213,8 +215,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
     @Test
     void getResourcesWithTag() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(10);
+        expect(accountTenantMapper.getTenantName("account")).andReturn("tenant");
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(resource.getName()).andReturn("resourceName").times(2);
         ImmutableList<Tag> tags = ImmutableList.of(Tag.builder()
                 .key("name").value("value")
@@ -224,7 +226,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         replayAll();
 
         ImmutableList<String> resourceName = ImmutableList.of("resourceName");
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter) {
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter,
+                accountTenantMapper) {
             @Override
             public Set<Resource> getResourcesWithTag(AWSAccount _passedValue, String region, SortedMap<String,
                     String> labels,
@@ -244,8 +247,8 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
     @Test
     void getResourcesWithTag_LoadBalancer() {
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getGetResourcesResultCacheTTLMinutes()).andReturn(10);
+        expect(accountTenantMapper.getTenantName("account")).andReturn("tenant");
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(resource.getName()).andReturn("resourceName").anyTimes();
 
         Tag resourceTag = Tag.builder()
@@ -276,12 +279,13 @@ public class ResourceTagHelperTest extends EasyMockSupport {
 
         resource.setTags(ImmutableList.of(lbTagConverted, resourceTag));
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.shouldExportTag("tag2", "value2")).andReturn(true);
         replayAll();
 
         ImmutableList<String> resourceName = ImmutableList.of("resourceName");
-        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter) {
+        testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter,
+                accountTenantMapper) {
             @Override
             public Set<Resource> getResourcesWithTag(AWSAccount _passed, String region,
                                                      SortedMap<String, String> labels,

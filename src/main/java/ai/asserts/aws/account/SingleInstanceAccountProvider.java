@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.account;
 
+import ai.asserts.aws.AssertsServerUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
@@ -42,6 +43,7 @@ public class SingleInstanceAccountProvider implements AccountProvider {
     private final AccountIDProvider accountIDProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RestTemplate restTemplate;
+    private final AssertsServerUtil assertsServerUtil;
     private final Supplier<Set<AWSAccount>> accountsCache =
             Suppliers.memoizeWithExpiration(this::getAccountsInternal, 5, MINUTES);
 
@@ -52,7 +54,7 @@ public class SingleInstanceAccountProvider implements AccountProvider {
 
     private Set<AWSAccount> getAccountsInternal() {
         String tenantName = getTenantName();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenantName);
         Map<String, AWSAccount> accountRegions = new HashMap<>();
         Set<String> regions = scrapeConfig.getRegions();
         if (regions.isEmpty()) {
@@ -68,11 +70,11 @@ public class SingleInstanceAccountProvider implements AccountProvider {
 
         // Get Configured AWS Accounts
         if (scrapeConfig.isFetchAccountConfigs()) {
-            String cloudwatchConfigUrl = scrapeConfigProvider.getAssertsTenantBaseUrl() +
+            String cloudwatchConfigUrl = assertsServerUtil.getAssertsTenantBaseUrl() +
                     "/api-server/v1/config/cloudwatch";
             ResponseEntity<CloudwatchConfigs> response = restTemplate.exchange(cloudwatchConfigUrl,
                     HttpMethod.GET,
-                    scrapeConfigProvider.createAssertsAuthHeader(),
+                    assertsServerUtil.createAssertsAuthHeader(),
                     new ParameterizedTypeReference<CloudwatchConfigs>() {
                     });
             if (response.getStatusCode().is2xxSuccessful()) {

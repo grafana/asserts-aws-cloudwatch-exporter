@@ -5,10 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
-import ai.asserts.aws.config.ScrapeConfig;
 import io.prometheus.client.Collector.MetricFamilySamples;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import lombok.AllArgsConstructor;
@@ -20,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static io.prometheus.client.Collector.Type.GAUGE;
@@ -30,7 +29,6 @@ import static io.prometheus.client.Collector.Type.GAUGE;
 public class MetricSampleBuilder {
     private final MetricNameUtil metricNameUtil;
     private final LabelBuilder labelBuilder;
-    private final ScrapeConfigProvider scrapeConfigProvider;
 
     private final TaskExecutorUtil taskExecutorUtil;
 
@@ -39,39 +37,31 @@ public class MetricSampleBuilder {
         List<Sample> samples = new ArrayList<>();
         String metricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
         if (metricDataResult.timestamps().size() > 0) {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            Map<String, String> labels = scrapeConfig
-                    .additionalLabels(metricName, labelBuilder.buildLabels(account, region, metricQuery));
+            Map<String, String> labels = labelBuilder.buildLabels(account, region, metricQuery);
             labels.putIfAbsent(TENANT, taskExecutorUtil.getTenant());
             labels.entrySet().removeIf(entry -> entry.getValue() == null);
-            if (scrapeConfig.keepMetric(metricName, labels)) {
-                for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
-                    Sample sample = new Sample(
-                            metricName,
-                            new ArrayList<>(labels.keySet()),
-                            new ArrayList<>(labels.values()),
-                            metricDataResult.values().get(i));
-                    samples.add(sample);
-                }
+            for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
+                Sample sample = new Sample(
+                        metricName,
+                        new ArrayList<>(labels.keySet()),
+                        new ArrayList<>(labels.values()),
+                        metricDataResult.values().get(i));
+                samples.add(sample);
             }
         }
         return samples;
     }
 
-    public Optional<Sample> buildSingleSample(String metricName, Map<String, String> inputLabels,
+    public Optional<Sample> buildSingleSample(String metricName, Map<String, String> labels,
                                               Double metric) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Map<String, String> labels = scrapeConfig.additionalLabels(metricName, inputLabels);
+        labels = new TreeMap<>(labels);
         labels.putIfAbsent(TENANT, taskExecutorUtil.getTenant());
         labels.entrySet().removeIf(entry -> entry.getValue() == null);
-        if (scrapeConfig.keepMetric(metricName, inputLabels)) {
-            return Optional.of(new Sample(
-                    metricName,
-                    new ArrayList<>(labels.keySet()),
-                    new ArrayList<>(labels.values()),
-                    metric));
-        }
-        return Optional.empty();
+        return Optional.of(new Sample(
+                metricName,
+                new ArrayList<>(labels.keySet()),
+                new ArrayList<>(labels.values()),
+                metric));
     }
 
     public Optional<MetricFamilySamples> buildFamily(List<Sample> samples) {

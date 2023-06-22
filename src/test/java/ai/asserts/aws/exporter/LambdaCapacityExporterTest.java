@@ -5,13 +5,13 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TaskExecutorUtil;
-import ai.asserts.aws.TestTaskThreadPool;
-import ai.asserts.aws.account.AccountProvider;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.TestTaskThreadPool;
+import ai.asserts.aws.account.AWSAccount;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.NamespaceConfig;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.lambda.LambdaFunction;
@@ -80,12 +80,11 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        account1 = new AWSAccount("tenant", "account1", "", "", "role",
+        account1 = new AWSAccount("acme", "account1", "", "", "role",
                 ImmutableSet.of("region"));
-        account2 = new AWSAccount("tenant", "account2", "", "", "role",
+        account2 = new AWSAccount("acme", "account2", "", "", "role",
                 ImmutableSet.of("region"));
 
-        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         ScrapeConfig scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
@@ -99,7 +98,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         sample = mock(Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         accountProvider = mock(AccountProvider.class);
-
+        ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         resetAll();
 
         RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
@@ -108,8 +107,8 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
                 sampleBuilder, functionScraper, resourceTagHelper, rateLimiter,
                 new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig)).anyTimes();
         expect(metricNameUtil.getLambdaMetric("available_concurrency")).andReturn("available");
         expect(metricNameUtil.getLambdaMetric("requested_concurrency")).andReturn("requested");
         expect(metricNameUtil.getLambdaMetric("allocated_concurrency")).andReturn("allocated");

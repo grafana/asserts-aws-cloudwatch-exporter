@@ -6,11 +6,13 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
@@ -57,6 +59,8 @@ public class RDSExporterTest extends EasyMockSupport {
     private ResourceTagHelper resourceTagHelper;
     private TagUtil tagUtil;
     private BasicMetricCollector metricCollector;
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private RDSExporter testClass;
 
     @BeforeEach
@@ -75,11 +79,12 @@ public class RDSExporterTest extends EasyMockSupport {
         rdsClient = mock(RdsClient.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         tagUtil = mock(TagUtil.class);
-
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new RDSExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter, sampleBuilder,
                 resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
-                rateLimiter));
+                rateLimiter), scrapeConfigProvider);
     }
 
     @Test
@@ -115,6 +120,7 @@ public class RDSExporterTest extends EasyMockSupport {
                 .dbInstances(DBInstance.builder().dbInstanceIdentifier("db1").build())
                 .build();
 
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(rdsClient.describeDBClusters(DescribeDbClustersRequest.builder().build())).andReturn(responseCluster);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expect(rdsClient.describeDBInstances(DescribeDbInstancesRequest.builder().build())).andReturn(responseInstance);
@@ -130,7 +136,7 @@ public class RDSExporterTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of("db1", Resource.builder()
                         .tags(tags)
                         .build()));
-        expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v")).times(2);
+        expect(tagUtil.tagLabels(scrapeConfig, tags)).andReturn(ImmutableMap.of("tag_k", "v")).times(2);
         expect(awsClientProvider.getRDSClient("region1", accountRegion)).andReturn(rdsClient);
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(Optional.of(sample1));

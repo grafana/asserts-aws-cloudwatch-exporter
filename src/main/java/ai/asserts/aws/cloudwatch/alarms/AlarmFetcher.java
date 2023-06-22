@@ -5,10 +5,11 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.CollectionBuilderTask;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.DeploymentModeUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -52,6 +53,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskExecutorUtil taskExecutorUtil;
+    private final DeploymentModeUtil deploymentModeUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public AlarmFetcher(AccountProvider accountProvider,
@@ -62,7 +64,8 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                         AlarmMetricConverter alarmMetricConverter,
                         ScrapeConfigProvider scrapeConfigProvider,
                         ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
-                        TaskExecutorUtil taskExecutorUtil) {
+                        TaskExecutorUtil taskExecutorUtil,
+                        DeploymentModeUtil deploymentModeUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -72,6 +75,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
         this.taskExecutorUtil = taskExecutorUtil;
+        this.deploymentModeUtil = deploymentModeUtil;
     }
 
     @Override
@@ -85,20 +89,19 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     }
 
     public void update() {
-        if (!ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+        if (deploymentModeUtil.isSingleInstance() && !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             log.info("Not primary exporter. Skip fetching CloudWatch alarms");
             return;
         }
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (!scrapeConfig.isPullCWAlarms()) {
-            return;
-        }
-        boolean exposeAsMetric = scrapeConfig.isCwAlarmAsMetric();
         List<MetricFamilySamples> newFamily = new ArrayList<>();
         List<Sample> allSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         log.info("Start Fetching alarms");
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(accountRegion.getTenant());
+            if (!scrapeConfig.isPullCWAlarms()) {
+                continue;
+            }
             accountRegion.getRegions().forEach(region ->
                     futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                             new CollectionBuilderTask<Sample>() {
@@ -121,11 +124,11 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                             })));
         }
         taskExecutorUtil.awaitAll(futures, allSamples::addAll);
-        if (exposeAsMetric) {
+        if (allSamples.size() > 0) {
             sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
-            metricFamilySamples = newFamily;
-            log.info("Exported {} alarms as metrics", allSamples.size());
         }
+        metricFamilySamples = newFamily;
+        log.info("Exported {} alarms as metrics", allSamples.size());
     }
 
     private List<Map<String, String>> getAlarms(AWSAccount account, String region) {

@@ -201,7 +201,8 @@ public class MetricStreamController {
     boolean shouldCaptureMetric(CloudWatchMetric metric) {
         Optional<CWNamespace> ns = scrapeConfigProvider.getStandardNamespace(metric.getNamespace());
         if (ns.isPresent()) {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            String tenant = accountTenantMapper.getTenantName(metric.getAccount_id());
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenant);
             String nsPrefix = ns.get().getMetricPrefix();
             return metric.getValue().keySet().stream()
                     .map(stat -> metricNameUtil.toSnakeCase(nsPrefix + "_" + metric.getMetric_name() + "_" + stat))
@@ -212,13 +213,13 @@ public class MetricStreamController {
 
 
     private void publishMetric(CloudWatchMetric metric) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        String tenant = accountTenantMapper.getTenantName(metric.getAccount_id());
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenant);
         SortedMap<String, String> metricMap = new TreeMap<>();
         String metricNamespace = metric.getNamespace();
 
-        String tenantName = accountTenantMapper.getTenantName(metric.getAccount_id());
-        if (tenantName != null) {
-            metricMap.put(TENANT, tenantName);
+        if (tenant != null) {
+            metricMap.put(TENANT, tenant);
         }
         metricMap.put("account_id", metric.getAccount_id());
         metricMap.put("region", metric.getRegion());
@@ -231,15 +232,8 @@ public class MetricStreamController {
                 Arrays.stream(CWNamespace.values()).filter(f -> f.getNamespace().equals(metricNamespace))
                         .findFirst();
         namespaceOpt.ifPresent(namespace -> {
-            Map<String, String> dimensions = new TreeMap<>();
-            Map<String, String> entityLabels =
-                    new TreeMap<>(scrapeConfig.getEntityLabels(namespace.getNormalizedNamespace(),
-                            metric.getDimensions()));
-            metricMap.putAll(entityLabels);
-
             String prefix = namespace.getMetricPrefix();
             String metricName = prefix + "_" + metric.getMetric_name();
-            recordHistogram(tenantName, metricMap, metric.getTimestamp(), metricName);
             metric.getValue().forEach((key, value) -> {
                 String gaugeMetricName = metricNameUtil.toSnakeCase(metricName + "_" + key);
                 if (scrapeConfig.getMetricsToCapture().containsKey(gaugeMetricName)) {
@@ -252,6 +246,7 @@ public class MetricStreamController {
     private void recordHistogram(String tenant, Map<String, String> labels, Long timestamp, String metric_name) {
         SortedMap<String, String> histogramLabels = new TreeMap<>();
         histogramLabels.put("namespace", labels.get("namespace"));
+        histogramLabels.put("account_id", labels.get("account_id"));
         histogramLabels.put("region", labels.get("region"));
         histogramLabels.put("metric_name", metric_name);
         if (tenant != null) {

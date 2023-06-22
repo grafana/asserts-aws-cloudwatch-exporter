@@ -95,8 +95,6 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     }
 
     private List<MetricFamilySamples> getMetrics() {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Optional<NamespaceConfig> optional = scrapeConfig.getLambdaConfig();
         String availableMetric = metricNameUtil.getLambdaMetric("available_concurrency");
         String requestedMetric = metricNameUtil.getLambdaMetric("requested_concurrency");
         String allocatedMetric = metricNameUtil.getLambdaMetric("allocated_concurrency");
@@ -108,8 +106,11 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
         Map<String, List<Sample>> allSamples = new TreeMap<>();
         Map<String, Map<String, Map<String, LambdaFunction>>> byAccountByRegion = functionScraper.getFunctions();
         List<Future<Map<String, List<Sample>>>> futures = new ArrayList<>();
-        optional.ifPresent(lambdaConfig -> {
-            for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(accountRegion.getTenant());
+            Optional<NamespaceConfig> optional = scrapeConfig.getLambdaConfig();
+            optional.ifPresent(lambdaConfig -> {
                 String account = accountRegion.getAccountId();
                 Map<String, Map<String, LambdaFunction>> byRegion = byAccountByRegion.getOrDefault(account,
                         Collections.emptyMap());
@@ -122,8 +123,8 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                                         timeoutMetric, memoryLimit, availableMetric, requestedMetric, allocatedMetric);
                             }
                         })));
-            }
-        });
+            });
+        }
         taskExecutorUtil.awaitAll(futures, (map) ->
                 map.forEach((name, samples) ->
                         allSamples.computeIfAbsent(name, k -> new ArrayList<>()).addAll(samples)));

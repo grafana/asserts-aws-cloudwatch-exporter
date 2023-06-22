@@ -193,7 +193,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         testClass.getTasksByCluster().put(cluster1, ImmutableMap.of(task1, ImmutableList.of(mockStaticConfig)));
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig);
 
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).times(2);
         expect(awsClientProvider.getECSClient("region", awsAccount)).andReturn(ecsClient);
@@ -263,6 +263,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
     @Test
     public void buildNewTargets() {
+        expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig).anyTimes();
         Resource cluster1 = Resource.builder()
                 .name("cluster1")
                 .region("region")

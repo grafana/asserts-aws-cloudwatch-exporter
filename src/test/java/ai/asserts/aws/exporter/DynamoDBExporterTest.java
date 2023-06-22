@@ -6,11 +6,13 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
@@ -51,8 +53,9 @@ public class DynamoDBExporterTest extends EasyMockSupport {
     private DynamoDbClient dynamoDbClient;
 
     private ResourceTagHelper resourceTagHelper;
-    private BasicMetricCollector basicMetricCollector;
     private TagUtil tagUtil;
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private DynamoDBExporter testClass;
 
     @BeforeEach
@@ -69,10 +72,13 @@ public class DynamoDBExporterTest extends EasyMockSupport {
         dynamoDbClient = mock(DynamoDbClient.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         tagUtil = mock(TagUtil.class);
+        BasicMetricCollector basicMetricCollector = mock(BasicMetricCollector.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new DynamoDBExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(basicMetricCollector, (account) -> "tenant")));
+                new RateLimiter(basicMetricCollector, (account) -> "tenant")), scrapeConfigProvider);
     }
 
     @Test
@@ -102,7 +108,8 @@ public class DynamoDBExporterTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of("b1", Resource.builder()
                         .tags(ImmutableList.of(tag))
                         .build()));
-        expect(tagUtil.tagLabels(ImmutableList.of(tag))).andReturn(ImmutableMap.of("tag_k", "v"));
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
+        expect(tagUtil.tagLabels(scrapeConfig, ImmutableList.of(tag))).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(familySamples));

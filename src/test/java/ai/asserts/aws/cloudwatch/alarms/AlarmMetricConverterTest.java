@@ -5,8 +5,7 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.ObjectMapperFactory;
-import ai.asserts.aws.ScrapeConfigProvider;
-import ai.asserts.aws.config.ScrapeConfig;
+import ai.asserts.aws.account.AccountTenantMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.easymock.EasyMockSupport;
@@ -18,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,9 +32,6 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
     private AlarmMetrics metrics;
     private AlarmMetricStat metricStat;
     private AlarmMetric metric;
-    private ScrapeConfigProvider scrapeConfigProvider;
-    private ScrapeConfig scrapeConfig;
-    private String resonData = "{\"statistic\":\"Average\",\"period\":300,\"threshold\":50.0}";
 
     @BeforeEach
     public void setup() {
@@ -45,9 +42,9 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         metrics = mock(AlarmMetrics.class);
         metricStat = mock(AlarmMetricStat.class);
         metric = mock(AlarmMetric.class);
-        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        scrapeConfig = mock(ScrapeConfig.class);
-        testClass = new AlarmMetricConverter(scrapeConfigProvider, new ObjectMapperFactory());
+        AccountTenantMapper accountTenantMapper = mock(AccountTenantMapper.class);
+        testClass = new AlarmMetricConverter(new ObjectMapperFactory(), accountTenantMapper);
+        expect(accountTenantMapper.getTenantName(anyString())).andReturn("tenant").anyTimes();
     }
 
     @Test
@@ -61,7 +58,8 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         expect(alarmDetail.getAlarmName()).andReturn("alarm1").anyTimes();
         expect(alarmDetail.getState()).andReturn(alarmState).times(5);
         expect(alarmState.getValue()).andReturn("ALARM").times(2);
-        expect(alarmState.getReasonData()).andReturn(resonData).times(2);
+        String responseData = "{\"statistic\":\"Average\",\"period\":300,\"threshold\":50.0}";
+        expect(alarmState.getReasonData()).andReturn(responseData).times(2);
         expect(alarmDetail.getConfiguration()).andReturn(configuration).times(3);
         expect(configuration.getMetrics()).andReturn(ImmutableList.of(metrics)).times(2);
         expect(metrics.getMetricStat()).andReturn(metricStat).anyTimes();
@@ -75,10 +73,6 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
                 "AnotherDimension", "value"
         );
         expect(metric.getDimensions()).andReturn(dimensions).anyTimes();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
-        ImmutableMap<String, String> entityLabels = ImmutableMap.of(
-                "AutoScalingGroup", "grp1");
-        expect(scrapeConfig.getEntityLabels("namespace", dimensions)).andReturn(entityLabels);
 
         replayAll();
 
@@ -88,7 +82,6 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         assertAll(
                 () -> assertEquals(alertTime, labels.get("timestamp")),
                 () -> assertEquals("123456789", labels.get("account_id")),
-                () -> assertEquals("grp1", labels.get("AutoScalingGroup")),
                 () -> assertEquals("alarm1", labels.get("alertname")),
                 () -> assertEquals("namespace", labels.get("namespace")),
                 () -> assertEquals("metric", labels.get("metric_name")),

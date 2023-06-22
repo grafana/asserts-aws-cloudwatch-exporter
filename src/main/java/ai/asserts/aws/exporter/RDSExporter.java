@@ -7,10 +7,12 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableSortedMap;
@@ -52,12 +54,13 @@ public class RDSExporter extends Collector implements InitializingBean {
     private final ResourceTagHelper resourceTagHelper;
     private final TagUtil tagUtil;
     private final TaskExecutorUtil taskExecutorUtil;
+    private final ScrapeConfigProvider scrapeConfigProvider;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public RDSExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
             RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceTagHelper resourceTagHelper,
-            TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
+            TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil, ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -66,6 +69,7 @@ public class RDSExporter extends Collector implements InitializingBean {
         this.resourceTagHelper = resourceTagHelper;
         this.tagUtil = tagUtil;
         this.taskExecutorUtil = taskExecutorUtil;
+        this.scrapeConfigProvider = scrapeConfigProvider;
     }
 
     @Override
@@ -96,6 +100,7 @@ public class RDSExporter extends Collector implements InitializingBean {
     }
 
     private List<Sample> buildSamples(String region, AWSAccount account) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(account.getTenant());
         List<Sample> samples = new ArrayList<>();
         try {
             RdsClient client = awsClientProvider.getRDSClient(region, account);
@@ -127,6 +132,7 @@ public class RDSExporter extends Collector implements InitializingBean {
                                 if (byName.containsKey(cluster.dbClusterIdentifier())) {
                                     labels.putAll(
                                             tagUtil.tagLabels(
+                                                    scrapeConfig,
                                                     byName.get(cluster.dbClusterIdentifier()).getTags()));
                                 }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
@@ -164,6 +170,7 @@ public class RDSExporter extends Collector implements InitializingBean {
                                 labels.put("namespace", "AWS/RDS");
                                 if (byName.containsKey(dbInstance.dbInstanceIdentifier())) {
                                     labels.putAll(tagUtil.tagLabels(
+                                            scrapeConfig,
                                             byName.get(dbInstance.dbInstanceIdentifier()).getTags()));
                                 }
                                 return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);

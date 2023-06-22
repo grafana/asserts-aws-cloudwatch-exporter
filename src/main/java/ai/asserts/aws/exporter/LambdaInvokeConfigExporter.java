@@ -96,28 +96,27 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
         List<Sample> allSamples = new ArrayList<>();
         String metricPrefix = metricNameUtil.getMetricPrefix(lambda.getNamespace());
         String metricName = format("%s_invoke_config", metricPrefix);
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Optional<NamespaceConfig> opt = scrapeConfig.getLambdaConfig();
+
         Map<String, Map<String, Map<String, LambdaFunction>>> byAccountByRegion =
                 new ConcurrentHashMap<>(fnScraper.getFunctions());
         List<Future<List<Sample>>> futures = new ArrayList<>();
-        opt.ifPresent(ns -> {
-            for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-                String account = accountRegion.getAccountId();
-                if (byAccountByRegion.containsKey(account)) {
-                    Map<String, Map<String, LambdaFunction>> byRegion =
-                            new ConcurrentHashMap<>(byAccountByRegion.get(account));
-                    byRegion.forEach((region, byARN) ->
-                            futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
-                                    new CollectionBuilderTask<Sample>() {
-                                        @Override
-                                        public List<Sample> call() {
-                                            return buildSamples(byARN, region, accountRegion, account, metricName);
-                                        }
-                                    })));
-                }
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(accountRegion.getTenant());
+            Optional<NamespaceConfig> opt = scrapeConfig.getLambdaConfig();
+            String account = accountRegion.getAccountId();
+            if (opt.isPresent() && byAccountByRegion.containsKey(account)) {
+                Map<String, Map<String, LambdaFunction>> byRegion =
+                        new ConcurrentHashMap<>(byAccountByRegion.get(account));
+                byRegion.forEach((region, byARN) ->
+                        futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
+                                new CollectionBuilderTask<Sample>() {
+                                    @Override
+                                    public List<Sample> call() {
+                                        return buildSamples(byARN, region, accountRegion, account, metricName);
+                                    }
+                                })));
             }
-        });
+        }
         taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         return ImmutableList.of(new MetricFamilySamples(metricName, Type.GAUGE, "", allSamples));
     }

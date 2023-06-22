@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.account;
 
+import ai.asserts.aws.AssertsServerUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cluster.HekateCluster;
 import ai.asserts.aws.exporter.AccountIDProvider;
@@ -32,9 +33,10 @@ public class HekateDistributedAccountProvider implements AccountProvider {
 
     public HekateDistributedAccountProvider(HekateCluster hekateCluster, AccountIDProvider accountIDProvider,
                                             ScrapeConfigProvider scrapeConfigProvider,
-                                            RestTemplate restTemplate) {
+                                            RestTemplate restTemplate,
+                                            AssertsServerUtil assertsServerUtil) {
         this.hekateCluster = hekateCluster;
-        this.delegate = getDelegate(accountIDProvider, scrapeConfigProvider, restTemplate);
+        this.delegate = getDelegate(accountIDProvider, scrapeConfigProvider, restTemplate, assertsServerUtil);
     }
 
     @Override
@@ -55,7 +57,7 @@ public class HekateDistributedAccountProvider implements AccountProvider {
                 hashFunction,
                 (Funnel<String>) (from, into) -> into.putUnencodedChars(from),
                 (Funnel<String>) (from, into) -> into.putUnencodedChars(from),
-                hekateCluster.allNodes().stream().map(node -> clusterNodeToString(node)).collect(Collectors.toList()));
+                hekateCluster.allNodes().stream().map(this::clusterNodeToString).collect(Collectors.toList()));
 
         String localNodeString = clusterNodeToString(hekateCluster.localNode());
         return allKeys.stream()
@@ -71,7 +73,8 @@ public class HekateDistributedAccountProvider implements AccountProvider {
     @VisibleForTesting
     SingleInstanceAccountProvider getDelegate(AccountIDProvider accountIDProvider,
                                               ScrapeConfigProvider scrapeConfigProvider,
-                                              RestTemplate restTemplate) {
-        return new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate);
+                                              RestTemplate restTemplate, AssertsServerUtil assertsServerUtil) {
+        return new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate,
+                assertsServerUtil);
     }
 }

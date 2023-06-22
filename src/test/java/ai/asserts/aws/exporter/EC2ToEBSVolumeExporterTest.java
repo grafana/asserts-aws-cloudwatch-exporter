@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
@@ -63,6 +64,8 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     private Sample sample;
     private EC2ToEBSVolumeExporter testClass;
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private TagUtil tagUtil;
 
     @BeforeEach
@@ -79,10 +82,12 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         tagUtil = mock(TagUtil.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         testClass = new EC2ToEBSVolumeExporter(accountProvider, awsClientProvider, metricSampleBuilder,
                 collectorRegistry, rateLimiter, tagUtil, ecsServiceDiscoveryExporter,
-                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter), scrapeConfigProvider);
     }
 
     @Test
@@ -98,6 +103,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     public void updateCollect() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
 
         DescribeInstancesRequest request = DescribeInstancesRequest.builder()
                 .filters(Filter.builder()
@@ -161,7 +167,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         ImmutableList<Tag> tags = ImmutableList.of(
                 Tag.builder().key("k").value("v").build(),
                 Tag.builder().key("Name").value("instance-name").build());
-        expect(tagUtil.tagLabels(tags)).andReturn(
+        expect(tagUtil.tagLabels(scrapeConfig, tags)).andReturn(
                 ImmutableMap.of("tag_k", "v")
         );
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());

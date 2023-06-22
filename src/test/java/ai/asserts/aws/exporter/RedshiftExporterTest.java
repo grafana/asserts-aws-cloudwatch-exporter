@@ -6,11 +6,13 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prometheus.client.Collector;
@@ -52,6 +54,8 @@ public class RedshiftExporterTest extends EasyMockSupport {
     private RedshiftClient redshiftClient;
     private TagUtil tagUtil;
     private BasicMetricCollector metricCollector;
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private RedshiftExporter testClass;
 
     @BeforeEach
@@ -67,15 +71,18 @@ public class RedshiftExporterTest extends EasyMockSupport {
         redshiftClient = mock(RedshiftClient.class);
         tagUtil = mock(TagUtil.class);
         metricCollector = mock(BasicMetricCollector.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
         testClass = new RedshiftExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
-                sampleBuilder, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
+                sampleBuilder, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter),
+                scrapeConfigProvider);
     }
 
     @Test
     public void exporterClusterTest() {
-
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         SortedMap<String, String> labels1 = new TreeMap<>();
         labels1.put("namespace", "AWS/Redshift");
         labels1.put("region", "region1");
@@ -93,11 +100,11 @@ public class RedshiftExporterTest extends EasyMockSupport {
                                 .build())
                         .build())
                 .build();
-        Capture<RateLimiter.AWSAPICall<DescribeClustersResponse>> callbackCapture = Capture.newInstance();
         expect(awsClientProvider.getRedshiftClient("region1", accountRegion)).andReturn(redshiftClient);
         expect(redshiftClient.describeClusters()).andReturn(response);
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(SortedMap.class), anyLong());
         expect(tagUtil.tagLabels(
+                scrapeConfig,
                 ImmutableList.of(software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag.builder()
                         .key("k").value("v")
                         .build()))).andReturn(ImmutableMap.of("tag_k", "v"));

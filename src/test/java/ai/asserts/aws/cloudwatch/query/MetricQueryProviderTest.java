@@ -83,7 +83,6 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         accountRegion = new AWSAccount("tenant", "account", "", "", "role",
                 ImmutableSet.of("region1"));
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(ScrapeConfig.builder().build());
         replayAll();
         testClass = new MetricQueryProvider(accountProvider, scrapeConfigProvider, queryIdGenerator, metricNameUtil,
                 awsClientProvider, resourceTagHelper, metricQueryBuilder,
@@ -102,7 +101,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(scrapeConfigProvider.getStandardNamespace(_CW_namespace.name()))
                 .andReturn(Optional.of(lambda)).anyTimes();
         expect(awsClientProvider.getCloudWatchClient("region1", accountRegion)).andReturn(cloudWatchClient);
@@ -159,7 +158,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .namespaces(ImmutableList.of(namespaceConfig))
                 .build();
         expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(awsClientProvider.getCloudWatchClient("region1", accountRegion)).andReturn(cloudWatchClient);
 
         expect(namespaceConfig.hasTagFilters()).andReturn(true).anyTimes();
@@ -182,7 +181,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 .fetchCWMetrics(false)
                 .build();
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         replayAll();
         testClass.getMetricQueries();
         verifyAll();

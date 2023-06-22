@@ -5,12 +5,14 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -54,6 +56,8 @@ public class SNSTopicExporterTest extends EasyMockSupport {
     private SnsClient snsClient;
     private ResourceTagHelper resourceTagHelper;
     private TagUtil tagUtil;
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private SNSTopicExporter testClass;
 
     @BeforeEach
@@ -71,11 +75,15 @@ public class SNSTopicExporterTest extends EasyMockSupport {
         resourceMapper = mock(ResourceMapper.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         tagUtil = mock(TagUtil.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         BasicMetricCollector metricCollector = mock(BasicMetricCollector.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new SNSTopicExporter(accountProvider, awsClientProvider, collectorRegistry,
                 rateLimiter, sampleBuilder, resourceMapper, resourceTagHelper, tagUtil,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector, (account) -> "acme")));
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector, (account) -> "acme")),
+                scrapeConfigProvider
+        );
     }
 
     @Test
@@ -94,6 +102,7 @@ public class SNSTopicExporterTest extends EasyMockSupport {
                 .build();
         Capture<RateLimiter.AWSAPICall<ListTopicsResponse>> callbackCapture = Capture.newInstance();
 
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
         expect(rateLimiter.doWithRateLimit(eq("SnsClient/listTopics"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         expect(awsClientProvider.getSnsClient("region1", accountRegion)).andReturn(snsClient);
@@ -107,7 +116,7 @@ public class SNSTopicExporterTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of("b1", Resource.builder()
                         .tags(tags)
                         .build()));
-        expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v"));
+        expect(tagUtil.tagLabels(scrapeConfig, tags)).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(familySamples));

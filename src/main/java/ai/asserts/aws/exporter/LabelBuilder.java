@@ -7,7 +7,6 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
-import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.lambda.LambdaLabelConverter;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -51,11 +50,6 @@ public class LabelBuilder {
         if (metricQuery.getResource() != null) {
             metricQuery.getResource().addEnvLabel(labels, metricNameUtil);
         }
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Map<String, String> dimensions = new TreeMap<>();
-        metricQuery.getMetric().dimensions().forEach(d -> dimensions.put(d.name(), d.value()));
-        Map<String, String> entityLabels = new TreeMap<>(scrapeConfig.getEntityLabels(namespace, dimensions));
-        labels.putAll(entityLabels);
         return labels;
     }
 }
