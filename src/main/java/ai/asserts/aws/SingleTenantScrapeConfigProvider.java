@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.FileSystemResourceLoader;
 import org.springframework.core.io.Resource;
@@ -33,6 +34,7 @@ import static ai.asserts.aws.ApiServerConstants.ASSERTS_API_SERVER_URL;
 
 @Component
 @Slf4j
+@ConditionalOnProperty(name = "tenant.mode", havingValue = "single", matchIfMissing = true)
 public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
     private final ObjectMapperFactory objectMapperFactory;
     private final String scrapeConfigFile;
