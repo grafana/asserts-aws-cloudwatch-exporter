@@ -7,10 +7,12 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
 import io.prometheus.client.Collector;
@@ -60,7 +62,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
     private final TagUtil tagUtil;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskExecutorUtil taskExecutorUtil;
-
+    private final ScrapeConfigProvider scrapeConfigProvider;
     @Getter
     private volatile Set<ResourceRelation> attachedVolumes = new HashSet<>();
     private volatile List<MetricFamilySamples> resourceMetrics = new ArrayList<>();
@@ -69,7 +71,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                                   AWSClientProvider awsClientProvider, MetricSampleBuilder metricSampleBuilder,
                                   CollectorRegistry collectorRegistry, RateLimiter rateLimiter, TagUtil tagUtil,
                                   ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
-                                  TaskExecutorUtil taskExecutorUtil) {
+                                  TaskExecutorUtil taskExecutorUtil, ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricSampleBuilder = metricSampleBuilder;
@@ -78,6 +80,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
         this.tagUtil = tagUtil;
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
         this.taskExecutorUtil = taskExecutorUtil;
+        this.scrapeConfigProvider = scrapeConfigProvider;
     }
 
     @Override
@@ -176,10 +179,10 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
 
     private List<Sample> buildEC2InstanceMetrics(String region, AWSAccount awsAccount) {
         List<Sample> samples = new ArrayList<>();
+
         Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount);
-
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(awsAccount.getTenant());
         String accountId = awsAccount.getAccountId();
-
         SortedMap<String, String> telemetryLabels = new TreeMap<>();
         telemetryLabels.put(SCRAPE_REGION_LABEL, region);
         telemetryLabels.put(SCRAPE_ACCOUNT_ID_LABEL, accountId);
@@ -230,7 +233,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                             labels.put("vpc_id", instance.vpcId());
                             labels.put("subnet_id", instance.subnetId());
 
-                            labels.putAll(tagUtil.tagLabels(instance.tags().stream()
+                            labels.putAll(tagUtil.tagLabels(scrapeConfig, instance.tags().stream()
                                     .map(t -> Tag.builder().key(t.key()).value(t.value()).build())
                                     .collect(Collectors.toList())));
                             Optional<Sample> opt = metricSampleBuilder.buildSingleSample(

@@ -59,14 +59,14 @@ public class MetadataTaskManager implements InitializingBean {
     private final RDSExporter rdsExporter;
     private final DynamoDBExporter dynamoDBExporter;
     private final SNSTopicExporter snsTopicExporter;
-
     private final EMRExporter emrExporter;
+    private final DeploymentModeUtil deploymentModeUtil;
 
     public MetadataTaskManager(CollectorRegistry collectorRegistry, LambdaFunctionScraper lambdaFunctionScraper,
                                LambdaCapacityExporter lambdaCapacityExporter,
                                LambdaEventSourceExporter lambdaEventSourceExporter,
                                LambdaInvokeConfigExporter lambdaInvokeConfigExporter,
-                                BasicMetricCollector metricCollector,
+                               BasicMetricCollector metricCollector,
                                TargetGroupLBMapProvider targetGroupLBMapProvider,
                                ResourceRelationExporter relationExporter,
                                LBToASGRelationBuilder lbToASGRelationBuilder,
@@ -79,9 +79,10 @@ public class MetadataTaskManager implements InitializingBean {
                                ScrapeConfigProvider scrapeConfigProvider,
                                ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
                                RedshiftExporter redshiftExporter, SQSQueueExporter sqsQueueExporter,
-                               KinesisStreamExporter kinesisStreamExporter, LoadBalancerExporter loadBalancerExporter
-            , RDSExporter rdsExporter, DynamoDBExporter dynamoDBExporter, SNSTopicExporter snsTopicExporter,
-                               EMRExporter emrExporter) {
+                               KinesisStreamExporter kinesisStreamExporter, LoadBalancerExporter loadBalancerExporter,
+                               RDSExporter rdsExporter, DynamoDBExporter dynamoDBExporter,
+                               SNSTopicExporter snsTopicExporter, EMRExporter emrExporter,
+                               DeploymentModeUtil deploymentModeUtil) {
         this.collectorRegistry = collectorRegistry;
         this.lambdaFunctionScraper = lambdaFunctionScraper;
         this.lambdaCapacityExporter = lambdaCapacityExporter;
@@ -108,10 +109,12 @@ public class MetadataTaskManager implements InitializingBean {
         this.dynamoDBExporter = dynamoDBExporter;
         this.snsTopicExporter = snsTopicExporter;
         this.emrExporter = emrExporter;
+        this.deploymentModeUtil = deploymentModeUtil;
     }
 
     public void afterPropertiesSet() {
-        if (ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+        if (deploymentModeUtil.isMultiTenant() || deploymentModeUtil.isDistributed() ||
+                ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             lambdaFunctionScraper.register(collectorRegistry);
             lambdaCapacityExporter.register(collectorRegistry);
             lambdaEventSourceExporter.register(collectorRegistry);
@@ -129,7 +132,7 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void updateMetadata() {
-        if (!ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+        if (deploymentModeUtil.isSingleInstance() && !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             log.info("Not primary exporter. Skip meta data scraping.");
             return;
         }
@@ -163,6 +166,9 @@ public class MetadataTaskManager implements InitializingBean {
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {
         taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
-        taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
+        if (deploymentModeUtil.isDistributed() || (deploymentModeUtil.isSingleInstance() &&
+                ecsServiceDiscoveryExporter.isPrimaryExporter())) {
+            taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
+        }
     }
 }

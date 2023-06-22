@@ -5,6 +5,7 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.ObjectMapperFactory;
+import ai.asserts.aws.account.AccountTenantMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.easymock.EasyMockSupport;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,7 +42,9 @@ public class AlarmMetricConverterTest extends EasyMockSupport {
         metrics = mock(AlarmMetrics.class);
         metricStat = mock(AlarmMetricStat.class);
         metric = mock(AlarmMetric.class);
-        testClass = new AlarmMetricConverter(new ObjectMapperFactory());
+        AccountTenantMapper accountTenantMapper = mock(AccountTenantMapper.class);
+        testClass = new AlarmMetricConverter(new ObjectMapperFactory(), accountTenantMapper);
+        expect(accountTenantMapper.getTenantName(anyString())).andReturn("tenant").anyTimes();
     }
 
     @Test

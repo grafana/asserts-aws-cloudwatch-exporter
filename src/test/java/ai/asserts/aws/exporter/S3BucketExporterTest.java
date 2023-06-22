@@ -6,11 +6,13 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceTagHelper;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +54,8 @@ public class S3BucketExporterTest extends EasyMockSupport {
     private S3Client s3Client;
     private ResourceTagHelper resourceTagHelper;
     private BasicMetricCollector basicMetricCollector;
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private TagUtil tagUtil;
     private S3BucketExporter testClass;
 
@@ -69,10 +73,12 @@ public class S3BucketExporterTest extends EasyMockSupport {
         s3Client = mock(S3Client.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
         tagUtil = mock(TagUtil.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new S3BucketExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(basicMetricCollector, (account) -> "acme")));
+                new RateLimiter(basicMetricCollector, (account) -> "acme")), scrapeConfigProvider);
     }
 
     @Test
@@ -93,6 +99,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
                 .build();
         Capture<RateLimiter.AWSAPICall<ListBucketsResponse>> callbackCapture = Capture.newInstance();
 
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
         expect(rateLimiter.doWithRateLimit(eq("S3Client/listBuckets"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);
         expect(awsClientProvider.getS3Client("region1", accountRegion)).andReturn(s3Client);
@@ -102,7 +109,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
                 .andReturn(ImmutableMap.of("b1", Resource.builder()
                         .tags(tags)
                         .build()));
-        expect(tagUtil.tagLabels(tags)).andReturn(ImmutableMap.of("tag_k", "v"));
+        expect(tagUtil.tagLabels(scrapeConfig, tags)).andReturn(ImmutableMap.of("tag_k", "v"));
         expect(sampleBuilder.buildSingleSample("aws_resource", labels1, 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(familySamples));

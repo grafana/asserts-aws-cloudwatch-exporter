@@ -201,7 +201,8 @@ public class MetricStreamController {
     boolean shouldCaptureMetric(CloudWatchMetric metric) {
         Optional<CWNamespace> ns = scrapeConfigProvider.getStandardNamespace(metric.getNamespace());
         if (ns.isPresent()) {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+            String tenant = accountTenantMapper.getTenantName(metric.getAccount_id());
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenant);
             String nsPrefix = ns.get().getMetricPrefix();
             return metric.getValue().keySet().stream()
                     .map(stat -> metricNameUtil.toSnakeCase(nsPrefix + "_" + metric.getMetric_name() + "_" + stat))
@@ -212,13 +213,13 @@ public class MetricStreamController {
 
 
     private void publishMetric(CloudWatchMetric metric) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+        String tenant = accountTenantMapper.getTenantName(metric.getAccount_id());
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenant);
         SortedMap<String, String> metricMap = new TreeMap<>();
         String metricNamespace = metric.getNamespace();
 
-        String tenantName = accountTenantMapper.getTenantName(metric.getAccount_id());
-        if (tenantName != null) {
-            metricMap.put(TENANT, tenantName);
+        if (tenant != null) {
+            metricMap.put(TENANT, tenant);
         }
         metricMap.put("account_id", metric.getAccount_id());
         metricMap.put("region", metric.getRegion());

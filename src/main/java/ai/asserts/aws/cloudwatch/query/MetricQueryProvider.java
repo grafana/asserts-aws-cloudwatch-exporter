@@ -73,8 +73,7 @@ public class MetricQueryProvider {
         this.metricQueryBuilder = metricQueryBuilder;
         this.rateLimiter = rateLimiter;
         this.taskExecutorUtil = taskExecutorUtil;
-        metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal,
-                scrapeConfigProvider.getScrapeConfig().getListMetricsResultCacheTTLMinutes(), MINUTES);
+        metricQueryCache = Suppliers.memoizeWithExpiration(this::getQueriesInternal, 10, MINUTES);
         log.info("Initialized..");
     }
 
@@ -84,15 +83,16 @@ public class MetricQueryProvider {
 
     Map<String, Map<String, Map<Integer, List<MetricQuery>>>> getQueriesInternal() {
         Map<String, Map<String, Map<Integer, List<MetricQuery>>>> queriesByAccount = new TreeMap<>();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        if (!scrapeConfig.isFetchCWMetrics()) {
-            log.info("CW Metric pull is disabled. Not discovering metric queries");
-            return Collections.emptyMap();
-        }
-        log.info("Will discover metrics and build metric queries");
         List<Future<Void>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(accountRegion.getTenant());
             String account = accountRegion.getAccountId();
+            if (!scrapeConfig.isFetchCWMetrics()) {
+                log.info("CW Metric pull is disabled. Not discovering metric queries");
+                return Collections.emptyMap();
+            }
+            log.info("Will discover metrics and build metric queries for tenant {}, account {}",
+                    accountRegion.getTenant(), accountRegion.getAccountId());
             accountRegion.getRegions().forEach(region -> futures.add(
                     taskExecutorUtil.executeTenantTask(accountRegion.getTenant(), new SimpleTenantTask<Void>() {
                         @Override

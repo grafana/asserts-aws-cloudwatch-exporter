@@ -7,10 +7,12 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -44,11 +46,13 @@ public class RedshiftExporter extends Collector implements InitializingBean {
     private final MetricSampleBuilder sampleBuilder;
     private final TagUtil tagUtil;
     private final TaskExecutorUtil taskExecutorUtil;
+    private final ScrapeConfigProvider scrapeConfigProvider;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public RedshiftExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
+            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TagUtil tagUtil,
+            TaskExecutorUtil taskExecutorUtil, ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -56,6 +60,7 @@ public class RedshiftExporter extends Collector implements InitializingBean {
         this.sampleBuilder = sampleBuilder;
         this.tagUtil = tagUtil;
         this.taskExecutorUtil = taskExecutorUtil;
+        this.scrapeConfigProvider = scrapeConfigProvider;
     }
 
     @Override
@@ -86,6 +91,7 @@ public class RedshiftExporter extends Collector implements InitializingBean {
     }
 
     private List<Sample> buildSamples(String region, AWSAccount account) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(account.getTenant());
         List<Sample> samples = new ArrayList<>();
         try {
             RedshiftClient client = awsClientProvider.getRedshiftClient(region, account);
@@ -107,7 +113,7 @@ public class RedshiftExporter extends Collector implements InitializingBean {
                             labels.put("job", cluster.clusterIdentifier());
                             labels.put("name", cluster.clusterIdentifier());
                             labels.put("id", cluster.clusterIdentifier());
-                            labels.putAll(tagUtil.tagLabels(cluster.tags()
+                            labels.putAll(tagUtil.tagLabels(scrapeConfig, cluster.tags()
                                     .stream()
                                     .map(t -> Tag.builder().key(t.key()).value(t.value()).build())
                                     .collect(Collectors.toList())

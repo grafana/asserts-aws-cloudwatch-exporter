@@ -5,10 +5,10 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.TaskExecutorUtil;
-import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
@@ -57,11 +57,8 @@ public class ECSTaskUtil {
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final RateLimiter rateLimiter;
-
     private final TagUtil tagUtil;
-
     private final TaskExecutorUtil taskExecutorUtil;
-
     private final String envName;
 
     public final Cache<String, TaskDefinition> taskDefsByARN = CacheBuilder.newBuilder()
@@ -108,9 +105,9 @@ public class ECSTaskUtil {
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    public List<StaticConfig> buildScrapeTargets(EcsClient ecsClient,
+    public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
                                                  Resource cluster, Optional<String> service, Task task) {
-        Map<String, String> tagLabels = tagUtil.tagLabels(task.tags().stream()
+        Map<String, String> tagLabels = tagUtil.tagLabels(scrapeConfig, task.tags().stream()
                 .map(ecsTag -> Tag.builder().key(ecsTag.key()).value(ecsTag.value()).build())
                 .collect(Collectors.toList()));
 

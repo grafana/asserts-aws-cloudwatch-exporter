@@ -5,12 +5,14 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -57,6 +59,8 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
     private MetricFamilySamples metricFamilySamples;
     private Sample sample;
     private TagUtil tagUtil;
+    private ScrapeConfigProvider scrapeConfigProvider;
+    private ScrapeConfig scrapeConfig;
     private LBToASGRelationBuilder testClass;
 
     @BeforeEach
@@ -75,11 +79,13 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         metricFamilySamples = mock(MetricFamilySamples.class);
         sample = mock(Sample.class);
         tagUtil = mock(TagUtil.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
         testClass = new LBToASGRelationBuilder(awsClientProvider, resourceMapper,
                 targetGroupLBMapProvider, rateLimiter,
                 accountProvider, metricSampleBuilder, collectorRegistry, tagUtil,
-                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));
+                new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter), scrapeConfigProvider);
     }
 
     @Test
@@ -87,6 +93,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         AWSAccount awsAccount =
                 new AWSAccount("tenant", "123123123", "accessId", "secretKey", "role", ImmutableSet.of("region"));
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(awsClientProvider.getAutoScalingClient("region", awsAccount)).andReturn(autoScalingClient);
         expect(autoScalingClient.describeAutoScalingGroups()).andReturn(DescribeAutoScalingGroupsResponse.builder()
                 .autoScalingGroups(AutoScalingGroup.builder()
@@ -110,7 +117,7 @@ public class LBToASGRelationBuilderTest extends EasyMockSupport {
         expect(asgResource.getName()).andReturn("asg-name").times(2);
         expect(asgResource.getId()).andReturn("asg-id");
 
-        expect(tagUtil.tagLabels(ImmutableList.of(Tag.builder()
+        expect(tagUtil.tagLabels(scrapeConfig, ImmutableList.of(Tag.builder()
                 .key("k").value("v")
                 .build()))).andReturn(ImmutableMap.of("tag_k", "v"));
 

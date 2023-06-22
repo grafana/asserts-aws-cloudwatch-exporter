@@ -17,11 +17,9 @@ import java.util.TreeMap;
 @Component
 @AllArgsConstructor
 public class TagUtil {
-    private final ScrapeConfigProvider scrapeConfigProvider;
     private final MetricNameUtil metricNameUtil;
 
-    public Map<String, String> tagLabels(List<Tag> tags) {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
+    public Map<String, String> tagLabels(ScrapeConfig scrapeConfig, List<Tag> tags) {
         Map<String, String> labels = new TreeMap<>();
         if (!CollectionUtils.isEmpty(tags)) {
             tags.stream()

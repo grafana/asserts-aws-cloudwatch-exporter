@@ -60,7 +60,7 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("tenant", "account", "", "",
+        accountRegion = new AWSAccount("acme", "account", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         fnScraper = mock(LambdaFunctionScraper.class);
@@ -83,14 +83,13 @@ public class LambdaInvokeConfigExporterTest extends EasyMockSupport {
 
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         expect(scrapeConfig.getLambdaConfig()).andReturn(Optional.of(namespaceConfig));
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
         expect(metricNameUtil.getMetricPrefix(CWNamespace.lambda.getNamespace())).andReturn("prefix");
     }
 
     @Test
     void collect() {
         expect(awsClientProvider.getLambdaClient("region1", accountRegion)).andReturn(lambdaClient);
-
         ListFunctionEventInvokeConfigsRequest request = ListFunctionEventInvokeConfigsRequest.builder()
                 .functionName("fn1")
                 .build();

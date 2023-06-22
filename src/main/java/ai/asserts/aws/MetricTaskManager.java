@@ -34,6 +34,7 @@ public class MetricTaskManager implements InitializingBean {
     private final TaskThreadPool taskThreadPool;
     private final AlarmFetcher alarmFetcher;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    private final DeploymentModeUtil deploymentModeUtil;
 
     /**
      * Maintains the last scrape time for all the metrics of a given scrape interval. The scrapes are
@@ -45,7 +46,8 @@ public class MetricTaskManager implements InitializingBean {
     public MetricTaskManager(AccountProvider accountProvider, ScrapeConfigProvider scrapeConfigProvider,
                              CollectorRegistry collectorRegistry, AutowireCapableBeanFactory beanFactory,
                              @Qualifier("metric-task-trigger-thread-pool") TaskThreadPool taskThreadPool,
-                             AlarmFetcher alarmFetcher, ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter) {
+                             AlarmFetcher alarmFetcher, ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
+                             DeploymentModeUtil deploymentModeUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.collectorRegistry = collectorRegistry;
@@ -53,6 +55,7 @@ public class MetricTaskManager implements InitializingBean {
         this.taskThreadPool = taskThreadPool;
         this.alarmFetcher = alarmFetcher;
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
+        this.deploymentModeUtil = deploymentModeUtil;
     }
 
     public void afterPropertiesSet() {
@@ -62,16 +65,14 @@ public class MetricTaskManager implements InitializingBean {
     @Scheduled(fixedRateString = "${aws.metric.scrape.manager.task.fixedDelay:60000}",
             initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
     public void triggerCWPullOperations() {
-        if (ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+        if (deploymentModeUtil.isMultiTenant() || deploymentModeUtil.isDistributed() ||
+                ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             ExecutorService executorService = taskThreadPool.getExecutorService();
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-            if (scrapeConfig.isFetchCWMetrics()) {
-                updateScrapeTasks();
-                metricScrapeTasks.values().stream()
-                        .flatMap(map -> map.values().stream())
-                        .flatMap(map -> map.values().stream())
-                        .forEach(task -> executorService.submit(task::update));
-            }
+            updateScrapeTasks();
+            metricScrapeTasks.values().stream()
+                    .flatMap(map -> map.values().stream())
+                    .flatMap(map -> map.values().stream())
+                    .forEach(task -> executorService.submit(task::update));
             executorService.submit(alarmFetcher::update);
         }
     }
@@ -83,14 +84,15 @@ public class MetricTaskManager implements InitializingBean {
 
     @VisibleForTesting
     void updateScrapeTasks() {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
         Set<AWSAccount> allAccounts = accountProvider.getAccounts();
         allAccounts.forEach(awsAccount -> {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(awsAccount.getTenant());
             log.debug("Updating Scrape task for AWS Account {}", awsAccount);
             awsAccount.getRegions().forEach(region -> {
                 log.debug("Updating Scrape task for region {}", region);
                 metricScrapeTasks.computeIfAbsent(awsAccount.getAccountId(), k -> new TreeMap<>())
                         .computeIfAbsent(region, k -> new TreeMap<>());
+
                 scrapeConfig.getNamespaces().stream()
                         .filter(nc -> nc.isEnabled() && !CollectionUtils.isEmpty(nc.getMetrics()))
                         .flatMap(nc -> nc.getMetrics().stream().map(MetricConfig::getEffectiveScrapeInterval))

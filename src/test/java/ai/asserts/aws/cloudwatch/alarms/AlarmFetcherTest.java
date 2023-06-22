@@ -5,6 +5,7 @@
 package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.DeploymentModeUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -54,6 +55,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     private AlarmMetricConverter alarmMetricConverter;
     private MetricSampleBuilder sampleBuilder;
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
+    private DeploymentModeUtil deploymentModeUtil;
     private AlarmFetcher testClass;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
@@ -76,17 +78,19 @@ public class AlarmFetcherTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
+        deploymentModeUtil = mock(DeploymentModeUtil.class);
         testClass = new AlarmFetcher(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, alarmMetricConverter, scrapeConfigProvider,
                 ecsServiceDiscoveryExporter, new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(null,
-                (accountId) -> "tenant")));
+                (accountId) -> "tenant")), deploymentModeUtil);
     }
 
     @Test
     @SuppressWarnings("unchecked")
     public void sendAlarmsForRegions_exposeAsMetric() {
+        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isPullCWAlarms()).andReturn(true);
         expect(scrapeConfig.isCwAlarmAsMetric()).andReturn(true).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
@@ -145,8 +149,13 @@ public class AlarmFetcherTest extends EasyMockSupport {
 
     @Test
     public void pullAlarm_disabled() {
+        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(AWSAccount.builder()
+                .regions(ImmutableSet.of("us-west-2"))
+                .tenant("tenant")
+                .build()));
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(scrapeConfig.isPullCWAlarms()).andReturn(false);
         replayAll();
         testClass.update();
@@ -157,6 +166,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
 
     @Test
     public void pullAlarm_notPrimaryExporter() {
+        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
         replayAll();
         testClass.update();

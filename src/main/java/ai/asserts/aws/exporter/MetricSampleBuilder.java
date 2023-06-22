@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static io.prometheus.client.Collector.Type.GAUGE;
@@ -53,6 +54,7 @@ public class MetricSampleBuilder {
 
     public Optional<Sample> buildSingleSample(String metricName, Map<String, String> labels,
                                               Double metric) {
+        labels = new TreeMap<>(labels);
         labels.putIfAbsent(TENANT, taskExecutorUtil.getTenant());
         labels.entrySet().removeIf(entry -> entry.getValue() == null);
         return Optional.of(new Sample(

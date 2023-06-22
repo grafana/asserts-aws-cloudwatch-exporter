@@ -81,7 +81,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
         this.metricNameUtil = metricNameUtil;
         this.taskExecutorUtil = taskExecutorUtil;
         this.functionsByRegion = Suppliers.memoizeWithExpiration(this::discoverFunctions,
-                scrapeConfigProvider.getScrapeConfig().getListFunctionsResultCacheTTLMinutes(), MINUTES);
+                5, MINUTES);
         this.ecsSDExporter = ecsSDExporter;
         this.cache = new ArrayList<>();
         this.filterLambdaByEnvironment = "true".equalsIgnoreCase(lambdaEnvFilterFlag());
@@ -138,13 +138,14 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
 
     private Map<String, Map<String, Map<String, LambdaFunction>>> discoverFunctions() {
         Map<String, Map<String, Map<String, LambdaFunction>>> byAccountByRegion = new TreeMap<>();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Optional<NamespaceConfig> lambdaNSOpt = scrapeConfig.getNamespaces().stream()
-                .filter(ns -> lambda.getNamespace().equals(ns.getName()))
-                .findFirst();
+
         List<Future<Map<String, Map<String, Map<String, LambdaFunction>>>>> futures = new ArrayList<>();
         LambdaFunctionScraper scraper = this;
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(accountRegion.getTenant());
+            Optional<NamespaceConfig> lambdaNSOpt = scrapeConfig.getNamespaces().stream()
+                    .filter(ns -> lambda.getNamespace().equals(ns.getName()))
+                    .findFirst();
             lambdaNSOpt.ifPresent(lambdaNS -> accountRegion.getRegions().forEach(region ->
                     futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
                             new SimpleTenantTask<Map<String, Map<String, Map<String, LambdaFunction>>>>() {

@@ -7,10 +7,12 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
 import com.google.common.collect.ImmutableSortedMap;
@@ -54,6 +56,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
     private final CollectorRegistry collectorRegistry;
     private final TagUtil tagUtil;
     private final TaskExecutorUtil taskExecutorUtil;
+    private final ScrapeConfigProvider scrapeConfigProvider;
     @Getter
     private volatile Set<ResourceRelation> routingConfigs = new HashSet<>();
     private volatile List<MetricFamilySamples> asgResourceMetrics = new ArrayList<>();
@@ -62,7 +65,8 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                                   ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider,
                                   RateLimiter rateLimiter, AccountProvider accountProvider,
                                   MetricSampleBuilder metricSampleBuilder, CollectorRegistry collectorRegistry,
-                                  TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
+                                  TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil,
+                                  ScrapeConfigProvider scrapeConfigProvider) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.targetGroupLBMapProvider = targetGroupLBMapProvider;
@@ -72,6 +76,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         this.collectorRegistry = collectorRegistry;
         this.tagUtil = tagUtil;
         this.taskExecutorUtil = taskExecutorUtil;
+        this.scrapeConfigProvider = scrapeConfigProvider;
     }
 
     @Override
@@ -110,6 +115,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
 
     private List<Sample> buildSamples(String region, AWSAccount accountRegion, List<Sample> allSamples,
                                       Set<ResourceRelation> newConfigs) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(accountRegion.getTenant());
         List<Sample> samples = new ArrayList<>();
         try {
             AutoScalingClient asgClient = awsClientProvider.getAutoScalingClient(region, accountRegion);
@@ -145,7 +151,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
                 groups.forEach(asg -> resourceMapper.map(asg.autoScalingGroupARN()).ifPresent(asgRes -> {
                     // Only discover Non k8s ASGs. K8S ASGs will be discovered through other means
                     Map<String, String> tagLabels =
-                            tagUtil.tagLabels(tagLabelsByName.getOrDefault(asg.autoScalingGroupName(),
+                            tagUtil.tagLabels(scrapeConfig, tagLabelsByName.getOrDefault(asg.autoScalingGroupName(),
                                     Collections.emptyList()));
 
                     if (tagLabels.keySet().stream().noneMatch(key -> key.contains("k8s"))) {

@@ -40,11 +40,13 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
     private S3Client s3Client;
     private RestTemplate restTemplate;
     private SnakeCaseUtil snakeCaseUtil;
+    private AssertsServerUtil assertsServerUtil;
 
     @BeforeEach
     public void setup() {
         s3Client = mock(S3Client.class);
         restTemplate = mock(RestTemplate.class);
+        assertsServerUtil = mock(AssertsServerUtil.class);
         snakeCaseUtil = new SnakeCaseUtil();
     }
 
@@ -137,11 +139,11 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
-                restTemplate, snakeCaseUtil);
-        assertNotNull(testClass.getScrapeConfig());
-        assertEquals(ImmutableSet.of("us-west-2"), testClass.getScrapeConfig().getRegions());
-        assertTrue(testClass.getScrapeConfig().isDiscoverECSTasks());
-        Map<String, MetricConfig> metricsToCapture = testClass.getScrapeConfig().getMetricsToCapture();
+                restTemplate, snakeCaseUtil, assertsServerUtil);
+        assertNotNull(testClass.getScrapeConfig("null"));
+        assertEquals(ImmutableSet.of("us-west-2"), testClass.getScrapeConfig("null").getRegions());
+        assertTrue(testClass.getScrapeConfig("null").isDiscoverECSTasks());
+        Map<String, MetricConfig> metricsToCapture = testClass.getScrapeConfig("null").getMetricsToCapture();
         assertEquals(17, metricsToCapture.size());
         assertTrue(metricsToCapture.containsKey("aws_lambda_invocations_sum"));
         assertTrue(metricsToCapture.containsKey("aws_lambda_errors_sum"));
@@ -152,15 +154,15 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
-                restTemplate, snakeCaseUtil) {
+                restTemplate, snakeCaseUtil, assertsServerUtil) {
             @Override
             Map<String, String> getGetenv() {
                 return ImmutableMap.of("REGIONS", "us-east-1,us-east-2", "ENABLE_ECS_SD", "false");
             }
         };
-        assertNotNull(testClass.getScrapeConfig());
-        assertFalse(testClass.getScrapeConfig().isDiscoverECSTasks());
-        assertEquals(ImmutableSet.of("us-east-1", "us-east-2"), testClass.getScrapeConfig().getRegions());
+        assertNotNull(testClass.getScrapeConfig("null"));
+        assertFalse(testClass.getScrapeConfig("null").isDiscoverECSTasks());
+        assertEquals(ImmutableSet.of("us-east-1", "us-east-2"), testClass.getScrapeConfig("null").getRegions());
     }
 
     @Test
@@ -180,7 +182,7 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
-                restTemplate, snakeCaseUtil) {
+                restTemplate, snakeCaseUtil, assertsServerUtil) {
             @Override
             Map<String, String> getGetenv() {
                 return ImmutableMap.of("CONFIG_S3_BUCKET", "bucket", "CONFIG_S3_KEY", "key");
@@ -191,7 +193,7 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
                 return s3Client;
             }
         };
-        ScrapeConfig actualConfig = testClass.getScrapeConfig();
+        ScrapeConfig actualConfig = testClass.getScrapeConfig("null");
         actualConfig.validateConfig();
         ObjectWriter writer = new ObjectMapperFactory().getObjectMapper()
                 .writerWithDefaultPrettyPrinter();
@@ -211,19 +213,22 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
         headers.setBasicAuth("user", "key");
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.add(ASSERTS_TENANT_HEADER, "user");
-        HttpEntity<?> httpEntity = new HttpEntity<>(headers);
+        HttpEntity<String> httpEntity = new HttpEntity<>(headers);
         ResponseEntity<ScrapeConfig> response = new ResponseEntity<>(scrapeConfig, HttpStatus.OK);
+        expect(assertsServerUtil.getExporterConfigUrl()).andReturn("host/api-server/v1/config/aws-exporter");
+        expect(assertsServerUtil.createAssertsAuthHeader()).andReturn(httpEntity);
         expect(restTemplate.exchange("host/api-server/v1/config/aws-exporter",
                 HttpMethod.GET,
                 httpEntity,
                 new ParameterizedTypeReference<ScrapeConfig>() {
                 }
         )).andReturn(response);
+
         replayAll();
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
-                restTemplate, snakeCaseUtil) {
+                restTemplate, snakeCaseUtil, assertsServerUtil) {
             @Override
             Map<String, String> getGetenv() {
                 return ImmutableMap.of("ASSERTS_API_SERVER_URL", "host", "ASSERTS_USER", "user",
@@ -233,7 +238,8 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
         };
         ObjectWriter writer = new ObjectMapperFactory().getObjectMapper()
                 .writerWithDefaultPrettyPrinter();
-        assertEquals(writer.writeValueAsString(scrapeConfig), writer.writeValueAsString(testClass.getScrapeConfig()));
+        assertEquals(writer.writeValueAsString(scrapeConfig),
+                writer.writeValueAsString(testClass.getScrapeConfig("null")));
         verifyAll();
     }
 }

@@ -11,13 +11,9 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.FileSystemResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -34,7 +30,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static ai.asserts.aws.ApiServerConstants.ASSERTS_API_SERVER_URL;
-import static ai.asserts.aws.ApiServerConstants.ASSERTS_TENANT_HEADER;
 
 @Component
 @Slf4j
@@ -48,22 +43,24 @@ public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
     private final ScrapeConfig NOOP_CONFIG = new ScrapeConfig();
     private final RestTemplate restTemplate;
     private final SnakeCaseUtil snakeCaseUtil;
+    private final AssertsServerUtil assertsServerUtil;
     private volatile ScrapeConfig configCache;
 
     public SingleTenantScrapeConfigProvider(ObjectMapperFactory objectMapperFactory,
                                             @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile,
                                             RestTemplate restTemplate,
-                                            SnakeCaseUtil snakeCaseUtil) {
+                                            SnakeCaseUtil snakeCaseUtil,
+                                            AssertsServerUtil assertsServerUtil) {
         this.objectMapperFactory = objectMapperFactory;
         this.scrapeConfigFile = scrapeConfigFile;
         this.restTemplate = restTemplate;
         this.snakeCaseUtil = snakeCaseUtil;
+        this.assertsServerUtil = assertsServerUtil;
         loadAndBuildLookups();
     }
 
-
     @Override
-    public ScrapeConfig getScrapeConfig() {
+    public ScrapeConfig getScrapeConfig(String tenant) {
         try {
             readWriteLock.readLock().lock();
             return configCache;
@@ -100,45 +97,17 @@ public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
     }
 
     private ScrapeConfig getConfigFromServer() {
-        String url = getExporterConfigUrl();
+        String url = assertsServerUtil.getExporterConfigUrl();
         log.info("Will load configuration from [{}]", url);
         ResponseEntity<ScrapeConfig> response = restTemplate.exchange(url,
                 HttpMethod.GET,
-                createAssertsAuthHeader(),
+                assertsServerUtil.createAssertsAuthHeader(),
                 new ParameterizedTypeReference<ScrapeConfig>() {
                 });
         if (response.getStatusCode().is2xxSuccessful()) {
             return response.getBody();
         }
         return NOOP_CONFIG;
-    }
-
-    public String getAssertsTenantBaseUrl() {
-        return getGetenv().get(ASSERTS_API_SERVER_URL);
-    }
-
-    private String getExporterConfigUrl() {
-        return getAssertsTenantBaseUrl() + "/api-server/v1/config/aws-exporter";
-    }
-
-    public String getAlertForwardUrl() {
-        return getAssertsTenantBaseUrl() + "/assertion-detector/external-alerts/prometheus";
-    }
-
-    public HttpEntity<String> createAssertsAuthHeader() {
-        Map<String, String> envVariables = getGetenv();
-        String username = envVariables.get(ApiServerConstants.ASSERTS_USER);
-        log.info("Using credentials of user {}", username);
-        String password = envVariables.get(ApiServerConstants.ASSERTS_PASSWORD);
-        if (StringUtils.hasText(username) && StringUtils.hasText(password)) {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBasicAuth(username, password);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.add(ASSERTS_TENANT_HEADER, username);
-            return new HttpEntity<>(headers);
-        } else {
-            return null;
-        }
     }
 
     private ScrapeConfig load() {

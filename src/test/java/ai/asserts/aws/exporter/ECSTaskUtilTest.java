@@ -9,6 +9,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -59,8 +60,8 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     private Resource service;
     private Resource task;
     private Resource taskDef;
-
     private TagUtil tagUtil;
+    private ScrapeConfig scrapeConfig;
 
     @BeforeEach
     public void setup() {
@@ -69,6 +70,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         ecsClient = mock(EcsClient.class);
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
+        scrapeConfig = mock(ScrapeConfig.class);
         RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
         TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
                 rateLimiter);
@@ -160,10 +162,11 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
-        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+        expect(tagUtil.tagLabels(eq(scrapeConfig), anyObject(List.class))).andReturn(ImmutableMap.of("tag_key",
+                "tag_value"));
 
         replayAll();
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(ecsClient, cluster,
+        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
                 Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
@@ -219,10 +222,11 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 .build());
         metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
 
-        expect(tagUtil.tagLabels(anyObject(List.class))).andReturn(ImmutableMap.of("tag_key", "tag_value"));
+        expect(tagUtil.tagLabels(eq(scrapeConfig), anyObject(List.class))).andReturn(ImmutableMap.of("tag_key",
+                "tag_value"));
 
         replayAll();
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(ecsClient, cluster,
+        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
                 Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")

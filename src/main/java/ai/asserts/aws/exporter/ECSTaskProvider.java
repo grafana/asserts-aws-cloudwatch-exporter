@@ -108,11 +108,10 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
     }
 
     public List<StaticConfig> getScrapeTargets() {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-
         // Scrape target building works only when the exporter is installed in each account
         if (accountProvider.getAccounts().size() == 1) {
             for (AWSAccount account : accountProvider.getAccounts()) {
+                ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(account.getTenant());
                 for (String region : account.getRegions()) {
                     taskExecutorUtil.executeTenantTask(account.getTenant(), new SimpleTenantTask<Void>() {
                         @Override
@@ -200,7 +199,9 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
                             .filter(ecsTaskUtil::hasAllInfo)
                             .forEach(task -> resourceMapper.map(task.taskArn()).ifPresent(taskResource -> {
                                 List<StaticConfig> staticConfigs =
-                                        ecsTaskUtil.buildScrapeTargets(ecsClient, cluster, getService(task), task);
+                                        ecsTaskUtil.buildScrapeTargets(
+                                                scrapeConfigProvider.getScrapeConfig(null), ecsClient, cluster,
+                                                getService(task), task);
                                 Map<Resource, List<StaticConfig>> clusterTargets =
                                         tasksByCluster.computeIfAbsent(cluster, k -> new HashMap<>());
                                 clusterTargets.put(taskResource, staticConfigs);

@@ -35,7 +35,7 @@ public class ApiAuthenticatorTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         secretsManagerClient = mock(SecretsManagerClient.class);
         testClass = new ApiAuthenticator(scrapeConfigProvider, awsClientProvider);
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig).anyTimes();
     }
 
     @Test

@@ -90,21 +90,19 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
 
     private List<MetricFamilySamples> getMappings() {
         Map<String, List<Sample>> samplesByName = new TreeMap<>();
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig();
-        Optional<NamespaceConfig> lambdaConfig = scrapeConfig.getLambdaConfig();
         List<Future<Map<String, List<Sample>>>> futures = new ArrayList<>();
-        lambdaConfig.ifPresent(namespaceConfig -> {
-            for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-                accountRegion.getRegions().forEach(region ->
-                        futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
-                                new SimpleTenantTask<Map<String, List<Sample>>>() {
-                                    @Override
-                                    public Map<String, List<Sample>> call() {
-                                        return buildSamples(region, accountRegion, namespaceConfig, samplesByName);
-                                    }
-                                })));
-            }
-        });
+        for (AWSAccount accountRegion : accountProvider.getAccounts()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(accountRegion.getTenant());
+            Optional<NamespaceConfig> lambdaConfig = scrapeConfig.getLambdaConfig();
+            lambdaConfig.ifPresent(namespaceConfig -> accountRegion.getRegions().forEach(region ->
+                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
+                            new SimpleTenantTask<Map<String, List<Sample>>>() {
+                                @Override
+                                public Map<String, List<Sample>> call() {
+                                    return buildSamples(region, accountRegion, namespaceConfig, samplesByName);
+                                }
+                            }))));
+        }
         taskExecutorUtil.awaitAll(futures, (byName) -> byName.forEach((name, samples) ->
                 samplesByName.computeIfAbsent(name, k -> new ArrayList<>()).addAll(samples)));
         return samplesByName.values().stream()

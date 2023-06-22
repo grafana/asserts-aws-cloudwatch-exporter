@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.cloudwatch.alarms;
 
+import ai.asserts.aws.AssertsServerUtil;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import java.time.Instant;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
@@ -35,6 +37,7 @@ public class AlertsProcessorTest extends EasyMockSupport {
     private ScrapeConfig scrapeConfig;
     private RestTemplate restTemplate;
     private AlarmMetricExporter alarmMetricExporter;
+    private AssertsServerUtil assertsServerUtil;
     private AlertsProcessor testClass;
     private Instant now;
 
@@ -45,7 +48,9 @@ public class AlertsProcessorTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         restTemplate = mock(RestTemplate.class);
         alarmMetricExporter = mock(AlarmMetricExporter.class);
-        testClass = new AlertsProcessor(scrapeConfigProvider, restTemplate, alarmMetricExporter);
+        assertsServerUtil = mock(AssertsServerUtil.class);
+        testClass = new AlertsProcessor(scrapeConfigProvider, restTemplate, alarmMetricExporter,
+                assertsServerUtil);
     }
 
     @Test
@@ -55,17 +60,18 @@ public class AlertsProcessorTest extends EasyMockSupport {
                 .put("asserts_alert_category", "error")
                 .put("asserts_severity", "critical")
                 .put("asserts_source", "cloudwatch.alarms")
+                .put(TENANT, "tenant")
                 .build());
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(scrapeConfig.isCwAlarmAsMetric()).andReturn(false);
         expect(scrapeConfig.getTenant()).andReturn("tenant").anyTimes();
 
         HttpEntity<String> mockEntity = mock(HttpEntity.class);
         HttpHeaders mockHeaders = new HttpHeaders();
         expect(mockEntity.getHeaders()).andReturn(mockHeaders);
-        expect(scrapeConfigProvider.getAlertForwardUrl()).andReturn("url");
-        expect(scrapeConfigProvider.createAssertsAuthHeader()).andReturn(mockEntity);
+        expect(assertsServerUtil.getAlertForwardUrl()).andReturn("url");
+        expect(assertsServerUtil.createAssertsAuthHeader()).andReturn(mockEntity);
 
         Capture<HttpEntity<PrometheusAlerts>> callbackCapture = Capture.newInstance();
 
@@ -76,6 +82,7 @@ public class AlertsProcessorTest extends EasyMockSupport {
         replayAll();
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("state", "ALARM")
+                .put(TENANT, "tenant")
                 .put("timestamp", now.toString())
                 .build());
         testClass.sendAlerts(ImmutableList.of(labels));
@@ -92,10 +99,11 @@ public class AlertsProcessorTest extends EasyMockSupport {
     public void exposeAsMetric() {
         SortedMap<String, String> labels = new TreeMap<>(new ImmutableMap.Builder<String, String>()
                 .put("state", "ALARM")
+                .put("tenant", "tenant")
                 .put("timestamp", now.toString())
                 .build());
 
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(scrapeConfig.isCwAlarmAsMetric()).andReturn(true);
 
         alarmMetricExporter.processMetric(ImmutableList.of(labels));

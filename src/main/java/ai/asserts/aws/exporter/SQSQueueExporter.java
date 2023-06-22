@@ -8,10 +8,12 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceTagHelper;
@@ -48,18 +50,17 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
     private final MetricNameUtil metricNameUtil;
-
     private final ResourceTagHelper resourceTagHelper;
-
     private final TagUtil tagUtil;
     private final TaskExecutorUtil taskExecutorUtil;
+    private final ScrapeConfigProvider scrapeConfigProvider;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public SQSQueueExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
             ResourceMapper resourceMapper, RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder,
             MetricNameUtil metricNameUtil, ResourceTagHelper resourceTagHelper, TagUtil tagUtil,
-            TaskExecutorUtil taskExecutorUtil) {
+            TaskExecutorUtil taskExecutorUtil, ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -70,6 +71,7 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
         this.resourceTagHelper = resourceTagHelper;
         this.tagUtil = tagUtil;
         this.taskExecutorUtil = taskExecutorUtil;
+        this.scrapeConfigProvider = scrapeConfigProvider;
     }
 
     @Override
@@ -88,18 +90,20 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
         List<Sample> allSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
-                futures.add(taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
-                    @Override
-                    public List<Sample> call() {
-                        return buildSamples(region, account);
-                    }
-                }))));
+                futures.add(
+                        taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                            @Override
+                            public List<Sample> call() {
+                                return buildSamples(region, account);
+                            }
+                        }))));
         taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         sampleBuilder.buildFamily(allSamples).ifPresent(newFamily::add);
         metricFamilySamples = newFamily;
     }
 
     private List<Sample> buildSamples(String region, AWSAccount account) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(account.getTenant());
         List<Sample> samples = new ArrayList<>();
         try {
             SqsClient client = awsClientProvider.getSqsClient(region, account);
@@ -140,7 +144,8 @@ public class SQSQueueExporter extends Collector implements InitializingBean {
                                 labels.put("job", labels.get("name"));
                             }
                             if (byName.containsKey(resource.getName())) {
-                                labels.putAll(tagUtil.tagLabels(byName.get(resource.getName()).getTags()));
+                                labels.putAll(tagUtil.tagLabels(scrapeConfig,
+                                        byName.get(resource.getName()).getTags()));
                             }
                             return sampleBuilder.buildSingleSample("aws_resource", labels, 1.0D);
                         })

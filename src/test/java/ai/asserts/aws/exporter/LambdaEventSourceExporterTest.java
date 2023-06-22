@@ -54,7 +54,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountRegion = new AWSAccount("tenant", "account1", "", "",
+        accountRegion = new AWSAccount("acme", "account1", "", "",
                 "role", ImmutableSet.of("region1"));
         AccountProvider accountProvider = mock(AccountProvider.class);
         metricNameUtil = mock(MetricNameUtil.class);
@@ -71,7 +71,7 @@ public class LambdaEventSourceExporterTest extends EasyMockSupport {
 
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         expect(namespaceConfig.getName()).andReturn("AWS/Lambda").anyTimes();
-        expect(scrapeConfigProvider.getScrapeConfig()).andReturn(
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(
                 ScrapeConfig.builder()
                         .regions(ImmutableSet.of("region1"))
                         .namespaces(ImmutableList.of(namespaceConfig))
