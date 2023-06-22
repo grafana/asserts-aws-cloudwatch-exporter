@@ -58,6 +58,7 @@ public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
         this.restTemplate = restTemplate;
         this.snakeCaseUtil = snakeCaseUtil;
         this.assertsServerUtil = assertsServerUtil;
+        log.info("Single Tenant Scrape Config Provider created");
         loadAndBuildLookups();
     }
 

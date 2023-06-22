@@ -7,6 +7,7 @@ package ai.asserts.aws;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.HekateDistributedAccountProvider;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -66,14 +67,18 @@ import org.springframework.stereotype.Component;
  * </table>
  */
 @Component
-@AllArgsConstructor
 public class DeploymentModeUtil {
-    private final ScrapeConfigProvider scrapeConfigProvider;
-    private final AccountProvider accountProvider;
+    private final String tenantMode;
+    private final String deploymentMode;
+
+    public DeploymentModeUtil(@Value("tenant.mode") String tenantMode,
+                              @Value("deployment.mode") String deploymentMode) {
+        this.tenantMode = tenantMode;
+        this.deploymentMode = deploymentMode;
+    }
 
     public boolean isSingleTenant() {
-        return scrapeConfigProvider.getClass().getSimpleName()
-                .equals(SingleTenantScrapeConfigProvider.class.getSimpleName());
+        return "single".equals(tenantMode);
     }
 
     public boolean isMultiTenant() {
@@ -81,8 +86,7 @@ public class DeploymentModeUtil {
     }
 
     public boolean isDistributed() {
-        return accountProvider.getClass().getSimpleName()
-                .equals(HekateDistributedAccountProvider.class.getSimpleName());
+        return "distributed".equals(deploymentMode);
     }
 
     public boolean isSingleInstance() {
