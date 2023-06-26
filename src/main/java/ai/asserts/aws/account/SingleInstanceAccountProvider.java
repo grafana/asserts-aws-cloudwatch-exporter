@@ -17,11 +17,9 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -34,10 +32,8 @@ import java.util.function.Supplier;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
-@Component
 @Slf4j
 @AllArgsConstructor
-@ConditionalOnProperty(name = "deployment.mode", havingValue = "single", matchIfMissing = true)
 public class SingleInstanceAccountProvider implements AccountProvider {
     public static final String TSDB_USER_NAME = "remoteWrite_basicAuth_username";
     private final AccountIDProvider accountIDProvider;

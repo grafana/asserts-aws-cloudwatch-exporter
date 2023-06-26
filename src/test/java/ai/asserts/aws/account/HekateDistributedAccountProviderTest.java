@@ -4,17 +4,13 @@
  */
 package ai.asserts.aws.account;
 
-import ai.asserts.aws.AssertsServerUtil;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cluster.HekateCluster;
-import ai.asserts.aws.exporter.AccountIDProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.hekate.cluster.ClusterNode;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,10 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class HekateDistributedAccountProviderTest extends EasyMockSupport {
     private SingleInstanceAccountProvider delegate;
-    private RestTemplate restTemplate;
-    private AccountIDProvider accountIDProvider;
-    private ScrapeConfigProvider scrapeConfigProvider;
-    private AssertsServerUtil assertsServerUtil;
     private HekateCluster hekateCluster;
     private ClusterNode clusterNode1;
     private ClusterNode clusterNode2;
@@ -44,10 +36,6 @@ public class HekateDistributedAccountProviderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        accountIDProvider = mock(AccountIDProvider.class);
-        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
-        assertsServerUtil = mock(AssertsServerUtil.class);
-        restTemplate = mock(RestTemplate.class);
         hekateCluster = mock(HekateCluster.class);
         delegate = mock(SingleInstanceAccountProvider.class);
         clusterNode1 = mock(ClusterNode.class);
@@ -77,16 +65,7 @@ public class HekateDistributedAccountProviderTest extends EasyMockSupport {
                 account5
         );
         testClass = new HekateDistributedAccountProvider(hekateCluster,
-                accountIDProvider,
-                scrapeConfigProvider,
-                restTemplate, assertsServerUtil) {
-            @Override
-            SingleInstanceAccountProvider getDelegate(AccountIDProvider accountIDProvider,
-                                                      ScrapeConfigProvider scrapeConfigProvider,
-                                                      RestTemplate restTemplate, AssertsServerUtil assertsServerUtil) {
-                return delegate;
-            }
-
+                delegate) {
             @Override
             String clusterNodeToString(ClusterNode node) {
                 return clusterNodeToString.get(node);
