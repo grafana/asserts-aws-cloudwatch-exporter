@@ -4,10 +4,7 @@
  */
 package ai.asserts.aws.account;
 
-import ai.asserts.aws.AssertsServerUtil;
-import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.cluster.HekateCluster;
-import ai.asserts.aws.exporter.AccountIDProvider;
 import ai.asserts.aws.hash.RendezvousHash;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Funnel;
@@ -15,28 +12,20 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import io.hekate.cluster.ClusterNode;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Component
 @Slf4j
-@ConditionalOnProperty(name = "deployment.mode", havingValue = "distributed")
 public class HekateDistributedAccountProvider implements AccountProvider {
     private static final HashFunction hashFunction = Hashing.murmur3_128();
     private final HekateCluster hekateCluster;
-    private final SingleInstanceAccountProvider delegate;
+    private final AccountProvider delegate;
 
-    public HekateDistributedAccountProvider(HekateCluster hekateCluster, AccountIDProvider accountIDProvider,
-                                            ScrapeConfigProvider scrapeConfigProvider,
-                                            RestTemplate restTemplate,
-                                            AssertsServerUtil assertsServerUtil) {
+    public HekateDistributedAccountProvider(HekateCluster hekateCluster, AccountProvider accountProvider) {
         this.hekateCluster = hekateCluster;
-        this.delegate = getDelegate(accountIDProvider, scrapeConfigProvider, restTemplate, assertsServerUtil);
+        this.delegate = accountProvider;
     }
 
     @Override
@@ -68,13 +57,5 @@ public class HekateDistributedAccountProvider implements AccountProvider {
     @VisibleForTesting
     String clusterNodeToString(ClusterNode node) {
         return node.toString();
-    }
-
-    @VisibleForTesting
-    SingleInstanceAccountProvider getDelegate(AccountIDProvider accountIDProvider,
-                                              ScrapeConfigProvider scrapeConfigProvider,
-                                              RestTemplate restTemplate, AssertsServerUtil assertsServerUtil) {
-        return new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate,
-                assertsServerUtil);
     }
 }
