@@ -35,9 +35,9 @@ FROM amazoncorretto:8-al2-jdk
 EXPOSE 8010
 WORKDIR /opt/demo_app
 COPY --from=builder /home/gradle/app/src/dist/conf/cloudwatch_scrape_config_sample.yml ./cloudwatch_scrape_config.yml
+COPY --from=builder /home/gradle/app/src/dist/conf/application.properties ./application.properties
 COPY --from=builder /home/gradle/app/build/libs/* ./
 COPY --from=builder /home/gradle/app/build/resources/main/*.xml ./
-COPY --from=builder /home/gradle/app/build/resources/main/*.properties ./
 # COPY jmx_prometheus_javaagent-0.16.1.jar ./
 # COPY httpserver_config.yml ./
 CMD ["/bin/sh", "-c", "java -Ddeployment.mode=$DEPLOYMENT_MODE -Dhekate.enable=$HEKATE_ENABLE -Dhekate.cluster.seed.cloudstore.enable=$HEKATE_CLOUDSTORE_ENABLE -Dhekate.cluster.seed.cloudstore.provider=$HEKATE_CLOUDSTORE_PROVIDER -Dhekate.cluster.seed.cloudstore.container=$HEKATE_CLOUDSTORE_CONTAINER -Dhekate.cluster.namespace=aws-exporter -jar app-*.jar --spring.config.location=application.properties"]

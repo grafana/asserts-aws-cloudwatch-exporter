@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
-@ConditionalOnProperty(name = "deployment.mode", havingValue = "distributed")
 public class HekateCluster implements ClusterEventListener {
     private ClusterTopology clusterTopology;
 

@@ -17,7 +17,7 @@ import org.springframework.web.client.RestTemplate;
 
 @Configuration
 @SuppressWarnings("unused")
-public class BeanConfiguration {
+public class AwsExporterBeanConfiguration {
     @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate();
