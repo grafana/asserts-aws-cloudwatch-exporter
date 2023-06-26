@@ -86,7 +86,7 @@ public class DeploymentModeUtil {
     }
 
     public boolean isDistributed() {
-        return "distributed".equals(deploymentMode);
+        return deploymentMode.contains("distributed");
     }
 
     public boolean isSingleInstance() {

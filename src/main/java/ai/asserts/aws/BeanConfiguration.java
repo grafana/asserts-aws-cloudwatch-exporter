@@ -39,7 +39,7 @@ public class BeanConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "deployment.mode", havingValue = "distributed")
+    @ConditionalOnProperty(name = "deployment.mode", havingValue = "single-tenant-distributed")
     public AccountProvider getDistributedAccountProvider(HekateCluster hekateCluster,
                                                          AccountIDProvider accountIDProvider,
                                                          AssertsServerUtil assertsServerUtil,
@@ -50,7 +50,8 @@ public class BeanConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "deployment.mode", havingValue = "single", matchIfMissing = true)
+    @ConditionalOnProperty(name = "deployment.mode", havingValue = "single-tenant-single-instance", matchIfMissing =
+            true)
     public AccountProvider getSingleInstanceAccountProvider(AccountIDProvider accountIDProvider,
                                                             AssertsServerUtil assertsServerUtil,
                                                             ScrapeConfigProvider scrapeConfigProvider) {
