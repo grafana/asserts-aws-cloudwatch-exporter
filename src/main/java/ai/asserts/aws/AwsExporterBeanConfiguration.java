@@ -6,6 +6,7 @@ package ai.asserts.aws;
 
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.HekateDistributedAccountProvider;
+import ai.asserts.aws.account.NoopAccountProvider;
 import ai.asserts.aws.account.SingleInstanceAccountProvider;
 import ai.asserts.aws.cluster.HekateCluster;
 import ai.asserts.aws.exporter.AccountIDProvider;
@@ -45,10 +46,14 @@ public class AwsExporterBeanConfiguration {
                                                          AccountIDProvider accountIDProvider,
                                                          AssertsServerUtil assertsServerUtil,
                                                          ScrapeConfigProvider scrapeConfigProvider) {
-        return new HekateDistributedAccountProvider(hekateCluster,
-                new SingleInstanceAccountProvider(environmentConfig, accountIDProvider, scrapeConfigProvider,
-                        restTemplate(),
-                        assertsServerUtil));
+        if (environmentConfig.isProcessingOff()) {
+            return new NoopAccountProvider();
+        } else {
+            return new HekateDistributedAccountProvider(hekateCluster,
+                    new SingleInstanceAccountProvider(environmentConfig, accountIDProvider, scrapeConfigProvider,
+                            restTemplate(),
+                            assertsServerUtil));
+        }
     }
 
     @Bean
@@ -58,8 +63,12 @@ public class AwsExporterBeanConfiguration {
                                                             EnvironmentConfig environmentConfig,
                                                             AssertsServerUtil assertsServerUtil,
                                                             ScrapeConfigProvider scrapeConfigProvider) {
-        return new SingleInstanceAccountProvider(environmentConfig, accountIDProvider, scrapeConfigProvider,
-                restTemplate(),
-                assertsServerUtil);
+        if (environmentConfig.isProcessingOff()) {
+            return new NoopAccountProvider();
+        } else {
+            return new SingleInstanceAccountProvider(environmentConfig, accountIDProvider, scrapeConfigProvider,
+                    restTemplate(),
+                    assertsServerUtil);
+        }
     }
 }
