@@ -2,6 +2,7 @@
 package ai.asserts.aws.cloudwatch.query;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
@@ -37,6 +38,7 @@ import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 
 public class MetricQueryProviderTest extends EasyMockSupport {
+    private EnvironmentConfig environmentConfig;
     private AWSAccount accountRegion;
     private AccountProvider accountProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
@@ -58,6 +60,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        environmentConfig = mock(EnvironmentConfig.class);
         accountProvider = mock(AccountProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         queryIdGenerator = mock(QueryIdGenerator.class);
@@ -72,8 +75,9 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         namespaceConfig = mock(NamespaceConfig.class);
         metricQuery = mock(MetricQuery.class);
         metricCollector = mock(BasicMetricCollector.class);
-        TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector,
-                (accountId) -> "tenant"));
+        TaskExecutorUtil taskExecutorUtil =
+                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector,
+                        (accountId) -> "tenant"));
 
         metric = Metric.builder()
                 .namespace(lambda.getNamespace())
@@ -84,7 +88,8 @@ public class MetricQueryProviderTest extends EasyMockSupport {
                 ImmutableSet.of("region1"));
 
         replayAll();
-        testClass = new MetricQueryProvider(accountProvider, scrapeConfigProvider, queryIdGenerator, metricNameUtil,
+        testClass = new MetricQueryProvider(environmentConfig, accountProvider, scrapeConfigProvider, queryIdGenerator
+                , metricNameUtil,
                 awsClientProvider, resourceTagHelper, metricQueryBuilder,
                 new RateLimiter(metricCollector,
                         (accountId) -> "tenant"), taskExecutorUtil);
@@ -94,6 +99,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @Test
     void getMetricQueries_CWMetricPullEnabled() {
+        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
@@ -152,6 +158,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @Test
     void getMetricQueries_Exception() {
+        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
@@ -173,6 +180,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @Test
     void getMetricQueries_CWMetricPullDisabled() {
+        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()

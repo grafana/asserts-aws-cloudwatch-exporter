@@ -11,7 +11,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.prometheus.client.CollectorRegistry;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,7 +25,8 @@ import java.util.stream.Collectors;
 
 @Component
 @Slf4j
-public class MetricTaskManager implements InitializingBean {
+public class MetricTaskManager {
+    private final EnvironmentConfig environmentConfig;
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final CollectorRegistry collectorRegistry;
@@ -43,11 +43,14 @@ public class MetricTaskManager implements InitializingBean {
     @Getter
     private final Map<String, Map<String, Map<Integer, MetricScrapeTask>>> metricScrapeTasks = new TreeMap<>();
 
-    public MetricTaskManager(AccountProvider accountProvider, ScrapeConfigProvider scrapeConfigProvider,
+    public MetricTaskManager(EnvironmentConfig environmentConfig,
+                             AccountProvider accountProvider,
+                             ScrapeConfigProvider scrapeConfigProvider,
                              CollectorRegistry collectorRegistry, AutowireCapableBeanFactory beanFactory,
                              @Qualifier("metric-task-trigger-thread-pool") TaskThreadPool taskThreadPool,
                              AlarmFetcher alarmFetcher, ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
                              DeploymentModeUtil deploymentModeUtil) {
+        this.environmentConfig = environmentConfig;
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.collectorRegistry = collectorRegistry;
@@ -58,13 +61,14 @@ public class MetricTaskManager implements InitializingBean {
         this.deploymentModeUtil = deploymentModeUtil;
     }
 
-    public void afterPropertiesSet() {
-    }
-
     @SuppressWarnings("unused")
     @Scheduled(fixedRateString = "${aws.metric.scrape.manager.task.fixedDelay:60000}",
             initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
     public void triggerCWPullOperations() {
+        if (environmentConfig.isProcessingOff()) {
+            log.info("All processing off");
+            return;
+        }
         if (deploymentModeUtil.isMultiTenant() || deploymentModeUtil.isDistributed() ||
                 ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             ExecutorService executorService = taskThreadPool.getExecutorService();

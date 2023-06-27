@@ -22,8 +22,6 @@ import software.amazon.awssdk.services.autoscaling.AutoScalingClient;
 import software.amazon.awssdk.services.autoscaling.AutoScalingClientBuilder;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClientBuilder;
-import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
-import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClientBuilder;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -86,6 +84,7 @@ public class AWSClientProvider {
                 .removalListener(removalNotification -> {
                     try {
                         SdkClient sdkClient = (SdkClient) removalNotification.getValue();
+                        log.info("Shutting down SDK Client {}", sdkClient.serviceName());
                         sdkClient.close();
                     } catch (Exception e) {
                         log.error("Failed to close client", e);
@@ -253,28 +252,6 @@ public class AWSClientProvider {
         CloudWatchClient client = (CloudWatchClient) clientCache.getIfPresent(clientCacheKey);
         if (client == null) {
             CloudWatchClientBuilder clientBuilder = cloudWatchClientBuilder().region(Region.of(region));
-            Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
-            if (account.getAssumeRole() != null) {
-                clientBuilder = clientBuilder.credentialsProvider(() ->
-                        getAwsSessionCredentials(region, account, credentialsOpt));
-            } else if (credentialsOpt.isPresent()) {
-                clientBuilder = clientBuilder.credentialsProvider(credentialsOpt.get());
-            }
-            client = clientBuilder.build();
-            clientCache.put(clientCacheKey, client);
-        }
-        return client;
-    }
-
-    public CloudWatchLogsClient getCloudWatchLogsClient(String region, AWSAccount account) {
-        ClientCacheKey clientCacheKey = ClientCacheKey.builder()
-                .region(region)
-                .accountId(account.getAccountId())
-                .clientType(CloudWatchLogsClient.class)
-                .build();
-        CloudWatchLogsClient client = (CloudWatchLogsClient) clientCache.getIfPresent(clientCacheKey);
-        if (client == null) {
-            CloudWatchLogsClientBuilder clientBuilder = CloudWatchLogsClient.builder().region(Region.of(region));
             Optional<AwsCredentialsProvider> credentialsOpt = getCredentialsProvider(account);
             if (account.getAssumeRole() != null) {
                 clientBuilder = clientBuilder.credentialsProvider(() ->
@@ -578,7 +555,7 @@ public class AWSClientProvider {
                 AssumeRoleRequest.Builder reqBuilder = AssumeRoleRequest.builder()
                         .roleSessionName("session1")
                         .roleArn(account.getAssumeRole());
-                if(hasLength(account.getExternalId())) {
+                if (hasLength(account.getExternalId())) {
                     reqBuilder = reqBuilder.externalId(account.getExternalId());
                 }
                 AssumeRoleResponse response = build.assumeRole(reqBuilder.build());

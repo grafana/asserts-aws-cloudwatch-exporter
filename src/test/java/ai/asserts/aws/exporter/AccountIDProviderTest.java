@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.EnvironmentConfig;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,13 +15,15 @@ import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AccountIDProviderTest extends EasyMockSupport {
+    private EnvironmentConfig environmentConfig;
     private StsClient stsClient;
     private AccountIDProvider testClass;
 
     @BeforeEach
     public void setup() {
+        environmentConfig = new EnvironmentConfig("false");
         stsClient = mock(StsClient.class);
-        testClass = new AccountIDProvider() {
+        testClass = new AccountIDProvider(environmentConfig) {
             @Override
             StsClient getStsClient() {
                 return stsClient;

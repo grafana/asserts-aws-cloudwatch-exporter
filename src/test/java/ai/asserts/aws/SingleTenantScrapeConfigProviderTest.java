@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
+    private EnvironmentConfig environmentConfig;
     private S3Client s3Client;
     private RestTemplate restTemplate;
     private SnakeCaseUtil snakeCaseUtil;
@@ -44,6 +45,7 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        environmentConfig = mock(EnvironmentConfig.class);
         s3Client = mock(S3Client.class);
         restTemplate = mock(RestTemplate.class);
         assertsServerUtil = mock(AssertsServerUtil.class);
@@ -136,7 +138,11 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
 
     @Test
     void integrationTest() {
+        expect(environmentConfig.isProcessingOn()).andReturn(true);
+        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        replayAll();
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
+                environmentConfig,
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate, snakeCaseUtil, assertsServerUtil);
@@ -151,7 +157,11 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
 
     @Test
     void envOverrides() {
+        expect(environmentConfig.isProcessingOn()).andReturn(true);
+        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        replayAll();
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
+                environmentConfig,
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate, snakeCaseUtil, assertsServerUtil) {
@@ -178,8 +188,12 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
                 .bucket("bucket")
                 .key("key")
                 .build())).andReturn(ResponseBytes.fromInputStream(GetObjectResponse.builder().build(), fis));
+        expect(environmentConfig.isProcessingOn()).andReturn(true);
+        expect(environmentConfig.isProcessingOff()).andReturn(false);
         replayAll();
+
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
+                environmentConfig,
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate, snakeCaseUtil, assertsServerUtil) {
@@ -223,9 +237,11 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
                 new ParameterizedTypeReference<ScrapeConfig>() {
                 }
         )).andReturn(response);
-
+        expect(environmentConfig.isProcessingOn()).andReturn(true);
+        expect(environmentConfig.isProcessingOff()).andReturn(false);
         replayAll();
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
+                environmentConfig,
                 new ObjectMapperFactory(),
                 "src/test/resources/cloudwatch_scrape_config.yml",
                 restTemplate, snakeCaseUtil, assertsServerUtil) {

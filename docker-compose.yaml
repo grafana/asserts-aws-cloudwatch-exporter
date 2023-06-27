@@ -9,6 +9,8 @@ services:
       - "8010:8010"
     env_file:
       - env.properties
+    volumes:
+      - "./opt/asserts:/opt/asserts"
   aws-integration-agent:
     build:
       context: .

@@ -2,6 +2,7 @@
 package ai.asserts.aws.cloudwatch.query;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
@@ -44,6 +45,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @Component
 @Slf4j
 public class MetricQueryProvider {
+    private final EnvironmentConfig environmentConfig;
     private final AccountProvider accountProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final QueryIdGenerator queryIdGenerator;
@@ -55,7 +57,8 @@ public class MetricQueryProvider {
     private final RateLimiter rateLimiter;
     private final TaskExecutorUtil taskExecutorUtil;
 
-    public MetricQueryProvider(AccountProvider accountProvider,
+    public MetricQueryProvider(EnvironmentConfig environmentConfig,
+                               AccountProvider accountProvider,
                                ScrapeConfigProvider scrapeConfigProvider,
                                QueryIdGenerator queryIdGenerator,
                                MetricNameUtil metricNameUtil,
@@ -64,6 +67,7 @@ public class MetricQueryProvider {
                                MetricQueryBuilder metricQueryBuilder,
                                RateLimiter rateLimiter,
                                TaskExecutorUtil taskExecutorUtil) {
+        this.environmentConfig = environmentConfig;
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.queryIdGenerator = queryIdGenerator;
@@ -82,6 +86,10 @@ public class MetricQueryProvider {
     }
 
     Map<String, Map<String, Map<Integer, List<MetricQuery>>>> getQueriesInternal() {
+        if (environmentConfig.isProcessingOff()) {
+            log.info("All processing off");
+            return Collections.emptyMap();
+        }
         Map<String, Map<String, Map<Integer, List<MetricQuery>>>> queriesByAccount = new TreeMap<>();
         List<Future<Void>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
