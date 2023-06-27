@@ -89,7 +89,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     }
 
     public void update() {
-        if (deploymentModeUtil.isSingleInstance() && !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+        if (deploymentModeUtil.isSingleTenant() && deploymentModeUtil.isSingleInstance() && !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             log.info("Not primary exporter. Skip fetching CloudWatch alarms");
             return;
         }

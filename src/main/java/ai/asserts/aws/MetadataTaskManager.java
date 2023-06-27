@@ -145,7 +145,8 @@ public class MetadataTaskManager implements InitializingBean {
             return;
         }
 
-        if (deploymentModeUtil.isSingleInstance() && !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+        if (deploymentModeUtil.isSingleTenant() && deploymentModeUtil.isSingleInstance() &&
+                !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             log.info("Not primary exporter. Skip meta data scraping.");
             return;
         }
@@ -180,7 +181,8 @@ public class MetadataTaskManager implements InitializingBean {
     public void perMinute() {
         if (environmentConfig.isProcessingOn()) {
             taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
-            if (deploymentModeUtil.isDistributed() || (deploymentModeUtil.isSingleInstance() &&
+            if (deploymentModeUtil.isDistributed() || (deploymentModeUtil.isSingleTenant() &&
+                    deploymentModeUtil.isSingleInstance() &&
                     ecsServiceDiscoveryExporter.isPrimaryExporter())) {
                 taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
             }

@@ -148,6 +148,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void updateMetadata_primaryExporter() {
+        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
         expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
@@ -249,6 +250,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     @Test
     @SuppressWarnings("null")
     public void updateMetadata_notPrimaryExporter() {
+        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
         expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
 
@@ -282,6 +284,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void perMinuteTasks_singleInstancePrimaryMode() {
+        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
         expect(deploymentModeUtil.isDistributed()).andReturn(false);
         expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);

@@ -88,6 +88,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     @Test
     @SuppressWarnings("unchecked")
     public void sendAlarmsForRegions_exposeAsMetric() {
+        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
         expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig).anyTimes();
@@ -149,6 +150,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
 
     @Test
     public void pullAlarm_disabled() {
+        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
         expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(AWSAccount.builder()
@@ -166,6 +168,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
 
     @Test
     public void pullAlarm_notPrimaryExporter() {
+        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
         expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
         replayAll();

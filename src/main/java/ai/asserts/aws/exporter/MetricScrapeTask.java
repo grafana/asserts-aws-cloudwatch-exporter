@@ -74,8 +74,6 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     @Autowired
     private RateLimiter rateLimiter;
     @Autowired
-    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
-    @Autowired
     private TaskExecutorUtil taskExecutorUtil;
 
     private final AWSAccount account;
@@ -123,11 +121,6 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
 
     private List<MetricFamilySamples> fetchMetricsFromCW() {
         List<MetricFamilySamples> familySamples = new ArrayList<>();
-
-        if (!ecsServiceDiscoveryExporter.isPrimaryExporter()) {
-            return familySamples;
-        }
-
         log.debug("BEGIN Scrape for account={} region={} and interval={}", account, region, intervalSeconds);
         Map<String, Map<Integer, List<MetricQuery>>> byRegion = metricQueryProvider.getMetricQueries()
                 .getOrDefault(account.getAccountId(), ImmutableMap.of());
