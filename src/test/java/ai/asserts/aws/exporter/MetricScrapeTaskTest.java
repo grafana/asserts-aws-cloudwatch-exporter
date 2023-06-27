@@ -2,10 +2,10 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.cloudwatch.query.MetricQueryProvider;
@@ -51,7 +51,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private CloudWatchClient cloudWatchClient;
 
-    private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private Instant now;
     private MetricSampleBuilder sampleBuilder;
     private Sample sample;
@@ -79,7 +78,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
                 1.0D, now.toEpochMilli());
         familySamples = mock(Collector.MetricFamilySamples.class);
         timeWindowBuilder = mock(TimeWindowBuilder.class);
-        ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
 
         testClass = new MetricScrapeTask(account, region, interval, delay);
         testClass.setMetricQueryProvider(metricQueryProvider);
@@ -87,7 +85,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setSampleBuilder(sampleBuilder);
         testClass.setTimeWindowBuilder(timeWindowBuilder);
-        testClass.setEcsServiceDiscoveryExporter(ecsServiceDiscoveryExporter);
         testClass.setRateLimiter(new RateLimiter(metricCollector, (account) -> "tenant"));
         testClass.setTaskExecutorUtil(
                 new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector,
@@ -96,7 +93,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
 
     @Test
     public void run() {
-        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         List<MetricQuery> queries = ImmutableList.of(
                 MetricQuery.builder()
                         .metric(Metric.builder().namespace("ns1").build())
@@ -193,17 +189,7 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
     }
 
     @Test
-    public void run_notPrimary() {
-        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
-        replayAll();
-        testClass.update();
-        assertEquals(ImmutableList.of(), testClass.collect());
-        verifyAll();
-    }
-
-    @Test
     public void run_NoQueriesForRegion() {
-        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(metricQueryProvider.getMetricQueries())
                 .andReturn(ImmutableMap.of());
 
@@ -215,7 +201,6 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
 
     @Test
     public void run_NoQueriesForInterval() {
-        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(metricQueryProvider.getMetricQueries())
                 .andReturn(ImmutableMap.of(accountId, ImmutableMap.of(region, ImmutableMap.of())));
 
