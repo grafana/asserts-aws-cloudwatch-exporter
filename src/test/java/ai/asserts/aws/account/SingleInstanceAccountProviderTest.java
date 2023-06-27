@@ -5,6 +5,7 @@
 package ai.asserts.aws.account;
 
 import ai.asserts.aws.AssertsServerUtil;
+import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.account.SingleInstanceAccountProvider.CloudwatchConfigs;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -40,7 +41,9 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         restTemplate = mock(RestTemplate.class);
         assertsServerUtil = mock(AssertsServerUtil.class);
-        testClass = new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate,
+        testClass = new SingleInstanceAccountProvider(new EnvironmentConfig("false"), accountIDProvider,
+                scrapeConfigProvider
+                , restTemplate,
                 assertsServerUtil) {
             @Override
             String getTenantName() {

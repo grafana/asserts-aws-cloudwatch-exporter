@@ -21,6 +21,7 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.newCapture;
 
 public class MetricTaskManagerTest extends EasyMockSupport {
+    private EnvironmentConfig environmentConfig;
     private AccountProvider accountProvider;
     private CollectorRegistry collectorRegistry;
     private MetricTaskManager testClass;
@@ -36,6 +37,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        environmentConfig = mock(EnvironmentConfig.class);
         accountProvider = mock(AccountProvider.class);
         beanFactory = mock(AutowireCapableBeanFactory.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
@@ -48,24 +50,17 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         deploymentModeUtil = mock(DeploymentModeUtil.class);
         replayAll();
-        testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
+        testClass = new MetricTaskManager(environmentConfig, accountProvider, scrapeConfigProvider, collectorRegistry,
+                beanFactory,
                 taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter, deploymentModeUtil);
         verifyAll();
         resetAll();
     }
 
     @Test
-    @SuppressWarnings("all")
-    void afterPropertiesSet() {
-        int delay = 60;
-        replayAll();
-        testClass.afterPropertiesSet();
-        verifyAll();
-    }
-
-    @Test
     void triggerScrapes_fetchMetricsTrue() {
-        testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
+        testClass = new MetricTaskManager(environmentConfig, accountProvider, scrapeConfigProvider, collectorRegistry,
+                beanFactory,
                 taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter, deploymentModeUtil) {
             @Override
             void updateScrapeTasks() {
@@ -94,6 +89,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expectLastCall().times(2);
 
         alarmFetcher.update();
+        expect(environmentConfig.isProcessingOff()).andReturn(false);
         replayAll();
         testClass.triggerCWPullOperations();
 
@@ -106,7 +102,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
     @Test
     void triggerScrapes_fetchMetricsFalse() {
-        testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
+        testClass = new MetricTaskManager(environmentConfig, accountProvider, scrapeConfigProvider, collectorRegistry,
+                beanFactory,
                 taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter, deploymentModeUtil) {
             @Override
             void updateScrapeTasks() {
@@ -125,7 +122,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
 
         expect(executorService.submit(capture(capture1))).andReturn(null).times(3);
-
+        expect(environmentConfig.isProcessingOff()).andReturn(false);
         alarmFetcher.update();
         replayAll();
 
@@ -138,7 +135,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
 
     @Test
     void triggerScrapes_notPrimaryExporter() {
-        testClass = new MetricTaskManager(accountProvider, scrapeConfigProvider, collectorRegistry, beanFactory,
+        testClass = new MetricTaskManager(environmentConfig, accountProvider, scrapeConfigProvider, collectorRegistry,
+                beanFactory,
                 taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter, deploymentModeUtil) {
             @Override
             void updateScrapeTasks() {
@@ -149,11 +147,10 @@ public class MetricTaskManagerTest extends EasyMockSupport {
                 "region2", ImmutableMap.of(300, metricScrapeTask)
         ));
 
-        Capture<Runnable> capture1 = newCapture();
         expect(deploymentModeUtil.isMultiTenant()).andReturn(false);
         expect(deploymentModeUtil.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
-
+        expect(environmentConfig.isProcessingOff()).andReturn(false);
         replayAll();
         testClass.triggerCWPullOperations();
         verifyAll();

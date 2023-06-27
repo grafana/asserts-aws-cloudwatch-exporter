@@ -74,6 +74,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
+        EnvironmentConfig environmentConfig = mock(EnvironmentConfig.class);
         collectorRegistry = mock(CollectorRegistry.class);
         lambdaFunctionScraper = mock(LambdaFunctionScraper.class);
         lambdaCapacityExporter = mock(LambdaCapacityExporter.class);
@@ -105,6 +106,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         deploymentModeUtil = mock(DeploymentModeUtil.class);
 
         testClass = new MetadataTaskManager(
+                environmentConfig,
                 collectorRegistry, lambdaFunctionScraper, lambdaCapacityExporter, lambdaEventSourceExporter,
                 lambdaInvokeConfigExporter, metricCollector,
                 targetGroupLBMapProvider, relationExporter, lbToASGRelationBuilder, lbToECSRoutingBuilder,
@@ -113,6 +115,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
                 sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter,
                 snsTopicExporter, emrExporter, deploymentModeUtil);
+        expect(environmentConfig.isProcessingOn()).andReturn(true).anyTimes();
+        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
     }
 
     @Test

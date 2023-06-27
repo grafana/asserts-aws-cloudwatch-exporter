@@ -39,23 +39,27 @@ public class AwsExporterBeanConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "deployment.mode", havingValue = "single-tenant-distributed")
+    @ConditionalOnProperty(name = "aws.exporter.deployment.mode", havingValue = "single-tenant-distributed")
     public AccountProvider getDistributedAccountProvider(HekateCluster hekateCluster,
+                                                         EnvironmentConfig environmentConfig,
                                                          AccountIDProvider accountIDProvider,
                                                          AssertsServerUtil assertsServerUtil,
                                                          ScrapeConfigProvider scrapeConfigProvider) {
         return new HekateDistributedAccountProvider(hekateCluster,
-                new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate(),
+                new SingleInstanceAccountProvider(environmentConfig, accountIDProvider, scrapeConfigProvider,
+                        restTemplate(),
                         assertsServerUtil));
     }
 
     @Bean
-    @ConditionalOnProperty(name = "deployment.mode", havingValue = "single-tenant-single-instance", matchIfMissing =
-            true)
+    @ConditionalOnProperty(name = "aws.exporter.deployment.mode", havingValue = "single-tenant-single-instance",
+            matchIfMissing = true)
     public AccountProvider getSingleInstanceAccountProvider(AccountIDProvider accountIDProvider,
+                                                            EnvironmentConfig environmentConfig,
                                                             AssertsServerUtil assertsServerUtil,
                                                             ScrapeConfigProvider scrapeConfigProvider) {
-        return new SingleInstanceAccountProvider(accountIDProvider, scrapeConfigProvider, restTemplate(),
+        return new SingleInstanceAccountProvider(environmentConfig, accountIDProvider, scrapeConfigProvider,
+                restTemplate(),
                 assertsServerUtil);
     }
 }

@@ -71,8 +71,8 @@ public class DeploymentModeUtil {
     private final String tenantMode;
     private final String deploymentMode;
 
-    public DeploymentModeUtil(@Value("tenant.mode") String tenantMode,
-                              @Value("deployment.mode") String deploymentMode) {
+    public DeploymentModeUtil(@Value("${aws.exporter.tenant.mode:single}") String tenantMode,
+                              @Value("${aws.exporter.deployment.mode:single-tenant-single-instance}") String deploymentMode) {
         this.tenantMode = tenantMode;
         this.deploymentMode = deploymentMode;
     }

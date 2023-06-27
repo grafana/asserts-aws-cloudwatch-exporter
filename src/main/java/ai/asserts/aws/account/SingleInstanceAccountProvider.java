@@ -5,6 +5,7 @@
 package ai.asserts.aws.account;
 
 import ai.asserts.aws.AssertsServerUtil;
+import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.AccountIDProvider;
@@ -22,6 +23,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @AllArgsConstructor
 public class SingleInstanceAccountProvider implements AccountProvider {
     public static final String TSDB_USER_NAME = "remoteWrite_basicAuth_username";
+    private final EnvironmentConfig environmentConfig;
     private final AccountIDProvider accountIDProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final RestTemplate restTemplate;
@@ -49,6 +52,9 @@ public class SingleInstanceAccountProvider implements AccountProvider {
     }
 
     private Set<AWSAccount> getAccountsInternal() {
+        if (environmentConfig.isProcessingOff()) {
+            return Collections.emptySet();
+        }
         String tenantName = getTenantName();
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenantName);
         Map<String, AWSAccount> accountRegions = new HashMap<>();

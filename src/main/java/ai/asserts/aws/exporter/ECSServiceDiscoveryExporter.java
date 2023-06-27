@@ -5,6 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.DeploymentModeUtil;
+import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -54,6 +55,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     public static final String SCRAPE_OVER_TLS = "SCRAPE_OVER_TLS";
     public static final String SD_FILE_PATH = "/opt/asserts/ecs-scrape-targets.yml";
     public static final String SD_FILE_PATH_SECURE = "/opt/asserts/ecs-scrape-targets-https.yml";
+    private final EnvironmentConfig environmentConfig;
     private final RestTemplate restTemplate;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ResourceMapper resourceMapper;
@@ -72,11 +74,13 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     @Getter
     protected final Set<String> subnetsToScrape = new TreeSet<>();
 
-    public ECSServiceDiscoveryExporter(RestTemplate restTemplate, AccountIDProvider accountIDProvider,
+    public ECSServiceDiscoveryExporter(EnvironmentConfig environmentConfig,
+                                       RestTemplate restTemplate, AccountIDProvider accountIDProvider,
                                        ScrapeConfigProvider scrapeConfigProvider,
                                        ResourceMapper resourceMapper, ECSTaskUtil ecsTaskUtil,
                                        ObjectMapperFactory objectMapperFactory, ECSTaskProvider ecsTaskProvider,
                                        DeploymentModeUtil deploymentModeUtil) {
+        this.environmentConfig = environmentConfig;
         this.restTemplate = restTemplate;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.resourceMapper = resourceMapper;
@@ -85,7 +89,9 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
         this.ecsTaskProvider = ecsTaskProvider;
         this.accountIDProvider = accountIDProvider;
         this.deploymentModeUtil = deploymentModeUtil;
-        identifySubnetsToScrape();
+        if (environmentConfig.isProcessingOn()) {
+            identifySubnetsToScrape();
+        }
     }
 
     @VisibleForTesting
@@ -100,17 +106,19 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        ClassPathResource classPathResource = new ClassPathResource("/dummy-ecs-targets.yml");
-        File out = new File(SD_FILE_PATH);
-        String src = classPathResource.getURI().toString();
-        String dest = out.getAbsolutePath();
-        try {
-            FileCopyUtils.copy(classPathResource.getInputStream(), newOutputStream(out.toPath()));
-            log.info("Copied dummy fd_config {} to {}", src, dest);
-        } catch (Exception e) {
-            log.error("Failed to copy dummy fd_config {} to {}", src, dest);
+        if (environmentConfig.isProcessingOn()) {
+            ClassPathResource classPathResource = new ClassPathResource("/dummy-ecs-targets.yml");
+            File out = new File(SD_FILE_PATH);
+            String src = classPathResource.getURI().toString();
+            String dest = out.getAbsolutePath();
+            try {
+                FileCopyUtils.copy(classPathResource.getInputStream(), newOutputStream(out.toPath()));
+                log.info("Copied dummy fd_config {} to {}", src, dest);
+            } catch (Exception e) {
+                log.error("Failed to copy dummy fd_config {} to {}", src, dest);
+            }
+            discoverSelfSubnet();
         }
-        discoverSelfSubnet();
     }
 
     /**

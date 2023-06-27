@@ -34,6 +34,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class MetadataTaskManager implements InitializingBean {
+    private final EnvironmentConfig environmentConfig;
     private final CollectorRegistry collectorRegistry;
     private final LambdaFunctionScraper lambdaFunctionScraper;
     private final LambdaCapacityExporter lambdaCapacityExporter;
@@ -62,7 +63,8 @@ public class MetadataTaskManager implements InitializingBean {
     private final EMRExporter emrExporter;
     private final DeploymentModeUtil deploymentModeUtil;
 
-    public MetadataTaskManager(CollectorRegistry collectorRegistry, LambdaFunctionScraper lambdaFunctionScraper,
+    public MetadataTaskManager(EnvironmentConfig environmentConfig, CollectorRegistry collectorRegistry,
+                               LambdaFunctionScraper lambdaFunctionScraper,
                                LambdaCapacityExporter lambdaCapacityExporter,
                                LambdaEventSourceExporter lambdaEventSourceExporter,
                                LambdaInvokeConfigExporter lambdaInvokeConfigExporter,
@@ -83,6 +85,7 @@ public class MetadataTaskManager implements InitializingBean {
                                RDSExporter rdsExporter, DynamoDBExporter dynamoDBExporter,
                                SNSTopicExporter snsTopicExporter, EMRExporter emrExporter,
                                DeploymentModeUtil deploymentModeUtil) {
+        this.environmentConfig = environmentConfig;
         this.collectorRegistry = collectorRegistry;
         this.lambdaFunctionScraper = lambdaFunctionScraper;
         this.lambdaCapacityExporter = lambdaCapacityExporter;
@@ -113,6 +116,11 @@ public class MetadataTaskManager implements InitializingBean {
     }
 
     public void afterPropertiesSet() {
+        if (environmentConfig.isProcessingOff()) {
+            log.info("All processing off");
+            return;
+        }
+
         if (deploymentModeUtil.isMultiTenant() || deploymentModeUtil.isDistributed() ||
                 ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             lambdaFunctionScraper.register(collectorRegistry);
@@ -132,6 +140,11 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void updateMetadata() {
+        if (environmentConfig.isProcessingOff()) {
+            log.info("All processing off");
+            return;
+        }
+
         if (deploymentModeUtil.isSingleInstance() && !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             log.info("Not primary exporter. Skip meta data scraping.");
             return;
@@ -165,10 +178,12 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {
-        taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
-        if (deploymentModeUtil.isDistributed() || (deploymentModeUtil.isSingleInstance() &&
-                ecsServiceDiscoveryExporter.isPrimaryExporter())) {
-            taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
+        if (environmentConfig.isProcessingOn()) {
+            taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
+            if (deploymentModeUtil.isDistributed() || (deploymentModeUtil.isSingleInstance() &&
+                    ecsServiceDiscoveryExporter.isPrimaryExporter())) {
+                taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
+            }
         }
     }
 }

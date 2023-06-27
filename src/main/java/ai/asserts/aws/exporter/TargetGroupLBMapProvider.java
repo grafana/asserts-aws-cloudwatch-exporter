@@ -75,7 +75,6 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
     @Getter
     private volatile MetricFamilySamples metricFamilySamples = null;
 
-
     public TargetGroupLBMapProvider(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                     ResourceMapper resourceMapper, RateLimiter rateLimiter,
                                     MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,

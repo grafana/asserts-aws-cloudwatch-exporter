@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.EnvironmentConfig;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -15,17 +16,23 @@ import software.amazon.awssdk.services.sts.model.GetCallerIdentityResponse;
 @Component
 @Slf4j
 public class AccountIDProvider implements InitializingBean {
-
+    private final EnvironmentConfig environmentConfig;
     @Getter
     private String accountId = "unknown";
 
+    public AccountIDProvider(EnvironmentConfig environmentConfig) {
+        this.environmentConfig = environmentConfig;
+    }
+
     @Override
     public void afterPropertiesSet() {
-        try (StsClient stsClient = getStsClient()) {
-            GetCallerIdentityResponse callerIdentity = stsClient.getCallerIdentity();
-            accountId = callerIdentity.account();
-        } catch (Exception e) {
-            log.error("getCallerIdentity failed", e);
+        if (environmentConfig.isProcessingOn()) {
+            try (StsClient stsClient = getStsClient()) {
+                GetCallerIdentityResponse callerIdentity = stsClient.getCallerIdentity();
+                accountId = callerIdentity.account();
+            } catch (Exception e) {
+                log.error("getCallerIdentity failed", e);
+            }
         }
     }
 

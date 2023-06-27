@@ -34,8 +34,9 @@ import static ai.asserts.aws.ApiServerConstants.ASSERTS_API_SERVER_URL;
 
 @Component
 @Slf4j
-@ConditionalOnProperty(name = "tenant.mode", havingValue = "single", matchIfMissing = true)
+@ConditionalOnProperty(name = "aws.exporter.tenant.mode", havingValue = "single", matchIfMissing = true)
 public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
+    private final EnvironmentConfig environmentConfig;
     private final ObjectMapperFactory objectMapperFactory;
     private final String scrapeConfigFile;
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -48,18 +49,22 @@ public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
     private final AssertsServerUtil assertsServerUtil;
     private volatile ScrapeConfig configCache;
 
-    public SingleTenantScrapeConfigProvider(ObjectMapperFactory objectMapperFactory,
+    public SingleTenantScrapeConfigProvider(EnvironmentConfig environmentConfig,
+                                            ObjectMapperFactory objectMapperFactory,
                                             @Value("${scrape.config.file:cloudwatch_scrape_config.yml}") String scrapeConfigFile,
                                             RestTemplate restTemplate,
                                             SnakeCaseUtil snakeCaseUtil,
                                             AssertsServerUtil assertsServerUtil) {
+        this.environmentConfig = environmentConfig;
         this.objectMapperFactory = objectMapperFactory;
         this.scrapeConfigFile = scrapeConfigFile;
         this.restTemplate = restTemplate;
         this.snakeCaseUtil = snakeCaseUtil;
         this.assertsServerUtil = assertsServerUtil;
         log.info("Single Tenant Scrape Config Provider created");
-        loadAndBuildLookups();
+        if (environmentConfig.isProcessingOn()) {
+            loadAndBuildLookups();
+        }
     }
 
     @Override
@@ -82,6 +87,10 @@ public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
     }
 
     private void loadAndBuildLookups() {
+        if (environmentConfig.isProcessingOff()) {
+            log.info("All processing off");
+            return;
+        }
         readWriteLock.writeLock().lock();
         try {
             configCache = load();
