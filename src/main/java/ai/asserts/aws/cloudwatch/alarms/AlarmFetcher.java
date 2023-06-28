@@ -9,7 +9,7 @@ import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
-import ai.asserts.aws.DeploymentModeUtil;
+import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
@@ -53,7 +53,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskExecutorUtil taskExecutorUtil;
-    private final DeploymentModeUtil deploymentModeUtil;
+    private final EnvironmentConfig environmentConfig;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public AlarmFetcher(AccountProvider accountProvider,
@@ -65,7 +65,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                         ScrapeConfigProvider scrapeConfigProvider,
                         ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
                         TaskExecutorUtil taskExecutorUtil,
-                        DeploymentModeUtil deploymentModeUtil) {
+                        EnvironmentConfig environmentConfig) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;
@@ -75,7 +75,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
         this.taskExecutorUtil = taskExecutorUtil;
-        this.deploymentModeUtil = deploymentModeUtil;
+        this.environmentConfig = environmentConfig;
     }
 
     @Override
@@ -89,7 +89,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     }
 
     public void update() {
-        if (deploymentModeUtil.isSingleTenant() && deploymentModeUtil.isSingleInstance() && !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
+        if (environmentConfig.isSingleTenant() && environmentConfig.isSingleInstance() && !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             log.info("Not primary exporter. Skip fetching CloudWatch alarms");
             return;
         }

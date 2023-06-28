@@ -41,7 +41,8 @@ public class SingleInstanceAccountProviderTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         restTemplate = mock(RestTemplate.class);
         assertsServerUtil = mock(AssertsServerUtil.class);
-        testClass = new SingleInstanceAccountProvider(new EnvironmentConfig("false"), accountIDProvider,
+        testClass = new SingleInstanceAccountProvider(new EnvironmentConfig("false", "single", "single"),
+                accountIDProvider,
                 scrapeConfigProvider
                 , restTemplate,
                 assertsServerUtil) {

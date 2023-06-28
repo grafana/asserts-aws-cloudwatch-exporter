@@ -33,7 +33,6 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     private ExecutorService executorService;
     private AlarmFetcher alarmFetcher;
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
-    private DeploymentModeUtil deploymentModeUtil;
 
     @BeforeEach
     public void setup() {
@@ -48,11 +47,11 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         executorService = mock(ExecutorService.class);
         alarmFetcher = mock(AlarmFetcher.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
-        deploymentModeUtil = mock(DeploymentModeUtil.class);
+        environmentConfig = mock(EnvironmentConfig.class);
         replayAll();
         testClass = new MetricTaskManager(environmentConfig, accountProvider, scrapeConfigProvider, collectorRegistry,
                 beanFactory,
-                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter, deploymentModeUtil);
+                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter);
         verifyAll();
         resetAll();
     }
@@ -61,7 +60,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     void triggerScrapes_fetchMetricsTrue() {
         testClass = new MetricTaskManager(environmentConfig, accountProvider, scrapeConfigProvider, collectorRegistry,
                 beanFactory,
-                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter, deploymentModeUtil) {
+                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter) {
             @Override
             void updateScrapeTasks() {
             }
@@ -74,8 +73,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture1 = newCapture();
         Capture<Runnable> capture2 = newCapture();
         Capture<Runnable> capture3 = newCapture();
-        expect(deploymentModeUtil.isMultiTenant()).andReturn(false);
-        expect(deploymentModeUtil.isDistributed()).andReturn(false);
+        expect(environmentConfig.isMultiTenant()).andReturn(false);
+        expect(environmentConfig.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
         expect(scrapeConfig.isFetchCWMetrics()).andReturn(true).anyTimes();
@@ -104,7 +103,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     void triggerScrapes_fetchMetricsFalse() {
         testClass = new MetricTaskManager(environmentConfig, accountProvider, scrapeConfigProvider, collectorRegistry,
                 beanFactory,
-                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter, deploymentModeUtil) {
+                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter) {
             @Override
             void updateScrapeTasks() {
             }
@@ -115,8 +114,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         ));
 
         Capture<Runnable> capture1 = newCapture();
-        expect(deploymentModeUtil.isMultiTenant()).andReturn(false);
-        expect(deploymentModeUtil.isDistributed()).andReturn(false);
+        expect(environmentConfig.isMultiTenant()).andReturn(false);
+        expect(environmentConfig.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
@@ -137,7 +136,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
     void triggerScrapes_notPrimaryExporter() {
         testClass = new MetricTaskManager(environmentConfig, accountProvider, scrapeConfigProvider, collectorRegistry,
                 beanFactory,
-                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter, deploymentModeUtil) {
+                taskThreadPool, alarmFetcher, ecsServiceDiscoveryExporter) {
             @Override
             void updateScrapeTasks() {
             }
@@ -147,8 +146,8 @@ public class MetricTaskManagerTest extends EasyMockSupport {
                 "region2", ImmutableMap.of(300, metricScrapeTask)
         ));
 
-        expect(deploymentModeUtil.isMultiTenant()).andReturn(false);
-        expect(deploymentModeUtil.isDistributed()).andReturn(false);
+        expect(environmentConfig.isMultiTenant()).andReturn(false);
+        expect(environmentConfig.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
         expect(environmentConfig.isProcessingOff()).andReturn(false);
         replayAll();

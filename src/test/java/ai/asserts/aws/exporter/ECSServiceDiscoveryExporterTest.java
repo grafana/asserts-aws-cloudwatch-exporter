@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.DeploymentModeUtil;
 import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
@@ -52,7 +51,6 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
     private StaticConfig mockStaticConfig;
     private Labels mockLabels;
     private ECSTaskProvider ecsTaskProvider;
-    private DeploymentModeUtil deploymentModeUtil;
     private EnvironmentConfig environmentConfig;
 
     @BeforeEach
@@ -71,7 +69,6 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         mockStaticConfig = mock(StaticConfig.class);
         mockLabels = mock(Labels.class);
         ecsTaskProvider = mock(ECSTaskProvider.class);
-        deploymentModeUtil = mock(DeploymentModeUtil.class);
         resetAll();
         expect(environmentConfig.isProcessingOn()).andReturn(true).anyTimes();
         expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
@@ -91,7 +88,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider, resourceMapper, ecsTaskUtil, objectMapperFactory,
-                ecsTaskProvider, deploymentModeUtil) {
+                ecsTaskProvider) {
             @Override
             String getMetaDataURI() {
                 return "http://localhost";
@@ -114,7 +111,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider, deploymentModeUtil);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider);
 
         testClass.getSubnetDetails().set(SubnetDetails.builder()
                 .vpcId("vpc-id")
@@ -134,7 +131,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider, deploymentModeUtil);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider);
 
         testClass.getSubnetDetails().set(SubnetDetails.builder()
                 .vpcId("vpc-id")
@@ -154,7 +151,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider, deploymentModeUtil);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider);
 
         testClass.getSubnetDetails().set(SubnetDetails.builder()
                 .vpcId("vpc-id")
@@ -174,7 +171,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider, deploymentModeUtil);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider);
 
         testClass.getSubnetDetails().set(SubnetDetails.builder()
                 .vpcId("vpc-id1")
@@ -194,7 +191,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider, deploymentModeUtil);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider);
 
         testClass.getSubnetDetails().set(SubnetDetails.builder()
                 .vpcId("vpc-id")
@@ -214,7 +211,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider, deploymentModeUtil) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider) {
             @Override
             void identifySubnetsToScrape() {
                 super.subnetsToScrape.add("subnet-1");
@@ -262,7 +259,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void run() throws Exception {
-        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
+        expect(environmentConfig.isSingleInstance()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig);
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
@@ -289,7 +286,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider, deploymentModeUtil);
+                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider);
         testClass.getSubnetDetails().set(SubnetDetails.builder().vpcId("vpc-id").subnetId("subnet-id").build());
         testClass.run();
 
@@ -298,7 +295,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void runTLSEnabled() {
-        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
+        expect(environmentConfig.isSingleInstance()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig);
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
@@ -320,7 +317,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         ECSServiceDiscoveryExporter testClass = new ECSServiceDiscoveryExporter(
                 environmentConfig,
                 restTemplate, accountIDProvider, scrapeConfigProvider,
-                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider, deploymentModeUtil) {
+                resourceMapper, ecsTaskUtil, objectMapperFactory, ecsTaskProvider) {
             @Override
             void writeFile(ScrapeConfig scrapeConfig, List<StaticConfig> targets, String filePath) {
                 writes.put(filePath, targets);
