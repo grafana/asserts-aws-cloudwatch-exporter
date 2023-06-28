@@ -20,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 @SuppressWarnings("unused")
 public class AwsExporterBeanConfiguration {
     @Bean
+    @ConditionalOnProperty(name = "aws.exporter.tenant.mode", havingValue = "single", matchIfMissing = true)
     public RestTemplate restTemplate() {
         return new RestTemplate();
     }
@@ -37,6 +38,12 @@ public class AwsExporterBeanConfiguration {
     @Bean("aws-api-calls-thread-pool")
     public TaskThreadPool awsAPICallsPool(MeterRegistry meterRegistry) {
         return new TaskThreadPool("aws-api-calls-thread-pool", 5, meterRegistry);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "aws.exporter.deployment.mode",  havingValue = "single-tenant-distributed")
+    public HekateCluster hekateCluster() {
+        return new HekateCluster();
     }
 
     @Bean
