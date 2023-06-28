@@ -11,29 +11,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class EnvironmentConfigTest {
     @Test
-    void testOff() {
-        assertTrue(new EnvironmentConfig("true").isProcessingOff());
-        assertFalse(new EnvironmentConfig("true").isProcessingOn());
-
-        assertTrue(new EnvironmentConfig("yes").isProcessingOff());
-        assertFalse(new EnvironmentConfig("yes").isProcessingOn());
-
-        assertTrue(new EnvironmentConfig("y").isProcessingOff());
-        assertFalse(new EnvironmentConfig("y").isProcessingOn());
+    public void singleInstanceMode() {
+        EnvironmentConfig util = new EnvironmentConfig("false",
+                "multi", "single");
+        assertFalse(util.isDistributed());
     }
 
     @Test
-    void testOn() {
-        assertFalse(new EnvironmentConfig(null).isProcessingOff());
-        assertTrue(new EnvironmentConfig(null).isProcessingOn());
+    public void distributedMode() {
+        EnvironmentConfig util = new EnvironmentConfig("false",
+                "single", "distributed");
+        assertTrue(util.isDistributed());
+    }
 
-        assertFalse(new EnvironmentConfig("false").isProcessingOff());
-        assertTrue(new EnvironmentConfig("false").isProcessingOn());
+    @Test
+    public void singleTenantModel() {
+        EnvironmentConfig util = new EnvironmentConfig("false", "single", "single-tenant-single-instance");
+        assertTrue(util.isSingleTenant());
+    }
 
-        assertFalse(new EnvironmentConfig("no").isProcessingOff());
-        assertTrue(new EnvironmentConfig("no").isProcessingOn());
+    @Test
+    public void multiTenantMode() {
+        EnvironmentConfig util = new EnvironmentConfig("false",
+                "multi", "single-tenant-distributed");
+        assertTrue(util.isMultiTenant());
+    }
 
-        assertFalse(new EnvironmentConfig("n").isProcessingOff());
-        assertTrue(new EnvironmentConfig("n").isProcessingOn());
+    @Test
+    public void processingFlag() {
+        EnvironmentConfig util = new EnvironmentConfig("false",
+                "multi", "single");
+        assertFalse(util.isProcessingOff());
+        assertTrue(util.isProcessingOn());
+
+        util = new EnvironmentConfig("true",
+                "multi", "single");
+        assertTrue(util.isProcessingOff());
+        assertFalse(util.isProcessingOn());
     }
 }

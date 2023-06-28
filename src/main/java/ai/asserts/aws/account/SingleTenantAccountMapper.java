@@ -14,7 +14,7 @@ import java.util.Map;
 import static ai.asserts.aws.account.SingleInstanceAccountProvider.TSDB_USER_NAME;
 
 @Component
-@ConditionalOnProperty(name = "aws.exporter.tenant.mode", havingValue = "single", matchIfMissing = true)
+@ConditionalOnProperty(name = "aws_exporter.tenant_mode", havingValue = "single", matchIfMissing = true)
 @Slf4j
 public class SingleTenantAccountMapper implements AccountTenantMapper {
     public SingleTenantAccountMapper() {

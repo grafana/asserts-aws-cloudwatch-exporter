@@ -61,7 +61,6 @@ public class MetadataTaskManager implements InitializingBean {
     private final DynamoDBExporter dynamoDBExporter;
     private final SNSTopicExporter snsTopicExporter;
     private final EMRExporter emrExporter;
-    private final DeploymentModeUtil deploymentModeUtil;
 
     public MetadataTaskManager(EnvironmentConfig environmentConfig, CollectorRegistry collectorRegistry,
                                LambdaFunctionScraper lambdaFunctionScraper,
@@ -83,8 +82,7 @@ public class MetadataTaskManager implements InitializingBean {
                                RedshiftExporter redshiftExporter, SQSQueueExporter sqsQueueExporter,
                                KinesisStreamExporter kinesisStreamExporter, LoadBalancerExporter loadBalancerExporter,
                                RDSExporter rdsExporter, DynamoDBExporter dynamoDBExporter,
-                               SNSTopicExporter snsTopicExporter, EMRExporter emrExporter,
-                               DeploymentModeUtil deploymentModeUtil) {
+                               SNSTopicExporter snsTopicExporter, EMRExporter emrExporter) {
         this.environmentConfig = environmentConfig;
         this.collectorRegistry = collectorRegistry;
         this.lambdaFunctionScraper = lambdaFunctionScraper;
@@ -112,7 +110,6 @@ public class MetadataTaskManager implements InitializingBean {
         this.dynamoDBExporter = dynamoDBExporter;
         this.snsTopicExporter = snsTopicExporter;
         this.emrExporter = emrExporter;
-        this.deploymentModeUtil = deploymentModeUtil;
     }
 
     public void afterPropertiesSet() {
@@ -121,7 +118,7 @@ public class MetadataTaskManager implements InitializingBean {
             return;
         }
 
-        if (deploymentModeUtil.isMultiTenant() || deploymentModeUtil.isDistributed() ||
+        if (environmentConfig.isMultiTenant() || environmentConfig.isDistributed() ||
                 ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             lambdaFunctionScraper.register(collectorRegistry);
             lambdaCapacityExporter.register(collectorRegistry);
@@ -145,7 +142,7 @@ public class MetadataTaskManager implements InitializingBean {
             return;
         }
 
-        if (deploymentModeUtil.isSingleTenant() && deploymentModeUtil.isSingleInstance() &&
+        if (environmentConfig.isSingleTenant() && environmentConfig.isSingleInstance() &&
                 !ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             log.info("Not primary exporter. Skip meta data scraping.");
             return;
@@ -181,8 +178,8 @@ public class MetadataTaskManager implements InitializingBean {
     public void perMinute() {
         if (environmentConfig.isProcessingOn()) {
             taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
-            if (deploymentModeUtil.isDistributed() || (deploymentModeUtil.isSingleTenant() &&
-                    deploymentModeUtil.isSingleInstance() &&
+            if (environmentConfig.isDistributed() || (environmentConfig.isSingleTenant() &&
+                    environmentConfig.isSingleInstance() &&
                     ecsServiceDiscoveryExporter.isPrimaryExporter())) {
                 taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
             }

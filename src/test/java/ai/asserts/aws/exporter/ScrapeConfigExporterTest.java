@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -22,13 +21,11 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
-import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static ai.asserts.aws.model.CWNamespace.lambda;
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ScrapeConfigExporterTest extends EasyMockSupport {
-    private EnvironmentConfig environmentConfig;
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
     private NamespaceConfig namespaceConfig;
@@ -41,7 +38,6 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        environmentConfig = mock(EnvironmentConfig.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         namespaceConfig = mock(NamespaceConfig.class);
@@ -51,8 +47,7 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
         metricFamilySamples = mock(Collector.MetricFamilySamples.class);
         collectorRegistry = mock(CollectorRegistry.class);
         accountProvider = mock(AccountProvider.class);
-        testClass = new ScrapeConfigExporter(environmentConfig, accountProvider, scrapeConfigProvider,
-                metricSampleBuilder,
+        testClass = new ScrapeConfigExporter(accountProvider, scrapeConfigProvider, metricSampleBuilder,
                 collectorRegistry);
     }
 
@@ -66,7 +61,6 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
 
     @Test
     public void collect() {
-        expect(environmentConfig.isProcessingOn()).andReturn(true);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(
                 AWSAccount.builder()
                         .tenant("tenant")
@@ -79,21 +73,12 @@ public class ScrapeConfigExporterTest extends EasyMockSupport {
 
         expect(namespaceConfig.getEffectiveScrapeInterval()).andReturn(61);
         expect(metricSampleBuilder.buildSingleSample("aws_exporter_scrape_interval",
-                ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, "AWS/Lambda", TENANT, "tenant"), 61.0D)).andReturn(
-                Optional.of(sample));
+                ImmutableMap.of(SCRAPE_NAMESPACE_LABEL, "AWS/Lambda"), 61.0D)).andReturn(Optional.of(sample));
 
         expect(metricSampleBuilder.buildFamily(ImmutableList.of(sample))).andReturn(Optional.of(metricFamilySamples));
 
         replayAll();
         assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());
-        verifyAll();
-    }
-
-    @Test
-    public void collect_off() {
-        expect(environmentConfig.isProcessingOn()).andReturn(false);
-        replayAll();
-        assertEquals(ImmutableList.of(), testClass.collect());
         verifyAll();
     }
 }

@@ -34,7 +34,7 @@ import static ai.asserts.aws.ApiServerConstants.ASSERTS_API_SERVER_URL;
 
 @Component
 @Slf4j
-@ConditionalOnProperty(name = "aws.exporter.tenant.mode", havingValue = "single", matchIfMissing = true)
+@ConditionalOnProperty(name = "aws_exporter.tenant_mode", havingValue = "single", matchIfMissing = true)
 public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
     private final EnvironmentConfig environmentConfig;
     private final ObjectMapperFactory objectMapperFactory;

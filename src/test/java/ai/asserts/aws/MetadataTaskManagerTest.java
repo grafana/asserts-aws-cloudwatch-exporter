@@ -69,12 +69,11 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private DynamoDBExporter dynamoDBExporter;
     private SNSTopicExporter snsTopicExporter;
     private EMRExporter emrExporter;
-    private DeploymentModeUtil deploymentModeUtil;
+    private EnvironmentConfig environmentConfig;
     private MetadataTaskManager testClass;
 
     @BeforeEach
     public void setup() {
-        EnvironmentConfig environmentConfig = mock(EnvironmentConfig.class);
         collectorRegistry = mock(CollectorRegistry.class);
         lambdaFunctionScraper = mock(LambdaFunctionScraper.class);
         lambdaCapacityExporter = mock(LambdaCapacityExporter.class);
@@ -103,7 +102,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         dynamoDBExporter = mock(DynamoDBExporter.class);
         snsTopicExporter = mock(SNSTopicExporter.class);
         emrExporter = mock(EMRExporter.class);
-        deploymentModeUtil = mock(DeploymentModeUtil.class);
+        environmentConfig = mock(EnvironmentConfig.class);
 
         testClass = new MetadataTaskManager(
                 environmentConfig,
@@ -114,15 +113,15 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
                 apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
                 sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter,
-                snsTopicExporter, emrExporter, deploymentModeUtil);
+                snsTopicExporter, emrExporter);
         expect(environmentConfig.isProcessingOn()).andReturn(true).anyTimes();
         expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
     }
 
     @Test
     public void afterPropertiesSet_primaryExporter() {
-        expect(deploymentModeUtil.isMultiTenant()).andReturn(false);
-        expect(deploymentModeUtil.isDistributed()).andReturn(false);
+        expect(environmentConfig.isMultiTenant()).andReturn(false);
+        expect(environmentConfig.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(lambdaFunctionScraper.register(collectorRegistry)).andReturn(null);
         expect(lambdaCapacityExporter.register(collectorRegistry)).andReturn(null);
@@ -138,8 +137,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void afterPropertiesSet_notPrimaryExporter() {
-        expect(deploymentModeUtil.isMultiTenant()).andReturn(false);
-        expect(deploymentModeUtil.isDistributed()).andReturn(false);
+        expect(environmentConfig.isMultiTenant()).andReturn(false);
+        expect(environmentConfig.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
         replayAll();
         testClass.afterPropertiesSet();
@@ -148,8 +147,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void updateMetadata_primaryExporter() {
-        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
-        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
+        expect(environmentConfig.isSingleTenant()).andReturn(true);
+        expect(environmentConfig.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
@@ -250,8 +249,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     @Test
     @SuppressWarnings("null")
     public void updateMetadata_notPrimaryExporter() {
-        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
-        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
+        expect(environmentConfig.isSingleTenant()).andReturn(true);
+        expect(environmentConfig.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
 
         replayAll();
@@ -263,7 +262,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void perMinuteTasks_distributedMode() {
-        expect(deploymentModeUtil.isDistributed()).andReturn(true);
+        expect(environmentConfig.isDistributed()).andReturn(true);
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
@@ -284,9 +283,9 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
 
     @Test
     public void perMinuteTasks_singleInstancePrimaryMode() {
-        expect(deploymentModeUtil.isSingleTenant()).andReturn(true);
-        expect(deploymentModeUtil.isDistributed()).andReturn(false);
-        expect(deploymentModeUtil.isSingleInstance()).andReturn(true);
+        expect(environmentConfig.isSingleTenant()).andReturn(true);
+        expect(environmentConfig.isDistributed()).andReturn(false);
+        expect(environmentConfig.isSingleInstance()).andReturn(true);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();

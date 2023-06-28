@@ -20,7 +20,7 @@ import org.springframework.web.client.RestTemplate;
 @SuppressWarnings("unused")
 public class AwsExporterBeanConfiguration {
     @Bean
-    @ConditionalOnProperty(name = "aws.exporter.tenant.mode", havingValue = "single", matchIfMissing = true)
+    @ConditionalOnProperty(name = "aws_exporter.tenant_mode", havingValue = "single", matchIfMissing = true)
     public RestTemplate restTemplate() {
         return new RestTemplate();
     }
@@ -41,13 +41,13 @@ public class AwsExporterBeanConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "aws.exporter.deployment.mode",  havingValue = "single-tenant-distributed")
+    @ConditionalOnProperty(name = "aws_exporter.deployment_mode",  havingValue = "single-tenant-distributed")
     public HekateCluster hekateCluster() {
         return new HekateCluster();
     }
 
     @Bean
-    @ConditionalOnProperty(name = "aws.exporter.deployment.mode", havingValue = "single-tenant-distributed")
+    @ConditionalOnProperty(name = "aws_exporter.deployment_mode",  havingValue = "single-tenant-distributed")
     public AccountProvider getDistributedAccountProvider(HekateCluster hekateCluster,
                                                          EnvironmentConfig environmentConfig,
                                                          AccountIDProvider accountIDProvider,
@@ -64,7 +64,7 @@ public class AwsExporterBeanConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "aws.exporter.deployment.mode", havingValue = "single-tenant-single-instance",
+    @ConditionalOnProperty(name = "aws_exporter.deployment_mode", havingValue = "single-tenant-single-instance",
             matchIfMissing = true)
     public AccountProvider getSingleInstanceAccountProvider(AccountIDProvider accountIDProvider,
                                                             EnvironmentConfig environmentConfig,

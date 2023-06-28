@@ -4,7 +4,6 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.DeploymentModeUtil;
 import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
@@ -66,8 +65,6 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
 
     private final AccountIDProvider accountIDProvider;
 
-    private final DeploymentModeUtil deploymentModeUtil;
-
     @Getter
     private final AtomicReference<SubnetDetails> subnetDetails = new AtomicReference<>(null);
 
@@ -78,8 +75,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
                                        RestTemplate restTemplate, AccountIDProvider accountIDProvider,
                                        ScrapeConfigProvider scrapeConfigProvider,
                                        ResourceMapper resourceMapper, ECSTaskUtil ecsTaskUtil,
-                                       ObjectMapperFactory objectMapperFactory, ECSTaskProvider ecsTaskProvider,
-                                       DeploymentModeUtil deploymentModeUtil) {
+                                       ObjectMapperFactory objectMapperFactory, ECSTaskProvider ecsTaskProvider) {
         this.environmentConfig = environmentConfig;
         this.restTemplate = restTemplate;
         this.scrapeConfigProvider = scrapeConfigProvider;
@@ -88,7 +84,6 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
         this.objectMapperFactory = objectMapperFactory;
         this.ecsTaskProvider = ecsTaskProvider;
         this.accountIDProvider = accountIDProvider;
-        this.deploymentModeUtil = deploymentModeUtil;
         if (environmentConfig.isProcessingOn()) {
             identifySubnetsToScrape();
         }
@@ -156,7 +151,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     @Override
     public void run() {
         // TODO ECS Service Discovery Exporter should not run in multi-tenant mode
-        if (deploymentModeUtil.isSingleInstance()) {
+        if (environmentConfig.isSingleInstance()) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(null);
             if (scrapeConfig.isDiscoverECSTasks()) {
                 List<StaticConfig> targets = new ArrayList<>(ecsTaskProvider.getScrapeTargets());

@@ -96,9 +96,9 @@ bootJar {
 // To test Hekate locally
 //bootRun {
 //    jvmArgs = [
-//            "-Daws.exporter.tenant.mode=single",
-//            "-Daws.exporter.deployment.mode=single-tenant-single-instance",
-//            "-Daws.exporter.processing.off=false",
+//            "-Daws_exporter.tenant_mode=single",
+//            "-Daws_exporter.deployment_mode=single-tenant-single-instance",
+//            "-Daws_exporter.processing_off=false",
 //            "-Dhekate.enable=false",
 //            "-Dhekate.cluster.seed.cloudstore.enable=false",
 //            "-Dhekate.cluster.seed.cloudstore.provider=aws-s3",

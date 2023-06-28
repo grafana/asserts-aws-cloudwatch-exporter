@@ -34,8 +34,6 @@ public class MetricTaskManager {
     private final TaskThreadPool taskThreadPool;
     private final AlarmFetcher alarmFetcher;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
-    private final DeploymentModeUtil deploymentModeUtil;
-
     /**
      * Maintains the last scrape time for all the metrics of a given scrape interval. The scrapes are
      * not expected to happen concurrently so no need to worry about thread safety
@@ -48,8 +46,7 @@ public class MetricTaskManager {
                              ScrapeConfigProvider scrapeConfigProvider,
                              CollectorRegistry collectorRegistry, AutowireCapableBeanFactory beanFactory,
                              @Qualifier("metric-task-trigger-thread-pool") TaskThreadPool taskThreadPool,
-                             AlarmFetcher alarmFetcher, ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
-                             DeploymentModeUtil deploymentModeUtil) {
+                             AlarmFetcher alarmFetcher, ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter) {
         this.environmentConfig = environmentConfig;
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
@@ -58,7 +55,6 @@ public class MetricTaskManager {
         this.taskThreadPool = taskThreadPool;
         this.alarmFetcher = alarmFetcher;
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
-        this.deploymentModeUtil = deploymentModeUtil;
     }
 
     @SuppressWarnings("unused")
@@ -69,7 +65,7 @@ public class MetricTaskManager {
             log.info("All processing off");
             return;
         }
-        if (deploymentModeUtil.isMultiTenant() || deploymentModeUtil.isDistributed() ||
+        if (environmentConfig.isMultiTenant() || environmentConfig.isDistributed() ||
                 ecsServiceDiscoveryExporter.isPrimaryExporter()) {
             ExecutorService executorService = taskThreadPool.getExecutorService();
             updateScrapeTasks();

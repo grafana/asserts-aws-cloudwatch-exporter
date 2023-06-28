@@ -21,7 +21,7 @@ public class AccountIDProviderTest extends EasyMockSupport {
 
     @BeforeEach
     public void setup() {
-        environmentConfig = new EnvironmentConfig("false");
+        environmentConfig = new EnvironmentConfig("false", "single", "single-tenant-single-instance");
         stsClient = mock(StsClient.class);
         testClass = new AccountIDProvider(environmentConfig) {
             @Override
