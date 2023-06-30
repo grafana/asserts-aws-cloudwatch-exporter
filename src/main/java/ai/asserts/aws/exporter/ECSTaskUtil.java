@@ -11,6 +11,7 @@ import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
+import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.LogConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.exporter.Labels.LabelsBuilder;
 import ai.asserts.aws.resource.Resource;
@@ -158,6 +159,12 @@ public class ECSTaskUtil {
                         StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
                                 labels, k -> StaticConfig.builder().labels(labels).build());
                         staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
+                        if (cD.logConfiguration() != null) {
+                            LogConfig logConfig = LogConfig.builder()
+                                    .logDriver(cD.logConfiguration().logDriver().toString())
+                                    .options(cD.logConfiguration().options()).build();
+                            staticConfig.getLogConfigs().add(logConfig);
+                        }
                     } else {
                         log.warn("Docker labels for prometheus port and path not found for container {}/{}",
                                 taskDefinition.taskDefinitionArn(),

@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.SnakeCaseUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
@@ -18,6 +19,7 @@ import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import io.prometheus.client.CollectorRegistry;
@@ -30,6 +32,7 @@ import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
 import software.amazon.awssdk.services.ecs.model.DesiredStatus;
 import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
 import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
+import software.amazon.awssdk.services.ecs.model.LogDriver;
 import software.amazon.awssdk.services.ecs.model.Task;
 
 import java.util.HashMap;
@@ -38,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 
+import static ai.asserts.aws.exporter.ECSTaskProvider.CONTAINER_LOG_INFO_METRIC;
 import static ai.asserts.aws.exporter.ECSTaskProvider.TASK_META_METRIC;
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
@@ -47,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SuppressWarnings({"unchecked", "deprecation"})
+@SuppressWarnings({"unchecked"})
 public class ECSTaskProviderTest extends EasyMockSupport {
     private AWSClientProvider awsClientProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
@@ -67,6 +71,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
     private StaticConfig mockStaticConfig;
 
     private TaskExecutorUtil taskExecutorUtil;
+    private SnakeCaseUtil snakeCaseUtil;
     private ECSTaskProvider testClass;
 
     @BeforeEach
@@ -84,13 +89,14 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         ecsClient = mock(EcsClient.class);
         mockStaticConfig = mock(StaticConfig.class);
         mockSample = mock(Sample.class);
+        snakeCaseUtil = new SnakeCaseUtil();
         mockFamilySamples = mock(Collector.MetricFamilySamples.class);
         taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
                 new RateLimiter(basicMetricCollector, (accountId) -> "acme"));
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
                 ecsTaskUtil, sampleBuilder,
-                collectorRegistry, taskExecutorUtil);
+                collectorRegistry, taskExecutorUtil, snakeCaseUtil);
     }
 
 
@@ -116,28 +122,89 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .name("task1")
                 .build();
 
+        ImmutableMap<String, String> logDriverOptions1 = ImmutableMap.of(
+                "awslogs-group", "asserts-aws-integration-Dev1",
+                "awslogs-region", "us-west-2",
+                "awslogs-stream-prefix", "cloudwatch-exporter1"
+        );
+
+        ImmutableMap<String, String> logDriverOptions2 = ImmutableMap.of(
+                "awslogs-group", "asserts-aws-integration-Dev2",
+                "awslogs-region", "us-west-2",
+                "awslogs-stream-prefix", "cloudwatch-exporter2"
+        );
+
         Map<Resource, Map<Resource, List<StaticConfig>>> tasksByCluster = testClass.getTasksByCluster();
         tasksByCluster.put(cluster1, ImmutableMap.of(task1, ImmutableList.of(mockStaticConfig, mockStaticConfig)));
 
         Labels labels1 = Labels.builder()
+                .accountId("account1")
+                .region("us-west-2")
+                .cluster("cluster")
+                .container("container1")
                 .vpcId("vpc-1")
+                .workload("hello-world")
                 .build();
         expect(mockStaticConfig.getLabels()).andReturn(labels1);
         expect(sampleBuilder.buildSingleSample(TASK_META_METRIC, labels1, 1.0D))
                 .andReturn(Optional.of(mockSample));
 
+        expect(mockStaticConfig.getLogConfigs()).andReturn(
+                ImmutableSet.of(ECSServiceDiscoveryExporter.LogConfig.builder()
+                        .logDriver(LogDriver.AWSLOGS.toString())
+                        .options(logDriverOptions1)
+                        .build()));
+
+        expect(sampleBuilder.buildSingleSample(CONTAINER_LOG_INFO_METRIC,
+                ImmutableSortedMap.<String, String>naturalOrder()
+                        .put("account_id", "account1")
+                        .put("region", "us-west-2")
+                        .put("cluster", "cluster")
+                        .put("container", "container1")
+                        .put("workload", "hello-world")
+                        .put("driver_name", "awslogs")
+                        .put("awslogs_group", "asserts-aws-integration-Dev1")
+                        .put("awslogs_region", "us-west-2")
+                        .put("awslogs_stream_prefix", "cloudwatch-exporter1")
+                        .build(), 1.0D)).andReturn(Optional.of(mockSample));
+
         Labels labels2 = Labels.builder()
+                .accountId("account1")
+                .region("us-west-2")
+                .cluster("cluster")
+                .container("container2")
+                .workload("hello-world")
                 .vpcId("vpc-1")
                 .build();
         expect(mockStaticConfig.getLabels()).andReturn(labels2);
         expect(sampleBuilder.buildSingleSample(TASK_META_METRIC, labels2, 1.0D))
                 .andReturn(Optional.of(mockSample));
 
+        expect(mockStaticConfig.getLogConfigs()).andReturn(
+                ImmutableSet.of(ECSServiceDiscoveryExporter.LogConfig.builder()
+                        .logDriver(LogDriver.AWSLOGS.toString())
+                        .options(logDriverOptions2)
+                        .build()));
+        expect(sampleBuilder.buildSingleSample(CONTAINER_LOG_INFO_METRIC,
+                ImmutableSortedMap.<String, String>naturalOrder()
+                        .put("account_id", "account1")
+                        .put("region", "us-west-2")
+                        .put("cluster", "cluster")
+                        .put("container", "container2")
+                        .put("workload", "hello-world")
+                        .put("driver_name", "awslogs")
+                        .put("awslogs_group", "asserts-aws-integration-Dev2")
+                        .put("awslogs_region", "us-west-2")
+                        .put("awslogs_stream_prefix", "cloudwatch-exporter2")
+                        .build(), 1.0D)).andReturn(Optional.of(mockSample));
+
+        expect(sampleBuilder.buildFamily(ImmutableList.of(mockSample, mockSample))).andReturn(
+                Optional.of(mockFamilySamples));
         expect(sampleBuilder.buildFamily(ImmutableList.of(mockSample, mockSample))).andReturn(
                 Optional.of(mockFamilySamples));
 
         replayAll();
-        assertEquals(ImmutableList.of(mockFamilySamples), testClass.collect());
+        assertEquals(ImmutableList.of(mockFamilySamples, mockFamilySamples), testClass.collect());
         verifyAll();
     }
 
@@ -173,7 +240,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
                 ecsTaskUtil, sampleBuilder,
-                collectorRegistry, taskExecutorUtil) {
+                collectorRegistry, taskExecutorUtil, snakeCaseUtil) {
             @Override
             void discoverNewTasks(Map<Resource, List<Resource>> clusterWiseNewTasks, EcsClient ecsClient,
                                   Resource cluster) {

@@ -28,6 +28,8 @@ import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTaskDefinitionResponse;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
+import software.amazon.awssdk.services.ecs.model.LogConfiguration;
+import software.amazon.awssdk.services.ecs.model.LogDriver;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskDefinition;
 
@@ -141,6 +143,11 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
+        ImmutableMap<String, String> logDriverOptions = ImmutableMap.of(
+                "awslogs-group", "asserts-aws-integration-Dev",
+                "awslogs-region", "us-west-2",
+                "awslogs-stream-prefix", "cloudwatch-exporter"
+        );
         TaskDefinition taskDefinition = TaskDefinition.builder()
                 .containerDefinitions(ContainerDefinition.builder()
                         .name("model-builder")
@@ -149,6 +156,10 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                                 PROMETHEUS_METRIC_PATH_DOCKER_LABEL, "/metric/path",
                                 PROMETHEUS_PORT_DOCKER_LABEL, "8080"
                         ))
+                        .logConfiguration(LogConfiguration.builder()
+                                .logDriver(LogDriver.AWSLOGS)
+                                .options(logDriverOptions)
+                                .build())
                         .build())
                 .build();
 
@@ -195,7 +206,12 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 () -> assertEquals("/metric/path", staticConfig.getLabels().getMetricsPath()),
                 () -> assertEquals("model-builder", staticConfig.getLabels().getContainer()),
                 () -> assertEquals("vpc-id", staticConfig.getLabels().getVpcId()),
-                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"), staticConfig.getTargets())
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"), staticConfig.getTargets()),
+                () -> assertEquals(ImmutableSet.of(ECSServiceDiscoveryExporter.LogConfig.builder()
+                                .logDriver(LogDriver.AWSLOGS.toString())
+                                .options(logDriverOptions)
+                                .build()),
+                        staticConfig.getLogConfigs())
         );
         verifyAll();
     }
