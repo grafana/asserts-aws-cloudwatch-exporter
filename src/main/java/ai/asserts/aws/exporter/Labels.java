@@ -61,6 +61,7 @@ public class Labels extends HashMap<String, String> {
         }
         if (workload != null) {
             put("workload", workload);
+            put("service", workload);
         }
         if (job != null) {
             put("job", job);

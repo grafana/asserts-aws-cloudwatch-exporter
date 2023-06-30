@@ -8,6 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
+import ai.asserts.aws.SnakeCaseUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -53,9 +55,9 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
  */
 @Component
 @Slf4j
-@Deprecated
 public class ECSTaskProvider extends Collector implements InitializingBean {
     public static final String TASK_META_METRIC = "aws_ecs_task_info";
+    public static final String CONTAINER_LOG_INFO_METRIC = "aws_ecs_container_log_info";
     private final AWSClientProvider awsClientProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AccountProvider accountProvider;
@@ -66,6 +68,7 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
     private final MetricSampleBuilder sampleBuilder;
     private final TaskExecutorUtil taskExecutorUtil;
     private final CollectorRegistry collectorRegistry;
+    private final SnakeCaseUtil snakeCaseUtil;
 
     @Getter
     @VisibleForTesting
@@ -75,7 +78,7 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
                            AccountProvider accountProvider, RateLimiter rateLimiter, ResourceMapper resourceMapper,
                            ECSClusterProvider ecsClusterProvider, ECSTaskUtil ecsTaskUtil,
                            MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,
-                           TaskExecutorUtil taskExecutorUtil) {
+                           TaskExecutorUtil taskExecutorUtil, SnakeCaseUtil snakeCaseUtil) {
         this.awsClientProvider = awsClientProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.accountProvider = accountProvider;
@@ -86,19 +89,38 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
         this.sampleBuilder = sampleBuilder;
         this.collectorRegistry = collectorRegistry;
         this.taskExecutorUtil = taskExecutorUtil;
+        this.snakeCaseUtil = snakeCaseUtil;
     }
 
     @Override
     public List<MetricFamilySamples> collect() {
-        List<Sample> samples = new ArrayList<>();
+        List<Sample> metaMetricSamples = new ArrayList<>();
+        List<Sample> logInfoSamples = new ArrayList<>();
         tasksByCluster.values().stream()
                 .flatMap(taskMap -> taskMap.values().stream())
                 .flatMap(Collection::stream)
-                .forEach(target ->
-                        sampleBuilder.buildSingleSample(TASK_META_METRIC, target.getLabels(), 1.0D)
-                                .ifPresent(samples::add));
+                .forEach(target -> {
+                    Labels labels = target.getLabels();
+                    sampleBuilder.buildSingleSample(TASK_META_METRIC, labels, 1.0D)
+                            .ifPresent(metaMetricSamples::add);
+
+                    target.getLogConfigs().forEach(logConfig -> {
+                        Map<String, String> logInfoLabels = new TreeMap<>();
+                        logInfoLabels.put(SCRAPE_ACCOUNT_ID_LABEL, labels.getAccountId());
+                        logInfoLabels.put(SCRAPE_REGION_LABEL, labels.getRegion());
+                        logInfoLabels.put("cluster", labels.getCluster());
+                        logInfoLabels.put("workload", labels.getWorkload());
+                        logInfoLabels.put("container", labels.getContainer());
+                        logInfoLabels.put("driver_name", logConfig.getLogDriver());
+                        logConfig.getOptions()
+                                .forEach((key, value) -> logInfoLabels.put(snakeCaseUtil.toSnakeCase(key), value));
+                        sampleBuilder.buildSingleSample(CONTAINER_LOG_INFO_METRIC, logInfoLabels, 1.0D)
+                                .ifPresent(logInfoSamples::add);
+                    });
+                });
         List<MetricFamilySamples> familySamples = new ArrayList<>();
-        sampleBuilder.buildFamily(samples).ifPresent(familySamples::add);
+        sampleBuilder.buildFamily(metaMetricSamples).ifPresent(familySamples::add);
+        sampleBuilder.buildFamily(logInfoSamples).ifPresent(familySamples::add);
         return familySamples;
     }
 

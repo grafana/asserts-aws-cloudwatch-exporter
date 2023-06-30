@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -245,6 +246,16 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     public static class StaticConfig {
         private final Set<String> targets = new TreeSet<>();
         private final Labels labels;
+        private final Set<LogConfig> logConfigs = new HashSet<>();
+    }
+
+    @Builder
+    @Getter
+    @ToString
+    @EqualsAndHashCode
+    public static class LogConfig {
+        private final String logDriver;
+        private final Map<String, String> options;
     }
 
     @Getter
