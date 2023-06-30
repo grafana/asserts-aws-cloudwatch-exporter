@@ -262,10 +262,11 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig);
 
-        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).times(2);
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(awsClientProvider.getECSClient("region", awsAccount)).andReturn(ecsClient);
         expect(ecsClusterProvider.getClusters(awsAccount, "region")).andReturn(ImmutableSet.of(cluster1));
         replayAll();
+        testClass.run();
         assertEquals(ImmutableList.of(mockStaticConfig), testClass.getScrapeTargets());
         verifyAll();
     }
