@@ -5,6 +5,7 @@ import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.DynamoDBExporter;
 import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
+import ai.asserts.aws.exporter.ECSTaskProvider;
 import ai.asserts.aws.exporter.EMRExporter;
 import ai.asserts.aws.exporter.KinesisAnalyticsExporter;
 import ai.asserts.aws.exporter.KinesisFirehoseExporter;
@@ -52,6 +53,7 @@ public class MetadataTaskManager implements InitializingBean {
     private final S3BucketExporter s3BucketExporter;
     private final TaskThreadPool taskThreadPool;
     private final ScrapeConfigProvider scrapeConfigProvider;
+    private final ECSTaskProvider ecsTaskProvider;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final RedshiftExporter redshiftExporter;
     private final SQSQueueExporter sqsQueueExporter;
@@ -78,6 +80,7 @@ public class MetadataTaskManager implements InitializingBean {
                                KinesisFirehoseExporter kinesisFirehoseExporter, S3BucketExporter s3BucketExporter,
                                @Qualifier("metadata-trigger-thread-pool") TaskThreadPool taskThreadPool,
                                ScrapeConfigProvider scrapeConfigProvider,
+                               ECSTaskProvider ecsTaskProvider,
                                ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
                                RedshiftExporter redshiftExporter, SQSQueueExporter sqsQueueExporter,
                                KinesisStreamExporter kinesisStreamExporter, LoadBalancerExporter loadBalancerExporter,
@@ -101,6 +104,7 @@ public class MetadataTaskManager implements InitializingBean {
         this.s3BucketExporter = s3BucketExporter;
         this.taskThreadPool = taskThreadPool;
         this.scrapeConfigProvider = scrapeConfigProvider;
+        this.ecsTaskProvider = ecsTaskProvider;
         this.ecsServiceDiscoveryExporter = ecsServiceDiscoveryExporter;
         this.redshiftExporter = redshiftExporter;
         this.sqsQueueExporter = sqsQueueExporter;
@@ -181,6 +185,7 @@ public class MetadataTaskManager implements InitializingBean {
             if (environmentConfig.isDistributed() || (environmentConfig.isSingleTenant() &&
                     environmentConfig.isSingleInstance() &&
                     ecsServiceDiscoveryExporter.isPrimaryExporter())) {
+                taskThreadPool.getExecutorService().submit(ecsTaskProvider);
                 taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
             }
         }

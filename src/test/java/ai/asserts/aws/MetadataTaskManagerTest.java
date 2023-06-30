@@ -10,6 +10,7 @@ import ai.asserts.aws.exporter.BasicMetricCollector;
 import ai.asserts.aws.exporter.DynamoDBExporter;
 import ai.asserts.aws.exporter.EC2ToEBSVolumeExporter;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter;
+import ai.asserts.aws.exporter.ECSTaskProvider;
 import ai.asserts.aws.exporter.EMRExporter;
 import ai.asserts.aws.exporter.KinesisAnalyticsExporter;
 import ai.asserts.aws.exporter.KinesisFirehoseExporter;
@@ -60,6 +61,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     private KinesisAnalyticsExporter kinesisAnalyticsExporter;
     private KinesisFirehoseExporter kinesisFirehoseExporter;
     private S3BucketExporter s3BucketExporter;
+    private ECSTaskProvider ecsTaskProvider;
     private ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private RedshiftExporter redshiftExporter;
     private SQSQueueExporter sqsQueueExporter;
@@ -93,6 +95,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         kinesisAnalyticsExporter = mock(KinesisAnalyticsExporter.class);
         kinesisFirehoseExporter = mock(KinesisFirehoseExporter.class);
         s3BucketExporter = mock(S3BucketExporter.class);
+        ecsTaskProvider = mock(ECSTaskProvider.class);
         ecsServiceDiscoveryExporter = mock(ECSServiceDiscoveryExporter.class);
         redshiftExporter = mock(RedshiftExporter.class);
         sqsQueueExporter = mock(SQSQueueExporter.class);
@@ -105,15 +108,13 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         environmentConfig = mock(EnvironmentConfig.class);
 
         testClass = new MetadataTaskManager(
-                environmentConfig,
-                collectorRegistry, lambdaFunctionScraper, lambdaCapacityExporter, lambdaEventSourceExporter,
-                lambdaInvokeConfigExporter, metricCollector,
+                environmentConfig, collectorRegistry, lambdaFunctionScraper, lambdaCapacityExporter,
+                lambdaEventSourceExporter, lambdaInvokeConfigExporter, metricCollector,
                 targetGroupLBMapProvider, relationExporter, lbToASGRelationBuilder, lbToECSRoutingBuilder,
-                ec2ToEBSVolumeExporter,
-                apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
-                s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsServiceDiscoveryExporter, redshiftExporter,
-                sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter, dynamoDBExporter,
-                snsTopicExporter, emrExporter);
+                ec2ToEBSVolumeExporter, apiGatewayToLambdaBuilder, kinesisAnalyticsExporter, kinesisFirehoseExporter,
+                s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsTaskProvider, ecsServiceDiscoveryExporter,
+                redshiftExporter, sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter,
+                dynamoDBExporter, snsTopicExporter, emrExporter);
         expect(environmentConfig.isProcessingOn()).andReturn(true).anyTimes();
         expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
     }
@@ -265,18 +266,22 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(environmentConfig.isDistributed()).andReturn(true);
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
+        Capture<Runnable> capture2 = newCapture();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
         expect(executorService.submit(capture(capture1))).andReturn(null);
+        expect(executorService.submit(capture(capture2))).andReturn(null);
         scrapeConfigProvider.update();
         ecsServiceDiscoveryExporter.run();
+        ecsTaskProvider.run();
         replayAll();
 
         testClass.perMinute();
 
         capture0.getValue().run();
         capture1.getValue().run();
+        capture2.getValue().run();
 
         verifyAll();
     }
@@ -289,18 +294,22 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
+        Capture<Runnable> capture2 = newCapture();
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
         expect(executorService.submit(capture(capture1))).andReturn(null);
+        expect(executorService.submit(capture(capture2))).andReturn(null);
         scrapeConfigProvider.update();
         ecsServiceDiscoveryExporter.run();
+        ecsTaskProvider.run();
         replayAll();
 
         testClass.perMinute();
 
         capture0.getValue().run();
         capture1.getValue().run();
+        capture2.getValue().run();
 
         verifyAll();
     }

@@ -10,6 +10,7 @@ import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
 import ai.asserts.aws.resource.ResourceMapper;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -151,23 +152,22 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
 
     @Override
     public void run() {
-        // TODO ECS Service Discovery Exporter should not run in multi-tenant mode
-        if (environmentConfig.isSingleInstance()) {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(null);
-            if (scrapeConfig.isDiscoverECSTasks()) {
-                List<StaticConfig> targets = new ArrayList<>(ecsTaskProvider.getScrapeTargets());
-                // If scrapes need to happen over TLS, split the configs into TLS and non-TLS.
-                // The self scrape of the aws-exporter is a local scrape so doesn't need TLS
-                if ("true".equalsIgnoreCase(getSSLFlag())) {
-                    List<StaticConfig> exporterTarget = targets.stream()
-                            .filter(config -> config.getLabels().getContainer().equals("cloudwatch-exporter"))
-                            .collect(Collectors.toList());
-                    targets.removeAll(exporterTarget);
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(null);
+        if (scrapeConfig.isDiscoverECSTasks()) {
+            List<StaticConfig> targets = new ArrayList<>(ecsTaskProvider.getScrapeTargets());
+            // If scrapes need to happen over TLS, split the configs into TLS and non-TLS.
+            // The self scrape of the aws-exporter is a local scrape so doesn't need TLS
+            if ("true".equalsIgnoreCase(getSSLFlag())) {
+                List<StaticConfig> exporterTarget = targets.stream()
+                        .filter(config -> config.getLabels().getContainer().equals("cloudwatch-exporter"))
+                        .collect(Collectors.toList());
+                targets.removeAll(exporterTarget);
+                if (environmentConfig.isSingleTenant()) {
                     writeFile(scrapeConfig, exporterTarget, SD_FILE_PATH);
                     writeFile(scrapeConfig, targets, SD_FILE_PATH_SECURE);
-                } else {
-                    writeFile(scrapeConfig, targets, SD_FILE_PATH);
                 }
+            } else if (environmentConfig.isSingleTenant()) {
+                writeFile(scrapeConfig, targets, SD_FILE_PATH);
             }
         }
     }
@@ -246,6 +246,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     public static class StaticConfig {
         private final Set<String> targets = new TreeSet<>();
         private final Labels labels;
+        @JsonIgnore
         private final Set<LogConfig> logConfigs = new HashSet<>();
     }
 

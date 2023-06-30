@@ -11,6 +11,7 @@ import lombok.Getter;
 import lombok.ToString;
 
 import java.util.HashMap;
+import java.util.TreeMap;
 
 import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
@@ -19,7 +20,7 @@ import static io.micrometer.core.instrument.util.StringUtils.isNotEmpty;
 @Builder
 @ToString
 @EqualsAndHashCode(callSuper = true)
-public class Labels extends HashMap<String, String> {
+public class Labels extends TreeMap<String, String> {
     @JsonProperty("__metrics_path__")
     private String metricsPath;
     private String workload;

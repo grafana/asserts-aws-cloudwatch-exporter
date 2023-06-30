@@ -55,7 +55,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
  */
 @Component
 @Slf4j
-public class ECSTaskProvider extends Collector implements InitializingBean {
+public class ECSTaskProvider extends Collector implements Runnable, InitializingBean {
     public static final String TASK_META_METRIC = "aws_ecs_task_info";
     public static final String CONTAINER_LOG_INFO_METRIC = "aws_ecs_container_log_info";
     private final AWSClientProvider awsClientProvider;
@@ -130,30 +130,32 @@ public class ECSTaskProvider extends Collector implements InitializingBean {
     }
 
     public List<StaticConfig> getScrapeTargets() {
-        // Scrape target building works only when the exporter is installed in each account
-        if (accountProvider.getAccounts().size() == 1) {
-            for (AWSAccount account : accountProvider.getAccounts()) {
-                ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(account.getTenant());
-                for (String region : account.getRegions()) {
-                    taskExecutorUtil.executeTenantTask(account.getTenant(), new SimpleTenantTask<Void>() {
-                        @Override
-                        public Void call() {
-                            Map<Resource, List<Resource>> clusterWiseNewTasks = new HashMap<>();
-                            EcsClient ecsClient = awsClientProvider.getECSClient(region, account);
-                            for (Resource cluster : ecsClusterProvider.getClusters(account, region)) {
-                                discoverNewTasks(clusterWiseNewTasks, ecsClient, cluster);
-                            }
-                            buildNewTargets(account, scrapeConfig, clusterWiseNewTasks, ecsClient);
-                            return null;
-                        }
-                    });
-                }
-            }
-        }
         return tasksByCluster.values().stream()
                 .flatMap(taskMap -> taskMap.values().stream())
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void run() {
+        // Scrape target building works only when the exporter is installed in each account
+        for (AWSAccount account : accountProvider.getAccounts()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(account.getTenant());
+            for (String region : account.getRegions()) {
+                taskExecutorUtil.executeTenantTask(account.getTenant(), new SimpleTenantTask<Void>() {
+                    @Override
+                    public Void call() {
+                        Map<Resource, List<Resource>> clusterWiseNewTasks = new HashMap<>();
+                        EcsClient ecsClient = awsClientProvider.getECSClient(region, account);
+                        for (Resource cluster : ecsClusterProvider.getClusters(account, region)) {
+                            discoverNewTasks(clusterWiseNewTasks, ecsClient, cluster);
+                        }
+                        buildNewTargets(account, scrapeConfig, clusterWiseNewTasks, ecsClient);
+                        return null;
+                    }
+                });
+            }
+        }
     }
 
     @VisibleForTesting

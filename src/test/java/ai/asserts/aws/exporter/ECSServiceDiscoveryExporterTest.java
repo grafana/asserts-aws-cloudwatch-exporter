@@ -259,7 +259,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void run() throws Exception {
-        expect(environmentConfig.isSingleInstance()).andReturn(true);
+        expect(environmentConfig.isSingleTenant()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig);
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
@@ -295,7 +295,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
 
     @Test
     public void runTLSEnabled() {
-        expect(environmentConfig.isSingleInstance()).andReturn(true);
+        expect(environmentConfig.isSingleTenant()).andReturn(true);
         expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig);
         expect(scrapeConfig.isDiscoverECSTasks()).andReturn(true);
         expect(scrapeConfig.isDiscoverECSTasksAcrossVPCs()).andReturn(true).anyTimes();
