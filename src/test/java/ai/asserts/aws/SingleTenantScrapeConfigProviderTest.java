@@ -138,8 +138,8 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
 
     @Test
     void integrationTest() {
-        expect(environmentConfig.isProcessingOn()).andReturn(true);
-        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        expect(environmentConfig.isEnabled()).andReturn(true);
+        expect(environmentConfig.isDisabled()).andReturn(false);
         replayAll();
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 environmentConfig,
@@ -157,8 +157,8 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
 
     @Test
     void envOverrides() {
-        expect(environmentConfig.isProcessingOn()).andReturn(true);
-        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        expect(environmentConfig.isEnabled()).andReturn(true);
+        expect(environmentConfig.isDisabled()).andReturn(false);
         replayAll();
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 environmentConfig,
@@ -188,8 +188,8 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
                 .bucket("bucket")
                 .key("key")
                 .build())).andReturn(ResponseBytes.fromInputStream(GetObjectResponse.builder().build(), fis));
-        expect(environmentConfig.isProcessingOn()).andReturn(true);
-        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        expect(environmentConfig.isEnabled()).andReturn(true);
+        expect(environmentConfig.isDisabled()).andReturn(false);
         replayAll();
 
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
@@ -237,8 +237,8 @@ public class SingleTenantScrapeConfigProviderTest extends EasyMockSupport {
                 new ParameterizedTypeReference<ScrapeConfig>() {
                 }
         )).andReturn(response);
-        expect(environmentConfig.isProcessingOn()).andReturn(true);
-        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        expect(environmentConfig.isEnabled()).andReturn(true);
+        expect(environmentConfig.isDisabled()).andReturn(false);
         replayAll();
         SingleTenantScrapeConfigProvider testClass = new SingleTenantScrapeConfigProvider(
                 environmentConfig,

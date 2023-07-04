@@ -99,7 +99,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @Test
     void getMetricQueries_CWMetricPullEnabled() {
-        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
+        expect(environmentConfig.isDisabled()).andReturn(false).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
@@ -158,7 +158,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @Test
     void getMetricQueries_Exception() {
-        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
+        expect(environmentConfig.isDisabled()).andReturn(false).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()
                 .regions(ImmutableSet.of("region1"))
@@ -180,7 +180,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
 
     @Test
     void getMetricQueries_CWMetricPullDisabled() {
-        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
+        expect(environmentConfig.isDisabled()).andReturn(false).anyTimes();
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion)).anyTimes();
         expect(namespaceConfig.isEnabled()).andReturn(true).anyTimes();
         ScrapeConfig scrapeConfig = ScrapeConfig.builder()

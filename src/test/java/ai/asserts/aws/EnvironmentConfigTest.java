@@ -41,12 +41,12 @@ public class EnvironmentConfigTest {
     public void processingFlag() {
         EnvironmentConfig util = new EnvironmentConfig("false",
                 "multi", "single");
-        assertFalse(util.isProcessingOff());
-        assertTrue(util.isProcessingOn());
+        assertTrue(util.isDisabled());
+        assertFalse(util.isEnabled());
 
         util = new EnvironmentConfig("true",
                 "multi", "single");
-        assertTrue(util.isProcessingOff());
-        assertFalse(util.isProcessingOn());
+        assertTrue(util.isEnabled());
+        assertFalse(util.isDisabled());
     }
 }

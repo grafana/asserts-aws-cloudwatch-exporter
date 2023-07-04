@@ -26,7 +26,7 @@ public class AccountIDProvider implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        if (environmentConfig.isProcessingOn()) {
+        if (environmentConfig.isEnabled()) {
             try (StsClient stsClient = getStsClient()) {
                 GetCallerIdentityResponse callerIdentity = stsClient.getCallerIdentity();
                 accountId = callerIdentity.account();

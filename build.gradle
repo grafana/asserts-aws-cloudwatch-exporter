@@ -94,18 +94,18 @@ bootJar {
 }
 
 // To test Hekate locally
-//bootRun {
-//    jvmArgs = [
-//            "-Daws_exporter.tenant_mode=single",
-//            "-Daws_exporter.deployment_mode=single-tenant-single-instance",
-//            "-Daws_exporter.processing_off=false",
-//            "-Dhekate.enable=false",
-//            "-Dhekate.cluster.seed.cloudstore.enable=false",
-//            "-Dhekate.cluster.seed.cloudstore.provider=aws-s3",
-//            "-Dhekate.cluster.seed.cloudstore.container=asserts-hekate-cluster",
-//            "-Dhekate.cluster.namespace=aws-exporter"
-//    ]
-//}
+bootRun {
+    jvmArgs = [
+            "-Daws_exporter.tenant_mode=single",
+            "-Daws_exporter.deployment_mode=single-tenant-distributed",
+            "-Daws_exporter.enabled=true",
+            "-Dhekate.enable=true",
+            "-Dhekate.cluster.seed.cloudstore.enable=true",
+            "-Dhekate.cluster.seed.cloudstore.provider=aws-s3",
+            "-Dhekate.cluster.seed.cloudstore.container=asserts-hekate-cluster",
+            "-Dhekate.cluster.namespace=aws-exporter"
+    ]
+}
 
 jar {
     enabled = true

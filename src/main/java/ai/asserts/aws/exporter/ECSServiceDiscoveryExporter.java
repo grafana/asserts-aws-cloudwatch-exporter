@@ -86,7 +86,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
         this.objectMapperFactory = objectMapperFactory;
         this.ecsTaskProvider = ecsTaskProvider;
         this.accountIDProvider = accountIDProvider;
-        if (environmentConfig.isProcessingOn()) {
+        if (environmentConfig.isEnabled()) {
             identifySubnetsToScrape();
         }
     }
@@ -103,7 +103,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        if (environmentConfig.isProcessingOn()) {
+        if (environmentConfig.isEnabled()) {
             ClassPathResource classPathResource = new ClassPathResource("/dummy-ecs-targets.yml");
             File out = new File(SD_FILE_PATH);
             String src = classPathResource.getURI().toString();

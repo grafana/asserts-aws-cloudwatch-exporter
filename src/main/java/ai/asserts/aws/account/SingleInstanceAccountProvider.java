@@ -52,7 +52,7 @@ public class SingleInstanceAccountProvider implements AccountProvider {
     }
 
     private Set<AWSAccount> getAccountsInternal() {
-        if (environmentConfig.isProcessingOff()) {
+        if (environmentConfig.isDisabled()) {
             return Collections.emptySet();
         }
         String tenantName = getTenantName();

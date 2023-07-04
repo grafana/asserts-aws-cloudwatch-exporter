@@ -62,7 +62,7 @@ public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
         this.snakeCaseUtil = snakeCaseUtil;
         this.assertsServerUtil = assertsServerUtil;
         log.info("Single Tenant Scrape Config Provider created");
-        if (environmentConfig.isProcessingOn()) {
+        if (environmentConfig.isEnabled()) {
             loadAndBuildLookups();
         }
     }
@@ -87,7 +87,7 @@ public class SingleTenantScrapeConfigProvider implements ScrapeConfigProvider {
     }
 
     private void loadAndBuildLookups() {
-        if (environmentConfig.isProcessingOff()) {
+        if (environmentConfig.isDisabled()) {
             log.info("All processing off");
             return;
         }

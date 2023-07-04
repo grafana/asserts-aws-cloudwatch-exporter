@@ -61,7 +61,7 @@ public class MetricTaskManager {
     @Scheduled(fixedRateString = "${aws.metric.scrape.manager.task.fixedDelay:60000}",
             initialDelayString = "${aws.metric.scrape.manager.task.initialDelay:5000}")
     public void triggerCWPullOperations() {
-        if (environmentConfig.isProcessingOff()) {
+        if (environmentConfig.isDisabled()) {
             log.info("All processing off");
             return;
         }

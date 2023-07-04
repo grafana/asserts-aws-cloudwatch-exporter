@@ -115,8 +115,8 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
                 s3BucketExporter, taskThreadPool, scrapeConfigProvider, ecsTaskProvider, ecsServiceDiscoveryExporter,
                 redshiftExporter, sqsQueueExporter, kinesisStreamExporter, loadBalancerExporter, rdsExporter,
                 dynamoDBExporter, snsTopicExporter, emrExporter);
-        expect(environmentConfig.isProcessingOn()).andReturn(true).anyTimes();
-        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
+        expect(environmentConfig.isEnabled()).andReturn(true).anyTimes();
+        expect(environmentConfig.isDisabled()).andReturn(false).anyTimes();
     }
 
     @Test

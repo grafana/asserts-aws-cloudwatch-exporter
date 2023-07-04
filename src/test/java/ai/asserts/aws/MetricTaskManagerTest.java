@@ -88,7 +88,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expectLastCall().times(2);
 
         alarmFetcher.update();
-        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        expect(environmentConfig.isDisabled()).andReturn(false);
         replayAll();
         testClass.triggerCWPullOperations();
 
@@ -121,7 +121,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
 
         expect(executorService.submit(capture(capture1))).andReturn(null).times(3);
-        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        expect(environmentConfig.isDisabled()).andReturn(false);
         alarmFetcher.update();
         replayAll();
 
@@ -149,7 +149,7 @@ public class MetricTaskManagerTest extends EasyMockSupport {
         expect(environmentConfig.isMultiTenant()).andReturn(false);
         expect(environmentConfig.isDistributed()).andReturn(false);
         expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(false);
-        expect(environmentConfig.isProcessingOff()).andReturn(false);
+        expect(environmentConfig.isDisabled()).andReturn(false);
         replayAll();
         testClass.triggerCWPullOperations();
         verifyAll();
