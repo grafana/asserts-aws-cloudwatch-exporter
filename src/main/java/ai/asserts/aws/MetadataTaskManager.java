@@ -117,7 +117,7 @@ public class MetadataTaskManager implements InitializingBean {
     }
 
     public void afterPropertiesSet() {
-        if (environmentConfig.isProcessingOff()) {
+        if (environmentConfig.isDisabled()) {
             log.info("All processing off");
             return;
         }
@@ -141,7 +141,7 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void updateMetadata() {
-        if (environmentConfig.isProcessingOff()) {
+        if (environmentConfig.isDisabled()) {
             log.info("All processing off");
             return;
         }
@@ -180,7 +180,7 @@ public class MetadataTaskManager implements InitializingBean {
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {
-        if (environmentConfig.isProcessingOn()) {
+        if (environmentConfig.isEnabled()) {
             taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
             if (environmentConfig.isDistributed() || (environmentConfig.isSingleTenant() &&
                     environmentConfig.isSingleInstance() &&

@@ -65,26 +65,26 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class EnvironmentConfig {
-    private final boolean processingOff;
+    private final boolean enabled;
     private final String tenantMode;
     private final String deploymentMode;
 
-    public EnvironmentConfig(@Value("${aws_exporter.processing_off:false}") String exporterOff,
+    public EnvironmentConfig(@Value("${aws_exporter.enabled:true}") String enabled,
                              @Value("${aws_exporter.tenant_mode:single}") String tenantMode,
                              @Value("${aws_exporter.deployment_mode:single-tenant-single-instance}") String deploymentMode) {
-        this.processingOff =
-                "true".equalsIgnoreCase(exporterOff) || "yes".equalsIgnoreCase(exporterOff) || "y".equalsIgnoreCase(
-                        exporterOff);
+        this.enabled =
+                "true".equalsIgnoreCase(enabled) || "yes".equalsIgnoreCase(enabled) || "y".equalsIgnoreCase(
+                        enabled);
         this.tenantMode = tenantMode;
         this.deploymentMode = deploymentMode;
     }
 
-    public boolean isProcessingOff() {
-        return processingOff;
+    public boolean isDisabled() {
+        return !enabled;
     }
 
-    public boolean isProcessingOn() {
-        return !processingOff;
+    public boolean isEnabled() {
+        return enabled;
     }
 
     public boolean isSingleTenant() {

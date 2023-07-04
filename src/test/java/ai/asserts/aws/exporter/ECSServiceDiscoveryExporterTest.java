@@ -70,8 +70,8 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         mockLabels = mock(Labels.class);
         ecsTaskProvider = mock(ECSTaskProvider.class);
         resetAll();
-        expect(environmentConfig.isProcessingOn()).andReturn(true).anyTimes();
-        expect(environmentConfig.isProcessingOff()).andReturn(false).anyTimes();
+        expect(environmentConfig.isEnabled()).andReturn(true).anyTimes();
+        expect(environmentConfig.isDisabled()).andReturn(false).anyTimes();
     }
 
     @Test

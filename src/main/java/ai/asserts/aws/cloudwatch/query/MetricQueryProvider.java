@@ -86,7 +86,7 @@ public class MetricQueryProvider {
     }
 
     Map<String, Map<String, Map<Integer, List<MetricQuery>>>> getQueriesInternal() {
-        if (environmentConfig.isProcessingOff()) {
+        if (environmentConfig.isDisabled()) {
             log.info("All processing off");
             return Collections.emptyMap();
         }

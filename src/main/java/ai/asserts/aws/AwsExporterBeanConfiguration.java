@@ -53,7 +53,7 @@ public class AwsExporterBeanConfiguration {
                                                          AccountIDProvider accountIDProvider,
                                                          AssertsServerUtil assertsServerUtil,
                                                          ScrapeConfigProvider scrapeConfigProvider) {
-        if (environmentConfig.isProcessingOff()) {
+        if (environmentConfig.isDisabled()) {
             return new NoopAccountProvider();
         } else {
             return new HekateDistributedAccountProvider(hekateCluster,
@@ -70,7 +70,7 @@ public class AwsExporterBeanConfiguration {
                                                             EnvironmentConfig environmentConfig,
                                                             AssertsServerUtil assertsServerUtil,
                                                             ScrapeConfigProvider scrapeConfigProvider) {
-        if (environmentConfig.isProcessingOff()) {
+        if (environmentConfig.isDisabled()) {
             return new NoopAccountProvider();
         } else {
             return new SingleInstanceAccountProvider(environmentConfig, accountIDProvider, scrapeConfigProvider,
