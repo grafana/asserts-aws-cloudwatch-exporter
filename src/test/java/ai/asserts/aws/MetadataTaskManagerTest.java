@@ -262,36 +262,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
     }
 
     @Test
-    public void perMinuteTasks_distributedMode() {
-        expect(environmentConfig.isDistributed()).andReturn(true);
-        Capture<Runnable> capture0 = newCapture();
-        Capture<Runnable> capture1 = newCapture();
-        Capture<Runnable> capture2 = newCapture();
-        expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
-        expect(executorService.submit(capture(capture0))).andReturn(null);
-        expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();
-        expect(executorService.submit(capture(capture1))).andReturn(null);
-        expect(executorService.submit(capture(capture2))).andReturn(null);
-        scrapeConfigProvider.update();
-        ecsServiceDiscoveryExporter.run();
-        ecsTaskProvider.run();
-        replayAll();
-
-        testClass.perMinute();
-
-        capture0.getValue().run();
-        capture1.getValue().run();
-        capture2.getValue().run();
-
-        verifyAll();
-    }
-
-    @Test
     public void perMinuteTasks_singleInstancePrimaryMode() {
-        expect(environmentConfig.isSingleTenant()).andReturn(true);
-        expect(environmentConfig.isDistributed()).andReturn(false);
-        expect(environmentConfig.isSingleInstance()).andReturn(true);
-        expect(ecsServiceDiscoveryExporter.isPrimaryExporter()).andReturn(true);
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
         Capture<Runnable> capture2 = newCapture();

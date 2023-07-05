@@ -152,22 +152,22 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
 
     @Override
     public void run() {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(null);
-        if (scrapeConfig.isDiscoverECSTasks()) {
-            List<StaticConfig> targets = new ArrayList<>(ecsTaskProvider.getScrapeTargets());
-            // If scrapes need to happen over TLS, split the configs into TLS and non-TLS.
-            // The self scrape of the aws-exporter is a local scrape so doesn't need TLS
-            if ("true".equalsIgnoreCase(getSSLFlag())) {
-                List<StaticConfig> exporterTarget = targets.stream()
-                        .filter(config -> config.getLabels().getContainer().equals("cloudwatch-exporter"))
-                        .collect(Collectors.toList());
-                targets.removeAll(exporterTarget);
-                if (environmentConfig.isSingleTenant()) {
+        if (environmentConfig.isSingleTenant()) {
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(null);
+            if (scrapeConfig.isDiscoverECSTasks()) {
+                List<StaticConfig> targets = new ArrayList<>(ecsTaskProvider.getScrapeTargets());
+                // If scrapes need to happen over TLS, split the configs into TLS and non-TLS.
+                // The self scrape of the aws-exporter is a local scrape so doesn't need TLS
+                if ("true".equalsIgnoreCase(getSSLFlag())) {
+                    List<StaticConfig> exporterTarget = targets.stream()
+                            .filter(config -> config.getLabels().getContainer().equals("cloudwatch-exporter"))
+                            .collect(Collectors.toList());
+                    targets.removeAll(exporterTarget);
                     writeFile(scrapeConfig, exporterTarget, SD_FILE_PATH);
                     writeFile(scrapeConfig, targets, SD_FILE_PATH_SECURE);
+                } else {
+                    writeFile(scrapeConfig, targets, SD_FILE_PATH);
                 }
-            } else if (environmentConfig.isSingleTenant()) {
-                writeFile(scrapeConfig, targets, SD_FILE_PATH);
             }
         }
     }
