@@ -36,6 +36,7 @@ import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeTarg
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.Listener;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.LoadBalancer;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetDescription;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetGroup;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,10 +57,12 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 import static org.springframework.util.StringUtils.hasLength;
 import static software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetHealthStateEnum.HEALTHY;
 import static software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetTypeEnum.INSTANCE;
+import static software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetTypeEnum.IP;
 
 @Component
 @Slf4j
 public class TargetGroupLBMapProvider extends Collector implements InitializingBean {
+    public static final String LB_EC2_INSTANCE_METRIC = "aws_lb_to_ec2_instance";
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
@@ -106,13 +109,14 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
         List<Sample> newSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
-            accountRegion.getRegions().forEach(region -> futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
-                    new CollectionBuilderTask<Sample>() {
-                        @Override
-                        public List<Sample> call() {
-                            return buildSamples(region, accountRegion);
-                        }
-                    })));
+            accountRegion.getRegions()
+                    .forEach(region -> futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
+                            new CollectionBuilderTask<Sample>() {
+                                @Override
+                                public List<Sample> call() {
+                                    return buildSamples(region, accountRegion);
+                                }
+                            })));
         }
         taskExecutorUtil.awaitAll(futures, newSamples::addAll);
         sampleBuilder.buildFamily(newSamples).ifPresent(familySamples -> metricFamilySamples = familySamples);
@@ -200,25 +204,24 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
                         });
                         // If the TG has EC2 instances directly registered into it instead of through an ASG
                         // Build the LB-EC2 Relationship
+                        String describeGroups = "ElasticLoadBalancingV2Client/describeTargetGroups";
                         telemetryLabels.put(SCRAPE_OPERATION_LABEL,
-                                "ElasticLoadBalancingV2Client/describeTargetGroups");
+                                describeGroups);
                         DescribeTargetGroupsResponse tgr =
-                                rateLimiter.doWithRateLimit("ElasticLoadBalancingV2Client/describeTargetGroups",
-                                        telemetryLabels,
+                                rateLimiter.doWithRateLimit(describeGroups, telemetryLabels,
                                         () -> lbClient.describeTargetGroups(DescribeTargetGroupsRequest.builder()
                                                 .targetGroupArns(action.targetGroupArn())
                                                 .build()));
                         if (!isEmpty(tgr.targetGroups())) {
                             tgr.targetGroups()
                                     .stream()
-                                    .filter(targetGroup -> targetGroup.targetType()
-                                            .equals(INSTANCE))
+                                    .filter(this::filterTGs)
                                     .forEach(targetGroup -> {
-                                        telemetryLabels.put(SCRAPE_OPERATION_LABEL,
-                                                "ElasticLoadBalancingV2Client/describeTargetHealth");
+                                        String api_describeHealth = "ElasticLoadBalancingV2Client/describeTargetHealth";
+                                        telemetryLabels.put(SCRAPE_OPERATION_LABEL, api_describeHealth);
                                         DescribeTargetHealthResponse thr =
                                                 rateLimiter.doWithRateLimit(
-                                                        "ElasticLoadBalancingV2Client/describeTargetHealth",
+                                                        api_describeHealth,
                                                         telemetryLabels,
                                                         () -> lbClient.describeTargetHealth(
                                                                 DescribeTargetHealthRequest.builder()
@@ -255,7 +258,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
                                                             }
                                                         }
                                                         sampleBuilder.buildSingleSample(
-                                                                        "aws_lb_to_ec2_instance", relLabels, 1.0D)
+                                                                        LB_EC2_INSTANCE_METRIC, relLabels, 1.0D)
                                                                 .ifPresent(lbEC2RelationSamples::add);
                                                     });
                                         }
@@ -264,5 +267,9 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
                     });
         }
         return lbEC2RelationSamples;
+    }
+
+    private boolean filterTGs(TargetGroup targetGroup) {
+        return targetGroup.targetType().equals(INSTANCE) || targetGroup.targetType().equals(IP);
     }
 }
