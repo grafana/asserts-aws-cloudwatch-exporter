@@ -106,13 +106,13 @@ public class ECSTaskUtil {
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    public List<StaticConfig> buildScrapeTargets(ScrapeConfig scrapeConfig, EcsClient ecsClient,
+    public List<StaticConfig> buildScrapeTargets(AWSAccount account, ScrapeConfig scrapeConfig, EcsClient ecsClient,
                                                  Resource cluster, Optional<String> service, Task task) {
         Map<String, String> tagLabels = tagUtil.tagLabels(scrapeConfig, task.tags().stream()
                 .map(ecsTag -> Tag.builder().key(ecsTag.key()).value(ecsTag.value()).build())
                 .collect(Collectors.toList()));
 
-        LabelsBuilder labelsBuilder = getLabelsBuilder(cluster, service, task);
+        LabelsBuilder labelsBuilder = getLabelsBuilder(account, cluster, service, task);
 
         String ipAddress = getIPAddress(task);
         if (ipAddress == null) {
@@ -188,7 +188,7 @@ public class ECSTaskUtil {
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    private LabelsBuilder getLabelsBuilder(Resource cluster, Optional<String> service, Task task) {
+    private LabelsBuilder getLabelsBuilder(AWSAccount account, Resource cluster, Optional<String> service, Task task) {
         Resource taskDefResource = resourceMapper.map(task.taskDefinitionArn())
                 .orElseThrow(() -> new RuntimeException("Unknown resource ARN: " + task.taskDefinitionArn()));
         Resource taskResource = resourceMapper.map(task.taskArn())
@@ -207,7 +207,7 @@ public class ECSTaskUtil {
                     .accountId(cluster.getAccount())
                     .region(cluster.getRegion())
                     .cluster(cluster.getName())
-                    .env(envName != null ? envName : cluster.getAccount())
+                    .env(getEnv(account))
                     .site(cluster.getRegion())
                     .taskDefName(taskDefResource.getName())
                     .taskDefVersion(taskDefResource.getVersion())
@@ -223,13 +223,17 @@ public class ECSTaskUtil {
                     .accountId(cluster.getAccount())
                     .region(cluster.getRegion())
                     .cluster(cluster.getName())
-                    .env(envName != null ? envName : cluster.getAccount())
+                    .env(getEnv(account))
                     .site(cluster.getRegion())
                     .taskDefName(taskDefResource.getName())
                     .taskDefVersion(taskDefResource.getVersion())
                     .metricsPath("/metrics");
         }
         return labelsBuilder;
+    }
+
+    private String getEnv(AWSAccount account) {
+        return envName != null ? envName : account.getName() != null ? account.getName() : account.getAccountId();
     }
 
     private String getIPAddress(Task task) {

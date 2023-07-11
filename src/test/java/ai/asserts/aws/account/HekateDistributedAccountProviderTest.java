@@ -12,6 +12,7 @@ import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -74,7 +75,17 @@ public class HekateDistributedAccountProviderTest extends EasyMockSupport {
     }
 
     @Test
+    public void getAccounts_ClusterNotDiscovered() {
+        expect(delegate.getAccounts()).andReturn(allAccounts);
+        expect(hekateCluster.clusterDiscovered()).andReturn(false);
+        replayAll();
+        assertEquals(Collections.emptySet(), testClass.getAccounts());
+        verifyAll();
+    }
+
+    @Test
     public void getAccounts_OnlyOneNode() {
+        expect(hekateCluster.clusterDiscovered()).andReturn(true);
         expect(delegate.getAccounts()).andReturn(allAccounts);
         expect(hekateCluster.localNode()).andReturn(clusterNode1);
         expect(hekateCluster.allNodes()).andReturn(ImmutableList.of(clusterNode1)).anyTimes();
@@ -85,6 +96,7 @@ public class HekateDistributedAccountProviderTest extends EasyMockSupport {
 
     @Test
     public void getAccounts_TwoNodes() {
+        expect(hekateCluster.clusterDiscovered()).andReturn(true).anyTimes();
         expect(delegate.getAccounts()).andReturn(allAccounts).anyTimes();
         expect(hekateCluster.localNode()).andReturn(clusterNode1);
         expect(hekateCluster.localNode()).andReturn(clusterNode2);

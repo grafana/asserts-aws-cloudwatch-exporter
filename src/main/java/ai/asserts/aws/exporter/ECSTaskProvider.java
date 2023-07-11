@@ -12,6 +12,7 @@ import ai.asserts.aws.SnakeCaseUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
+import ai.asserts.aws.account.AccountTenantMapper;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
@@ -222,9 +223,13 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
                     taskResponse.tasks().stream()
                             .filter(ecsTaskUtil::hasAllInfo)
                             .forEach(task -> resourceMapper.map(task.taskArn()).ifPresent(taskResource -> {
+                                String tenantName = account.getName();
                                 List<StaticConfig> staticConfigs =
                                         ecsTaskUtil.buildScrapeTargets(
-                                                scrapeConfigProvider.getScrapeConfig(null), ecsClient, cluster,
+                                                account,
+                                                scrapeConfigProvider.getScrapeConfig(tenantName),
+                                                ecsClient,
+                                                cluster,
                                                 getService(task), task);
                                 Map<Resource, List<StaticConfig>> clusterTargets =
                                         tasksByCluster.computeIfAbsent(cluster, k -> new HashMap<>());

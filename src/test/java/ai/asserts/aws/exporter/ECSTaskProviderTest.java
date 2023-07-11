@@ -73,9 +73,14 @@ public class ECSTaskProviderTest extends EasyMockSupport {
     private TaskExecutorUtil taskExecutorUtil;
     private SnakeCaseUtil snakeCaseUtil;
     private ECSTaskProvider testClass;
+    private AWSAccount account;
 
     @BeforeEach
     public void setup() {
+        account = AWSAccount.builder()
+                .tenant("acme")
+                .accountId("account1")
+                .build();
         awsClientProvider = mock(AWSClientProvider.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
@@ -378,9 +383,11 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         expect(resourceMapper.map("service1-task1-arn")).andReturn(Optional.of(task1Resource));
         expect(resourceMapper.map("service2-task2-arn")).andReturn(Optional.of(task2Resource));
 
-        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster1, Optional.of("service1"), task1))
+        expect(ecsTaskUtil.buildScrapeTargets(account, scrapeConfig, ecsClient, cluster1, Optional.of("service1"),
+                task1))
                 .andReturn(ImmutableList.of(mockStaticConfig));
-        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster1, Optional.of("service2"), task2))
+        expect(ecsTaskUtil.buildScrapeTargets(account, scrapeConfig, ecsClient, cluster1, Optional.of("service2"),
+                task2))
                 .andReturn(ImmutableList.of(mockStaticConfig));
 
         Task task3 = Task.builder()
@@ -406,16 +413,18 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         expect(resourceMapper.map("service3-task3-arn")).andReturn(Optional.of(task3Resource));
         expect(resourceMapper.map("service4-task4-arn")).andReturn(Optional.of(task4Resource));
 
-        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster2, Optional.of("service3"), task3))
+        expect(ecsTaskUtil.buildScrapeTargets(account, scrapeConfig, ecsClient, cluster2, Optional.of("service3"),
+                task3))
                 .andReturn(ImmutableList.of(mockStaticConfig));
-        expect(ecsTaskUtil.buildScrapeTargets(scrapeConfig, ecsClient, cluster2, Optional.of("service4"), task4))
+        expect(ecsTaskUtil.buildScrapeTargets(account, scrapeConfig, ecsClient, cluster2, Optional.of("service4"),
+                task4))
                 .andReturn(ImmutableList.of(mockStaticConfig, mockStaticConfig));
 
         basicMetricCollector.recordLatency(eq("aws_exporter_milliseconds"), anyObject(SortedMap.class), anyLong());
 
         replayAll();
         assertTrue(testClass.getTasksByCluster().isEmpty());
-        testClass.buildNewTargets(AWSAccount.builder().build(), scrapeConfig, clusterWiseARNs, ecsClient);
+        testClass.buildNewTargets(account, scrapeConfig, clusterWiseARNs, ecsClient);
         assertFalse(testClass.getTasksByCluster().isEmpty());
 
         assertTrue(testClass.getTasksByCluster().containsKey(cluster1));

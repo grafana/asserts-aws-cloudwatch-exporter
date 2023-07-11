@@ -266,6 +266,7 @@ public class MetadataTaskManagerTest extends EasyMockSupport {
         Capture<Runnable> capture0 = newCapture();
         Capture<Runnable> capture1 = newCapture();
         Capture<Runnable> capture2 = newCapture();
+        expect(environmentConfig.isSingleTenant()).andReturn(true);
         expect(taskThreadPool.getExecutorService()).andReturn(executorService).anyTimes();
         expect(executorService.submit(capture(capture0))).andReturn(null);
         expect(scrapeConfigProvider.getScrapeConfig("")).andReturn(scrapeConfig).anyTimes();

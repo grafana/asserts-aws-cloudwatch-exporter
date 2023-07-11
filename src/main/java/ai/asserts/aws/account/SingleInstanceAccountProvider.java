@@ -63,12 +63,6 @@ public class SingleInstanceAccountProvider implements AccountProvider {
             regions = new TreeSet<>();
             regions.add("us-west-2");
         }
-        if (scrapeConfig.isScrapeCurrentAccount()) {
-            String accountId = accountIDProvider.getAccountId();
-            AWSAccount ac = new AWSAccount(tenantName, accountId, null, null, null, regions);
-            accountRegions.put(ac.getAccountId(), ac);
-            log.info("Scraping AWS Accounts {}", accountRegions);
-        }
 
         // Get Configured AWS Accounts
         if (scrapeConfig.isFetchAccountConfigs()) {
@@ -96,8 +90,14 @@ public class SingleInstanceAccountProvider implements AccountProvider {
                                 accountRegions.putIfAbsent(awsAccount.getAccountId(), awsAccount);
                             });
                 }
-
             }
+        }
+        if (scrapeConfig.isScrapeCurrentAccount()) {
+            String accountId = accountIDProvider.getAccountId();
+            AWSAccount ac = new AWSAccount(tenantName, accountId, null, null, null,
+                    regions);
+            accountRegions.putIfAbsent(ac.getAccountId(), ac);
+            log.info("Scraping AWS Accounts {}", accountRegions);
         }
         return Sets.newHashSet(accountRegions.values());
     }
