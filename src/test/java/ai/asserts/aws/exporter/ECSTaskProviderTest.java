@@ -336,7 +336,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
     @Test
     public void buildNewTargets() {
-        expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
         Resource cluster1 = Resource.builder()
                 .name("cluster1")
                 .region("region")
