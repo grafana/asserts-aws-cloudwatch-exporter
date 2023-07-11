@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class HekateClusterTest extends EasyMockSupport {
     @Test
@@ -29,9 +31,11 @@ public class HekateClusterTest extends EasyMockSupport {
         expect(clusterTopology.nodes()).andReturn(allNodes);
 
         replayAll();
+        assertFalse(hekateCluster.clusterDiscovered());
         hekateCluster.onEvent(clusterEvent);
         assertEquals(node1, hekateCluster.localNode());
         assertEquals(allNodes, hekateCluster.allNodes());
+        assertTrue(hekateCluster.clusterDiscovered());
         verifyAll();
     }
 }
