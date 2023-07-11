@@ -183,7 +183,9 @@ public class MetadataTaskManager implements InitializingBean {
         if (environmentConfig.isEnabled()) {
             taskThreadPool.getExecutorService().submit(scrapeConfigProvider::update);
             taskThreadPool.getExecutorService().submit(ecsTaskProvider);
-            taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
+            if (environmentConfig.isSingleTenant()) {
+                taskThreadPool.getExecutorService().submit(ecsServiceDiscoveryExporter);
+            }
         }
     }
 }

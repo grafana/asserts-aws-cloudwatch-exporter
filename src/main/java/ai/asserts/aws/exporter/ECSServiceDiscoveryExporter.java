@@ -7,6 +7,7 @@ package ai.asserts.aws.exporter;
 import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.ObjectMapperFactory;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.account.AccountTenantMapper;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.config.ScrapeConfig.SubnetDetails;
 import ai.asserts.aws.resource.ResourceMapper;
@@ -66,6 +67,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     private final ECSTaskProvider ecsTaskProvider;
 
     private final AccountIDProvider accountIDProvider;
+    private final AccountTenantMapper accountTenantMapper;
 
     @Getter
     private final AtomicReference<SubnetDetails> subnetDetails = new AtomicReference<>(null);
@@ -77,7 +79,8 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
                                        RestTemplate restTemplate, AccountIDProvider accountIDProvider,
                                        ScrapeConfigProvider scrapeConfigProvider,
                                        ResourceMapper resourceMapper, ECSTaskUtil ecsTaskUtil,
-                                       ObjectMapperFactory objectMapperFactory, ECSTaskProvider ecsTaskProvider) {
+                                       ObjectMapperFactory objectMapperFactory, ECSTaskProvider ecsTaskProvider,
+                                       AccountTenantMapper accountTenantMapper) {
         this.environmentConfig = environmentConfig;
         this.restTemplate = restTemplate;
         this.scrapeConfigProvider = scrapeConfigProvider;
@@ -86,6 +89,7 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
         this.objectMapperFactory = objectMapperFactory;
         this.ecsTaskProvider = ecsTaskProvider;
         this.accountIDProvider = accountIDProvider;
+        this.accountTenantMapper = accountTenantMapper;
         if (environmentConfig.isEnabled()) {
             identifySubnetsToScrape();
         }
@@ -128,9 +132,11 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
      * <code>false</code> otherwise.
      */
     public boolean isPrimaryExporter() {
-        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(null);
+        String accountId = accountIDProvider.getAccountId();
+        String tenantName = accountTenantMapper.getTenantName(accountId);
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenantName);
         Map<String, SubnetDetails> primaryExportersByAccount = scrapeConfig.getPrimaryExporterByAccount();
-        SubnetDetails primaryConfig = primaryExportersByAccount.get(accountIDProvider.getAccountId());
+        SubnetDetails primaryConfig = primaryExportersByAccount.get(accountId);
         return primaryConfig == null ||
                 (!hasLength(primaryConfig.getVpcId()) || runningInVPC(primaryConfig.getVpcId())) &&
                         (!hasLength(primaryConfig.getSubnetId()) || runningInSubnet(primaryConfig.getSubnetId()));
@@ -153,7 +159,8 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
     @Override
     public void run() {
         if (environmentConfig.isSingleTenant()) {
-            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(null);
+            String tenantName = accountTenantMapper.getTenantName(accountIDProvider.getAccountId());
+            ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(tenantName);
             if (scrapeConfig.isDiscoverECSTasks()) {
                 List<StaticConfig> targets = new ArrayList<>(ecsTaskProvider.getScrapeTargets());
                 // If scrapes need to happen over TLS, split the configs into TLS and non-TLS.

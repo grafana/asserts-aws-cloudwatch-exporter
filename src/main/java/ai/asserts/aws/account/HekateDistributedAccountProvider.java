@@ -13,6 +13,7 @@ import com.google.common.hash.Hashing;
 import io.hekate.cluster.ClusterNode;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -42,16 +43,19 @@ public class HekateDistributedAccountProvider implements AccountProvider {
     }
 
     public List<String> pick(List<String> allKeys) {
-        RendezvousHash<String, String> hash = new RendezvousHash<>(
-                hashFunction,
-                (Funnel<String>) (from, into) -> into.putUnencodedChars(from),
-                (Funnel<String>) (from, into) -> into.putUnencodedChars(from),
-                hekateCluster.allNodes().stream().map(this::clusterNodeToString).collect(Collectors.toList()));
+        if (hekateCluster.clusterDiscovered()) {
+            RendezvousHash<String, String> hash = new RendezvousHash<>(
+                    hashFunction,
+                    (Funnel<String>) (from, into) -> into.putUnencodedChars(from),
+                    (Funnel<String>) (from, into) -> into.putUnencodedChars(from),
+                    hekateCluster.allNodes().stream().map(this::clusterNodeToString).collect(Collectors.toList()));
 
-        String localNodeString = clusterNodeToString(hekateCluster.localNode());
-        return allKeys.stream()
-                .filter(k -> localNodeString.equals(hash.get(k)))
-                .collect(Collectors.toList());
+            String localNodeString = clusterNodeToString(hekateCluster.localNode());
+            return allKeys.stream()
+                    .filter(k -> localNodeString.equals(hash.get(k)))
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
     }
 
     @VisibleForTesting

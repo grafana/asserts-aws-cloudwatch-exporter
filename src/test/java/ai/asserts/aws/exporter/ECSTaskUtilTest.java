@@ -9,6 +9,7 @@ import ai.asserts.aws.RateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.exporter.ECSServiceDiscoveryExporter.StaticConfig;
 import ai.asserts.aws.resource.Resource;
@@ -64,9 +65,14 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     private Resource taskDef;
     private TagUtil tagUtil;
     private ScrapeConfig scrapeConfig;
+    private AWSAccount account;
 
     @BeforeEach
     public void setup() {
+        account = AWSAccount.builder()
+                .accountId("account")
+                .tenant("acme")
+                .build();
         resourceMapper = mock(ResourceMapper.class);
         metricCollector = mock(BasicMetricCollector.class);
         ecsClient = mock(EcsClient.class);
@@ -177,7 +183,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 "tag_value"));
 
         replayAll();
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
+        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(account, scrapeConfig, ecsClient, cluster,
                 Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")
@@ -242,7 +248,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                 "tag_value"));
 
         replayAll();
-        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(scrapeConfig, ecsClient, cluster,
+        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(account, scrapeConfig, ecsClient, cluster,
                 Optional.of(service.getName()), Task.builder()
                         .taskArn("task-arn")
                         .taskDefinitionArn("task-def-arn")

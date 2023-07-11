@@ -9,13 +9,15 @@ import io.hekate.cluster.ClusterTopology;
 import io.hekate.cluster.event.ClusterEvent;
 import io.hekate.cluster.event.ClusterEventListener;
 import io.hekate.core.HekateException;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 public class HekateCluster implements ClusterEventListener {
     private ClusterTopology clusterTopology;
+
+    public boolean clusterDiscovered() {
+        return clusterTopology != null;
+    }
 
     @Override
     public void onEvent(ClusterEvent event) throws HekateException {
