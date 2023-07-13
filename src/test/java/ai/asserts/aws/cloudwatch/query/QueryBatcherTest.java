@@ -21,7 +21,7 @@ public class QueryBatcherTest extends EasyMockSupport {
 
     @Test
     void noSplit() {
-        QueryBatcher queryBatcher = new QueryBatcher(5, 10);
+        QueryBatcher queryBatcher = new QueryBatcher(5);
         List<MetricQuery> queries = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             queries.add(metricQuery);
@@ -35,7 +35,7 @@ public class QueryBatcherTest extends EasyMockSupport {
 
     @Test
     void split() {
-        QueryBatcher queryBatcher = new QueryBatcher(2, 10);
+        QueryBatcher queryBatcher = new QueryBatcher(2);
         List<MetricQuery> queries = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             queries.add(metricQuery);

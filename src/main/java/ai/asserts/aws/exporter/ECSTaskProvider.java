@@ -18,12 +18,14 @@ import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Lists;
 import io.prometheus.client.Collector;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
 import io.prometheus.client.CollectorRegistry;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
@@ -69,6 +71,7 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
     private final TaskExecutorUtil taskExecutorUtil;
     private final CollectorRegistry collectorRegistry;
     private final SnakeCaseUtil snakeCaseUtil;
+    private final int describeTasksBatchSize;
 
     @Getter
     @VisibleForTesting
@@ -78,7 +81,8 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
                            AccountProvider accountProvider, RateLimiter rateLimiter, ResourceMapper resourceMapper,
                            ECSClusterProvider ecsClusterProvider, ECSTaskUtil ecsTaskUtil,
                            MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,
-                           TaskExecutorUtil taskExecutorUtil, SnakeCaseUtil snakeCaseUtil) {
+                           TaskExecutorUtil taskExecutorUtil, SnakeCaseUtil snakeCaseUtil,
+                           @Value("${aws.ecs.describeTasks.batch_size:100}") int describeTaskBatchSize) {
         this.awsClientProvider = awsClientProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.accountProvider = accountProvider;
@@ -90,6 +94,7 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
         this.collectorRegistry = collectorRegistry;
         this.taskExecutorUtil = taskExecutorUtil;
         this.snakeCaseUtil = snakeCaseUtil;
+        this.describeTasksBatchSize = describeTaskBatchSize;
     }
 
     @Override
@@ -181,6 +186,7 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
 
             // Build list of new tasks for which we need to make the describeTasks call
             if (tasksResponse.hasTaskArns()) {
+                log.info("Found {} tasks in cluster {}", tasksResponse.taskArns().size(), cluster.getArn());
                 // Build the current task list
                 latestTasks.addAll(tasksResponse.taskArns().stream()
                         .map(resourceMapper::map)
@@ -195,6 +201,9 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
         // Retain only new tasks
         current.entrySet().removeIf(entry -> !latestTasks.contains(entry.getKey()));
         latestTasks.removeIf(current::containsKey);
+        if (latestTasks.size() > 0) {
+            log.info("Found {} new tasks in cluster {}", latestTasks.size(), cluster.getArn());
+        }
         clusterWiseNewTasks.computeIfAbsent(cluster, k -> new ArrayList<>()).addAll(latestTasks);
     }
 
@@ -205,35 +214,41 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
         // Make the describeTasks call for the new tasks and build the scrape targets
         clusterWiseNewTasks.forEach((cluster, tasks) -> {
             if (!tasks.isEmpty()) {
+                // Batch in sizes of 100
                 String operationName = "EcsClient/describeTasks";
-                DescribeTasksRequest request =
-                        DescribeTasksRequest.builder()
-                                .cluster(cluster.getName())
-                                .tasks(tasks.stream().map(Resource::getArn).collect(Collectors.toList()))
-                                .build();
-                DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit(operationName,
-                        ImmutableSortedMap.of(
-                                SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
-                                SCRAPE_REGION_LABEL, cluster.getRegion(),
-                                SCRAPE_OPERATION_LABEL, operationName,
-                                SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
-                        () -> ecsClient.describeTasks(request));
-                if (taskResponse.hasTasks()) {
-                    taskResponse.tasks().stream()
-                            .filter(ecsTaskUtil::hasAllInfo)
-                            .forEach(task -> resourceMapper.map(task.taskArn()).ifPresent(taskResource -> {
-                                String tenantName = account.getTenant();
-                                List<StaticConfig> staticConfigs =
-                                        ecsTaskUtil.buildScrapeTargets(
-                                                account,
-                                                scrapeConfigProvider.getScrapeConfig(tenantName),
-                                                ecsClient,
-                                                cluster,
-                                                getService(task), task);
-                                Map<Resource, List<StaticConfig>> clusterTargets =
-                                        tasksByCluster.computeIfAbsent(cluster, k -> new HashMap<>());
-                                clusterTargets.put(taskResource, staticConfigs);
-                            }));
+
+                List<Resource> allTasks = new ArrayList<>(tasks);
+                List<List<Resource>> batches = Lists.partition(allTasks, describeTasksBatchSize);
+                for(List<Resource> batch : batches) {
+                    DescribeTasksRequest request =
+                            DescribeTasksRequest.builder()
+                                    .cluster(cluster.getName())
+                                    .tasks(batch.stream().map(Resource::getArn).collect(Collectors.toList()))
+                                    .build();
+                    DescribeTasksResponse taskResponse = rateLimiter.doWithRateLimit(operationName,
+                            ImmutableSortedMap.of(
+                                    SCRAPE_ACCOUNT_ID_LABEL, cluster.getAccount(),
+                                    SCRAPE_REGION_LABEL, cluster.getRegion(),
+                                    SCRAPE_OPERATION_LABEL, operationName,
+                                    SCRAPE_NAMESPACE_LABEL, "AWS/ECS"),
+                            () -> ecsClient.describeTasks(request));
+                    if (taskResponse.hasTasks()) {
+                        taskResponse.tasks().stream()
+                                .filter(ecsTaskUtil::hasAllInfo)
+                                .forEach(task -> resourceMapper.map(task.taskArn()).ifPresent(taskResource -> {
+                                    String tenantName = account.getTenant();
+                                    List<StaticConfig> staticConfigs =
+                                            ecsTaskUtil.buildScrapeTargets(
+                                                    account,
+                                                    scrapeConfigProvider.getScrapeConfig(tenantName),
+                                                    ecsClient,
+                                                    cluster,
+                                                    getService(task), task);
+                                    Map<Resource, List<StaticConfig>> clusterTargets =
+                                            tasksByCluster.computeIfAbsent(cluster, k -> new HashMap<>());
+                                    clusterTargets.put(taskResource, staticConfigs);
+                                }));
+                    }
                 }
             }
         });
