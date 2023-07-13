@@ -10,7 +10,7 @@ import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
@@ -84,7 +84,7 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
         tagUtil = mock(TagUtil.class);
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
-        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
+        AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "acme");
         testClass = new EC2ToEBSVolumeExporter(accountProvider, awsClientProvider, metricSampleBuilder,
                 collectorRegistry, rateLimiter, tagUtil, ecsServiceDiscoveryExporter,
                 new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter), scrapeConfigProvider);

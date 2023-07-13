@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -74,7 +74,7 @@ public class RDSExporterTest extends EasyMockSupport {
         familySamples = mock(Collector.MetricFamilySamples.class);
         awsClientProvider = mock(AWSClientProvider.class);
         metricCollector = mock(BasicMetricCollector.class);
-        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
+        AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant");
         collectorRegistry = mock(CollectorRegistry.class);
         rdsClient = mock(RdsClient.class);
         resourceTagHelper = mock(ResourceTagHelper.class);

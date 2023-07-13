@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -58,7 +58,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
     private final AWSClientProvider awsClientProvider;
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final TagUtil tagUtil;
     private final ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter;
     private final TaskExecutorUtil taskExecutorUtil;
@@ -69,7 +69,7 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
 
     public EC2ToEBSVolumeExporter(AccountProvider accountProvider,
                                   AWSClientProvider awsClientProvider, MetricSampleBuilder metricSampleBuilder,
-                                  CollectorRegistry collectorRegistry, RateLimiter rateLimiter, TagUtil tagUtil,
+                                  CollectorRegistry collectorRegistry, AWSApiCallRateLimiter rateLimiter, TagUtil tagUtil,
                                   ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
                                   TaskExecutorUtil taskExecutorUtil, ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;

@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.SnakeCaseUtil;
@@ -63,7 +63,7 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
     private final AWSClientProvider awsClientProvider;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final AccountProvider accountProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final ECSClusterProvider ecsClusterProvider;
     private final ECSTaskUtil ecsTaskUtil;
@@ -78,11 +78,11 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
     private final Map<Resource, Map<Resource, List<StaticConfig>>> tasksByCluster = new ConcurrentHashMap<>();
 
     public ECSTaskProvider(AWSClientProvider awsClientProvider, ScrapeConfigProvider scrapeConfigProvider,
-                           AccountProvider accountProvider, RateLimiter rateLimiter, ResourceMapper resourceMapper,
+                           AccountProvider accountProvider, AWSApiCallRateLimiter rateLimiter, ResourceMapper resourceMapper,
                            ECSClusterProvider ecsClusterProvider, ECSTaskUtil ecsTaskUtil,
                            MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,
                            TaskExecutorUtil taskExecutorUtil, SnakeCaseUtil snakeCaseUtil,
-                           @Value("${aws.ecs.describeTasks.batch_size:100}") int describeTaskBatchSize) {
+                           @Value("${aws_exporter.ecs_describeTasks_batch_size:100}") int describeTaskBatchSize) {
         this.awsClientProvider = awsClientProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.accountProvider = accountProvider;

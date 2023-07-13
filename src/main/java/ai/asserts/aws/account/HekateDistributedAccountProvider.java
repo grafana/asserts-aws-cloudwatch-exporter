@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
+@SuppressWarnings("UnstableApiUsage")
 public class HekateDistributedAccountProvider implements AccountProvider {
     private static final HashFunction hashFunction = Hashing.murmur3_128();
     private final HekateCluster hekateCluster;

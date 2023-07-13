@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableSet;
@@ -47,7 +47,7 @@ public class ECSClusterProviderTest extends EasyMockSupport {
         clusterResource1 = mock(Resource.class);
         clusterResource2 = mock(Resource.class);
         testClass = new ECSClusterProvider(awsClientProvider,
-                new RateLimiter(metricCollector, (account) -> "acme"), resourceMapper);
+                new AWSApiCallRateLimiter(metricCollector, (account) -> "acme"), resourceMapper);
     }
 
     @Test

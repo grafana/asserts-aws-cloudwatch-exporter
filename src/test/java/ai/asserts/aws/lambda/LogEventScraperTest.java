@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws.lambda;
 
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.config.LogScrapeConfig;
 import ai.asserts.aws.exporter.BasicMetricCollector;
@@ -49,7 +49,7 @@ public class LogEventScraperTest extends EasyMockSupport {
         timeWindowBuilder = mock(TimeWindowBuilder.class);
 
         now = Instant.now();
-        testClass = new LogEventScraper(timeWindowBuilder, new RateLimiter(metricCollector,
+        testClass = new LogEventScraper(timeWindowBuilder, new AWSApiCallRateLimiter(metricCollector,
                 (accountId) -> "tenant"));
     }
 

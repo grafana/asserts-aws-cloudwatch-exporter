@@ -9,7 +9,7 @@ import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -57,7 +57,7 @@ public class LBToECSRoutingBuilderTest extends EasyMockSupport {
     @BeforeEach
     public void setup() {
         metricCollector = mock(BasicMetricCollector.class);
-        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
+        AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "acme");
         resourceMapper = mock(ResourceMapper.class);
         targetGroupLBMapProvider = mock(TargetGroupLBMapProvider.class);
         ecsClient = mock(EcsClient.class);

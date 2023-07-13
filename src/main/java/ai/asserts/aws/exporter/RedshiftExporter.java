@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -42,7 +42,7 @@ public class RedshiftExporter extends Collector implements InitializingBean {
     public final CollectorRegistry collectorRegistry;
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final TagUtil tagUtil;
     private final TaskExecutorUtil taskExecutorUtil;
@@ -51,7 +51,7 @@ public class RedshiftExporter extends Collector implements InitializingBean {
 
     public RedshiftExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TagUtil tagUtil,
+            AWSApiCallRateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TagUtil tagUtil,
             TaskExecutorUtil taskExecutorUtil, ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;

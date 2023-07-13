@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
@@ -42,7 +42,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @AllArgsConstructor
 public class LBToLambdaRoutingBuilder {
     private final AWSClientProvider awsClientProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final AccountProvider accountProvider;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;

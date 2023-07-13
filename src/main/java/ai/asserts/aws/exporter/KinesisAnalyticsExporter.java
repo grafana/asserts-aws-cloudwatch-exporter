@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -41,7 +41,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     public final CollectorRegistry collectorRegistry;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
     private final TaskExecutorUtil taskExecutorUtil;
@@ -49,7 +49,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
 
     public KinesisAnalyticsExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                     CollectorRegistry collectorRegistry, ResourceMapper resourceMapper,
-                                    RateLimiter rateLimiter,
+                                    AWSApiCallRateLimiter rateLimiter,
                                     MetricSampleBuilder sampleBuilder, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;

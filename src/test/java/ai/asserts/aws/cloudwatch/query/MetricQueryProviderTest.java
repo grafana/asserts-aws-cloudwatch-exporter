@@ -4,7 +4,7 @@ package ai.asserts.aws.cloudwatch.query;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
@@ -76,7 +76,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         metricQuery = mock(MetricQuery.class);
         metricCollector = mock(BasicMetricCollector.class);
         TaskExecutorUtil taskExecutorUtil =
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector,
+                new TaskExecutorUtil(new TestTaskThreadPool(), new AWSApiCallRateLimiter(metricCollector,
                         (accountId) -> "tenant"));
 
         metric = Metric.builder()
@@ -91,7 +91,7 @@ public class MetricQueryProviderTest extends EasyMockSupport {
         testClass = new MetricQueryProvider(environmentConfig, accountProvider, scrapeConfigProvider, queryIdGenerator
                 , metricNameUtil,
                 awsClientProvider, resourceTagHelper, metricQueryBuilder,
-                new RateLimiter(metricCollector,
+                new AWSApiCallRateLimiter(metricCollector,
                         (accountId) -> "tenant"), taskExecutorUtil);
         verifyAll();
         resetAll();

@@ -4,7 +4,7 @@
  */
 package ai.asserts.aws.lambda;
 
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.cloudwatch.TimeWindowBuilder;
 import ai.asserts.aws.config.LogScrapeConfig;
 import com.google.common.collect.ImmutableSortedMap;
@@ -31,7 +31,7 @@ import static java.lang.String.format;
 @AllArgsConstructor
 public class LogEventScraper {
     private final TimeWindowBuilder timeWindowBuilder;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
 
     public Optional<FilteredLogEvent> findLogEvent(CloudWatchLogsClient cloudWatchLogsClient,
                                                    LambdaFunction functionConfig,

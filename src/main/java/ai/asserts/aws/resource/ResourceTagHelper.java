@@ -5,7 +5,7 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountTenantMapper;
@@ -60,12 +60,12 @@ public class ResourceTagHelper {
     private final ResourceMapper resourceMapper;
     private final LoadingCache<Key, Set<Resource>> resourceCache;
     private final ScrapeConfigProvider scrapeConfigProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final AccountTenantMapper accountTenantMapper;
 
     public ResourceTagHelper(ScrapeConfigProvider scrapeConfigProvider,
                              AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
-                             RateLimiter rateLimiter,
+                             AWSApiCallRateLimiter rateLimiter,
                              AccountTenantMapper accountTenantMapper) {
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;

@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -58,7 +58,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
     private final MetricSampleBuilder sampleBuilder;
     private final LambdaFunctionScraper functionScraper;
     private final ResourceTagHelper resourceTagHelper;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final TaskExecutorUtil taskExecutorUtil;
     private volatile List<MetricFamilySamples> cache;
 
@@ -67,7 +67,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                                   MetricNameUtil metricNameUtil,
                                   MetricSampleBuilder sampleBuilder, LambdaFunctionScraper functionScraper,
                                   ResourceTagHelper resourceTagHelper,
-                                  RateLimiter rateLimiter, TaskExecutorUtil taskExecutorUtil) {
+                                  AWSApiCallRateLimiter rateLimiter, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.scrapeConfigProvider = scrapeConfigProvider;
         this.awsClientProvider = awsClientProvider;

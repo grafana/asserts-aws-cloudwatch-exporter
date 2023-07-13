@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -38,14 +38,14 @@ public class EMRExporter extends Collector implements InitializingBean {
     public final CollectorRegistry collectorRegistry;
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final TaskExecutorUtil taskExecutorUtil;
     private volatile List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
 
     public EMRExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TaskExecutorUtil taskExecutorUtil) {
+            AWSApiCallRateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.collectorRegistry = collectorRegistry;

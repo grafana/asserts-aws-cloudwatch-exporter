@@ -3,7 +3,7 @@ package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -55,7 +55,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
     private final AWSClientProvider awsClientProvider;
     private final LambdaFunctionBuilder fnBuilder;
     private final ResourceTagHelper resourceTagHelper;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final MetricSampleBuilder metricSampleBuilder;
     private final MetricNameUtil metricNameUtil;
     private final ECSServiceDiscoveryExporter ecsSDExporter;
@@ -68,7 +68,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
             AccountProvider accountProvider,
             ScrapeConfigProvider scrapeConfigProvider, AWSClientProvider awsClientProvider,
             ResourceTagHelper resourceTagHelper,
-            LambdaFunctionBuilder fnBuilder, RateLimiter rateLimiter,
+            LambdaFunctionBuilder fnBuilder, AWSApiCallRateLimiter rateLimiter,
             MetricSampleBuilder metricSampleBuilder, MetricNameUtil metricNameUtil,
             ECSServiceDiscoveryExporter ecsSDExporter, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;

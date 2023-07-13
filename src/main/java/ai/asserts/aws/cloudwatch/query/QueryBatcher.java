@@ -11,7 +11,7 @@ import java.util.List;
 public class QueryBatcher {
     private final int queryCountLimit;
 
-    public QueryBatcher(@Value("${aws.metric.data.query.count.limit:500}") int queryCountLimit) {
+    public QueryBatcher(@Value("${aws_exporter.metric_data_query_limit:500}") int queryCountLimit) {
         this.queryCountLimit = queryCountLimit;
     }
 

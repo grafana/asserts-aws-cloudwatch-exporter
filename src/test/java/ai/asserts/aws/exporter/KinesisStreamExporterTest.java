@@ -10,7 +10,7 @@ import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
@@ -46,7 +46,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
     public CollectorRegistry collectorRegistry;
     private AWSAccount accountRegion;
     private AWSClientProvider awsClientProvider;
-    private RateLimiter rateLimiter;
+    private AWSApiCallRateLimiter rateLimiter;
     private MetricSampleBuilder sampleBuilder;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
@@ -67,7 +67,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         awsClientProvider = mock(AWSClientProvider.class);
-        rateLimiter = mock(RateLimiter.class);
+        rateLimiter = mock(AWSApiCallRateLimiter.class);
         collectorRegistry = mock(CollectorRegistry.class);
         kinesisClient = mock(KinesisClient.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
@@ -77,7 +77,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new KinesisStreamExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(basicMetricCollector, (account) -> "tenant")), scrapeConfigProvider);
+                new AWSApiCallRateLimiter(basicMetricCollector, (account) -> "tenant")), scrapeConfigProvider);
     }
 
     @Test
@@ -96,7 +96,7 @@ public class KinesisStreamExporterTest extends EasyMockSupport {
                 .builder()
                 .streamNames("stream1")
                 .build();
-        Capture<RateLimiter.AWSAPICall<ListStreamsResponse>> callbackCapture = Capture.newInstance();
+        Capture<AWSApiCallRateLimiter.AWSAPICall<ListStreamsResponse>> callbackCapture = Capture.newInstance();
 
         expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(scrapeConfig);
         expect(rateLimiter.doWithRateLimit(eq("KinesisClient/listStreams"),

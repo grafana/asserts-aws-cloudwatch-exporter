@@ -4,7 +4,7 @@ package ai.asserts.aws.cloudwatch.query;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.EnvironmentConfig;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -54,7 +54,7 @@ public class MetricQueryProvider {
     private final ResourceTagHelper resourceTagHelper;
     private final MetricQueryBuilder metricQueryBuilder;
     private final Supplier<Map<String, Map<String, Map<Integer, List<MetricQuery>>>>> metricQueryCache;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final TaskExecutorUtil taskExecutorUtil;
 
     public MetricQueryProvider(EnvironmentConfig environmentConfig,
@@ -65,7 +65,7 @@ public class MetricQueryProvider {
                                AWSClientProvider awsClientProvider,
                                ResourceTagHelper resourceTagHelper,
                                MetricQueryBuilder metricQueryBuilder,
-                               RateLimiter rateLimiter,
+                               AWSApiCallRateLimiter rateLimiter,
                                TaskExecutorUtil taskExecutorUtil) {
         this.environmentConfig = environmentConfig;
         this.accountProvider = accountProvider;

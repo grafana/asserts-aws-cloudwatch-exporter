@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TagUtil;
@@ -54,7 +54,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
     private final ResourceMapper resourceMapper;
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final MetricNameUtil metricNameUtil;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final TagUtil tagUtil;
     private final TaskExecutorUtil taskExecutorUtil;
 
@@ -63,7 +63,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
     public LoadBalancerExporter(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
                                 MetricSampleBuilder metricSampleBuilder, ResourceMapper resourceMapper,
                                 ScrapeConfigProvider scrapeConfigProvider, MetricNameUtil metricNameUtil,
-                                RateLimiter rateLimiter, TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
+                                AWSApiCallRateLimiter rateLimiter, TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;
         this.metricSampleBuilder = metricSampleBuilder;

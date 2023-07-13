@@ -6,7 +6,7 @@ package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.EnvironmentConfig;
@@ -46,7 +46,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 public class AlarmFetcher extends Collector implements InitializingBean {
     public final CollectorRegistry collectorRegistry;
     private final AccountProvider accountProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final AWSClientProvider awsClientProvider;
     private final AlarmMetricConverter alarmMetricConverter;
     private final MetricSampleBuilder sampleBuilder;
@@ -59,7 +59,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
     public AlarmFetcher(AccountProvider accountProvider,
                         AWSClientProvider awsClientProvider,
                         CollectorRegistry collectorRegistry,
-                        RateLimiter rateLimiter,
+                        AWSApiCallRateLimiter rateLimiter,
                         MetricSampleBuilder sampleBuilder,
                         AlarmMetricConverter alarmMetricConverter,
                         ScrapeConfigProvider scrapeConfigProvider,

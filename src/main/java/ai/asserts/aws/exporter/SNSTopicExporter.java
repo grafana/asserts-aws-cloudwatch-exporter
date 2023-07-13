@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -45,7 +45,7 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
     public final CollectorRegistry collectorRegistry;
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final ResourceMapper resourceMapper;
     private final ResourceTagHelper resourceTagHelper;
@@ -56,7 +56,7 @@ public class SNSTopicExporter extends Collector implements InitializingBean {
 
     public SNSTopicExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceMapper resourceMapper,
+            AWSApiCallRateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceMapper resourceMapper,
             ResourceTagHelper resourceTagHelper, TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil,
             ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;

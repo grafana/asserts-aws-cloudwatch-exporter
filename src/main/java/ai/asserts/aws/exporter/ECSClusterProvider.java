@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.base.Suppliers;
@@ -39,11 +39,11 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 @Slf4j
 public class ECSClusterProvider {
     private final AWSClientProvider awsClientProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final Map<String, Map<String, Supplier<Set<Resource>>>> clusterProviders = new ConcurrentHashMap<>();
 
-    public ECSClusterProvider(AWSClientProvider awsClientProvider, RateLimiter rateLimiter,
+    public ECSClusterProvider(AWSClientProvider awsClientProvider, AWSApiCallRateLimiter rateLimiter,
                               ResourceMapper resourceMapper) {
         this.awsClientProvider = awsClientProvider;
         this.rateLimiter = rateLimiter;
