@@ -176,7 +176,7 @@ public class MetadataTaskManager implements InitializingBean {
     }
 
     @SuppressWarnings("unused")
-    @Scheduled(fixedRateString = "${aws.metadata.scrape.manager.task.fixedDelay:300000}",
+    @Scheduled(fixedRateString = "${aws.metadata.scrape.manager.task.fixedDelay:60000}",
             initialDelayString = "${aws.metadata.scrape.manager.task.initialDelay:5000}")
     @Timed(description = "Time spent scraping AWS Resource meta data from all regions", histogram = true)
     public void perMinute() {

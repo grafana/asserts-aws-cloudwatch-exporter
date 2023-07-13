@@ -101,7 +101,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
                 ecsTaskUtil, sampleBuilder,
-                collectorRegistry, taskExecutorUtil, snakeCaseUtil);
+                collectorRegistry, taskExecutorUtil, snakeCaseUtil, 1);
     }
 
 
@@ -245,7 +245,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
                 new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
                 ecsTaskUtil, sampleBuilder,
-                collectorRegistry, taskExecutorUtil, snakeCaseUtil) {
+                collectorRegistry, taskExecutorUtil, snakeCaseUtil, 2) {
             @Override
             void discoverNewTasks(Map<Resource, List<Resource>> clusterWiseNewTasks, EcsClient ecsClient,
                                   Resource cluster) {
@@ -370,11 +370,19 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .build();
         expect(ecsClient.describeTasks(DescribeTasksRequest.builder()
                 .cluster("cluster1")
-                .tasks("service1-arn", "service2-arn")
+                .tasks("service1-arn")
                 .build())).andReturn(DescribeTasksResponse.builder()
-                .tasks(task1, task2)
+                .tasks(task1)
                 .build());
         expect(ecsTaskUtil.hasAllInfo(task1)).andReturn(true);
+        basicMetricCollector.recordLatency(eq("aws_exporter_milliseconds"), anyObject(SortedMap.class), anyLong());
+
+        expect(ecsClient.describeTasks(DescribeTasksRequest.builder()
+                .cluster("cluster1")
+                .tasks("service2-arn")
+                .build())).andReturn(DescribeTasksResponse.builder()
+                .tasks(task2)
+                .build());
         expect(ecsTaskUtil.hasAllInfo(task2)).andReturn(true);
         basicMetricCollector.recordLatency(eq("aws_exporter_milliseconds"), anyObject(SortedMap.class), anyLong());
 
@@ -398,14 +406,23 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .group("service:service4")
                 .taskArn("service4-task4-arn")
                 .build();
+
         expect(ecsClient.describeTasks(DescribeTasksRequest.builder()
                 .cluster("cluster2")
-                .tasks("service3-arn", "service4-arn")
+                .tasks("service3-arn")
                 .build())).andReturn(DescribeTasksResponse.builder()
-                .tasks(task3, task4)
+                .tasks(task3)
                 .build());
-
+        basicMetricCollector.recordLatency(eq("aws_exporter_milliseconds"), anyObject(SortedMap.class), anyLong());
         expect(ecsTaskUtil.hasAllInfo(task3)).andReturn(true);
+
+        expect(ecsClient.describeTasks(DescribeTasksRequest.builder()
+                .cluster("cluster2")
+                .tasks("service4-arn")
+                .build())).andReturn(DescribeTasksResponse.builder()
+                .tasks(task4)
+                .build());
+        basicMetricCollector.recordLatency(eq("aws_exporter_milliseconds"), anyObject(SortedMap.class), anyLong());
         expect(ecsTaskUtil.hasAllInfo(task4)).andReturn(true);
 
         Resource task3Resource = Resource.builder().name("task3").build();
@@ -419,8 +436,6 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         expect(ecsTaskUtil.buildScrapeTargets(account, scrapeConfig, ecsClient, cluster2, Optional.of("service4"),
                 task4))
                 .andReturn(ImmutableList.of(mockStaticConfig, mockStaticConfig));
-
-        basicMetricCollector.recordLatency(eq("aws_exporter_milliseconds"), anyObject(SortedMap.class), anyLong());
 
         replayAll();
         assertTrue(testClass.getTasksByCluster().isEmpty());
