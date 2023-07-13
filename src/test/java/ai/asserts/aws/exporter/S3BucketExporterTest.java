@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -47,7 +47,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
     public CollectorRegistry collectorRegistry;
     private AWSAccount accountRegion;
     private AWSClientProvider awsClientProvider;
-    private RateLimiter rateLimiter;
+    private AWSApiCallRateLimiter rateLimiter;
     private MetricSampleBuilder sampleBuilder;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
@@ -68,7 +68,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         awsClientProvider = mock(AWSClientProvider.class);
-        rateLimiter = mock(RateLimiter.class);
+        rateLimiter = mock(AWSApiCallRateLimiter.class);
         collectorRegistry = mock(CollectorRegistry.class);
         s3Client = mock(S3Client.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
@@ -78,7 +78,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new S3BucketExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(basicMetricCollector, (account) -> "acme")), scrapeConfigProvider);
+                new AWSApiCallRateLimiter(basicMetricCollector, (account) -> "acme")), scrapeConfigProvider);
     }
 
     @Test
@@ -97,7 +97,7 @@ public class S3BucketExporterTest extends EasyMockSupport {
                 .builder()
                 .buckets(Bucket.builder().name("b1").build())
                 .build();
-        Capture<RateLimiter.AWSAPICall<ListBucketsResponse>> callbackCapture = Capture.newInstance();
+        Capture<AWSApiCallRateLimiter.AWSAPICall<ListBucketsResponse>> callbackCapture = Capture.newInstance();
 
         expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
         expect(rateLimiter.doWithRateLimit(eq("S3Client/listBuckets"),

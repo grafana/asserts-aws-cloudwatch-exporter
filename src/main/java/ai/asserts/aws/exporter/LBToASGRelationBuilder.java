@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -50,7 +50,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final AccountProvider accountProvider;
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
@@ -63,7 +63,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
 
     public LBToASGRelationBuilder(AWSClientProvider awsClientProvider,
                                   ResourceMapper resourceMapper, TargetGroupLBMapProvider targetGroupLBMapProvider,
-                                  RateLimiter rateLimiter, AccountProvider accountProvider,
+                                  AWSApiCallRateLimiter rateLimiter, AccountProvider accountProvider,
                                   MetricSampleBuilder metricSampleBuilder, CollectorRegistry collectorRegistry,
                                   TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil,
                                   ScrapeConfigProvider scrapeConfigProvider) {

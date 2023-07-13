@@ -8,7 +8,7 @@ import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,8 +67,8 @@ public class EMRExporterTest extends EasyMockSupport {
         sample = mock(Sample.class);
         emrClient = mock(EmrClient.class);
         emrExporter = new EMRExporter(accountProvider, awsClientProvider, collectorRegistry,
-                new RateLimiter(basicMetricCollector, (account) -> "acme"), metricSampleBuilder,
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(basicMetricCollector,
+                new AWSApiCallRateLimiter(basicMetricCollector, (account) -> "acme"), metricSampleBuilder,
+                new TaskExecutorUtil(new TestTaskThreadPool(), new AWSApiCallRateLimiter(basicMetricCollector,
                         (account) -> "acme")));
     }
 

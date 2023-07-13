@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
@@ -79,7 +79,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
         scrapeConfig = mock(ScrapeConfig.class);
-        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
+        AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "acme");
         TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
                 rateLimiter);
         Ec2Client ec2Client = mock(Ec2Client.class);

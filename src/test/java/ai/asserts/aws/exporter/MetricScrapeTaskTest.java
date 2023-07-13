@@ -2,7 +2,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
@@ -85,9 +85,9 @@ public class MetricScrapeTaskTest extends EasyMockSupport {
         testClass.setAwsClientProvider(awsClientProvider);
         testClass.setSampleBuilder(sampleBuilder);
         testClass.setTimeWindowBuilder(timeWindowBuilder);
-        testClass.setRateLimiter(new RateLimiter(metricCollector, (account) -> "tenant"));
+        testClass.setRateLimiter(new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant"));
         testClass.setTaskExecutorUtil(
-                new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(metricCollector,
+                new TaskExecutorUtil(new TestTaskThreadPool(), new AWSApiCallRateLimiter(metricCollector,
                         (account) -> "tenant")));
     }
 

@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
@@ -41,7 +41,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
 @Component
 @Slf4j
 public class LBToECSRoutingBuilder implements Runnable {
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final TargetGroupLBMapProvider targetGroupLBMapProvider;
     private final AWSClientProvider awsClientProvider;
@@ -52,7 +52,7 @@ public class LBToECSRoutingBuilder implements Runnable {
     @Getter
     private volatile Set<ResourceRelation> routing = new HashSet<>();
 
-    public LBToECSRoutingBuilder(RateLimiter rateLimiter, ResourceMapper resourceMapper,
+    public LBToECSRoutingBuilder(AWSApiCallRateLimiter rateLimiter, ResourceMapper resourceMapper,
                                  TargetGroupLBMapProvider targetGroupLBMapProvider,
                                  AWSClientProvider awsClientProvider, AccountProvider accountProvider,
                                  ECSClusterProvider ecsClusterProvider, TaskExecutorUtil taskExecutorUtil) {

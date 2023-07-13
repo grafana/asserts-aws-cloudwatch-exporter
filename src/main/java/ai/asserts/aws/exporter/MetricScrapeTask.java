@@ -2,7 +2,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.SimpleTenantTask;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
@@ -72,7 +72,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
     @Autowired
     private TimeWindowBuilder timeWindowBuilder;
     @Autowired
-    private RateLimiter rateLimiter;
+    private AWSApiCallRateLimiter rateLimiter;
     @Autowired
     private TaskExecutorUtil taskExecutorUtil;
 

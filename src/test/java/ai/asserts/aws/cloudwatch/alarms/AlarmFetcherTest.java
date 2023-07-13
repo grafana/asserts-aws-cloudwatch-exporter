@@ -6,7 +6,7 @@ package ai.asserts.aws.cloudwatch.alarms;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.EnvironmentConfig;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
@@ -46,7 +46,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
     public CollectorRegistry collectorRegistry;
     private AccountProvider accountProvider;
     private AWSAccount awsAccount;
-    private RateLimiter rateLimiter;
+    private AWSApiCallRateLimiter rateLimiter;
     private AWSClientProvider awsClientProvider;
     private ScrapeConfigProvider scrapeConfigProvider;
     private ScrapeConfig scrapeConfig;
@@ -69,7 +69,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         awsClientProvider = mock(AWSClientProvider.class);
-        rateLimiter = mock(RateLimiter.class);
+        rateLimiter = mock(AWSApiCallRateLimiter.class);
         sampleBuilder = mock(MetricSampleBuilder.class);
         collectorRegistry = mock(CollectorRegistry.class);
         cloudWatchClient = mock(CloudWatchClient.class);
@@ -81,7 +81,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
         environmentConfig = mock(EnvironmentConfig.class);
         testClass = new AlarmFetcher(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, alarmMetricConverter, scrapeConfigProvider,
-                ecsServiceDiscoveryExporter, new TaskExecutorUtil(new TestTaskThreadPool(), new RateLimiter(null,
+                ecsServiceDiscoveryExporter, new TaskExecutorUtil(new TestTaskThreadPool(), new AWSApiCallRateLimiter(null,
                 (accountId) -> "tenant")), environmentConfig);
     }
 
@@ -99,7 +99,7 @@ public class AlarmFetcherTest extends EasyMockSupport {
         expect(awsClientProvider.getCloudWatchClient("region", awsAccount))
                 .andReturn(cloudWatchClient).anyTimes();
 
-        Capture<RateLimiter.AWSAPICall<DescribeAlarmsResponse>> callbackCapture = Capture.newInstance();
+        Capture<AWSApiCallRateLimiter.AWSAPICall<DescribeAlarmsResponse>> callbackCapture = Capture.newInstance();
 
         MetricAlarm alarm = MetricAlarm.builder()
                 .alarmName("alarm1")

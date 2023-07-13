@@ -6,17 +6,15 @@ package ai.asserts.aws;
 
 import ai.asserts.aws.account.AccountTenantMapper;
 import ai.asserts.aws.exporter.BasicMetricCollector;
-import lombok.AllArgsConstructor;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Semaphore;
 
 import static ai.asserts.aws.MetricNameUtil.ASSERTS_ERROR_TYPE;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
@@ -28,28 +26,42 @@ import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
-@Component
 @Slf4j
-@AllArgsConstructor
-public class RateLimiter {
+@SuppressWarnings("UnstableApiUsage")
+public class AWSApiCallRateLimiter {
     private final BasicMetricCollector metricCollector;
     private final AccountTenantMapper accountTenantMapper;
+    private final double defaultRateLimit;
 
     private final ThreadLocal<Map<String, Integer>> apiCallCounts = ThreadLocal.withInitial(TreeMap::new);
 
-    private final Map<String, Semaphore> semaphores = new LinkedHashMap<>();
+    private final Map<String, RateLimiter> rateLimiters = new HashMap<>();
+
+    @VisibleForTesting
+    public AWSApiCallRateLimiter(BasicMetricCollector metricCollector, AccountTenantMapper accountTenantMapper) {
+        this(metricCollector, accountTenantMapper, 20);
+    }
+
+    public AWSApiCallRateLimiter(BasicMetricCollector metricCollector, AccountTenantMapper accountTenantMapper,
+                                 double defaultRateLimit) {
+        this.metricCollector = metricCollector;
+        this.accountTenantMapper = accountTenantMapper;
+        this.defaultRateLimit = defaultRateLimit;
+    }
 
     public <K extends AWSAPICall<V>, V> V doWithRateLimit(String api, SortedMap<String, String> labels, K k) {
         String accountId = labels.get(SCRAPE_ACCOUNT_ID_LABEL);
         String region = labels.get(SCRAPE_REGION_LABEL);
-        String clientType = api.split("/")[0];
         String regionKey = accountId + "/" + region;
-        String fullKey = regionKey + "/" + clientType;
-        Semaphore theSemaphore = semaphores.computeIfAbsent(fullKey, s -> new Semaphore(2));
+        String fullKey = regionKey + "/" + api;
+        RateLimiter rateLimiter = rateLimiters.computeIfAbsent(fullKey, s -> RateLimiter.create(defaultRateLimit));
         long tick = System.currentTimeMillis();
         String tenantName = accountTenantMapper.getTenantName(labels.get(SCRAPE_ACCOUNT_ID_LABEL));
         try {
-            theSemaphore.acquire();
+            double waitTime = rateLimiter.acquire();
+            if (waitTime > 0.5) {
+                log.warn("Operation {} throttled for {} seconds", fullKey, waitTime);
+            }
             Map<String, Integer> callCounts = apiCallCounts.get();
             String operationName = labels.getOrDefault(SCRAPE_OPERATION_LABEL, "unknown");
             String callCountKey = regionKey + "/" + operationName;
@@ -74,7 +86,6 @@ public class RateLimiter {
                 labels.put(TENANT, tenantName);
             }
             metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, labels, tick);
-            theSemaphore.release();
         }
     }
 

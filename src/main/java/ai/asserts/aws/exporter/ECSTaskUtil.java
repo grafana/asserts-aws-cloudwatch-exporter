@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
@@ -57,7 +57,7 @@ public class ECSTaskUtil {
     public static final String INSTALLED_ENV_NAME = "INSTALL_ENV_NAME";
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final TagUtil tagUtil;
     private final TaskExecutorUtil taskExecutorUtil;
     private final String envName;
@@ -75,7 +75,7 @@ public class ECSTaskUtil {
     public static final String PROMETHEUS_METRIC_PATH_DOCKER_LABEL = "PROMETHEUS_EXPORTER_PATH";
 
 
-    public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper, RateLimiter rateLimiter,
+    public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper, AWSApiCallRateLimiter rateLimiter,
                        TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;

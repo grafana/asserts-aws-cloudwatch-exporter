@@ -9,7 +9,7 @@ import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -65,10 +65,10 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
         lambdaResource = mock(Resource.class);
 
         testClass = new LBToLambdaRoutingBuilder(awsClientProvider,
-                new RateLimiter(metricCollector, (account) -> "acme"),
+                new AWSApiCallRateLimiter(metricCollector, (account) -> "acme"),
                 resourceMapper, accountProvider, targetGroupLBMapProvider,
                 new TaskExecutorUtil(new TestTaskThreadPool(),
-                        new RateLimiter(metricCollector, (account) -> "acme")));
+                        new AWSApiCallRateLimiter(metricCollector, (account) -> "acme")));
 
         AWSAccount awsAccount = new AWSAccount("tenant", "account", "accessId", "secretKey", "role",
                 ImmutableSet.of("region"));

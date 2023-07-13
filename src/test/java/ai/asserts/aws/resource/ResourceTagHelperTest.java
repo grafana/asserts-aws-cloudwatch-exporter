@@ -5,7 +5,7 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountTenantMapper;
@@ -54,7 +54,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
     private NamespaceConfig namespaceConfig;
     private BasicMetricCollector metricCollector;
     private AWSAccount accountRegion;
-    private RateLimiter rateLimiter;
+    private AWSApiCallRateLimiter rateLimiter;
     private AccountTenantMapper accountTenantMapper;
     private ResourceTagHelper testClass;
 
@@ -72,7 +72,7 @@ public class ResourceTagHelperTest extends EasyMockSupport {
         metricCollector = mock(BasicMetricCollector.class);
         elbClient = mock(ElasticLoadBalancingClient.class);
         accountTenantMapper = mock(AccountTenantMapper.class);
-        rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
+        rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant");
         scrapeConfig = mock(ScrapeConfig.class);
         testClass = new ResourceTagHelper(scrapeConfigProvider, awsClientProvider, resourceMapper, rateLimiter,
                 accountTenantMapper);

@@ -9,7 +9,7 @@ import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import com.google.common.collect.ImmutableList;
@@ -70,7 +70,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
     private BasicMetricCollector metricCollector;
     private MetricSampleBuilder sampleBuilder;
     private CollectorRegistry collectorRegistry;
-    private RateLimiter rateLimiter;
+    private AWSApiCallRateLimiter rateLimiter;
     private TaskExecutorUtil taskExecutorUtil;
     private Sample mockSample;
     private MetricFamilySamples mockFamilySamples;
@@ -88,7 +88,7 @@ public class TargetGroupLBMapProviderTest extends EasyMockSupport {
         collectorRegistry = mock(CollectorRegistry.class);
         mockSample = mock(Sample.class);
         mockFamilySamples = mock(MetricFamilySamples.class);
-        rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
+        rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant");
         taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter);
         labels = ImmutableSortedMap.of(
                 SCRAPE_ACCOUNT_ID_LABEL, "account",

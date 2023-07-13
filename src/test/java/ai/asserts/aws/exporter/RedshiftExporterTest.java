@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -71,7 +71,7 @@ public class RedshiftExporterTest extends EasyMockSupport {
         scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         scrapeConfig = mock(ScrapeConfig.class);
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
-        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "tenant");
+        AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant");
         testClass = new RedshiftExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter),
                 scrapeConfigProvider);

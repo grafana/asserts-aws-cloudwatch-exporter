@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -46,7 +46,7 @@ public class DynamoDBExporterTest extends EasyMockSupport {
     public CollectorRegistry collectorRegistry;
     private AWSAccount accountRegion;
     private AWSClientProvider awsClientProvider;
-    private RateLimiter rateLimiter;
+    private AWSApiCallRateLimiter rateLimiter;
     private MetricSampleBuilder sampleBuilder;
     private Collector.MetricFamilySamples.Sample sample;
     private Collector.MetricFamilySamples familySamples;
@@ -67,7 +67,7 @@ public class DynamoDBExporterTest extends EasyMockSupport {
         sample = mock(Collector.MetricFamilySamples.Sample.class);
         familySamples = mock(Collector.MetricFamilySamples.class);
         awsClientProvider = mock(AWSClientProvider.class);
-        rateLimiter = mock(RateLimiter.class);
+        rateLimiter = mock(AWSApiCallRateLimiter.class);
         collectorRegistry = mock(CollectorRegistry.class);
         dynamoDbClient = mock(DynamoDbClient.class);
         resourceTagHelper = mock(ResourceTagHelper.class);
@@ -78,7 +78,7 @@ public class DynamoDBExporterTest extends EasyMockSupport {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(accountRegion));
         testClass = new DynamoDBExporter(accountProvider, awsClientProvider, collectorRegistry, rateLimiter,
                 sampleBuilder, resourceTagHelper, tagUtil, new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(basicMetricCollector, (account) -> "tenant")), scrapeConfigProvider);
+                new AWSApiCallRateLimiter(basicMetricCollector, (account) -> "tenant")), scrapeConfigProvider);
     }
 
     @Test
@@ -97,7 +97,7 @@ public class DynamoDBExporterTest extends EasyMockSupport {
                 .builder()
                 .tableNames("b1")
                 .build();
-        Capture<RateLimiter.AWSAPICall<ListTablesResponse>> callbackCapture = Capture.newInstance();
+        Capture<AWSApiCallRateLimiter.AWSAPICall<ListTablesResponse>> callbackCapture = Capture.newInstance();
 
         expect(rateLimiter.doWithRateLimit(eq("DynamoDbClient/listTables"),
                 anyObject(SortedMap.class), capture(callbackCapture))).andReturn(response);

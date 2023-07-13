@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -49,7 +49,7 @@ public class RDSExporter extends Collector implements InitializingBean {
     public final CollectorRegistry collectorRegistry;
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final ResourceTagHelper resourceTagHelper;
     private final TagUtil tagUtil;
@@ -59,7 +59,7 @@ public class RDSExporter extends Collector implements InitializingBean {
 
     public RDSExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceTagHelper resourceTagHelper,
+            AWSApiCallRateLimiter rateLimiter, MetricSampleBuilder sampleBuilder, ResourceTagHelper resourceTagHelper,
             TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil, ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;
         this.awsClientProvider = awsClientProvider;

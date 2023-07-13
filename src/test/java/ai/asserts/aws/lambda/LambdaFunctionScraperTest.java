@@ -3,7 +3,7 @@ package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
@@ -93,10 +93,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         lambdaFunctionScraper = new LambdaFunctionScraper(
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
-                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector, (account) -> "tenant"),
+                resourceTagHelper, lambdaFunctionBuilder, new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant"),
                 metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
                 new TaskExecutorUtil(new TestTaskThreadPool(),
-                        new RateLimiter(metricCollector, (account) -> "tenant")));
+                        new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant")));
         verifyAll();
         resetAll();
         expect(scrapeConfigProvider.getScrapeConfig("tenant")).andReturn(ScrapeConfig.builder()
@@ -139,10 +139,10 @@ public class LambdaFunctionScraperTest extends EasyMockSupport {
         lambdaFunctionScraper = new LambdaFunctionScraper(
                 accountProvider,
                 scrapeConfigProvider, awsClientProvider,
-                resourceTagHelper, lambdaFunctionBuilder, new RateLimiter(metricCollector, (account) -> "tenant"),
+                resourceTagHelper, lambdaFunctionBuilder, new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant"),
                 metricSampleBuilder, metricNameUtil, ecsServiceDiscoveryExporter,
                 new TaskExecutorUtil(new TestTaskThreadPool(),
-                        new RateLimiter(metricCollector, (account) -> "tenant"))) {
+                        new AWSApiCallRateLimiter(metricCollector, (account) -> "tenant"))) {
             @Override
             public Map<String, Map<String, Map<String, LambdaFunction>>> getFunctions() {
                 return functions;

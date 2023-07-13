@@ -5,7 +5,7 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.SnakeCaseUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -97,9 +97,9 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         snakeCaseUtil = new SnakeCaseUtil();
         mockFamilySamples = mock(Collector.MetricFamilySamples.class);
         taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
-                new RateLimiter(basicMetricCollector, (accountId) -> "acme"));
+                new AWSApiCallRateLimiter(basicMetricCollector, (accountId) -> "acme"));
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
-                new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
+                new AWSApiCallRateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
                 ecsTaskUtil, sampleBuilder,
                 collectorRegistry, taskExecutorUtil, snakeCaseUtil, 1);
     }
@@ -243,7 +243,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .build();
 
         testClass = new ECSTaskProvider(awsClientProvider, scrapeConfigProvider, accountProvider,
-                new RateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
+                new AWSApiCallRateLimiter(basicMetricCollector, (account) -> "acme"), resourceMapper, ecsClusterProvider,
                 ecsTaskUtil, sampleBuilder,
                 collectorRegistry, taskExecutorUtil, snakeCaseUtil, 2) {
             @Override

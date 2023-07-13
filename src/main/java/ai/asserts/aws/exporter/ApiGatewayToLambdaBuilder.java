@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.CollectionBuilderTask;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
@@ -51,7 +51,7 @@ import static ai.asserts.aws.resource.ResourceType.LambdaFunction;
 public class ApiGatewayToLambdaBuilder extends Collector
         implements MetricProvider, InitializingBean {
     private final AWSClientProvider awsClientProvider;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final AccountProvider accountProvider;
     private final MetricSampleBuilder metricSampleBuilder;
     private final CollectorRegistry collectorRegistry;
@@ -65,7 +65,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
     private volatile List<MetricFamilySamples> apiResourceMetrics = new ArrayList<>();
 
     public ApiGatewayToLambdaBuilder(AWSClientProvider awsClientProvider,
-                                     RateLimiter rateLimiter, AccountProvider accountProvider,
+                                     AWSApiCallRateLimiter rateLimiter, AccountProvider accountProvider,
                                      MetricSampleBuilder metricSampleBuilder,
                                      CollectorRegistry collectorRegistry, MetricNameUtil metricNameUtil,
                                      TaskExecutorUtil taskExecutorUtil) {

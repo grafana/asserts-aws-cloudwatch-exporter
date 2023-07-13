@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
 import ai.asserts.aws.account.AWSAccount;
@@ -71,7 +71,7 @@ public class ApiGatewayToLambdaBuilderTest extends EasyMockSupport {
         sample = mock(Sample.class);
         collectorRegistry = mock(CollectorRegistry.class);
         metricNameUtil = mock(MetricNameUtil.class);
-        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
+        AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "acme");
         testClass = new ApiGatewayToLambdaBuilder(awsClientProvider, rateLimiter,
                 accountProvider, metricSampleBuilder, collectorRegistry, metricNameUtil,
                 new TaskExecutorUtil(new TestTaskThreadPool(), rateLimiter));

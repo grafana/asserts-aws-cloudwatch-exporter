@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.MetricNameUtil;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
@@ -101,7 +101,7 @@ public class LambdaCapacityExporterTest extends EasyMockSupport {
         ScrapeConfigProvider scrapeConfigProvider = mock(ScrapeConfigProvider.class);
         resetAll();
 
-        RateLimiter rateLimiter = new RateLimiter(metricCollector, (account) -> "acme");
+        AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "acme");
         testClass = new LambdaCapacityExporter(accountProvider,
                 scrapeConfigProvider, awsClientProvider, metricNameUtil,
                 sampleBuilder, functionScraper, resourceTagHelper, rateLimiter,

@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.account.AccountProvider;
@@ -66,7 +66,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     private final ResourceMapper resourceMapper;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final MetricSampleBuilder sampleBuilder;
     private final CollectorRegistry collectorRegistry;
     private final TaskExecutorUtil taskExecutorUtil;
@@ -79,7 +79,7 @@ public class TargetGroupLBMapProvider extends Collector implements InitializingB
     private volatile MetricFamilySamples metricFamilySamples = null;
 
     public TargetGroupLBMapProvider(AccountProvider accountProvider, AWSClientProvider awsClientProvider,
-                                    ResourceMapper resourceMapper, RateLimiter rateLimiter,
+                                    ResourceMapper resourceMapper, AWSApiCallRateLimiter rateLimiter,
                                     MetricSampleBuilder sampleBuilder, CollectorRegistry collectorRegistry,
                                     TaskExecutorUtil taskExecutorUtil) {
         this.accountProvider = accountProvider;

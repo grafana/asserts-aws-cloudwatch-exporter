@@ -20,11 +20,11 @@ import java.util.function.Consumer;
 public class TaskExecutorUtil {
     private final TaskThreadPool taskThreadPool;
 
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private static final ThreadLocal<String> tenantName = new ThreadLocal<>();
 
 
-    public TaskExecutorUtil(@Qualifier("aws-api-calls-thread-pool") TaskThreadPool taskThreadPool, RateLimiter rateLimiter) {
+    public TaskExecutorUtil(@Qualifier("aws-api-calls-thread-pool") TaskThreadPool taskThreadPool, AWSApiCallRateLimiter rateLimiter) {
         this.taskThreadPool = taskThreadPool;
         this.rateLimiter = rateLimiter;
     }

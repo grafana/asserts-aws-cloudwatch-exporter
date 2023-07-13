@@ -6,7 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.RateLimiter;
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -47,7 +47,7 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
     private final AccountProvider accountProvider;
     private final AWSClientProvider awsClientProvider;
     public final CollectorRegistry collectorRegistry;
-    private final RateLimiter rateLimiter;
+    private final AWSApiCallRateLimiter rateLimiter;
     private final ResourceMapper resourceMapper;
     private final MetricSampleBuilder sampleBuilder;
     private final ResourceTagHelper resourceTagHelper;
@@ -58,7 +58,7 @@ public class KinesisFirehoseExporter extends Collector implements InitializingBe
 
     public KinesisFirehoseExporter(
             AccountProvider accountProvider, AWSClientProvider awsClientProvider, CollectorRegistry collectorRegistry,
-            ResourceMapper resourceMapper, RateLimiter rateLimiter, MetricSampleBuilder sampleBuilder,
+            ResourceMapper resourceMapper, AWSApiCallRateLimiter rateLimiter, MetricSampleBuilder sampleBuilder,
             ResourceTagHelper resourceTagHelper, TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil,
             ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;
