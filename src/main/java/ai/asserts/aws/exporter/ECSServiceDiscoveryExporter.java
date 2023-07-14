@@ -201,6 +201,9 @@ public class ECSServiceDiscoveryExporter implements InitializingBean, Runnable {
 
     @VisibleForTesting
     boolean shouldScrapeTargets(ScrapeConfig scrapeConfig, StaticConfig config) {
+        if( config.getTargets().isEmpty() ) {
+            return false;
+        }
         String targetVpc = config.getLabels().getVpcId();
         String targetSubnet = config.getLabels().getSubnetId();
         boolean vpcOK = scrapeConfig.isDiscoverECSTasksAcrossVPCs() ||

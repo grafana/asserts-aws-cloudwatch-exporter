@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -238,36 +239,49 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
                 .vpcId("vpc-1")
                 .subnetId("subnet-1")
                 .build());
-        assertTrue(testClass.shouldScrapeTargets(scrapeConfig, StaticConfig.builder()
+        StaticConfig staticConfig = StaticConfig.builder()
                 .labels(Labels.builder()
                         .vpcId("vpc-1")
                         .subnetId("subnet-1")
                         .build())
-                .build()));
+                .build();
+
+        // Without target
+        assertFalse(testClass.shouldScrapeTargets(scrapeConfig, staticConfig));
+
+        // With target
+        staticConfig.getTargets().add("1.2.3.4:8080");
+        assertTrue(testClass.shouldScrapeTargets(scrapeConfig, staticConfig));
 
         // Same VPC, different subnet. But subnet configured to be scraped
-        assertTrue(testClass.shouldScrapeTargets(scrapeConfig, StaticConfig.builder()
+        staticConfig = StaticConfig.builder()
                 .labels(Labels.builder()
                         .vpcId("vpc-1")
                         .subnetId("subnet-2")
                         .build())
-                .build()));
+                .build();
+        staticConfig.getTargets().add("1.2.3.4:8080");
+        assertTrue(testClass.shouldScrapeTargets(scrapeConfig, staticConfig));
 
         // Same VPC, different subnet. But subnet not configured to be scraped
-        assertFalse(testClass.shouldScrapeTargets(scrapeConfig, StaticConfig.builder()
+        staticConfig = StaticConfig.builder()
                 .labels(Labels.builder()
                         .vpcId("vpc-1")
                         .subnetId("subnet-3")
                         .build())
-                .build()));
+                .build();
+        staticConfig.getTargets().add("1.2.3.4:8080");
+        assertFalse(testClass.shouldScrapeTargets(scrapeConfig, staticConfig));
 
         // Different VPC
-        assertFalse(testClass.shouldScrapeTargets(scrapeConfig, StaticConfig.builder()
+        staticConfig = StaticConfig.builder()
                 .labels(Labels.builder()
                         .vpcId("vpc-2")
                         .subnetId("subnet-1")
                         .build())
-                .build()));
+                .build();
+        staticConfig.getTargets().add("1.2.3.4:8080");
+        assertFalse(testClass.shouldScrapeTargets(scrapeConfig, staticConfig));
         verifyAll();
     }
 
@@ -283,6 +297,7 @@ public class ECSServiceDiscoveryExporterTest extends EasyMockSupport {
         expect(ecsTaskProvider.getScrapeTargets()).andReturn(ImmutableList.of(mockStaticConfig, mockStaticConfig));
 
         expect(scrapeConfig.isLogECSTargets()).andReturn(true);
+        expect(mockStaticConfig.getTargets()).andReturn(ImmutableSet.of("1.2.3.4:8080")).anyTimes();
         expect(mockStaticConfig.getLabels()).andReturn(mockLabels).anyTimes();
         expect(mockLabels.getVpcId()).andReturn("vpc-id").anyTimes();
         expect(mockLabels.getSubnetId()).andReturn("subnet-id").anyTimes();

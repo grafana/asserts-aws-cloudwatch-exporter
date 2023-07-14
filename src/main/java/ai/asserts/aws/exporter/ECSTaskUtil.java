@@ -4,8 +4,8 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AWSApiCallRateLimiter;
+import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
@@ -75,7 +75,8 @@ public class ECSTaskUtil {
     public static final String PROMETHEUS_METRIC_PATH_DOCKER_LABEL = "PROMETHEUS_EXPORTER_PATH";
 
 
-    public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper, AWSApiCallRateLimiter rateLimiter,
+    public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
+                       AWSApiCallRateLimiter rateLimiter,
                        TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
@@ -84,17 +85,6 @@ public class ECSTaskUtil {
         this.taskExecutorUtil = taskExecutorUtil;
         // If the exporter's environment name is marked, use this for ECS metrics
         envName = getInstallEnvName();
-    }
-
-    @VisibleForTesting
-    String getInstallEnvName() {
-        final String envName;
-        if (System.getenv(INSTALLED_ENV_NAME) != null) {
-            envName = System.getenv(INSTALLED_ENV_NAME);
-        } else {
-            envName = null;
-        }
-        return envName;
     }
 
     public boolean hasAllInfo(Task task) {
@@ -142,6 +132,8 @@ public class ECSTaskUtil {
                     Optional<String> portFromLabel = getDockerLabel(cD, PROMETHEUS_PORT_DOCKER_LABEL);
                     labelsBuilder.availabilityZone(task.availabilityZone());
                     String jobName = cD.name();
+                    labelsBuilder.container(jobName);
+                    labelsBuilder.job(jobName);
                     if (pathFromLabel.isPresent() && portFromLabel.isPresent()) {
                         log.debug("Found prometheus port={}, path={} from docker labels for container {}/{}",
                                 portFromLabel.get(),
@@ -149,26 +141,17 @@ public class ECSTaskUtil {
                                 taskDefinition.taskDefinitionArn(),
                                 cD.name());
                         Labels labels = labelsBuilder
-                                .job(jobName)
                                 .metricsPath(pathFromLabel.get())
-                                .container(cD.name())
                                 .build();
 
-                        labels.populateMapEntries();
-                        labels.putAll(tagLabels);
-                        StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
-                                labels, k -> StaticConfig.builder().labels(labels).build());
+                        StaticConfig staticConfig = buildStaticConfig(tagLabels, targetsByLabel, cD, labels);
                         staticConfig.getTargets().add(format("%s:%s", ipAddress, portFromLabel.get()));
-                        if (cD.logConfiguration() != null) {
-                            LogConfig logConfig = LogConfig.builder()
-                                    .logDriver(cD.logConfiguration().logDriver().toString())
-                                    .options(cD.logConfiguration().options()).build();
-                            staticConfig.getLogConfigs().add(logConfig);
-                        }
                     } else {
                         log.warn("Docker labels for prometheus port and path not found for container {}/{}",
                                 taskDefinition.taskDefinitionArn(),
                                 cD.name());
+                        Labels labels = labelsBuilder.build();
+                        buildStaticConfig(tagLabels, targetsByLabel, cD, labels);
                     }
                 });
             } else {
@@ -186,6 +169,58 @@ public class ECSTaskUtil {
         log.debug("Discovered targets for task {}, {}", task.taskArn(), targets);
         return targets;
     }
+
+    public SubnetDetails getSubnetDetails(Resource taskResource) {
+        EcsClient ecsClient = awsClientProvider.getECSClient(taskResource.getRegion(), AWSAccount.builder()
+                .accountId(taskResource.getAccount())
+                .build());
+        DescribeTasksResponse response = rateLimiter.doWithRateLimit("EcsClient/describeTasks",
+                ImmutableSortedMap.of(
+                        SCRAPE_ACCOUNT_ID_LABEL, taskResource.getAccount(),
+                        SCRAPE_REGION_LABEL, taskResource.getRegion(),
+                        SCRAPE_OPERATION_LABEL, "EcsClient/describeTasks"),
+                () -> ecsClient.describeTasks(DescribeTasksRequest.builder()
+                        .cluster(taskResource.getChildOf().getName())
+                        .tasks(taskResource.getArn())
+                        .build()));
+        if (response.hasTasks()) {
+            return response.tasks().get(0).attachments().stream()
+                    .filter(attachment -> attachment.type().equals("ElasticNetworkInterface"))
+                    .findFirst()
+                    .flatMap(attachment -> attachment.details().stream()
+                            .filter(kv -> kv.name().equals("subnetId")).findFirst())
+                    .map(kv -> {
+                        AtomicReference<String> vpcId = new AtomicReference<>("");
+                        AtomicReference<String> subnetId = new AtomicReference<>("");
+                        subnetId.set(kv.value());
+                        vpcId.set(subnetIdMap.computeIfAbsent(subnetId.get(), kk ->
+                                getVpcId(taskResource, subnetId)));
+                        return SubnetDetails.builder()
+                                .vpcId(vpcId.get())
+                                .subnetId(subnetId.get())
+                                .build();
+                    }).orElse(null);
+        }
+        log.warn("Failed to find description for {}", taskResource);
+        return null;
+    }
+
+    @VisibleForTesting
+    String getEnv(AWSAccount account) {
+        return account.getName() != null ? account.getName() : envName != null ? envName : account.getAccountId();
+    }
+
+    @VisibleForTesting
+    String getInstallEnvName() {
+        final String envName;
+        if (System.getenv(INSTALLED_ENV_NAME) != null) {
+            envName = System.getenv(INSTALLED_ENV_NAME);
+        } else {
+            envName = null;
+        }
+        return envName;
+    }
+
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private LabelsBuilder getLabelsBuilder(AWSAccount account, Resource cluster, Optional<String> service, Task task) {
@@ -232,8 +267,19 @@ public class ECSTaskUtil {
         return labelsBuilder;
     }
 
-    private String getEnv(AWSAccount account) {
-        return envName != null ? envName : account.getName() != null ? account.getName() : account.getAccountId();
+    private StaticConfig buildStaticConfig(Map<String, String> tagLabels, Map<Labels, StaticConfig> targetsByLabel,
+                                           ContainerDefinition cD, Labels labels) {
+        labels.populateMapEntries();
+        labels.putAll(tagLabels);
+        StaticConfig staticConfig = targetsByLabel.computeIfAbsent(
+                labels, k -> StaticConfig.builder().labels(labels).build());
+        if (cD.logConfiguration() != null) {
+            LogConfig logConfig = LogConfig.builder()
+                    .logDriver(cD.logConfiguration().logDriver().toString())
+                    .options(cD.logConfiguration().options()).build();
+            staticConfig.getLogConfigs().add(logConfig);
+        }
+        return staticConfig;
     }
 
     private String getIPAddress(Task task) {
@@ -249,39 +295,11 @@ public class ECSTaskUtil {
         return ipAddress;
     }
 
-    public SubnetDetails getSubnetDetails(Resource taskResource) {
-        EcsClient ecsClient = awsClientProvider.getECSClient(taskResource.getRegion(), AWSAccount.builder()
-                .accountId(taskResource.getAccount())
-                .build());
-        DescribeTasksResponse response = rateLimiter.doWithRateLimit("EcsClient/describeTasks",
-                ImmutableSortedMap.of(
-                        SCRAPE_ACCOUNT_ID_LABEL, taskResource.getAccount(),
-                        SCRAPE_REGION_LABEL, taskResource.getRegion(),
-                        SCRAPE_OPERATION_LABEL, "EcsClient/describeTasks"),
-                () -> ecsClient.describeTasks(DescribeTasksRequest.builder()
-                        .cluster(taskResource.getChildOf().getName())
-                        .tasks(taskResource.getArn())
-                        .build()));
-        if (response.hasTasks()) {
-            return response.tasks().get(0).attachments().stream()
-                    .filter(attachment -> attachment.type().equals("ElasticNetworkInterface"))
-                    .findFirst()
-                    .flatMap(attachment -> attachment.details().stream()
-                            .filter(kv -> kv.name().equals("subnetId")).findFirst())
-                    .map(kv -> {
-                        AtomicReference<String> vpcId = new AtomicReference<>("");
-                        AtomicReference<String> subnetId = new AtomicReference<>("");
-                        subnetId.set(kv.value());
-                        vpcId.set(subnetIdMap.computeIfAbsent(subnetId.get(), kk ->
-                                getVpcId(taskResource, subnetId)));
-                        return SubnetDetails.builder()
-                                .vpcId(vpcId.get())
-                                .subnetId(subnetId.get())
-                                .build();
-                    }).orElse(null);
-        }
-        log.warn("Failed to find description for {}", taskResource);
-        return null;
+    private Optional<String> getDockerLabel(ContainerDefinition container, String labelName) {
+        return container.dockerLabels().entrySet().stream()
+                .filter(entry -> entry.getKey().equals(labelName))
+                .map(Map.Entry::getValue)
+                .findFirst();
     }
 
     private SubnetDetails getSubnetDetails(Task task, Resource taskResource) {
@@ -320,12 +338,5 @@ public class ECSTaskUtil {
                         .build()));
         r.subnets().stream().findFirst().ifPresent(subnet -> id.set(subnet.vpcId()));
         return id.get();
-    }
-
-    Optional<String> getDockerLabel(ContainerDefinition container, String labelName) {
-        return container.dockerLabels().entrySet().stream()
-                .filter(entry -> entry.getKey().equals(labelName))
-                .map(Map.Entry::getValue)
-                .findFirst();
     }
 }

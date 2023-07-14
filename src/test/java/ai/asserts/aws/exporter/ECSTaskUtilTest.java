@@ -4,8 +4,8 @@
  */
 package ai.asserts.aws.exporter;
 
-import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.AWSApiCallRateLimiter;
+import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
@@ -66,6 +66,7 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     private TagUtil tagUtil;
     private ScrapeConfig scrapeConfig;
     private AWSAccount account;
+    private String defaultEnvName;
 
     @BeforeEach
     public void setup() {
@@ -85,9 +86,15 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         Ec2Client ec2Client = mock(Ec2Client.class);
 
 
+        defaultEnvName = "dev";
         testClass = new ECSTaskUtil(awsClientProvider, resourceMapper,
                 rateLimiter, tagUtil,
-                taskExecutorUtil);
+                taskExecutorUtil) {
+            @Override
+            String getInstallEnvName() {
+                return defaultEnvName;
+            }
+        };
 
         expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
         expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
@@ -142,6 +149,15 @@ public class ECSTaskUtilTest extends EasyMockSupport {
                         .build())
                 .build()));
         verifyAll();
+    }
+
+    @Test
+    public void getEnvName() {
+        assertEquals("prod", testClass.getEnv(AWSAccount.builder()
+                .name("prod")
+                .build()));
+        assertEquals(defaultEnvName, testClass.getEnv(AWSAccount.builder()
+                .build()));
     }
 
     @Test
