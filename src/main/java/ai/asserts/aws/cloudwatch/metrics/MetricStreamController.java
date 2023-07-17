@@ -226,7 +226,7 @@ public class MetricStreamController {
         metricMap.put("namespace", metricNamespace);
 
         if (!CollectionUtils.isEmpty(metric.getDimensions())) {
-            metric.getDimensions().forEach((k, v) -> metricMap.put(metricNameUtil.toSnakeCase(k), v));
+            metric.getDimensions().forEach((k, v) -> metricMap.put("d_" + metricNameUtil.toSnakeCase(k), v));
         }
         Optional<CWNamespace> namespaceOpt =
                 Arrays.stream(CWNamespace.values()).filter(f -> f.getNamespace().equals(metricNamespace))
