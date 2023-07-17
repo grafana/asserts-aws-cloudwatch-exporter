@@ -73,18 +73,6 @@ public class ScrapeConfig {
     private Map<String, SubnetDetails> primaryExporterByAccount = new TreeMap<>();
 
     @Builder.Default
-    private Integer listMetricsResultCacheTTLMinutes = 10;
-
-    @Builder.Default
-    private Integer listFunctionsResultCacheTTLMinutes = 5;
-
-    @Builder.Default
-    private Integer getResourcesResultCacheTTLMinutes = 5;
-
-    @Builder.Default
-    private Integer numTaskThreads = 5;
-
-    @Builder.Default
     private AuthConfig authConfig = new AuthConfig();
 
     @Builder.Default
@@ -92,9 +80,6 @@ public class ScrapeConfig {
 
     @Builder.Default
     private Integer delay = 0;
-
-    @Builder.Default
-    private Integer logScrapeDelaySeconds = 15;
 
     private TagExportConfig tagExportConfig;
 
