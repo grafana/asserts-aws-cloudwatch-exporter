@@ -314,7 +314,7 @@ public class MetricStreamControllerTest extends EasyMockSupport {
 
         SortedMap<String, String> metricLabels = new TreeMap<>();
         metricLabels.put("tenant", "acme");
-        metricLabels.put("d_delivery_stream_name", "PUT-HTP-SliCQ");
+        metricLabels.put("delivery_stream_name", "PUT-HTP-SliCQ");
         metricLabels.put("account_id", "123");
         metricLabels.put("namespace", "AWS/Firehose");
         metricLabels.put("region", "r1");
