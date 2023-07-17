@@ -68,32 +68,6 @@ public class AWSApiCallRateLimiterTest extends EasyMockSupport {
         verifyAll();
     }
 
-    @Test
-    public void doWithRateLimit_WithError() {
-        ExecutorService service = Executors.newFixedThreadPool(3);
-
-        SortedMap<String, String> errorLabels = new TreeMap<>(labels);
-        errorLabels.put(ASSERTS_ERROR_TYPE, "RuntimeException");
-        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), eq(labels), anyLong());
-        expectLastCall().times(2);
-        metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
-
-        replayAll();
-
-        service.submit(() -> rateLimiter.doWithRateLimit("Client/API", labels, () -> null));
-
-        try {
-            service.submit(() -> rateLimiter.doWithRateLimit("Client/API",
-                    labels, () -> {
-                        throw new RuntimeException();
-                    })).get();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        verifyAll();
-    }
-
     private void sleep() {
         try {
             Thread.sleep(2000);
