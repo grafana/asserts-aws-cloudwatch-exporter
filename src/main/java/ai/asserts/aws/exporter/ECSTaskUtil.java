@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AWSAccount;
@@ -60,6 +61,8 @@ public class ECSTaskUtil {
     private final AWSApiCallRateLimiter rateLimiter;
     private final TagUtil tagUtil;
     private final TaskExecutorUtil taskExecutorUtil;
+
+    private final ScrapeConfigProvider scrapeConfigProvider;
     private final String envName;
 
     public final Cache<String, TaskDefinition> taskDefsByARN = CacheBuilder.newBuilder()
@@ -77,12 +80,14 @@ public class ECSTaskUtil {
 
     public ECSTaskUtil(AWSClientProvider awsClientProvider, ResourceMapper resourceMapper,
                        AWSApiCallRateLimiter rateLimiter,
-                       TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil) {
+                       TagUtil tagUtil, TaskExecutorUtil taskExecutorUtil,
+                       ScrapeConfigProvider scrapeConfigProvider) {
         this.awsClientProvider = awsClientProvider;
         this.resourceMapper = resourceMapper;
         this.rateLimiter = rateLimiter;
         this.tagUtil = tagUtil;
         this.taskExecutorUtil = taskExecutorUtil;
+        this.scrapeConfigProvider = scrapeConfigProvider;
         // If the exporter's environment name is marked, use this for ECS metrics
         envName = getInstallEnvName();
     }
@@ -322,21 +327,26 @@ public class ECSTaskUtil {
     }
 
     private String getVpcId(Resource taskResource, AtomicReference<String> subnetId) {
-        AtomicReference<String> id = new AtomicReference<>("");
-        Ec2Client ec2Client = awsClientProvider.getEc2Client(taskResource.getRegion(),
-                AWSAccount.builder()
-                        .accountId(taskResource.getAccount())
-                        .build());
-        DescribeSubnetsResponse r = rateLimiter.doWithRateLimit("EC2Client/describeSubnets",
-                ImmutableSortedMap.of(
-                        SCRAPE_ACCOUNT_ID_LABEL, taskResource.getAccount(),
-                        SCRAPE_REGION_LABEL, taskResource.getRegion(),
-                        SCRAPE_OPERATION_LABEL, "EC2Client/describeSubnets"
-                ),
-                () -> ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
-                        .subnetIds(subnetId.get())
-                        .build()));
-        r.subnets().stream().findFirst().ifPresent(subnet -> id.set(subnet.vpcId()));
-        return id.get();
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(taskResource.getTenant());
+        if (scrapeConfig.isFetchEC2Metadata()) {
+            AtomicReference<String> id = new AtomicReference<>("");
+            Ec2Client ec2Client = awsClientProvider.getEc2Client(taskResource.getRegion(),
+                    AWSAccount.builder()
+                            .accountId(taskResource.getAccount())
+                            .build());
+            DescribeSubnetsResponse r = rateLimiter.doWithRateLimit("EC2Client/describeSubnets",
+                    ImmutableSortedMap.of(
+                            SCRAPE_ACCOUNT_ID_LABEL, taskResource.getAccount(),
+                            SCRAPE_REGION_LABEL, taskResource.getRegion(),
+                            SCRAPE_OPERATION_LABEL, "EC2Client/describeSubnets"
+                    ),
+                    () -> ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
+                            .subnetIds(subnetId.get())
+                            .build()));
+            r.subnets().stream().findFirst().ifPresent(subnet -> id.set(subnet.vpcId()));
+            return id.get();
+        } else {
+            return "";
+        }
     }
 }

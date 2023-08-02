@@ -4,14 +4,14 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
-import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.account.AWSAccount;
-import ai.asserts.aws.AWSApiCallRateLimiter;
-import ai.asserts.aws.TagUtil;
+import ai.asserts.aws.account.AccountProvider;
 import ai.asserts.aws.config.ScrapeConfig;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceRelation;
@@ -103,8 +103,8 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
     public void updateCollect() {
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
         expect(awsClientProvider.getEc2Client("region", account)).andReturn(ec2Client).anyTimes();
-        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
-
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchEC2Metadata()).andReturn(true).anyTimes();
         DescribeInstancesRequest request = DescribeInstancesRequest.builder()
                 .filters(Filter.builder()
                                 .name("vpc-id")
@@ -230,6 +230,19 @@ public class EC2ToEBSVolumeExporterTest extends EasyMockSupport {
                         .build()
         ), testClass.getAttachedVolumes());
         assertEquals(ImmutableList.of(metricFamilySamples), testClass.collect());
+        verifyAll();
+    }
+
+    @Test
+    public void updateCollect_skipEC2MetaFetch() {
+        expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(account));
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
+        expect(scrapeConfig.isFetchEC2Metadata()).andReturn(false).anyTimes();
+
+        replayAll();
+        testClass.update();
+        assertEquals(ImmutableSet.of(), testClass.getAttachedVolumes());
+        assertEquals(ImmutableList.of(), testClass.collect());
         verifyAll();
     }
 }

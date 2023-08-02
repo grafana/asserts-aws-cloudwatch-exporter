@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.AWSClientProvider;
+import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.TestTaskThreadPool;
@@ -67,6 +68,9 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     private ScrapeConfig scrapeConfig;
     private AWSAccount account;
     private String defaultEnvName;
+    private AWSClientProvider awsClientProvider;
+    private Ec2Client ec2Client;
+    private ScrapeConfigProvider scrapeConfigProvider;
 
     @BeforeEach
     public void setup() {
@@ -77,50 +81,47 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         resourceMapper = mock(ResourceMapper.class);
         metricCollector = mock(BasicMetricCollector.class);
         ecsClient = mock(EcsClient.class);
-        AWSClientProvider awsClientProvider = mock(AWSClientProvider.class);
+        scrapeConfigProvider = mock(ScrapeConfigProvider.class);
+        awsClientProvider = mock(AWSClientProvider.class);
         tagUtil = mock(TagUtil.class);
         scrapeConfig = mock(ScrapeConfig.class);
+        ec2Client = mock(Ec2Client.class);
+
         AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "acme");
         TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
                 rateLimiter);
-        Ec2Client ec2Client = mock(Ec2Client.class);
 
 
         defaultEnvName = "dev";
         testClass = new ECSTaskUtil(awsClientProvider, resourceMapper,
                 rateLimiter, tagUtil,
-                taskExecutorUtil) {
+                taskExecutorUtil, scrapeConfigProvider) {
             @Override
             String getInstallEnvName() {
                 return defaultEnvName;
             }
         };
 
-        expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
-        expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
-                .subnetIds("subnet-id")
-                .build())).andReturn(DescribeSubnetsResponse.builder()
-                .subnets(Subnet.builder()
-                        .vpcId("vpc-id")
-                        .build())
-                .build()).anyTimes();
-
         cluster = Resource.builder()
+                .tenant("acme")
                 .name("cluster")
                 .region("us-west-2")
                 .account("account")
                 .build();
         service = Resource.builder()
+                .tenant("acme")
                 .name("service")
                 .region("us-west-2")
                 .account("account")
                 .build();
         task = Resource.builder()
+                .tenant("acme")
                 .name("task-id")
                 .region("us-west-2")
                 .account("account")
                 .build();
         taskDef = Resource.builder()
+                .tenant("acme")
                 .name("task-def")
                 .version("5")
                 .account("account")
@@ -162,6 +163,18 @@ public class ECSTaskUtilTest extends EasyMockSupport {
 
     @Test
     public void containerWithDockerLabels() {
+        expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
+        expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
+                .subnetIds("subnet-id")
+                .build())).andReturn(DescribeSubnetsResponse.builder()
+                .subnets(Subnet.builder()
+                        .vpcId("vpc-id")
+                        .build())
+                .build()).anyTimes();
+
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
+        expect(scrapeConfig.isFetchEC2Metadata()).andReturn(true);
+
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
@@ -239,7 +252,97 @@ public class ECSTaskUtilTest extends EasyMockSupport {
     }
 
     @Test
+    public void containerWithDockerLabels_SkipVPCDiscovery() {
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
+        expect(scrapeConfig.isFetchEC2Metadata()).andReturn(false);
+
+        expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
+        expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
+
+        ImmutableMap<String, String> logDriverOptions = ImmutableMap.of(
+                "awslogs-group", "asserts-aws-integration-Dev",
+                "awslogs-region", "us-west-2",
+                "awslogs-stream-prefix", "cloudwatch-exporter"
+        );
+        TaskDefinition taskDefinition = TaskDefinition.builder()
+                .containerDefinitions(ContainerDefinition.builder()
+                        .name("model-builder")
+                        .image("image")
+                        .dockerLabels(ImmutableMap.of(
+                                PROMETHEUS_METRIC_PATH_DOCKER_LABEL, "/metric/path",
+                                PROMETHEUS_PORT_DOCKER_LABEL, "8080"
+                        ))
+                        .logConfiguration(LogConfiguration.builder()
+                                .logDriver(LogDriver.AWSLOGS)
+                                .options(logDriverOptions)
+                                .build())
+                        .build())
+                .build();
+
+        expect(ecsClient.describeTaskDefinition(DescribeTaskDefinitionRequest.builder()
+                .taskDefinition("task-def-arn")
+                .build())).andReturn(DescribeTaskDefinitionResponse.builder()
+                .taskDefinition(taskDefinition)
+                .build());
+        metricCollector.recordLatency(eq(SCRAPE_LATENCY_METRIC), anyObject(), anyLong());
+
+        expect(tagUtil.tagLabels(eq(scrapeConfig), anyObject(List.class))).andReturn(ImmutableMap.of("tag_key",
+                "tag_value"));
+
+        replayAll();
+        List<StaticConfig> staticConfigs = testClass.buildScrapeTargets(account, scrapeConfig, ecsClient, cluster,
+                Optional.of(service.getName()), Task.builder()
+                        .taskArn("task-arn")
+                        .taskDefinitionArn("task-def-arn")
+                        .lastStatus("RUNNING")
+                        .attachments(Attachment.builder()
+                                .type(ENI)
+                                .details(KeyValuePair.builder()
+                                                .name(PRIVATE_IPv4ADDRESS)
+                                                .value("10.20.30.40")
+                                                .build(),
+                                        KeyValuePair.builder()
+                                                .name(SUBNET_ID)
+                                                .value("subnet-id")
+                                                .build()
+                                )
+                                .build())
+                        .build());
+        assertEquals(1, staticConfigs.size());
+        StaticConfig staticConfig = staticConfigs.get(0);
+        assertAll(
+                () -> assertEquals("cluster", staticConfig.getLabels().getCluster()),
+                () -> assertEquals("model-builder", staticConfig.getLabels().getJob()),
+                () -> assertEquals("task-def", staticConfig.getLabels().getTaskDefName()),
+                () -> assertEquals("5", staticConfig.getLabels().getTaskDefVersion()),
+                () -> assertEquals("service-task-id", staticConfig.getLabels().getPod()),
+                () -> assertEquals("/metric/path", staticConfig.getLabels().getMetricsPath()),
+                () -> assertEquals("model-builder", staticConfig.getLabels().getContainer()),
+                () -> assertEquals("", staticConfig.getLabels().getVpcId()),
+                () -> assertEquals(ImmutableSet.of("10.20.30.40:8080"), staticConfig.getTargets()),
+                () -> assertEquals(ImmutableSet.of(ECSServiceDiscoveryExporter.LogConfig.builder()
+                                .logDriver(LogDriver.AWSLOGS.toString())
+                                .options(logDriverOptions)
+                                .build()),
+                        staticConfig.getLogConfigs())
+        );
+        verifyAll();
+    }
+
+    @Test
     public void containerWithoutDockerLabels() {
+        expect(awsClientProvider.getEc2Client(anyString(), anyObject())).andReturn(ec2Client).anyTimes();
+        expect(ec2Client.describeSubnets(DescribeSubnetsRequest.builder()
+                .subnetIds("subnet-id")
+                .build())).andReturn(DescribeSubnetsResponse.builder()
+                .subnets(Subnet.builder()
+                        .vpcId("vpc-id")
+                        .build())
+                .build()).anyTimes();
+
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
+        expect(scrapeConfig.isFetchEC2Metadata()).andReturn(true);
+
         expect(resourceMapper.map("task-def-arn")).andReturn(Optional.of(taskDef));
         expect(resourceMapper.map("task-arn")).andReturn(Optional.of(task));
 
