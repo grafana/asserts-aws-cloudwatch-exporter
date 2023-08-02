@@ -70,6 +70,9 @@ public class ScrapeConfig {
     private boolean discoverOnlySubnetTasks = false;
 
     @Builder.Default
+    private boolean fetchEC2Metadata = false;
+
+    @Builder.Default
     private Map<String, SubnetDetails> primaryExporterByAccount = new TreeMap<>();
 
     @Builder.Default

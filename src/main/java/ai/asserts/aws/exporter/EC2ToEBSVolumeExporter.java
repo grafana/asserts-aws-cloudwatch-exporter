@@ -4,9 +4,9 @@
  */
 package ai.asserts.aws.exporter;
 
+import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.AWSClientProvider;
 import ai.asserts.aws.CollectionBuilderTask;
-import ai.asserts.aws.AWSApiCallRateLimiter;
 import ai.asserts.aws.ScrapeConfigProvider;
 import ai.asserts.aws.TagUtil;
 import ai.asserts.aws.TaskExecutorUtil;
@@ -32,6 +32,7 @@ import software.amazon.awssdk.services.ec2.model.Reservation;
 import software.amazon.awssdk.services.resourcegroupstaggingapi.model.Tag;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +70,8 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
 
     public EC2ToEBSVolumeExporter(AccountProvider accountProvider,
                                   AWSClientProvider awsClientProvider, MetricSampleBuilder metricSampleBuilder,
-                                  CollectorRegistry collectorRegistry, AWSApiCallRateLimiter rateLimiter, TagUtil tagUtil,
+                                  CollectorRegistry collectorRegistry, AWSApiCallRateLimiter rateLimiter,
+                                  TagUtil tagUtil,
                                   ECSServiceDiscoveryExporter ecsServiceDiscoveryExporter,
                                   TaskExecutorUtil taskExecutorUtil, ScrapeConfigProvider scrapeConfigProvider) {
         this.accountProvider = accountProvider;
@@ -108,12 +110,13 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
                 }
             }));
             volumeFutures.add(
-                    taskExecutorUtil.executeTenantTask(awsAccount.getTenant(), new CollectionBuilderTask<ResourceRelation>() {
-                        @Override
-                        public List<ResourceRelation> call() {
-                            return buildResourceRelations(awsAccount, region);
-                        }
-                    }));
+                    taskExecutorUtil.executeTenantTask(awsAccount.getTenant(),
+                            new CollectionBuilderTask<ResourceRelation>() {
+                                @Override
+                                public List<ResourceRelation> call() {
+                                    return buildResourceRelations(awsAccount, region);
+                                }
+                            }));
         }));
         taskExecutorUtil.awaitAll(futures, allSamples::addAll);
         taskExecutorUtil.awaitAll(volumeFutures, newAttachedVolumes::addAll);
@@ -126,9 +129,15 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
     }
 
     private List<ResourceRelation> buildResourceRelations(AWSAccount awsAccount, String region) {
+        ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(awsAccount.getTenant());
+        if (!scrapeConfig.isFetchEC2Metadata()) {
+            log.info("Skipping EC2 Metadata fetch");
+            return Collections.emptyList();
+        }
+
+        Set<ResourceRelation> newAttachedVolumes = new HashSet<>();
         String accountId = awsAccount.getAccountId();
         Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount);
-        Set<ResourceRelation> newAttachedVolumes = new HashSet<>();
         try {
             AtomicReference<String> nextToken = new AtomicReference<>();
             do {
@@ -179,9 +188,12 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
 
     private List<Sample> buildEC2InstanceMetrics(String region, AWSAccount awsAccount) {
         List<Sample> samples = new ArrayList<>();
-
-        Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount);
         ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(awsAccount.getTenant());
+        if (!scrapeConfig.isFetchEC2Metadata()) {
+            log.info("Skipping EC2 Metadata fetch");
+            return samples;
+        }
+        Ec2Client ec2Client = awsClientProvider.getEc2Client(region, awsAccount);
         String accountId = awsAccount.getAccountId();
         SortedMap<String, String> telemetryLabels = new TreeMap<>();
         telemetryLabels.put(SCRAPE_REGION_LABEL, region);
