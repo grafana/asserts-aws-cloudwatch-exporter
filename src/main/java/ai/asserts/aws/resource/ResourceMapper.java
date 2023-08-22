@@ -86,7 +86,7 @@ public class ResourceMapper {
                         Matcher matcher = REDSHIFT_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(Redshift)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -102,7 +102,7 @@ public class ResourceMapper {
                         Matcher matcher = KINESIS_FIREHOSE_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(KinesisDataFirehose)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -118,7 +118,7 @@ public class ResourceMapper {
                         Matcher matcher = KINESIS_ANALYTICS_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(KinesisAnalytics)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -134,7 +134,7 @@ public class ResourceMapper {
                         Matcher matcher = KINESIS_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(Kinesis)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -150,7 +150,7 @@ public class ResourceMapper {
                         Matcher matcher = EC2_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(EC2Instance)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -166,7 +166,7 @@ public class ResourceMapper {
                         Matcher matcher = ALARM_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(Alarm)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -182,7 +182,7 @@ public class ResourceMapper {
                         Matcher matcher = SQS_QUEUE_ARN_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(SQSQueue)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -198,7 +198,7 @@ public class ResourceMapper {
                         Matcher matcher = DYNAMODB_TABLE_ARN_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(DynamoDBTable)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -214,7 +214,7 @@ public class ResourceMapper {
                         Matcher matcher = LAMBDA_ARN_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(LambdaFunction)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -230,7 +230,7 @@ public class ResourceMapper {
                         Matcher matcher = S3_ARN_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(S3Bucket)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -246,7 +246,7 @@ public class ResourceMapper {
                         Matcher matcher = SNS_ARN_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(SNSTopic)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -262,7 +262,7 @@ public class ResourceMapper {
                         Matcher matcher = EVENTBUS_ARN_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(EventBus)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -278,7 +278,7 @@ public class ResourceMapper {
                         Matcher matcher = ECS_CLUSTER_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(ECSCluster)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -294,7 +294,7 @@ public class ResourceMapper {
                         Matcher matcher = ECS_SERVICE_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(ECSService)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -318,7 +318,7 @@ public class ResourceMapper {
                             Resource.ResourceBuilder builder = Resource.builder();
                             String[] nameAndVersion = matcher.group(3).split(":");
                             return Optional.of(builder
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(ECSTaskDef)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -335,7 +335,7 @@ public class ResourceMapper {
                         Matcher matcher = ECS_TASK_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(ECSTask)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -357,7 +357,7 @@ public class ResourceMapper {
                         Matcher matcher = LB_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(LoadBalancer)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -375,7 +375,7 @@ public class ResourceMapper {
                         Matcher matcher = TARGET_GROUP_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(TargetGroup)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -392,7 +392,7 @@ public class ResourceMapper {
                         Matcher matcher = SQS_URL.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(SQSQueue)
                                     .arn(String.format("arn:aws:sqs:%s:%s:%s", matcher.group(1), matcher.group(2),
                                             matcher.group(3)))
@@ -409,7 +409,7 @@ public class ResourceMapper {
                         Matcher matcher = ASG_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(AutoScalingGroup)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -426,7 +426,7 @@ public class ResourceMapper {
                         Matcher matcher = APIGATEWAY_METHOD_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(APIGatewayMethod)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -449,7 +449,7 @@ public class ResourceMapper {
                         Matcher matcher = APIGATEWAY_STAGE_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(APIGatewayStage)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -472,7 +472,7 @@ public class ResourceMapper {
                         Matcher matcher = APIGATEWAY_RESOURCE_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(APIGatewayResource)
                                     .arn(arn)
                                     .region(matcher.group(1))
@@ -495,7 +495,7 @@ public class ResourceMapper {
                         Matcher matcher = APIGATEWAY_PATTERN.matcher(arn);
                         if (matcher.matches()) {
                             return Optional.of(Resource.builder()
-                                    .tenant(taskExecutorUtil.getTenant())
+                                    .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                                     .type(ApiGateway)
                                     .arn(arn)
                                     .region(matcher.group(1))

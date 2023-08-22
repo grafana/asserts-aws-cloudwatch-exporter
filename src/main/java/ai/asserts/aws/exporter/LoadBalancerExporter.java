@@ -84,7 +84,7 @@ public class LoadBalancerExporter extends Collector implements MetricProvider {
         List<Future<Pair<List<Sample>, List<Sample>>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(awsAccount.getTenant());
-            futures.add(taskExecutorUtil.executeTenantTask(awsAccount.getTenant(),
+            futures.add(taskExecutorUtil.executeAccountTask(awsAccount,
                     new SimpleTenantTask<Pair<List<Sample>, List<Sample>>>() {
                         @Override
                         public Pair<List<Sample>, List<Sample>> call() {

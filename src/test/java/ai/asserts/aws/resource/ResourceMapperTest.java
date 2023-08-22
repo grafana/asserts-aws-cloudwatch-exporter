@@ -2,6 +2,7 @@
 package ai.asserts.aws.resource;
 
 import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import org.easymock.EasyMockSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,9 @@ public class ResourceMapperTest extends EasyMockSupport {
     public void setup() {
         TaskExecutorUtil taskExecutorUtil = mock(TaskExecutorUtil.class);
         testClass = new ResourceMapper(taskExecutorUtil);
-        expect(taskExecutorUtil.getTenant()).andReturn("acme").anyTimes();
+        expect(taskExecutorUtil.getAccountDetails()).andReturn(AWSAccount.builder()
+                .tenant("acme")
+                .build()).anyTimes();
     }
 
     @Test

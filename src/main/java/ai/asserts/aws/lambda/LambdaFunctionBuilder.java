@@ -31,7 +31,7 @@ public class LambdaFunctionBuilder {
 
         Optional<Resource> resourceFromARN = resourceMapper.map(functionConfiguration.functionArn());
         LambdaFunction.LambdaFunctionBuilder<?, ?> builder = LambdaFunction.builder()
-                .tenant(taskExecutorUtil.getTenant())
+                .tenant(taskExecutorUtil.getAccountDetails().getTenant())
                 .region(region)
                 .name(functionConfiguration.functionName())
                 .arn(functionConfiguration.functionArn())

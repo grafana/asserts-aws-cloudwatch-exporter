@@ -95,7 +95,7 @@ public class LambdaEventSourceExporter extends Collector implements MetricProvid
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(accountRegion.getTenant());
             Optional<NamespaceConfig> lambdaConfig = scrapeConfig.getLambdaConfig();
             lambdaConfig.ifPresent(namespaceConfig -> accountRegion.getRegions().forEach(region ->
-                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
+                    futures.add(taskExecutorUtil.executeAccountTask(accountRegion,
                             new SimpleTenantTask<Map<String, List<Sample>>>() {
                                 @Override
                                 public Map<String, List<Sample>> call() {

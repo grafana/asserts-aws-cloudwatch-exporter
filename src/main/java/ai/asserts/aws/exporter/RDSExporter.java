@@ -88,7 +88,7 @@ public class RDSExporter extends Collector implements InitializingBean {
         List<Sample> allSamples = new ArrayList<>();
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
-                futures.add(taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                futures.add(taskExecutorUtil.executeAccountTask(account, new CollectionBuilderTask<Sample>() {
                     @Override
                     public List<Sample> call() {
                         return buildSamples(region, account);

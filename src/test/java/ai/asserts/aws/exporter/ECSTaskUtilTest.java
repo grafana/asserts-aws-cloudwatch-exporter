@@ -87,9 +87,15 @@ public class ECSTaskUtilTest extends EasyMockSupport {
         scrapeConfig = mock(ScrapeConfig.class);
         ec2Client = mock(Ec2Client.class);
 
+
         AWSApiCallRateLimiter rateLimiter = new AWSApiCallRateLimiter(metricCollector, (account) -> "acme");
         TaskExecutorUtil taskExecutorUtil = new TaskExecutorUtil(new TestTaskThreadPool(),
-                rateLimiter);
+                rateLimiter) {
+            @Override
+            public AWSAccount getAccountDetails() {
+                return account;
+            }
+        };
 
 
         defaultEnvName = "dev";

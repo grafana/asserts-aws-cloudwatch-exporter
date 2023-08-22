@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import io.prometheus.client.Collector.MetricFamilySamples;
 import io.prometheus.client.Collector.MetricFamilySamples.Sample;
@@ -20,8 +21,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.ENV;
+import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.SITE;
 import static ai.asserts.aws.MetricNameUtil.TENANT;
 import static io.prometheus.client.Collector.Type.GAUGE;
+import static org.springframework.util.StringUtils.hasLength;
 
 @Component
 @Slf4j
@@ -38,7 +43,13 @@ public class MetricSampleBuilder {
         String metricName = metricNameUtil.exportedMetricName(metricQuery.getMetric(), metricQuery.getMetricStat());
         if (metricDataResult.timestamps().size() > 0) {
             Map<String, String> labels = labelBuilder.buildLabels(account, region, metricQuery);
-            labels.putIfAbsent(TENANT, taskExecutorUtil.getTenant());
+            labels.putIfAbsent(TENANT, taskExecutorUtil.getAccountDetails().getTenant());
+            if (hasLength(taskExecutorUtil.getAccountDetails().getName())) {
+                labels.putIfAbsent(ENV, taskExecutorUtil.getAccountDetails().getName());
+            } else {
+                labels.putIfAbsent(ENV, account);
+            }
+            labels.putIfAbsent(SITE, region);
             labels.entrySet().removeIf(entry -> entry.getValue() == null);
             for (int i = 0; i < metricDataResult.timestamps().size(); i++) {
                 Sample sample = new Sample(
@@ -55,7 +66,16 @@ public class MetricSampleBuilder {
     public Optional<Sample> buildSingleSample(String metricName, Map<String, String> labels,
                                               Double metric) {
         labels = new TreeMap<>(labels);
-        labels.putIfAbsent(TENANT, taskExecutorUtil.getTenant());
+        AWSAccount accountDetails = taskExecutorUtil.getAccountDetails();
+        labels.putIfAbsent(TENANT, accountDetails.getTenant());
+        if (hasLength(accountDetails.getName())) {
+            labels.putIfAbsent(ENV, accountDetails.getName());
+        } else {
+            labels.putIfAbsent(ENV, accountDetails.getAccountId());
+        }
+        if (labels.containsKey(SCRAPE_REGION_LABEL)) {
+            labels.putIfAbsent(SITE, labels.get(SCRAPE_REGION_LABEL));
+        }
         labels.entrySet().removeIf(entry -> entry.getValue() == null);
         return Optional.of(new Sample(
                 metricName,

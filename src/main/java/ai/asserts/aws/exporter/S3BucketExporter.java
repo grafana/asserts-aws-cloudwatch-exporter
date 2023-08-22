@@ -84,7 +84,7 @@ public class S3BucketExporter extends Collector implements InitializingBean {
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
                 futures.add(
-                        taskExecutorUtil.executeTenantTask(account.getTenant(), new CollectionBuilderTask<Sample>() {
+                        taskExecutorUtil.executeAccountTask(account, new CollectionBuilderTask<Sample>() {
                             @Override
                             public List<Sample> call() {
                                 return buildSamples(region, account);
