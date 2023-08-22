@@ -97,7 +97,7 @@ public class LBToASGRelationBuilder extends Collector implements InitializingBea
         List<Future<List<Sample>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region ->
-                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion,
+                    futures.add(taskExecutorUtil.executeAccountTask(accountRegion,
                             new CollectionBuilderTask<Sample>() {
                                 @Override
                                 public List<Sample> call() {

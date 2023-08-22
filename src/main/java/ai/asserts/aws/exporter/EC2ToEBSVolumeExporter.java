@@ -103,14 +103,14 @@ public class EC2ToEBSVolumeExporter extends Collector implements MetricProvider,
         List<Future<List<Sample>>> futures = new ArrayList<>();
         List<Future<List<ResourceRelation>>> volumeFutures = new ArrayList<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region -> {
-            futures.add(taskExecutorUtil.executeTenantTask(awsAccount, new CollectionBuilderTask<Sample>() {
+            futures.add(taskExecutorUtil.executeAccountTask(awsAccount, new CollectionBuilderTask<Sample>() {
                 @Override
                 public List<Sample> call() {
                     return buildEC2InstanceMetrics(region, awsAccount);
                 }
             }));
             volumeFutures.add(
-                    taskExecutorUtil.executeTenantTask(awsAccount,
+                    taskExecutorUtil.executeAccountTask(awsAccount,
                             new CollectionBuilderTask<ResourceRelation>() {
                                 @Override
                                 public List<ResourceRelation> call() {

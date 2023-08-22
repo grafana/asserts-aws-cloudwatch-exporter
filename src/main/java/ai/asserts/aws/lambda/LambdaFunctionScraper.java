@@ -147,7 +147,7 @@ public class LambdaFunctionScraper extends Collector implements MetricProvider {
                     .filter(ns -> lambda.getNamespace().equals(ns.getName()))
                     .findFirst();
             lambdaNSOpt.ifPresent(lambdaNS -> accountRegion.getRegions().forEach(region ->
-                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion,
+                    futures.add(taskExecutorUtil.executeAccountTask(accountRegion,
                             new SimpleTenantTask<Map<String, Map<String, Map<String, LambdaFunction>>>>() {
                                 @Override
                                 public Map<String, Map<String, Map<String, LambdaFunction>>> call() {

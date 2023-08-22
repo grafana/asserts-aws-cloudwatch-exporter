@@ -114,7 +114,7 @@ public class LambdaCapacityExporter extends Collector implements MetricProvider 
                 String account = accountRegion.getAccountId();
                 Map<String, Map<String, LambdaFunction>> byRegion = byAccountByRegion.getOrDefault(account,
                         Collections.emptyMap());
-                byRegion.forEach((region, functions) -> futures.add(taskExecutorUtil.executeTenantTask(
+                byRegion.forEach((region, functions) -> futures.add(taskExecutorUtil.executeAccountTask(
                         accountRegion, new SimpleTenantTask<Map<String, List<Sample>>>() {
                             @Override
                             public Map<String, List<Sample>> call() {

@@ -108,7 +108,7 @@ public class LambdaInvokeConfigExporter extends Collector implements MetricProvi
                 Map<String, Map<String, LambdaFunction>> byRegion =
                         new ConcurrentHashMap<>(byAccountByRegion.get(account));
                 byRegion.forEach((region, byARN) ->
-                        futures.add(taskExecutorUtil.executeTenantTask(accountRegion,
+                        futures.add(taskExecutorUtil.executeAccountTask(accountRegion,
                                 new CollectionBuilderTask<Sample>() {
                                     @Override
                                     public List<Sample> call() {

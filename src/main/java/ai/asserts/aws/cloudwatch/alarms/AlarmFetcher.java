@@ -103,7 +103,7 @@ public class AlarmFetcher extends Collector implements InitializingBean {
                 continue;
             }
             accountRegion.getRegions().forEach(region ->
-                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion,
+                    futures.add(taskExecutorUtil.executeAccountTask(accountRegion,
                             new CollectionBuilderTask<Sample>() {
                                 @Override
                                 public List<Sample> call() {

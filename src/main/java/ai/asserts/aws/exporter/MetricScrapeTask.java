@@ -101,7 +101,7 @@ public class MetricScrapeTask extends Collector implements MetricProvider {
         if (intervalSeconds <= 60 || System.currentTimeMillis() - lastRunTime > intervalSeconds * 1000L) {
             lastRunTime = System.currentTimeMillis();
             try {
-                cache = taskExecutorUtil.executeTenantTask(account,
+                cache = taskExecutorUtil.executeAccountTask(account,
                         new SimpleTenantTask<List<MetricFamilySamples>>() {
                             @Override
                             public List<MetricFamilySamples> call() {

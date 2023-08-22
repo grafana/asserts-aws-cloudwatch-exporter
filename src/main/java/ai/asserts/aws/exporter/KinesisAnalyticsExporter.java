@@ -77,7 +77,7 @@ public class KinesisAnalyticsExporter extends Collector implements InitializingB
         List<Future<List<Sample>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(account -> account.getRegions().forEach(region ->
                 futures.add(
-                        taskExecutorUtil.executeTenantTask(account, new CollectionBuilderTask<Sample>() {
+                        taskExecutorUtil.executeAccountTask(account, new CollectionBuilderTask<Sample>() {
                             @Override
                             public List<Sample> call() {
                                 return buildSamples(region, account);

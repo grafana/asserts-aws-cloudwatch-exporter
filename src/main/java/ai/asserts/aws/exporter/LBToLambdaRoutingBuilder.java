@@ -55,7 +55,7 @@ public class LBToLambdaRoutingBuilder {
         List<Future<Pair<Set<ResourceRelation>, Set<Resource>>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region ->
-                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion,
+                    futures.add(taskExecutorUtil.executeAccountTask(accountRegion,
                             new SimpleTenantTask<Pair<Set<ResourceRelation>, Set<Resource>>>() {
                                 @Override
                                 public Pair<Set<ResourceRelation>, Set<Resource>> call() {
