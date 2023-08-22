@@ -4,6 +4,7 @@
  */
 package ai.asserts.aws;
 
+import ai.asserts.aws.account.AWSAccount;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,7 @@ public class TaskExecutorUtil {
     private final TaskThreadPool taskThreadPool;
 
     private final AWSApiCallRateLimiter rateLimiter;
-    private static final ThreadLocal<String> tenantName = new ThreadLocal<>();
+    private static final ThreadLocal<AWSAccount> tenantName = new ThreadLocal<>();
 
 
     public TaskExecutorUtil(@Qualifier("aws-api-calls-thread-pool") TaskThreadPool taskThreadPool, AWSApiCallRateLimiter rateLimiter) {
@@ -29,7 +30,7 @@ public class TaskExecutorUtil {
         this.rateLimiter = rateLimiter;
     }
 
-    public <T> Future<T> executeTenantTask(String tenant, TenantTask<T> task) {
+    public <T> Future<T> executeTenantTask(AWSAccount tenant, TenantTask<T> task) {
         return taskThreadPool.getExecutorService().submit(() -> {
             tenantName.set(tenant);
             try {
@@ -53,7 +54,7 @@ public class TaskExecutorUtil {
         });
     }
 
-    public String getTenant() {
+    public AWSAccount getAccountDetails() {
         return tenantName.get();
     }
 }

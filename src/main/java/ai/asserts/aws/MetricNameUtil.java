@@ -19,6 +19,8 @@ public class MetricNameUtil {
     public static final String SCRAPE_LATENCY_METRIC = "aws_exporter_milliseconds";
     public static final String ASSERTS_ERROR_TYPE = "asserts_error_type";
     public static final String TENANT = "tenant";
+    public static final String ENV = "asserts_env";
+    public static final String SITE = "asserts_site";
     public static final String SCRAPE_ERROR_COUNT_METRIC = "aws_exporter_error_total";
     public static final String SCRAPE_OPERATION_LABEL = "operation";
     public static final String SCRAPE_REGION_LABEL = "region";

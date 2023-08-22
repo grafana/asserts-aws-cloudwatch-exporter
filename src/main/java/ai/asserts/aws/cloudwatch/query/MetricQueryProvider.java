@@ -102,7 +102,7 @@ public class MetricQueryProvider {
             log.info("Will discover metrics and build metric queries for tenant {}, account {}",
                     accountRegion.getTenant(), accountRegion.getAccountId());
             accountRegion.getRegions().forEach(region -> futures.add(
-                    taskExecutorUtil.executeTenantTask(accountRegion.getTenant(), new SimpleTenantTask<Void>() {
+                    taskExecutorUtil.executeTenantTask(accountRegion, new SimpleTenantTask<Void>() {
                         @Override
                         public Void call() {
                             buildQueries(scrapeConfig, region, accountRegion, account, queriesByAccount);

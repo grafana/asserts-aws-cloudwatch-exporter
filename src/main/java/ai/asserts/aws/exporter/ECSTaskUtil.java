@@ -236,9 +236,10 @@ public class ECSTaskUtil {
 
         LabelsBuilder labelsBuilder;
         taskSubnetMap.computeIfAbsent(taskResource.getName(), k -> getSubnetDetails(task, taskResource));
+        String tenant = taskExecutorUtil.getAccountDetails().getTenant();
         if (service.isPresent()) {
             labelsBuilder = Labels.builder()
-                    .tenant(taskExecutorUtil.getTenant())
+                    .tenant(tenant)
                     .workload(service.get())
                     .taskId(taskResource.getName())
                     .pod(service.get() + "-" + taskResource.getName())
@@ -254,7 +255,7 @@ public class ECSTaskUtil {
                     .metricsPath("/metrics");
         } else {
             labelsBuilder = Labels.builder()
-                    .tenant(taskExecutorUtil.getTenant())
+                    .tenant(tenant)
                     .workload(taskDefResource.getName())
                     .taskId(taskResource.getName())
                     .pod(taskDefResource.getName() + "-" + taskResource.getName())

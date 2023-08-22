@@ -96,7 +96,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
         List<Future<List<Sample>>> futures = new ArrayList<>();
         for (AWSAccount accountRegion : accountProvider.getAccounts()) {
             accountRegion.getRegions().forEach(region ->
-                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion.getTenant(),
+                    futures.add(taskExecutorUtil.executeTenantTask(accountRegion,
                             new CollectionBuilderTask<Sample>() {
                                 @Override
                                 public List<Sample> call() {
@@ -182,10 +182,11 @@ public class ApiGatewayToLambdaBuilder extends Collector
                     }
                     Matcher matcher = LAMBDA_URI_PATTERN.matcher(uri);
                     if (matcher.matches()) {
+                        String tenant = taskExecutorUtil.getAccountDetails().getTenant();
                         ResourceRelation resourceRelation = ResourceRelation.builder()
-                                .tenant(taskExecutorUtil.getTenant())
+                                .tenant(tenant)
                                 .from(Resource.builder()
-                                        .tenant(taskExecutorUtil.getTenant())
+                                        .tenant(tenant)
                                         .type(ApiGateway)
                                         .name(restApi.name())
                                         .id(restApi.id())
@@ -193,7 +194,7 @@ public class ApiGatewayToLambdaBuilder extends Collector
                                         .account(accountId)
                                         .build())
                                 .to(Resource.builder()
-                                        .tenant(taskExecutorUtil.getTenant())
+                                        .tenant(tenant)
                                         .type(LambdaFunction)
                                         .name(matcher.group(4))
                                         .region(matcher.group(2))

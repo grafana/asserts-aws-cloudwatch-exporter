@@ -5,6 +5,7 @@
 package ai.asserts.aws.lambda;
 
 import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.resource.Resource;
 import ai.asserts.aws.resource.ResourceMapper;
 import org.easymock.EasyMockSupport;
@@ -36,7 +37,10 @@ public class LambdaFunctionBuilderTest extends EasyMockSupport {
     public void buildFunction() {
         expect(resourceMapper.map("fn1:arn")).andReturn(Optional.of(fnResource));
         expect(fnResource.getAccount()).andReturn(SCRAPE_ACCOUNT_ID_LABEL);
-        expect(taskExecutorUtil.getTenant()).andReturn("acme");
+        expect(taskExecutorUtil.getAccountDetails()).andReturn(AWSAccount.builder()
+                        .tenant("acme")
+                        .accountId(SCRAPE_ACCOUNT_ID_LABEL)
+                .build());
         replayAll();
 
         assertEquals(

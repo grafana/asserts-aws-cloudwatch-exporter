@@ -69,7 +69,7 @@ public class LBToECSRoutingBuilder implements Runnable {
         Set<ResourceRelation> newRouting = new HashSet<>();
         List<Future<Set<ResourceRelation>>> futures = new ArrayList<>();
         accountProvider.getAccounts().forEach(awsAccount -> awsAccount.getRegions().forEach(region ->
-                futures.add(taskExecutorUtil.executeTenantTask(awsAccount.getTenant(),
+                futures.add(taskExecutorUtil.executeTenantTask(awsAccount,
                         new SimpleTenantTask<Set<ResourceRelation>>() {
                             @Override
                             public Set<ResourceRelation> call() {

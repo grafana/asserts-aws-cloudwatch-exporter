@@ -147,7 +147,7 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
         for (AWSAccount account : accountProvider.getAccounts()) {
             ScrapeConfig scrapeConfig = scrapeConfigProvider.getScrapeConfig(account.getTenant());
             for (String region : account.getRegions()) {
-                taskExecutorUtil.executeTenantTask(account.getTenant(), new SimpleTenantTask<Void>() {
+                taskExecutorUtil.executeTenantTask(account, new SimpleTenantTask<Void>() {
                     @Override
                     public Void call() {
                         Map<Resource, List<Resource>> clusterWiseNewTasks = new HashMap<>();

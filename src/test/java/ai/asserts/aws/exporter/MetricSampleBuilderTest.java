@@ -6,6 +6,7 @@ package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.MetricNameUtil;
 import ai.asserts.aws.TaskExecutorUtil;
+import ai.asserts.aws.account.AWSAccount;
 import ai.asserts.aws.cloudwatch.query.MetricQuery;
 import ai.asserts.aws.model.MetricStat;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +42,11 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
         labelBuilder = mock(LabelBuilder.class);
         TaskExecutorUtil taskExecutorUtil = mock(TaskExecutorUtil.class);
         testClass = new MetricSampleBuilder(metricNameUtil, labelBuilder, taskExecutorUtil);
-        expect(taskExecutorUtil.getTenant()).andReturn("acme").anyTimes();
+        expect(taskExecutorUtil.getAccountDetails()).andReturn(AWSAccount.builder()
+                        .name("dev")
+                        .tenant("acme")
+                        .accountId("account")
+                .build()).anyTimes();
     }
 
     @Test
@@ -66,8 +71,8 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
                         .timestamps(instant, instant.plusSeconds(60))
                         .values(1.0D, 2.0D)
                         .build());
-        List<String> labelNames = Arrays.asList("label1", "label2", "tenant");
-        List<String> labelValues = Arrays.asList("value1", "value2", "acme");
+        List<String> labelNames = Arrays.asList("asserts_env", "asserts_site", "label1", "label2", "tenant");
+        List<String> labelValues = Arrays.asList("dev", "region", "value1", "value2", "acme");
         assertEquals(ImmutableList.of(
                 new Sample("metric", labelNames, labelValues, 1.0D),
                 new Sample("metric", labelNames, labelValues, 2.0D)
@@ -77,8 +82,8 @@ public class MetricSampleBuilderTest extends EasyMockSupport {
 
     @Test
     void buildSingleSample() {
-        List<String> labelNames = Arrays.asList("label1", "label2", "tenant");
-        List<String> labelValues = Arrays.asList("value1", "value2", "acme");
+        List<String> labelNames = Arrays.asList("asserts_env", "label1", "label2", "tenant");
+        List<String> labelValues = Arrays.asList("dev", "value1", "value2", "acme");
         SortedMap<String, String> labels = new TreeMap<>(
                 ImmutableSortedMap.of("label1", "value1", "label2", "value2"));
         replayAll();
