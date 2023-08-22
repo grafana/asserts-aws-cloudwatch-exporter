@@ -15,6 +15,7 @@ import com.google.common.collect.Sets;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
@@ -97,8 +98,8 @@ public class SingleInstanceAccountProvider implements AccountProvider {
             AWSAccount ac = new AWSAccount(tenantName, accountId, null, null, null,
                     regions);
             accountRegions.putIfAbsent(ac.getAccountId(), ac);
-            log.info("Scraping AWS Accounts {}", accountRegions);
         }
+        log.info("Scraping AWS Accounts {}", accountRegions);
         return Sets.newHashSet(accountRegions.values());
     }
 
@@ -111,6 +112,7 @@ public class SingleInstanceAccountProvider implements AccountProvider {
     @Getter
     @SuperBuilder
     @ToString
+    @NoArgsConstructor
     public static class CloudwatchConfigs {
         List<AWSAccount> cloudWatchConfigs;
     }
