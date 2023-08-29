@@ -5,6 +5,8 @@
 package ai.asserts.aws.exporter;
 
 import ai.asserts.aws.ScrapeConfigProvider;
+import ai.asserts.aws.SimpleTenantTask;
+import ai.asserts.aws.TaskExecutorUtil;
 import ai.asserts.aws.account.AccountProvider;
 import com.google.common.collect.ImmutableMap;
 import io.prometheus.client.Collector;
@@ -17,6 +19,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 
@@ -28,6 +32,7 @@ public class ScrapeConfigExporter extends Collector implements InitializingBean 
     private final ScrapeConfigProvider scrapeConfigProvider;
     private final MetricSampleBuilder sampleBuilder;
     private final CollectorRegistry collectorRegistry;
+    private final TaskExecutorUtil taskExecutorUtil;
 
     @Override
     public void afterPropertiesSet() {
@@ -36,23 +41,30 @@ public class ScrapeConfigExporter extends Collector implements InitializingBean 
 
     @Override
     public List<MetricFamilySamples> collect() {
+        List<Sample> allSamples = new ArrayList<>();
         List<MetricFamilySamples> metricFamilySamples = new ArrayList<>();
         try {
-            List<Sample> intervalSamples = new ArrayList<>();
-            accountProvider.getAccounts().forEach(awsAccount ->
-                    scrapeConfigProvider.getScrapeConfig(awsAccount.getTenant())
-                            .getNamespaces()
-                            .forEach(namespaceConfig ->
-                                    scrapeConfigProvider.getStandardNamespace(namespaceConfig.getName())
-                                            .flatMap(cwNamespace -> sampleBuilder.buildSingleSample(
-                                                    "aws_exporter_scrape_interval",
-                                                    ImmutableMap.of(SCRAPE_NAMESPACE_LABEL,
-                                                            cwNamespace.getNormalizedNamespace()),
-                                                    namespaceConfig.getEffectiveScrapeInterval() * 1.0D))
-                                            .ifPresent(intervalSamples::add)));
-
-            if (intervalSamples.size() > 0) {
-                sampleBuilder.buildFamily(intervalSamples).ifPresent(metricFamilySamples::add);
+            List<Future<List<Sample>>> futures = accountProvider.getAccounts().stream().map(awsAccount ->
+                    taskExecutorUtil.executeAccountTask(awsAccount, new SimpleTenantTask<List<Sample>>() {
+                        @Override
+                        public List<Sample> call() {
+                            List<Sample> intervalSamples = new ArrayList<>();
+                            scrapeConfigProvider.getScrapeConfig(awsAccount.getTenant())
+                                    .getNamespaces()
+                                    .forEach(namespaceConfig ->
+                                            scrapeConfigProvider.getStandardNamespace(namespaceConfig.getName())
+                                                    .flatMap(cwNamespace -> sampleBuilder.buildSingleSample(
+                                                            "aws_exporter_scrape_interval",
+                                                            ImmutableMap.of(SCRAPE_NAMESPACE_LABEL,
+                                                                    cwNamespace.getNormalizedNamespace()),
+                                                            namespaceConfig.getEffectiveScrapeInterval() * 1.0D))
+                                                    .ifPresent(intervalSamples::add));
+                            return intervalSamples;
+                        }
+                    })).collect(Collectors.toList());
+            taskExecutorUtil.awaitAll(futures, allSamples::addAll);
+            if (allSamples.size() > 0) {
+                sampleBuilder.buildFamily(allSamples).ifPresent(metricFamilySamples::add);
             }
         } catch (Exception e) {
             log.error("Failed to build metric samples", e);
