@@ -70,7 +70,7 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
                 new TaskExecutorUtil(new TestTaskThreadPool(),
                         new AWSApiCallRateLimiter(metricCollector, (account) -> "acme")));
 
-        AWSAccount awsAccount = new AWSAccount("tenant", "account", "accessId", "secretKey", "role",
+        AWSAccount awsAccount = new AWSAccount("acme", "account", "accessId", "secretKey", "role",
                 ImmutableSet.of("region"));
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount)).anyTimes();
         expect(awsClientProvider.getELBV2Client("region", awsAccount)).andReturn(elbV2Client).anyTimes();
@@ -80,7 +80,11 @@ public class LBToLambdaRoutingBuilderTest extends EasyMockSupport {
 
     @Test
     void getRoutings() {
+        expect(targetGroupResource.getAccount()).andReturn("account");
+        expect(targetGroupResource.getRegion()).andReturn("region");
         expect(targetGroupResource.getArn()).andReturn("tg-arn");
+        expect(targetGroupResource2.getAccount()).andReturn("account");
+        expect(targetGroupResource2.getRegion()).andReturn("region");
         expect(targetGroupResource2.getArn()).andReturn("tg-arn2");
         expect(elbV2Client.describeTargetHealth(DescribeTargetHealthRequest.builder()
                 .targetGroupArn("tg-arn")
