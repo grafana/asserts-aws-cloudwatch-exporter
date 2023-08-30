@@ -17,6 +17,7 @@ import java.util.TreeMap;
 import java.util.concurrent.Callable;
 
 import static ai.asserts.aws.MetricNameUtil.ASSERTS_ERROR_TYPE;
+import static ai.asserts.aws.MetricNameUtil.ASSERTS_CUSTOMER;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_ERROR_COUNT_METRIC;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_LATENCY_METRIC;
@@ -71,21 +72,27 @@ public class AWSApiCallRateLimiter {
             tick = System.currentTimeMillis();
             return k.makeCall();
         } catch (Throwable e) {
-            log.error("Exception", e);
+            log.error("Exception in: " + regionKey, e);
             SortedMap<String, String> errorLabels = new TreeMap<>(labels);
             errorLabels.put(ASSERTS_ERROR_TYPE, e.getClass().getSimpleName());
+
+            // In SaaS mode, we don't want the exporter internal metrics to end up in the tenant's TSDB
+            errorLabels.remove(TENANT);
             if (tenantName != null) {
-                errorLabels.put(TENANT, tenantName);
+                errorLabels.put(ASSERTS_CUSTOMER, tenantName);
             }
             metricCollector.recordCounterValue(SCRAPE_ERROR_COUNT_METRIC, errorLabels, 1);
             throw new RuntimeException(e);
         } finally {
             tick = System.currentTimeMillis() - tick;
-            labels = new TreeMap<>(labels);
+
+            // In SaaS mode, we don't want the exporter internal metrics to end up in the tenant's TSDB
+            SortedMap<String, String> latencyLabels = new TreeMap<>(labels);
+            latencyLabels.remove(TENANT);
             if (tenantName != null) {
-                labels.put(TENANT, tenantName);
+                latencyLabels.put(ASSERTS_CUSTOMER, tenantName);
             }
-            metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, labels, tick);
+            metricCollector.recordLatency(SCRAPE_LATENCY_METRIC, latencyLabels, tick);
         }
     }
 

@@ -116,6 +116,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
     @Test
     public void collect() throws Exception {
         Resource cluster1 = Resource.builder()
+                .tenant("acme")
                 .name("cluster1")
                 .region("region")
                 .account("account1")
@@ -124,6 +125,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
 
         Resource task1 = Resource.builder()
+                .tenant("acme")
                 .name("task1")
                 .build();
 
@@ -143,6 +145,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         tasksByCluster.put(cluster1, ImmutableMap.of(task1, ImmutableList.of(mockStaticConfig, mockStaticConfig)));
 
         Labels labels1 = Labels.builder()
+                .tenant("acme")
                 .accountId("account1")
                 .region("us-west-2")
                 .cluster("cluster")
@@ -162,6 +165,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         expect(sampleBuilder.buildSingleSample(CONTAINER_LOG_INFO_METRIC,
                 ImmutableSortedMap.<String, String>naturalOrder()
+                        .put("tenant", "acme")
                         .put("account_id", "account1")
                         .put("region", "us-west-2")
                         .put("cluster", "cluster")
@@ -174,6 +178,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                         .build(), 1.0D)).andReturn(Optional.of(mockSample));
 
         Labels labels2 = Labels.builder()
+                .tenant("acme")
                 .accountId("account1")
                 .region("us-west-2")
                 .cluster("cluster")
@@ -192,6 +197,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                         .build()));
         expect(sampleBuilder.buildSingleSample(CONTAINER_LOG_INFO_METRIC,
                 ImmutableSortedMap.<String, String>naturalOrder()
+                        .put("tenant", "acme")
                         .put("account_id", "account1")
                         .put("region", "us-west-2")
                         .put("cluster", "cluster")
@@ -226,12 +232,14 @@ public class ECSTaskProviderTest extends EasyMockSupport {
     @Test
     public void getScrapeTargets() {
         AWSAccount awsAccount = AWSAccount.builder()
+                .tenant("acme")
                 .accountId("account1")
                 .regions(ImmutableSet.of("region"))
                 .name("test-account")
                 .build();
 
         Resource cluster1 = Resource.builder()
+                .tenant("acme")
                 .name("cluster1")
                 .region("region")
                 .account("account1")
@@ -239,6 +247,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
                 .build();
 
         Resource task1 = Resource.builder()
+                .tenant("acme")
                 .name("task1")
                 .build();
 
@@ -265,7 +274,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
 
         testClass.getTasksByCluster().put(cluster1, ImmutableMap.of(task1, ImmutableList.of(mockStaticConfig)));
 
-        expect(scrapeConfigProvider.getScrapeConfig(null)).andReturn(scrapeConfig);
+        expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig);
 
         expect(accountProvider.getAccounts()).andReturn(ImmutableSet.of(awsAccount));
         expect(awsClientProvider.getECSClient("region", awsAccount)).andReturn(ecsClient);
@@ -279,6 +288,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
     @Test
     public void discoverNewTargets() {
         Resource cluster1 = Resource.builder()
+                .tenant("acme")
                 .name("cluster1")
                 .region("region")
                 .account("account1")
@@ -338,6 +348,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
     public void buildNewTargets() {
         expect(scrapeConfigProvider.getScrapeConfig("acme")).andReturn(scrapeConfig).anyTimes();
         Resource cluster1 = Resource.builder()
+                .tenant("acme")
                 .name("cluster1")
                 .region("region")
                 .account("account1")
@@ -347,6 +358,7 @@ public class ECSTaskProviderTest extends EasyMockSupport {
         Resource service2 = Resource.builder().arn("service2-arn").build();
 
         Resource cluster2 = Resource.builder()
+                .tenant("acme")
                 .name("cluster2")
                 .region("region")
                 .account("account1")

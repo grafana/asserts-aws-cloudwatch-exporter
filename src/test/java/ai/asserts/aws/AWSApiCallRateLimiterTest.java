@@ -35,7 +35,7 @@ public class AWSApiCallRateLimiterTest extends EasyMockSupport {
         labels = new TreeMap<>();
         labels.put("account_id", "account");
         labels.put("region", "region");
-        labels.put("tenant", "acme");
+        labels.put("asserts_customer", "acme");
         rateLimiter = new AWSApiCallRateLimiter(metricCollector,
                 (accountId) -> "acme", 1.0D);
     }

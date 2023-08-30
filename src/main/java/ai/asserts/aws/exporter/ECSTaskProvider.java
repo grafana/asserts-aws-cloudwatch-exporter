@@ -51,6 +51,7 @@ import static ai.asserts.aws.MetricNameUtil.SCRAPE_ACCOUNT_ID_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_NAMESPACE_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_OPERATION_LABEL;
 import static ai.asserts.aws.MetricNameUtil.SCRAPE_REGION_LABEL;
+import static ai.asserts.aws.MetricNameUtil.TENANT;
 
 /**
  * Builds ECS Task scrape targets. Scraping ECS is best done using the ECS Sidecar.
@@ -111,6 +112,7 @@ public class ECSTaskProvider extends Collector implements Runnable, Initializing
 
                     target.getLogConfigs().forEach(logConfig -> {
                         Map<String, String> logInfoLabels = new TreeMap<>();
+                        logInfoLabels.put(TENANT, labels.getTenant());
                         logInfoLabels.put(SCRAPE_ACCOUNT_ID_LABEL, labels.getAccountId());
                         logInfoLabels.put(SCRAPE_REGION_LABEL, labels.getRegion());
                         logInfoLabels.put("cluster", labels.getCluster());
