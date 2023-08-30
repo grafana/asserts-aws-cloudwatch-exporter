@@ -67,11 +67,13 @@ public class MetricSampleBuilder {
                                               Double metric) {
         labels = new TreeMap<>(labels);
         AWSAccount accountDetails = taskExecutorUtil.getAccountDetails();
-        labels.putIfAbsent(TENANT, accountDetails.getTenant());
-        if (hasLength(accountDetails.getName())) {
-            labels.putIfAbsent(ENV, accountDetails.getName());
-        } else {
-            labels.putIfAbsent(ENV, accountDetails.getAccountId());
+        if (accountDetails != null) {
+            labels.putIfAbsent(TENANT, accountDetails.getTenant());
+            if (hasLength(accountDetails.getName())) {
+                labels.putIfAbsent(ENV, accountDetails.getName());
+            } else {
+                labels.putIfAbsent(ENV, accountDetails.getAccountId());
+            }
         }
         if (labels.containsKey(SCRAPE_REGION_LABEL)) {
             labels.putIfAbsent(SITE, labels.get(SCRAPE_REGION_LABEL));
