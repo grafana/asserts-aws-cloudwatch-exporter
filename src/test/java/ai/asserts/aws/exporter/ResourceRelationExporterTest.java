@@ -56,6 +56,7 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
 
     @Test
     public void update() {
+        expect(fromResource.getRegion()).andReturn("us-west-2").anyTimes();
         expect(lbToECSRoutingBuilder.getRouting()).andReturn(ImmutableSet.of(ResourceRelation.builder()
                 .from(fromResource)
                 .to(toResource)
@@ -87,19 +88,29 @@ public class ResourceRelationExporterTest extends EasyMockSupport {
         ));
 
         expect(sampleBuilder.buildSingleSample(
-                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name1"), 1.0D))
+                "aws_resource_relation", ImmutableSortedMap.of(
+                        "asserts_site", "us-west-2",
+                        "rel_name", "name1"), 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample(
-                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name2"), 1.0D))
+                "aws_resource_relation", ImmutableSortedMap.of(
+                        "asserts_site", "us-west-2",
+                        "rel_name", "name2"), 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample(
-                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name3"), 1.0D))
+                "aws_resource_relation", ImmutableSortedMap.of(
+                        "asserts_site", "us-west-2",
+                        "rel_name", "name3"), 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample(
-                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name4"), 1.0D))
+                "aws_resource_relation", ImmutableSortedMap.of(
+                        "asserts_site", "us-west-2",
+                        "rel_name", "name4"), 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildSingleSample(
-                "aws_resource_relation", ImmutableSortedMap.of("rel_name", "name5"), 1.0D))
+                "aws_resource_relation", ImmutableSortedMap.of(
+                        "asserts_site", "us-west-2",
+                        "rel_name", "name5"), 1.0D))
                 .andReturn(Optional.of(sample));
         expect(sampleBuilder.buildFamily(ImmutableList.of(sample, sample, sample, sample, sample)))
                 .andReturn(Optional.of(familySamples));
