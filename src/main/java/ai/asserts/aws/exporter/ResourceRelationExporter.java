@@ -16,6 +16,8 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static ai.asserts.aws.MetricNameUtil.SITE;
+
 @Component
 @Slf4j
 public class ResourceRelationExporter extends Collector implements MetricProvider {
@@ -62,6 +64,8 @@ public class ResourceRelationExporter extends Collector implements MetricProvide
             relations.forEach(relation -> {
                 String name = "aws_resource_relation";
                 SortedMap<String, String> labels = new TreeMap<>();
+                // Default site to from resource's region
+                labels.put(SITE, relation.getFrom().getRegion());
                 relation.getFrom().addLabels(labels, "from");
                 relation.getTo().addLabels(labels, "to");
                 labels.put("rel_name", relation.getName());
