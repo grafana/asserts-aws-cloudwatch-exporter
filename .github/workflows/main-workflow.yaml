@@ -1,4 +1,4 @@
-name: Build, Publish Aws-Exporter
+name: Build and Publish Aws-Exporter
 
 on:
   pull_request:
